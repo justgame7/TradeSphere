@@ -37,6 +37,17 @@ const PARAMS = {
 
 const CONCURRENCY = 8;
 
+// Some CDNs/WAFs in front of exchange APIs flag requests with no real
+// browser User-Agent (Node's default fetch sends almost nothing) as bot
+// traffic and quietly return a 200 with an empty/blocked body instead of a
+// proper HTTP error. Sending a normal browser UA avoids that class of
+// silent failure.
+const REQUEST_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'application/json',
+};
+
 // ---------------- fetch helpers (mirrors screener.html's activeHost fallback) ----------------
 let activeHost = FAPI_HOSTS[0];
 
@@ -44,7 +55,7 @@ async function fetchWithTimeout(url, ms = 10000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, { signal: controller.signal, headers: REQUEST_HEADERS });
   } finally {
     clearTimeout(timer);
   }
@@ -56,12 +67,28 @@ async function fetchJSON(path) {
   for (const host of order) {
     try {
       const res = await fetchWithTimeout(host + path);
-      if (!res.ok) throw new Error(`HTTP ${res.status} on ${host}${path}`);
-      const data = await res.json();
+      const raw = await res.text();
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} on ${host}${path} :: ${raw.slice(0, 300)}`);
+      }
+      if (!raw) {
+        throw new Error(`Empty body (status ${res.status}) on ${host}${path}`);
+      }
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          `Non-JSON body (status ${res.status}) on ${host}${path} :: ${raw.slice(0, 300)}`
+        );
+      }
       activeHost = host;
       return data;
     } catch (e) {
       lastErr = e;
+      // Logged (not swallowed) so a full-outage run tells us exactly what
+      // each host returned instead of just "Unexpected end of JSON input".
+      console.error(`fetchJSON failed for ${host}${path}: ${e.message}`);
     }
   }
   throw lastErr;
