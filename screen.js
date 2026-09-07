@@ -48,6 +48,18 @@
 // Same default params as screener.html: tenkan=9, kijun=26, senkouB=52,
 // daily interval, minVolume=10,000,000 USDT notional volume.
 //
+// COINDCX TRADABILITY TAG: each result is also checked against CoinDCX's
+// active USDT perpetual list and tagged "💰CoinDCX" if tradable there (Mi
+// trades on CoinDCX). This is informational only - it does not affect the
+// screen itself. CoinDCX's futures are a straight Binance liquidity
+// pass-through (confirmed via a full listing run: every one of its 500
+// active USDT instruments came back "B-"-prefixed), so this hits CoinDCX's
+// own public endpoint directly, not through the OKX-oriented Worker path.
+// Binance/CoinDCX's multiplier-prefix naming ("1000PEPE") is normalized to
+// match OKX's plain naming ("PEPE") before comparing - see
+// stripCoinDcxMultiplierPrefix below. A CoinDCX lookup failure degrades to
+// omitting the tag, not failing the whole run.
+//
 // NOTE: OKX's per-symbol volume profile differs from Binance's/Bybit's for
 // many altcoins. The $10M daily-volume floor below was calibrated against
 // Binance and may filter out more OKX symbols than expected - worth
@@ -175,6 +187,62 @@ async function fetchJSON(path) {
     }
   }
   throw lastErr;
+}
+
+// ---------------- CoinDCX tradability lookup ----------------
+// Separate from the OKX scan above - this only answers "can I actually put
+// this trade on via CoinDCX", since that's where Mi trades. CoinDCX's
+// futures are a straight Binance liquidity pass-through (every active
+// instrument is "B-<COIN>_USDT" - confirmed via a full listing run, all 500
+// active USDT instruments came back "B-" prefixed), so this hits CoinDCX's
+// own public endpoint directly rather than going through the OKX-oriented
+// Worker/fetchJSON path above.
+//
+// No auth needed, and no geo-blocking has been observed on this endpoint
+// (unlike Binance/Bybit's own APIs) - see the earlier coindcx-perps.js
+// standalone script this logic was lifted from. Hit directly rather than
+// via the Cloudflare Worker: this is a plain server-side Node fetch with no
+// CORS concern, so there's no need to add api.coindcx.com to the Worker's
+// ALLOWED_HOSTS just for this.
+const COINDCX_ACTIVE_INSTRUMENTS_URL = 'https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments';
+
+// Binance (and therefore CoinDCX, which mirrors it) renames low-unit-price
+// coins with a multiplier prefix - e.g. "1000PEPE", "1MBABYDOGE" - which OKX
+// does not do (OKX just lists "PEPE"). Same prefix list and stripping logic
+// as diff-perps.js / diff-perps-hyperliquid.js, needed here so CoinDCX's
+// "1000PEPE" normalizes down to "PEPE" and matches OKX's plain naming that
+// screen.js's symbols already use.
+const COINDCX_MULTIPLIER_PREFIXES = ['1000000', '100000', '10000', '1000', '1M', '100M'];
+
+function stripCoinDcxMultiplierPrefix(coin) {
+  for (const p of COINDCX_MULTIPLIER_PREFIXES) {
+    if (coin.startsWith(p)) return coin.slice(p.length);
+  }
+  return coin;
+}
+
+// Returns a Set of normalized (plain, un-prefixed) coin names tradable as a
+// USDT perpetual on CoinDCX right now - e.g. {"BTC", "PEPE", "BONK", ...}.
+// Returns null on failure rather than throwing, so a CoinDCX outage degrades
+// to "tag omitted" instead of taking down the whole screener run.
+async function getCoinDCXTradableCoins() {
+  try {
+    const res = await fetchWithTimeout(COINDCX_ACTIVE_INSTRUMENTS_URL);
+    if (!res.ok) throw new Error(`CoinDCX active_instruments HTTP ${res.status}`);
+    const data = await res.json();
+    const coins = new Set();
+    for (const instrument of data) {
+      if (!instrument.endsWith('_USDT')) continue; // ignore non-USDT margin currencies, if any ever appear
+      const dashIndex = instrument.indexOf('-');
+      const rest = dashIndex === -1 ? instrument : instrument.slice(dashIndex + 1);
+      const coin = stripCoinDcxMultiplierPrefix(rest.replace(/_USDT$/, ''));
+      coins.add(coin);
+    }
+    return coins;
+  } catch (e) {
+    console.error(`CoinDCX tradability lookup failed, tags will be omitted: ${e.message}`);
+    return null;
+  }
 }
 
 // ---------------- symbol universe ----------------
@@ -450,6 +518,9 @@ async function main() {
   console.log(`Fetching USDT perpetual symbol list (OKX)...`);
   const symbols = await getUSDTPerpetualSymbols();
   const currentPrices = await getCurrentPrices();
+  console.log(`Fetching CoinDCX tradability list...`);
+  const coindcxCoins = await getCoinDCXTradableCoins();
+  if (coindcxCoins) console.log(`  ${coindcxCoins.size} coins tradable on CoinDCX`);
   console.log(`Scanning ${symbols.length} symbols (interval=${PARAMS.interval})...`);
 
   const raw = await runPool(symbols, (s) => screenSymbol(s, PARAMS, currentPrices), CONCURRENCY);
@@ -486,9 +557,14 @@ async function main() {
   const shorts = withTrade.filter((r) => r.setup === 'Short').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
 
   const stripUsdt = (s) => s.replace(/-USDT-SWAP$/, '');
-  const fmtRow = (r) =>
-    `<b>${stripUsdt(r.symbol)}</b> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}\n` +
-    `Entry <code>${fmt(r.entry)}</code> · SL <code>${fmt(r.stop)}</code> · TP <code>${fmt(r.target)}</code>`;
+  // null coindcxCoins (lookup failed) means "unknown" - omit the tag rather
+  // than falsely marking everything as untradable.
+  const coindcxTag = (coin) => (coindcxCoins ? (coindcxCoins.has(coin) ? ' 💰CoinDCX' : '') : '');
+  const fmtRow = (r) => {
+    const coin = stripUsdt(r.symbol);
+    return `<b>${coin}</b> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}${coindcxTag(coin)}\n` +
+      `Entry <code>${fmt(r.entry)}</code> · SL <code>${fmt(r.stop)}</code> · TP <code>${fmt(r.target)}</code>`;
+  };
   const fmtSection = (rows) => rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
 
   const now = new Date();
@@ -499,7 +575,7 @@ async function main() {
     `Scanned ${symbols.length} symbols, ${withTrade.length} with an active setup (min daily vol $${PARAMS.minVolume.toLocaleString()}).\n\n` +
     `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
     `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}\n\n` +
-    `✅ = confirmed · CK/PK = breakout type · SL/TP = 1:2 risk:reward off today's cloud`;
+    `✅ = confirmed · CK/PK = breakout type · SL/TP = 1:2 risk:reward off today's cloud · 💰CoinDCX = tradable there`;
 
   console.log(message.replace(/<\/?[a-z]+>/g, ''));
   await sendTelegramMessage(message);
