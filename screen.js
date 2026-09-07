@@ -155,15 +155,26 @@ async function getKlines(symbol, interval, limit) {
   // OKX returns newest-first; reverse to oldest-first so dClose[last] = today,
   // matching what computeIchimokuSignal expects.
   const rows = [...result].reverse();
-  return rows.map((k) => ({
-    openTime: Number(k[0]),
-    open: parseFloat(k[1]),
-    high: parseFloat(k[2]),
-    low: parseFloat(k[3]),
-    close: parseFloat(k[4]),
-    volume: parseFloat(k[5]),      // contracts (not used for the volume filter)
-    quoteVolume: parseFloat(k[7]), // volCcyQuote - USDT-notional volume, same role as Binance's quoteVolume
-  }));
+  return rows.map((k) => {
+    const close = parseFloat(k[4]);
+    const volCcy = parseFloat(k[6]); // base-currency volume - reliably populated for SWAP
+    return {
+      openTime: Number(k[0]),
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close,
+      volume: parseFloat(k[5]), // contracts (not used for the volume filter)
+      // Deliberately NOT using OKX's volCcyQuote (index 7): on SWAP candles it
+      // comes back as 0 for a large share of instruments even when the pair
+      // is actively trading, which silently zeroed out every symbol's
+      // volumeOk gate and made every breakout condition unsatisfiable - the
+      // root cause of "0 with an active setup" runs. close * volCcy is the
+      // same USDT-notional quantity, computed from a field OKX fills in
+      // consistently.
+      quoteVolume: close * volCcy,
+    };
+  });
 }
 
 // ---------------- current prices ----------------
@@ -396,7 +407,21 @@ async function main() {
 
   const raw = await runPool(symbols, (s) => screenSymbol(s, PARAMS, currentPrices), CONCURRENCY);
   const scanned = raw.filter((r) => r && !r.error);
+  const errored = raw.filter((r) => r && r.error);
+  const hasSetup = scanned.filter((r) => r.setup !== '');
   const results = scanned.filter((r) => r.volToday > PARAMS.minVolume && r.setup !== '');
+
+  // Diagnostics only (not sent to Telegram) - lets a future silent-zero run be
+  // root-caused from the Action log instead of guessed at blind, the way
+  // this one had to be.
+  console.log(
+    `Diagnostics: ${symbols.length} symbols -> ${scanned.length} scanned ok, ${errored.length} errored, ` +
+    `${hasSetup.length} had a trend setup, ${results.length} passed the $${PARAMS.minVolume.toLocaleString()} volume gate.`
+  );
+  if (errored.length) {
+    const sampleErrors = [...new Set(errored.slice(0, 5).map((r) => r.error))];
+    console.log(`Sample errors: ${sampleErrors.join(' | ')}`);
+  }
 
   // Same entry/stop/target math as the analysis modal's trade plan in screener.html:
   //   entry = entryPrice (current price at scan time)
