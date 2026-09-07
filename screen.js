@@ -4,34 +4,53 @@
 // on a schedule via GitHub Actions. Ports the same Ichimoku math used in
 // screener.html.
 //
-// DATA SOURCE: Bybit V5 API (category=linear, USDT perpetuals), not Binance.
-// Binance's futures API (fapi.binance.com) returns HTTP 451 for GitHub
-// Actions runner IPs ("Service unavailable from a restricted location"), and
-// still blocks proxied requests via the Cloudflare Worker with a 403 - so
-// this was switched to Bybit, which as of this writing serves these runner
-// + Worker IPs without issue. All requests still go through the same
-// Cloudflare Worker (?url=<encoded target>) as the rest of the TradeSphere
-// suite; api.bybit.com and api.bytick.com must be present in the Worker's
-// ALLOWED_HOSTS.
+// DATA SOURCE: OKX V5 API (instType=SWAP, USDT-margined linear perpetuals).
 //
-// Bybit V5 API quirks handled here (different from Binance's fapi):
-//   - GET /v5/market/kline returns candles NEWEST-FIRST ("sort in reverse by
-//     startTime" per Bybit's docs) - reversed here to oldest-first, since
-//     computeIchimokuSignal assumes dClose[last] = today, same as
-//     screener.html's assumption for Binance data.
-//   - GET /v5/market/instruments-info is paginated (500+ linear symbols,
-//     500/page default) - a cursor loop is required or symbols go missing.
-//   - Kline row shape: [startTime, open, high, low, close, volume, turnover].
-//     "turnover" (index 6) is the USDT-notional value - the equivalent of
-//     Binance's quoteVolume - NOT "volume" (index 5, which is base-asset
-//     units, e.g. BTC not USDT).
+// History of this file's data source, for whoever debugs this next:
+//   1. Binance futures (fapi.binance.com) - HTTP 451 for GitHub Actions
+//      runner IPs ("Service unavailable from a restricted location"), even
+//      proxied through the Worker.
+//   2. Bybit (api.bybit.com / api.bytick.com) - HTTP 403 from BOTH mainnet
+//      domains, identical body: "The Amazon CloudFront distribution is
+//      configured to block access from your country." This is a geo-block
+//      enforced by Bybit's CloudFront edge based on the request's origin
+//      country - GitHub Actions' free-tier runners sit on Microsoft Azure US
+//      datacenters, and Bybit blocks derivatives-API access from the US for
+//      regulatory reasons. No amount of retrying or Worker allowlist changes
+//      fixes this; it's an exchange-side block, not a bug here.
+//   3. Switched to OKX, which does not geo-block US/Azure-origin IPs for
+//      public market-data endpoints.
+//
+// All requests still go through the same Cloudflare Worker (?url=<encoded
+// target>) as the rest of the TradeSphere suite; www.okx.com and aws.okx.com
+// must be present in the Worker's ALLOWED_HOSTS.
+//
+// OKX V5 API quirks handled here (different from Binance's fapi / Bybit's v5):
+//   - GET /api/v5/market/candles returns candles NEWEST-FIRST - reversed
+//     here to oldest-first, since computeIchimokuSignal assumes
+//     dClose[last] = today.
+//   - GET /api/v5/market/candles only serves the most recent ~300 bars per
+//     instId, which is enough here (needed history is ~114 bars) - no
+//     pagination / history-candles endpoint required.
+//   - GET /api/v5/public/instruments returns the full SWAP instrument list
+//     in one call (no cursor pagination like Bybit's instruments-info).
+//   - instId format is "BTC-USDT-SWAP", not "BTCUSDT" - symbol handling and
+//     display formatting (stripUsdt) account for this.
+//   - Candle row shape: [ts, open, high, low, close, vol, volCcy,
+//     volCcyQuote, confirm]. "volCcyQuote" (index 7) is the USDT-notional
+//     value - the equivalent of Binance's quoteVolume / Bybit's turnover -
+//     NOT "vol" (index 5, contracts) or "volCcy" (index 6, base-asset units).
+//   - Every response is wrapped as { code, msg, data }; code !== "0" means
+//     an application-level error even on HTTP 200.
+//   - Daily candle bar code is '1D' (uppercase = UTC-aligned candles);
+//     lowercase '1d' would give Hong Kong time-aligned candles instead.
 //
 // Same default params as screener.html: tenkan=9, kijun=26, senkouB=52,
-// daily interval, minVolume=10,000,000 USDT notional turnover.
+// daily interval, minVolume=10,000,000 USDT notional volume.
 //
-// NOTE: Bybit's overall market volume tends to run lower than Binance's for
-// many altcoins. The $10M daily-turnover floor below was calibrated against
-// Binance and may filter out more Bybit symbols than expected - worth
+// NOTE: OKX's per-symbol volume profile differs from Binance's/Bybit's for
+// many altcoins. The $10M daily-volume floor below was calibrated against
+// Binance and may filter out more OKX symbols than expected - worth
 // revisiting after a few runs if the LONG/SHORT lists look thin.
 //
 // Run locally to test:
@@ -40,23 +59,23 @@
 // See README.md for the one-time Telegram bot setup and how the GitHub
 // Actions workflow (.github/workflows/screener.yml) schedules this hourly.
 
-const BYBIT_HOSTS = [
-  'https://api.bybit.com',
-  'https://api.bytick.com', // Bybit's official alternate mainnet domain
+const OKX_HOSTS = [
+  'https://www.okx.com',
+  'https://aws.okx.com', // OKX's AWS-hosted mirror, used as fallback
 ];
 
 const PARAMS = {
   tenkanLen: 9,
   kijunLen: 26,
   senkouBLen: 52,
-  interval: 'D', // Bybit interval code for daily (Binance used '1d')
+  interval: '1D', // OKX bar code for UTC-aligned daily candles
   minVolume: 10_000_000,
 };
 
 const CONCURRENCY = 8;
 
 // Same Cloudflare Worker proxy the rest of the TradeSphere suite uses.
-// api.bybit.com / api.bytick.com must be in the Worker's ALLOWED_HOSTS.
+// www.okx.com / aws.okx.com must be in the Worker's ALLOWED_HOSTS.
 const WORKER_BASE = 'https://newsyt.justfagame9.workers.dev';
 
 function proxiedUrl(targetUrl) {
@@ -64,7 +83,7 @@ function proxiedUrl(targetUrl) {
 }
 
 // ---------------- fetch helpers (mirrors screener.html's activeHost fallback) ----------------
-let activeHost = BYBIT_HOSTS[0];
+let activeHost = OKX_HOSTS[0];
 
 async function fetchWithTimeout(url, ms = 15000) {
   const controller = new AbortController();
@@ -77,7 +96,7 @@ async function fetchWithTimeout(url, ms = 15000) {
 }
 
 async function fetchJSON(path) {
-  const order = [activeHost, ...BYBIT_HOSTS.filter((h) => h !== activeHost)];
+  const order = [activeHost, ...OKX_HOSTS.filter((h) => h !== activeHost)];
   let lastErr;
   for (const host of order) {
     const target = host + path;
@@ -98,11 +117,11 @@ async function fetchJSON(path) {
           `Non-JSON body (status ${res.status}) via worker for ${target} :: ${raw.slice(0, 300)}`
         );
       }
-      if (data.retCode !== 0) {
-        throw new Error(`Bybit retCode ${data.retCode} for ${target} :: ${data.retMsg || ''}`);
+      if (data.code !== '0') {
+        throw new Error(`OKX code ${data.code} for ${target} :: ${data.msg || ''}`);
       }
       activeHost = host;
-      return data.result;
+      return data.data;
     } catch (e) {
       lastErr = e;
       console.error(`fetchJSON failed for ${target}: ${e.message}`);
@@ -111,53 +130,48 @@ async function fetchJSON(path) {
   throw lastErr;
 }
 
-// ---------------- symbol universe (paginated) ----------------
+// ---------------- symbol universe ----------------
 async function getUSDTPerpetualSymbols() {
+  // OKX returns the full SWAP instrument list in one call - no cursor
+  // pagination needed (unlike Bybit's instruments-info).
+  const result = await fetchJSON('/api/v5/public/instruments?instType=SWAP');
   const symbols = [];
-  let cursor = '';
-  do {
-    const qs = new URLSearchParams({ category: 'linear', limit: '1000' });
-    if (cursor) qs.set('cursor', cursor);
-    const result = await fetchJSON(`/v5/market/instruments-info?${qs.toString()}`);
-    for (const s of result.list) {
-      if (s.contractType === 'LinearPerpetual' && s.quoteCoin === 'USDT' && s.status === 'Trading') {
-        symbols.push(s.symbol);
-      }
+  for (const s of result) {
+    if (s.ctType === 'linear' && s.settleCcy === 'USDT' && s.state === 'live') {
+      symbols.push(s.instId); // e.g. "BTC-USDT-SWAP"
     }
-    cursor = result.nextPageCursor || '';
-  } while (cursor);
+  }
   return symbols;
 }
 
 // ---------------- klines ----------------
 async function getKlines(symbol, interval, limit) {
   const qs = new URLSearchParams({
-    category: 'linear',
-    symbol,
-    interval,
-    limit: String(limit),
+    instId: symbol,
+    bar: interval,
+    limit: String(limit), // OKX /market/candles caps out around 300 recent bars, plenty here
   });
-  const result = await fetchJSON(`/v5/market/kline?${qs.toString()}`);
-  // Bybit returns newest-first; reverse to oldest-first so dClose[last] = today,
+  const result = await fetchJSON(`/api/v5/market/candles?${qs.toString()}`);
+  // OKX returns newest-first; reverse to oldest-first so dClose[last] = today,
   // matching what computeIchimokuSignal expects.
-  const rows = [...result.list].reverse();
+  const rows = [...result].reverse();
   return rows.map((k) => ({
     openTime: Number(k[0]),
     open: parseFloat(k[1]),
     high: parseFloat(k[2]),
     low: parseFloat(k[3]),
     close: parseFloat(k[4]),
-    volume: parseFloat(k[5]),      // base-asset volume (not used for the volume filter)
-    quoteVolume: parseFloat(k[6]), // turnover - USDT-notional volume, same role as Binance's quoteVolume
+    volume: parseFloat(k[5]),      // contracts (not used for the volume filter)
+    quoteVolume: parseFloat(k[7]), // volCcyQuote - USDT-notional volume, same role as Binance's quoteVolume
   }));
 }
 
 // ---------------- current prices ----------------
 async function getCurrentPrices() {
-  const result = await fetchJSON('/v5/market/tickers?category=linear');
+  const result = await fetchJSON('/api/v5/market/tickers?instType=SWAP');
   const out = {};
-  for (const t of result.list) {
-    out[t.symbol] = parseFloat(t.lastPrice);
+  for (const t of result) {
+    out[t.instId] = parseFloat(t.last);
   }
   return out;
 }
@@ -375,7 +389,7 @@ async function sendTelegramMessage(text) {
 
 // ---------------- main ----------------
 async function main() {
-  console.log(`Fetching USDT perpetual symbol list (Bybit)...`);
+  console.log(`Fetching USDT perpetual symbol list (OKX)...`);
   const symbols = await getUSDTPerpetualSymbols();
   const currentPrices = await getCurrentPrices();
   console.log(`Scanning ${symbols.length} symbols (interval=${PARAMS.interval})...`);
@@ -399,7 +413,7 @@ async function main() {
   const longs = withTrade.filter((r) => r.setup === 'Long').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
   const shorts = withTrade.filter((r) => r.setup === 'Short').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
 
-  const stripUsdt = (s) => s.replace(/USDT$/, '');
+  const stripUsdt = (s) => s.replace(/-USDT-SWAP$/, '');
   const fmtRow = (r) =>
     `<b>${stripUsdt(r.symbol)}</b> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}\n` +
     `Entry <code>${fmt(r.entry)}</code> · SL <code>${fmt(r.stop)}</code> · TP <code>${fmt(r.target)}</code>`;
@@ -409,7 +423,7 @@ async function main() {
   const stamp = now.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
   const message =
-    `<b>Ichimoku breakout screener (Bybit) — ${stamp}</b>\n` +
+    `<b>Ichimoku breakout screener (OKX) — ${stamp}</b>\n` +
     `Scanned ${symbols.length} symbols, ${withTrade.length} with an active setup (min daily vol $${PARAMS.minVolume.toLocaleString()}).\n\n` +
     `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
     `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}\n\n` +
