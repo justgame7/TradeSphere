@@ -22,8 +22,8 @@
 //      public market-data endpoints.
 //
 // All requests still go through the same Cloudflare Worker (?url=<encoded
-// target>) as the rest of the TradeSphere suite; www.okx.com and aws.okx.com
-// must be present in the Worker's ALLOWED_HOSTS.
+// target>) as the rest of the TradeSphere suite; www.okx.com must be
+// present in the Worker's ALLOWED_HOSTS.
 //
 // OKX V5 API quirks handled here (different from Binance's fapi / Bybit's v5):
 //   - GET /api/v5/market/candles returns candles NEWEST-FIRST - reversed
@@ -59,10 +59,12 @@
 // See README.md for the one-time Telegram bot setup and how the GitHub
 // Actions workflow (.github/workflows/screener.yml) schedules this hourly.
 
-const OKX_HOSTS = [
-  'https://www.okx.com',
-  'https://aws.okx.com', // OKX's AWS-hosted mirror, used as fallback
-];
+// aws.okx.com was tried as a second host but every request through the
+// Worker returned HTTP 530 :: error code 1016 (Cloudflare's own "origin DNS
+// error") - that hostname doesn't publicly resolve via Cloudflare's edge, so
+// it's not usable as a fallback here. Rate-limit retries (see fetchJSON)
+// handle resilience instead of a second host.
+const OKX_HOSTS = ['https://www.okx.com'];
 
 const PARAMS = {
   tenkanLen: 9,
@@ -72,14 +74,18 @@ const PARAMS = {
   minVolume: 10_000_000,
 };
 
-const CONCURRENCY = 8;
+const CONCURRENCY = 3; // lowered from 8 - OKX's public rate limit was rejecting most of a 458-symbol scan at concurrency 8
 
 // Same Cloudflare Worker proxy the rest of the TradeSphere suite uses.
-// www.okx.com / aws.okx.com must be in the Worker's ALLOWED_HOSTS.
+// www.okx.com must be in the Worker's ALLOWED_HOSTS.
 const WORKER_BASE = 'https://newsyt.justfagame9.workers.dev';
 
 function proxiedUrl(targetUrl) {
   return `${WORKER_BASE}/?url=${encodeURIComponent(targetUrl)}`;
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 // ---------------- fetch helpers (mirrors screener.html's activeHost fallback) ----------------
@@ -95,36 +101,59 @@ async function fetchWithTimeout(url, ms = 15000) {
   }
 }
 
+// Retries HTTP 429 with exponential backoff + jitter before giving up on a
+// host. This is separate from the host-fallback loop below: a 429 means
+// "you're going too fast", not "this host is broken" - retrying the SAME
+// host after a pause is the correct response, not immediately failing over.
+const MAX_429_RETRIES = 5;
+const BASE_BACKOFF_MS = 800;
+
+async function fetchOnce(target) {
+  const res = await fetchWithTimeout(proxiedUrl(target));
+  const raw = await res.text();
+  if (res.status === 429) {
+    const err = new Error(`HTTP 429 via worker for ${target} :: ${raw.slice(0, 200)}`);
+    err.isRateLimit = true;
+    throw err;
+  }
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} via worker for ${target} :: ${raw.slice(0, 300)}`);
+  }
+  if (!raw) {
+    throw new Error(`Empty body (status ${res.status}) via worker for ${target}`);
+  }
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error(`Non-JSON body (status ${res.status}) via worker for ${target} :: ${raw.slice(0, 300)}`);
+  }
+  if (data.code !== '0') {
+    throw new Error(`OKX code ${data.code} for ${target} :: ${data.msg || ''}`);
+  }
+  return data.data;
+}
+
 async function fetchJSON(path) {
   const order = [activeHost, ...OKX_HOSTS.filter((h) => h !== activeHost)];
   let lastErr;
   for (const host of order) {
     const target = host + path;
-    try {
-      const res = await fetchWithTimeout(proxiedUrl(target));
-      const raw = await res.text();
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status} via worker for ${target} :: ${raw.slice(0, 300)}`);
-      }
-      if (!raw) {
-        throw new Error(`Empty body (status ${res.status}) via worker for ${target}`);
-      }
-      let data;
+    for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt++) {
       try {
-        data = JSON.parse(raw);
-      } catch {
-        throw new Error(
-          `Non-JSON body (status ${res.status}) via worker for ${target} :: ${raw.slice(0, 300)}`
-        );
+        const data = await fetchOnce(target);
+        activeHost = host;
+        return data;
+      } catch (e) {
+        lastErr = e;
+        if (e.isRateLimit && attempt < MAX_429_RETRIES) {
+          const delay = BASE_BACKOFF_MS * 2 ** attempt + Math.random() * 300;
+          await sleep(delay);
+          continue; // retry same host, don't fall through to the next one yet
+        }
+        console.error(`fetchJSON failed for ${target}: ${e.message}`);
+        break; // non-429 error, or retries exhausted - try next host
       }
-      if (data.code !== '0') {
-        throw new Error(`OKX code ${data.code} for ${target} :: ${data.msg || ''}`);
-      }
-      activeHost = host;
-      return data.data;
-    } catch (e) {
-      lastErr = e;
-      console.error(`fetchJSON failed for ${target}: ${e.message}`);
     }
   }
   throw lastErr;
