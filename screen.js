@@ -4,66 +4,56 @@
 // on a schedule via GitHub Actions. Ports the same Ichimoku math used in
 // screener.html.
 //
-// DATA SOURCE: OKX V5 API (instType=SWAP, USDT-margined linear perpetuals).
+// DATA SOURCE: CoinDCX public API only.
 //
-// History of this file's data source, for whoever debugs this next:
-//   1. Binance futures (fapi.binance.com) - HTTP 451 for GitHub Actions
-//      runner IPs ("Service unavailable from a restricted location"), even
-//      proxied through the Worker.
-//   2. Bybit (api.bybit.com / api.bytick.com) - HTTP 403 from BOTH mainnet
-//      domains, identical body: "The Amazon CloudFront distribution is
-//      configured to block access from your country." This is a geo-block
-//      enforced by Bybit's CloudFront edge based on the request's origin
-//      country - GitHub Actions' free-tier runners sit on Microsoft Azure US
-//      datacenters, and Bybit blocks derivatives-API access from the US for
-//      regulatory reasons. No amount of retrying or Worker allowlist changes
-//      fixes this; it's an exchange-side block, not a bug here.
-//   3. Switched to OKX, which does not geo-block US/Azure-origin IPs for
-//      public market-data endpoints.
+// This scans exactly the USDT-margined perpetual futures instruments that
+// are actually tradable on CoinDCX (Mi trades there) - roughly 500 pairs as
+// of the last full listing run - instead of scanning Binance/Bybit/OKX and
+// then separately checking which of those are mirrored on CoinDCX. Since
+// CoinDCX's futures are a straight Binance liquidity pass-through, the
+// signal itself doesn't change - this just removes an extra data source,
+// an extra cross-check pass, and the Binance-geo-block/Bybit-CloudFront
+// problems entirely, since none of that is needed anymore.
 //
-// All requests still go through the same Cloudflare Worker (?url=<encoded
-// target>) as the rest of the TradeSphere suite; www.okx.com must be
-// present in the Worker's ALLOWED_HOSTS.
+// Two CoinDCX endpoints are used, both public / unauthenticated, both hit
+// DIRECTLY (no Cloudflare Worker proxy) - this is a plain server-side Node
+// fetch with no CORS concern, so there's no need to route it through the
+// TradeSphere Worker or add CoinDCX hosts to its ALLOWED_HOSTS:
+//   - GET https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments
+//     Returns the full list of active futures instrument pair strings, e.g.
+//     "B-BTC_USDT". Filtered here to pairs ending in "_USDT". (Same call
+//     already used for the old CoinDCX-tradability tag - now it's the
+//     primary symbol universe instead of a secondary cross-check.)
+//   - GET https://public.coindcx.com/market_data/candles/?pair=B-BTC_USDT&interval=1d&limit=N
+//     Returns OHLCV candles. Max limit per request is 1000 (docs), plenty
+//     for the ~114 bars of history this needs.
 //
-// OKX V5 API quirks handled here (different from Binance's fapi / Bybit's v5):
-//   - GET /api/v5/market/candles returns candles NEWEST-FIRST - reversed
-//     here to oldest-first, since computeIchimokuSignal assumes
-//     dClose[last] = today.
-//   - GET /api/v5/market/candles only serves the most recent ~300 bars per
-//     instId, which is enough here (needed history is ~114 bars) - no
-//     pagination / history-candles endpoint required.
-//   - GET /api/v5/public/instruments returns the full SWAP instrument list
-//     in one call (no cursor pagination like Bybit's instruments-info).
-//   - instId format is "BTC-USDT-SWAP", not "BTCUSDT" - symbol handling and
-//     display formatting (stripUsdt) account for this.
-//   - Candle row shape: [ts, open, high, low, close, vol, volCcy,
-//     volCcyQuote, confirm]. "volCcyQuote" (index 7) is the USDT-notional
-//     value - the equivalent of Binance's quoteVolume / Bybit's turnover -
-//     NOT "vol" (index 5, contracts) or "volCcy" (index 6, base-asset units).
-//   - Every response is wrapped as { code, msg, data }; code !== "0" means
-//     an application-level error even on HTTP 200.
-//   - Daily candle bar code is '1D' (uppercase = UTC-aligned candles);
-//     lowercase '1d' would give Hong Kong time-aligned candles instead.
+// CoinDCX API quirks handled here:
+//   - Candle ordering isn't documented as oldest-first or newest-first, so
+//     this sorts explicitly by the "time" field (ascending) rather than
+//     assuming an order - computeIchimokuSignal assumes dClose[last] = today.
+//   - Candle "volume" is in TARGET-currency units (e.g. BTC for
+//     B-BTC_USDT), not USDT notional - close * volume is used for the
+//     $10M-notional volume filter, same approach as the old OKX version's
+//     close * volCcy.
+//   - There's no dedicated "current price" ticker endpoint documented for
+//     futures, so the close of the last (still-forming) daily candle is
+//     used as the current/entry price instead of a separate call. This
+//     saves one request per symbol per cycle; if a more "live" entry price
+//     than the forming daily candle's close is wanted later, a separate
+//     ticker fetch can be added per-symbol.
+//   - Symbol format is "B-COIN_USDT" (Binance-liquidity-backed USDT-M
+//     perp), not "COINUSDT" - display formatting (stripUsdt) strips both
+//     the "B-" prefix and the "_USDT" suffix.
+//
+// CoinDCX's public rate limits for market-data endpoints aren't documented
+// (the published rate-limit table only covers authenticated order
+// endpoints), so the pacing throttle below starts conservative and should
+// be loosened or tightened after watching a few real runs for 429s - see
+// MIN_REQUEST_GAP_MS and CONCURRENCY.
 //
 // Same default params as screener.html: tenkan=9, kijun=26, senkouB=52,
 // daily interval, minVolume=10,000,000 USDT notional volume.
-//
-// COINDCX TRADABILITY TAG: each result is also checked against CoinDCX's
-// active USDT perpetual list and tagged "💰CoinDCX" if tradable there (Mi
-// trades on CoinDCX). This is informational only - it does not affect the
-// screen itself. CoinDCX's futures are a straight Binance liquidity
-// pass-through (confirmed via a full listing run: every one of its 500
-// active USDT instruments came back "B-"-prefixed), so this hits CoinDCX's
-// own public endpoint directly, not through the OKX-oriented Worker path.
-// Binance/CoinDCX's multiplier-prefix naming ("1000PEPE") is normalized to
-// match OKX's plain naming ("PEPE") before comparing - see
-// stripCoinDcxMultiplierPrefix below. A CoinDCX lookup failure degrades to
-// omitting the tag, not failing the whole run.
-//
-// NOTE: OKX's per-symbol volume profile differs from Binance's/Bybit's for
-// many altcoins. The $10M daily-volume floor below was calibrated against
-// Binance and may filter out more OKX symbols than expected - worth
-// revisiting after a few runs if the LONG/SHORT lists look thin.
 //
 // Run locally to test:
 //   TELEGRAM_BOT_TOKEN=xxx TELEGRAM_CHAT_ID=xxx node screen.js
@@ -71,42 +61,31 @@
 // See README.md for the one-time Telegram bot setup and how the GitHub
 // Actions workflow (.github/workflows/screener.yml) schedules this hourly.
 
-// aws.okx.com was tried as a second host but every request through the
-// Worker returned HTTP 530 :: error code 1016 (Cloudflare's own "origin DNS
-// error") - that hostname doesn't publicly resolve via Cloudflare's edge, so
-// it's not usable as a fallback here. Rate-limit retries (see fetchJSON)
-// handle resilience instead of a second host.
-const OKX_HOSTS = ['https://www.okx.com'];
+const COINDCX_API_BASE = 'https://api.coindcx.com';
+const COINDCX_PUBLIC_BASE = 'https://public.coindcx.com';
+const ACTIVE_INSTRUMENTS_URL = `${COINDCX_API_BASE}/exchange/v1/derivatives/futures/data/active_instruments`;
 
 const PARAMS = {
   tenkanLen: 9,
   kijunLen: 26,
   senkouBLen: 52,
-  interval: '1D', // OKX bar code for UTC-aligned daily candles
+  interval: '1d', // CoinDCX candle interval code for daily candles
   minVolume: 10_000_000,
 };
 
-const CONCURRENCY = 1; // fully serial - even 2 lanes were still bursting enough to trip OKX's 429 at a meaningful rate; the pacing throttle below now does all the rate control
-
-// Same Cloudflare Worker proxy the rest of the TradeSphere suite uses.
-// www.okx.com must be in the Worker's ALLOWED_HOSTS.
-const WORKER_BASE = 'https://newsyt.justfagame9.workers.dev';
-
-function proxiedUrl(targetUrl) {
-  return `${WORKER_BASE}/?url=${encodeURIComponent(targetUrl)}`;
-}
+const CONCURRENCY = 3; // conservative starting point - CoinDCX doesn't publish a public market-data rate limit, tune after watching real runs
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// Global pacing throttle: even at low CONCURRENCY, multiple lanes can still
-// dispatch requests within the same few milliseconds of each other, and it's
-// that BURST - not the sustained rate - that was tripping OKX's 429 even
-// after cutting concurrency 8 -> 3. This enforces a minimum gap between the
-// start of any two requests across ALL lanes, so requests get spread out in
-// time regardless of how many lanes are running concurrently.
-const MIN_REQUEST_GAP_MS = 500; // 180ms still left 145/458 erroring at concurrency 2 - going wider now that a longer total runtime is acceptable
+// Global pacing throttle: enforces a minimum gap between the start of any
+// two requests across ALL lanes, so requests get spread out in time
+// regardless of how many lanes are running concurrently. Carried over from
+// the earlier OKX version, where bursts (not sustained rate) were what
+// tripped rate limits - starting with the same defensive posture here since
+// CoinDCX's actual public limits are unknown.
+const MIN_REQUEST_GAP_MS = 300;
 let nextSlot = 0;
 
 async function throttle() {
@@ -116,9 +95,7 @@ async function throttle() {
   if (wait > 0) await sleep(wait);
 }
 
-// ---------------- fetch helpers (mirrors screener.html's activeHost fallback) ----------------
-let activeHost = OKX_HOSTS[0];
-
+// ---------------- fetch helpers ----------------
 async function fetchWithTimeout(url, ms = 15000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
@@ -129,177 +106,78 @@ async function fetchWithTimeout(url, ms = 15000) {
   }
 }
 
-// Retries HTTP 429 with exponential backoff + jitter before giving up on a
-// host. This is separate from the host-fallback loop below: a 429 means
-// "you're going too fast", not "this host is broken" - retrying the SAME
-// host after a pause is the correct response, not immediately failing over.
+// Retries HTTP 429 with exponential backoff + jitter before giving up.
 const MAX_429_RETRIES = 8;
 const BASE_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 12000; // cap so a single symbol's worst case stays bounded even with 8 retries
 
-async function fetchOnce(target) {
-  await throttle();
-  const res = await fetchWithTimeout(proxiedUrl(target));
-  const raw = await res.text();
-  if (res.status === 429) {
-    const err = new Error(`HTTP 429 via worker for ${target} :: ${raw.slice(0, 200)}`);
-    err.isRateLimit = true;
-    throw err;
-  }
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} via worker for ${target} :: ${raw.slice(0, 300)}`);
-  }
-  if (!raw) {
-    throw new Error(`Empty body (status ${res.status}) via worker for ${target}`);
-  }
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    throw new Error(`Non-JSON body (status ${res.status}) via worker for ${target} :: ${raw.slice(0, 300)}`);
-  }
-  if (data.code !== '0') {
-    throw new Error(`OKX code ${data.code} for ${target} :: ${data.msg || ''}`);
-  }
-  return data.data;
-}
-
-async function fetchJSON(path) {
-  const order = [activeHost, ...OKX_HOSTS.filter((h) => h !== activeHost)];
+async function fetchJSON(url) {
   let lastErr;
-  for (const host of order) {
-    const target = host + path;
-    for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt++) {
-      try {
-        const data = await fetchOnce(target);
-        activeHost = host;
-        return data;
-      } catch (e) {
-        lastErr = e;
-        if (e.isRateLimit && attempt < MAX_429_RETRIES) {
-          const delay = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** attempt) + Math.random() * 300;
-          await sleep(delay);
-          continue; // retry same host, don't fall through to the next one yet
-        }
-        console.error(`fetchJSON failed for ${target}: ${e.message}`);
-        break; // non-429 error, or retries exhausted - try next host
+  for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt++) {
+    await throttle();
+    try {
+      const res = await fetchWithTimeout(url);
+      const raw = await res.text();
+      if (res.status === 429) {
+        const err = new Error(`HTTP 429 for ${url} :: ${raw.slice(0, 200)}`);
+        err.isRateLimit = true;
+        throw err;
       }
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} for ${url} :: ${raw.slice(0, 300)}`);
+      }
+      if (!raw) {
+        throw new Error(`Empty body (status ${res.status}) for ${url}`);
+      }
+      try {
+        return JSON.parse(raw);
+      } catch {
+        throw new Error(`Non-JSON body (status ${res.status}) for ${url} :: ${raw.slice(0, 300)}`);
+      }
+    } catch (e) {
+      lastErr = e;
+      if (e.isRateLimit && attempt < MAX_429_RETRIES) {
+        const delay = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** attempt) + Math.random() * 300;
+        await sleep(delay);
+        continue;
+      }
+      console.error(`fetchJSON failed for ${url}: ${e.message}`);
+      break;
     }
   }
   throw lastErr;
 }
 
-// ---------------- CoinDCX tradability lookup ----------------
-// Separate from the OKX scan above - this only answers "can I actually put
-// this trade on via CoinDCX", since that's where Mi trades. CoinDCX's
-// futures are a straight Binance liquidity pass-through (every active
-// instrument is "B-<COIN>_USDT" - confirmed via a full listing run, all 500
-// active USDT instruments came back "B-" prefixed), so this hits CoinDCX's
-// own public endpoint directly rather than going through the OKX-oriented
-// Worker/fetchJSON path above.
-//
-// No auth needed, and no geo-blocking has been observed on this endpoint
-// (unlike Binance/Bybit's own APIs) - see the earlier coindcx-perps.js
-// standalone script this logic was lifted from. Hit directly rather than
-// via the Cloudflare Worker: this is a plain server-side Node fetch with no
-// CORS concern, so there's no need to add api.coindcx.com to the Worker's
-// ALLOWED_HOSTS just for this.
-const COINDCX_ACTIVE_INSTRUMENTS_URL = 'https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments';
-
-// Binance (and therefore CoinDCX, which mirrors it) renames low-unit-price
-// coins with a multiplier prefix - e.g. "1000PEPE", "1MBABYDOGE" - which OKX
-// does not do (OKX just lists "PEPE"). Same prefix list and stripping logic
-// as diff-perps.js / diff-perps-hyperliquid.js, needed here so CoinDCX's
-// "1000PEPE" normalizes down to "PEPE" and matches OKX's plain naming that
-// screen.js's symbols already use.
-const COINDCX_MULTIPLIER_PREFIXES = ['1000000', '100000', '10000', '1000', '1M', '100M'];
-
-function stripCoinDcxMultiplierPrefix(coin) {
-  for (const p of COINDCX_MULTIPLIER_PREFIXES) {
-    if (coin.startsWith(p)) return coin.slice(p.length);
-  }
-  return coin;
-}
-
-// Returns a Set of normalized (plain, un-prefixed) coin names tradable as a
-// USDT perpetual on CoinDCX right now - e.g. {"BTC", "PEPE", "BONK", ...}.
-// Returns null on failure rather than throwing, so a CoinDCX outage degrades
-// to "tag omitted" instead of taking down the whole screener run.
-async function getCoinDCXTradableCoins() {
-  try {
-    const res = await fetchWithTimeout(COINDCX_ACTIVE_INSTRUMENTS_URL);
-    if (!res.ok) throw new Error(`CoinDCX active_instruments HTTP ${res.status}`);
-    const data = await res.json();
-    const coins = new Set();
-    for (const instrument of data) {
-      if (!instrument.endsWith('_USDT')) continue; // ignore non-USDT margin currencies, if any ever appear
-      const dashIndex = instrument.indexOf('-');
-      const rest = dashIndex === -1 ? instrument : instrument.slice(dashIndex + 1);
-      const coin = stripCoinDcxMultiplierPrefix(rest.replace(/_USDT$/, ''));
-      coins.add(coin);
-    }
-    return coins;
-  } catch (e) {
-    console.error(`CoinDCX tradability lookup failed, tags will be omitted: ${e.message}`);
-    return null;
-  }
-}
-
 // ---------------- symbol universe ----------------
+// Returns every active "B-COIN_USDT" perpetual pair CoinDCX currently lists.
 async function getUSDTPerpetualSymbols() {
-  // OKX returns the full SWAP instrument list in one call - no cursor
-  // pagination needed (unlike Bybit's instruments-info).
-  const result = await fetchJSON('/api/v5/public/instruments?instType=SWAP');
-  const symbols = [];
-  for (const s of result) {
-    if (s.ctType === 'linear' && s.settleCcy === 'USDT' && s.state === 'live') {
-      symbols.push(s.instId); // e.g. "BTC-USDT-SWAP"
-    }
-  }
-  return symbols;
+  const data = await fetchJSON(ACTIVE_INSTRUMENTS_URL);
+  return data.filter((pair) => pair.endsWith('_USDT'));
 }
 
 // ---------------- klines ----------------
-async function getKlines(symbol, interval, limit) {
-  const qs = new URLSearchParams({
-    instId: symbol,
-    bar: interval,
-    limit: String(limit), // OKX /market/candles caps out around 300 recent bars, plenty here
-  });
-  const result = await fetchJSON(`/api/v5/market/candles?${qs.toString()}`);
-  // OKX returns newest-first; reverse to oldest-first so dClose[last] = today,
-  // matching what computeIchimokuSignal expects.
-  const rows = [...result].reverse();
-  return rows.map((k) => {
-    const close = parseFloat(k[4]);
-    const volCcy = parseFloat(k[6]); // base-currency volume - reliably populated for SWAP
+async function getKlines(pair, interval, limit) {
+  const qs = new URLSearchParams({ pair, interval, limit: String(limit) });
+  const rows = await fetchJSON(`${COINDCX_PUBLIC_BASE}/market_data/candles/?${qs.toString()}`);
+  // Sort ascending by time explicitly rather than assuming the API's
+  // return order, since CoinDCX's docs don't state one - and
+  // computeIchimokuSignal assumes dClose[last] = today.
+  const sorted = [...rows].sort((a, b) => a.time - b.time);
+  return sorted.map((k) => {
+    const close = parseFloat(k.close);
+    const volume = parseFloat(k.volume); // target-currency units (e.g. BTC), not USDT
     return {
-      openTime: Number(k[0]),
-      open: parseFloat(k[1]),
-      high: parseFloat(k[2]),
-      low: parseFloat(k[3]),
+      openTime: Number(k.time),
+      open: parseFloat(k.open),
+      high: parseFloat(k.high),
+      low: parseFloat(k.low),
       close,
-      volume: parseFloat(k[5]), // contracts (not used for the volume filter)
-      // Deliberately NOT using OKX's volCcyQuote (index 7): on SWAP candles it
-      // comes back as 0 for a large share of instruments even when the pair
-      // is actively trading, which silently zeroed out every symbol's
-      // volumeOk gate and made every breakout condition unsatisfiable - the
-      // root cause of "0 with an active setup" runs. close * volCcy is the
-      // same USDT-notional quantity, computed from a field OKX fills in
-      // consistently.
-      quoteVolume: close * volCcy,
+      volume,
+      // USDT-notional volume, computed from target-currency volume * close -
+      // CoinDCX's candle "volume" field is target-currency, not quote/USDT.
+      quoteVolume: close * volume,
     };
   });
-}
-
-// ---------------- current prices ----------------
-async function getCurrentPrices() {
-  const result = await fetchJSON('/api/v5/market/tickers?instType=SWAP');
-  const out = {};
-  for (const t of result) {
-    out[t.instId] = parseFloat(t.last);
-  }
-  return out;
 }
 
 // ---------------- Ichimoku core (verbatim port of screener.html - unchanged) ----------------
@@ -424,10 +302,13 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params) {
   };
 }
 
-async function screenSymbol(symbol, params, currentPrices) {
+async function screenSymbol(symbol, params) {
   const needed = 2 * params.kijunLen + params.senkouBLen + 10;
   const daily = await getKlines(symbol, params.interval, Math.max(needed, 150));
-  const currentPrice = currentPrices[symbol];
+  if (daily.length === 0) throw new Error('no candle data returned');
+  // Current/entry price = close of the last (still-forming) daily candle -
+  // see the CoinDCX quirks note at the top of this file.
+  const currentPrice = daily[daily.length - 1].close;
   return computeIchimokuSignal(symbol, daily, currentPrice, params);
 }
 
@@ -515,23 +396,18 @@ async function sendTelegramMessage(text) {
 
 // ---------------- main ----------------
 async function main() {
-  console.log(`Fetching USDT perpetual symbol list (OKX)...`);
+  console.log(`Fetching USDT perpetual symbol list (CoinDCX)...`);
   const symbols = await getUSDTPerpetualSymbols();
-  const currentPrices = await getCurrentPrices();
-  console.log(`Fetching CoinDCX tradability list...`);
-  const coindcxCoins = await getCoinDCXTradableCoins();
-  if (coindcxCoins) console.log(`  ${coindcxCoins.size} coins tradable on CoinDCX`);
   console.log(`Scanning ${symbols.length} symbols (interval=${PARAMS.interval})...`);
 
-  const raw = await runPool(symbols, (s) => screenSymbol(s, PARAMS, currentPrices), CONCURRENCY);
+  const raw = await runPool(symbols, (s) => screenSymbol(s, PARAMS), CONCURRENCY);
   const scanned = raw.filter((r) => r && !r.error);
   const errored = raw.filter((r) => r && r.error);
   const hasSetup = scanned.filter((r) => r.setup !== '');
   const results = scanned.filter((r) => r.volToday > PARAMS.minVolume && r.setup !== '');
 
   // Diagnostics only (not sent to Telegram) - lets a future silent-zero run be
-  // root-caused from the Action log instead of guessed at blind, the way
-  // this one had to be.
+  // root-caused from the Action log instead of guessed at blind.
   console.log(
     `Diagnostics: ${symbols.length} symbols -> ${scanned.length} scanned ok, ${errored.length} errored, ` +
     `${hasSetup.length} had a trend setup, ${results.length} passed the $${PARAMS.minVolume.toLocaleString()} volume gate.`
@@ -556,26 +432,22 @@ async function main() {
   const longs = withTrade.filter((r) => r.setup === 'Long').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
   const shorts = withTrade.filter((r) => r.setup === 'Short').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
 
-  const stripUsdt = (s) => s.replace(/-USDT-SWAP$/, '');
-  // null coindcxCoins (lookup failed) means "unknown" - omit the tag rather
-  // than falsely marking everything as untradable.
-  const coindcxTag = (coin) => (coindcxCoins ? (coindcxCoins.has(coin) ? ' 💰CoinDCX' : '') : '');
-  const fmtRow = (r) => {
-    const coin = stripUsdt(r.symbol);
-    return `<b>${coin}</b> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}${coindcxTag(coin)}\n` +
-      `Entry <code>${fmt(r.entry)}</code> · SL <code>${fmt(r.stop)}</code> · TP <code>${fmt(r.target)}</code>`;
-  };
+  // Strips CoinDCX's "B-" prefix and "_USDT" suffix, e.g. "B-PEPE_USDT" -> "PEPE".
+  const stripUsdt = (s) => s.replace(/^B-/, '').replace(/_USDT$/, '');
+  const fmtRow = (r) =>
+    `<b>${stripUsdt(r.symbol)}</b> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}\n` +
+    `Entry <code>${fmt(r.entry)}</code> · SL <code>${fmt(r.stop)}</code> · TP <code>${fmt(r.target)}</code>`;
   const fmtSection = (rows) => rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
 
   const now = new Date();
   const stamp = now.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
   const message =
-    `<b>Ichimoku breakout screener (OKX) — ${stamp}</b>\n` +
+    `<b>Ichimoku breakout screener (CoinDCX) — ${stamp}</b>\n` +
     `Scanned ${symbols.length} symbols, ${withTrade.length} with an active setup (min daily vol $${PARAMS.minVolume.toLocaleString()}).\n\n` +
     `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
     `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}\n\n` +
-    `✅ = confirmed · CK/PK = breakout type · SL/TP = 1:2 risk:reward off today's cloud · 💰CoinDCX = tradable there`;
+    `✅ = confirmed · CK/PK = breakout type · SL/TP = 1:2 risk:reward off today's cloud`;
 
   console.log(message.replace(/<\/?[a-z]+>/g, ''));
   await sendTelegramMessage(message);
