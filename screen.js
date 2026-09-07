@@ -9,11 +9,54 @@
 // This scans exactly the USDT-margined perpetual futures instruments that
 // are actually tradable on CoinDCX (Mi trades there) - roughly 500 pairs as
 // of the last full listing run - instead of scanning Binance/Bybit/OKX and
-// then separately checking which of those are mirrored on CoinDCX. Since
-// CoinDCX's futures are a straight Binance liquidity pass-through, the
-// signal itself doesn't change - this just removes an extra data source,
-// an extra cross-check pass, and the Binance-geo-block/Bybit-CloudFront
-// problems entirely, since none of that is needed anymore.
+// then separately checking which of those are mirrored on CoinDCX.
+//
+// CANDLE ENDPOINT HISTORY - IMPORTANT, read before touching getKlines():
+//   The first version of this file used CoinDCX's documented, generic
+//   endpoint - https://public.coindcx.com/market_data/candles/?pair=... -
+//   which is officially documented under "Market Data on CoinDCX API". In
+//   production this returned empty candle arrays for ~35% of the futures
+//   universe (176/500 symbols in one run), INCLUDING extremely liquid,
+//   long-established coins like 1000PEPE, 1000BONK, 1000SHIB, 1000FLOKI,
+//   GOAT, POPCAT, TRUMP, HYPE - coins that cannot plausibly lack 114 days
+//   of history. Meanwhile BTC, ETH, LINK, NEAR worked fine on that
+//   endpoint. Conclusion: that generic endpoint is CoinDCX's SPOT candle
+//   series - it only returns data for pairs that also have a spot USDT
+//   market under the same "B-COIN_USDT" code, which most futures-only
+//   instruments don't.
+//
+//   The correct, futures-specific endpoint was found by inspecting the
+//   actual network request CoinDCX's own futures-trading UI makes when
+//   loading a daily chart (browser DevTools -> Network -> XHR, on a
+//   B-1000PEPE_USDT perp page). It is NOT documented at
+//   coindcx.com/api/help or docs.coindcx.com as far as could be found - the
+//   unofficial coindcx-python wrapper references a get_futures_candles()
+//   method distinctly from get_candles(), which lines up with this being a
+//   separate, undocumented endpoint:
+//
+//     GET https://public.coindcx.com/market_data/candlesticks
+//         ?pair=B-1000PEPE_USDT&resolution=1d&from=<unix_seconds>&to=<unix_seconds>&pcode=f
+//
+//   Quirks confirmed from a captured real response:
+//     - Path is "candlesticks" (plural) - NOT "candles" like the spot one.
+//     - "resolution" (not "interval") selects the candle size; "1d" is a
+//       valid daily code.
+//     - "from"/"to" are UNIX SECONDS, but each returned candle's "time"
+//       field is UNIX MILLISECONDS - easy to get backwards.
+//     - There's no separate "limit" parameter - history is windowed via
+//       from/to instead, so getKlines below requests a wide multi-month
+//       window rather than a bar count.
+//     - "pcode=f" is presumed to mean "product code = futures" (as opposed
+//       to spot) - this is what actually routes the request to the futures
+//       candle series instead of the spot one. Omitting it, or getting it
+//       wrong, would silently route back to the same empty-for-futures-only
+//       -pairs behavior this replaces.
+//     - Response is wrapped: { "s": "ok", "data": [ {open,high,low,close,
+//       volume,time}, ... ] } - NOT a bare array like the spot endpoint.
+//     - Candle "volume" still appears to be target-currency units (e.g.
+//       PEPE, not USDT) based on order-of-magnitude sanity-checking a real
+//       1000PEPE response - close * volume lines up with a plausible daily
+//       USDT notional for that coin, not an implausibly huge one.
 //
 // Two CoinDCX endpoints are used, both public / unauthenticated, both hit
 // DIRECTLY (no Cloudflare Worker proxy) - this is a plain server-side Node
@@ -21,30 +64,12 @@
 // TradeSphere Worker or add CoinDCX hosts to its ALLOWED_HOSTS:
 //   - GET https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments
 //     Returns the full list of active futures instrument pair strings, e.g.
-//     "B-BTC_USDT". Filtered here to pairs ending in "_USDT". (Same call
-//     already used for the old CoinDCX-tradability tag - now it's the
-//     primary symbol universe instead of a secondary cross-check.)
-//   - GET https://public.coindcx.com/market_data/candles/?pair=B-BTC_USDT&interval=1d&limit=N
-//     Returns OHLCV candles. Max limit per request is 1000 (docs), plenty
-//     for the ~114 bars of history this needs.
+//     "B-BTC_USDT". Filtered here to pairs ending in "_USDT".
+//   - GET https://public.coindcx.com/market_data/candlesticks (see above)
 //
-// CoinDCX API quirks handled here:
-//   - Candle ordering isn't documented as oldest-first or newest-first, so
-//     this sorts explicitly by the "time" field (ascending) rather than
-//     assuming an order - computeIchimokuSignal assumes dClose[last] = today.
-//   - Candle "volume" is in TARGET-currency units (e.g. BTC for
-//     B-BTC_USDT), not USDT notional - close * volume is used for the
-//     $10M-notional volume filter, same approach as the old OKX version's
-//     close * volCcy.
-//   - There's no dedicated "current price" ticker endpoint documented for
-//     futures, so the close of the last (still-forming) daily candle is
-//     used as the current/entry price instead of a separate call. This
-//     saves one request per symbol per cycle; if a more "live" entry price
-//     than the forming daily candle's close is wanted later, a separate
-//     ticker fetch can be added per-symbol.
-//   - Symbol format is "B-COIN_USDT" (Binance-liquidity-backed USDT-M
-//     perp), not "COINUSDT" - display formatting (stripUsdt) strips both
-//     the "B-" prefix and the "_USDT" suffix.
+// Symbol format is "B-COIN_USDT" (Binance-liquidity-backed USDT-M perp),
+// not "COINUSDT" - display formatting (stripUsdt) strips both the "B-"
+// prefix and the "_USDT" suffix.
 //
 // CoinDCX's public rate limits for market-data endpoints aren't documented
 // (the published rate-limit table only covers authenticated order
@@ -64,12 +89,20 @@
 const COINDCX_API_BASE = 'https://api.coindcx.com';
 const COINDCX_PUBLIC_BASE = 'https://public.coindcx.com';
 const ACTIVE_INSTRUMENTS_URL = `${COINDCX_API_BASE}/exchange/v1/derivatives/futures/data/active_instruments`;
+const FUTURES_CANDLES_URL = `${COINDCX_PUBLIC_BASE}/market_data/candlesticks`;
+
+// How far back to window the candlesticks request. There's no bar-count
+// "limit" param on this endpoint (unlike the spot one) - history is
+// windowed via from/to instead - so this requests a generous multi-month
+// range and lets computeIchimokuSignal's own "insufficient history" check
+// catch genuinely-too-new listings.
+const HISTORY_DAYS = 200; // comfortably more than the 114 bars actually needed
 
 const PARAMS = {
   tenkanLen: 9,
   kijunLen: 26,
   senkouBLen: 52,
-  interval: '1d', // CoinDCX candle interval code for daily candles
+  resolution: '1d', // CoinDCX futures candlesticks resolution code for daily candles
   minVolume: 10_000_000,
 };
 
@@ -156,25 +189,39 @@ async function getUSDTPerpetualSymbols() {
 }
 
 // ---------------- klines ----------------
-async function getKlines(pair, interval, limit) {
-  const qs = new URLSearchParams({ pair, interval, limit: String(limit) });
-  const rows = await fetchJSON(`${COINDCX_PUBLIC_BASE}/market_data/candles/?${qs.toString()}`);
+async function getKlines(pair, resolution, historyDays) {
+  const toSec = Math.floor(Date.now() / 1000);
+  const fromSec = toSec - historyDays * 86400;
+  const qs = new URLSearchParams({
+    pair,
+    resolution,
+    from: String(fromSec),
+    to: String(toSec),
+    pcode: 'f', // "product code = futures" - selects the futures candle series, not spot
+  });
+  const body = await fetchJSON(`${FUTURES_CANDLES_URL}?${qs.toString()}`);
+  // Response is wrapped as { s: "ok", data: [...] } - but fall back to a
+  // bare array just in case CoinDCX's shape ever varies by pair.
+  const rows = Array.isArray(body) ? body : (body && Array.isArray(body.data) ? body.data : null);
+  if (!rows) {
+    const status = body && body.s ? body.s : 'unknown';
+    throw new Error(`unexpected candlesticks response shape (status: ${status})`);
+  }
   // Sort ascending by time explicitly rather than assuming the API's
-  // return order, since CoinDCX's docs don't state one - and
-  // computeIchimokuSignal assumes dClose[last] = today.
+  // return order - computeIchimokuSignal assumes dClose[last] = today.
   const sorted = [...rows].sort((a, b) => a.time - b.time);
   return sorted.map((k) => {
     const close = parseFloat(k.close);
-    const volume = parseFloat(k.volume); // target-currency units (e.g. BTC), not USDT
+    const volume = parseFloat(k.volume); // target-currency units (e.g. PEPE), not USDT - see header note
     return {
-      openTime: Number(k.time),
+      openTime: Number(k.time), // milliseconds, per the captured response
       open: parseFloat(k.open),
       high: parseFloat(k.high),
       low: parseFloat(k.low),
       close,
       volume,
       // USDT-notional volume, computed from target-currency volume * close -
-      // CoinDCX's candle "volume" field is target-currency, not quote/USDT.
+      // see header note on why this isn't taken directly from the API.
       quoteVolume: close * volume,
     };
   });
@@ -303,9 +350,8 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params) {
 }
 
 async function screenSymbol(symbol, params) {
-  const needed = 2 * params.kijunLen + params.senkouBLen + 10;
-  const daily = await getKlines(symbol, params.interval, Math.max(needed, 150));
-  if (daily.length === 0) throw new Error(`no candle data returned (requested ${Math.max(needed, 150)} bars)`);
+  const daily = await getKlines(symbol, params.resolution, HISTORY_DAYS);
+  if (daily.length === 0) throw new Error(`no candle data returned (requested ${HISTORY_DAYS}d window)`);
   // Current/entry price = close of the last (still-forming) daily candle -
   // see the CoinDCX quirks note at the top of this file.
   const currentPrice = daily[daily.length - 1].close;
@@ -403,7 +449,7 @@ async function sendTelegramMessage(text) {
 async function main() {
   console.log(`Fetching USDT perpetual symbol list (CoinDCX)...`);
   const symbols = await getUSDTPerpetualSymbols();
-  console.log(`Scanning ${symbols.length} symbols (interval=${PARAMS.interval})...`);
+  console.log(`Scanning ${symbols.length} symbols (resolution=${PARAMS.resolution})...`);
 
   const raw = await runPool(symbols, (s) => screenSymbol(s, PARAMS), CONCURRENCY);
   const scanned = raw.filter((r) => r && !r.error);
