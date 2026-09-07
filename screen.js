@@ -74,7 +74,7 @@ const PARAMS = {
   minVolume: 10_000_000,
 };
 
-const CONCURRENCY = 3; // lowered from 8 - OKX's public rate limit was rejecting most of a 458-symbol scan at concurrency 8
+const CONCURRENCY = 2; // lowered again from 3 - concurrent bursts (not just sustained rate) were tripping OKX's 429, so pacing (below) matters more than lane count now
 
 // Same Cloudflare Worker proxy the rest of the TradeSphere suite uses.
 // www.okx.com must be in the Worker's ALLOWED_HOSTS.
@@ -86,6 +86,22 @@ function proxiedUrl(targetUrl) {
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+// Global pacing throttle: even at low CONCURRENCY, multiple lanes can still
+// dispatch requests within the same few milliseconds of each other, and it's
+// that BURST - not the sustained rate - that was tripping OKX's 429 even
+// after cutting concurrency 8 -> 3. This enforces a minimum gap between the
+// start of any two requests across ALL lanes, so requests get spread out in
+// time regardless of how many lanes are running concurrently.
+const MIN_REQUEST_GAP_MS = 180;
+let nextSlot = 0;
+
+async function throttle() {
+  const now = Date.now();
+  const wait = Math.max(0, nextSlot - now);
+  nextSlot = Math.max(now, nextSlot) + MIN_REQUEST_GAP_MS;
+  if (wait > 0) await sleep(wait);
 }
 
 // ---------------- fetch helpers (mirrors screener.html's activeHost fallback) ----------------
@@ -109,6 +125,7 @@ const MAX_429_RETRIES = 5;
 const BASE_BACKOFF_MS = 800;
 
 async function fetchOnce(target) {
+  await throttle();
   const res = await fetchWithTimeout(proxiedUrl(target));
   const raw = await res.text();
   if (res.status === 429) {
