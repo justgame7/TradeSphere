@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TradeSphere</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0e17">
+<style>
+  :root{
+    --bg:#0b0e17;
+    --panel:#131826;
+    --panel2:#1a2033;
+    --border:#242c42;
+    --text:#e6e9f2;
+    --muted:#8b93a8;
+    --purple:#8b5cf6;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    height:100%;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow:hidden;
+  }
+  .app{
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    height:100dvh;
+  }
+
+  /* ---- Top bar ---- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 14px;
+    background:var(--panel);
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+    z-index:20;
+  }
+  .hamburger{
+    background:transparent;
+    border:none;
+    color:var(--text);
+    width:36px;
+    height:36px;
+    border-radius:8px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  .hamburger:hover{background:var(--panel2);}
+  .hamburger svg{width:20px;height:20px;}
+  .topbar-title{
+    font-size:15px;
+    font-weight:700;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .topbar-title .page-sub{
+    color:var(--muted);
+    font-weight:500;
+    font-size:12px;
+    margin-left:8px;
+  }
+
+  /* ---- Drawer ---- */
+  .backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.5);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s;
+    z-index:30;
+  }
+  .backdrop.open{opacity:1;pointer-events:auto;}
+
+  .drawer{
+    position:fixed;
+    top:0;
+    left:0;
+    bottom:0;
+    width:280px;
+    max-width:82vw;
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    transform:translateX(-100%);
+    transition:transform .22s ease;
+    z-index:31;
+    display:flex;
+    flex-direction:column;
+    padding:16px 12px;
+  }
+  .drawer.open{transform:translateX(0);}
+
+  .drawer-header{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:6px 8px 18px 8px;
+  }
+  .drawer-header .brand-icon{
+    width:30px;height:30px;
+    border-radius:8px;
+    background:linear-gradient(135deg, var(--purple), #6d28d9);
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;
+    flex-shrink:0;
+  }
+  .drawer-header .brand-name{
+    font-size:16px;
+    font-weight:800;
+    background:linear-gradient(90deg, #ffffff 0%, #edfdf4 32%, #7fe4b6 58%, #2ac78a 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+
+  .nav-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:11px 12px;
+    border-radius:10px;
+    cursor:pointer;
+    color:var(--text);
+    font-size:14px;
+    font-weight:600;
+    margin-bottom:3px;
+    user-select:none;
+  }
+  .nav-item:hover{background:var(--panel2);}
+  .nav-item.active{
+    background:rgba(139,92,246,.16);
+    color:#fff;
+  }
+  .nav-item .nav-icon{
+    width:20px;
+    height:20px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:16px;
+  }
+  .nav-item .nav-label small{
+    display:block;
+    color:var(--muted);
+    font-weight:500;
+    font-size:11px;
+    margin-top:1px;
+  }
+  .nav-item.active .nav-label small{color:rgba(230,233,242,.7);}
+
+  .drawer-footer{
+    margin-top:auto;
+    padding:10px 12px 4px;
+    font-size:11px;
+    color:var(--muted);
+    border-top:1px solid var(--border);
+    padding-top:14px;
+  }
+
+  /* ---- Content ---- */
+  .content{
+    position:relative;
+    flex:1;
+    min-height:0;
+  }
+  .page{
+    position:absolute;
+    inset:0;
+    display:none;
+  }
+  .page.active{display:block;}
+  .page iframe{
+    width:100%;
+    height:100%;
+    border:none;
+    background:var(--bg);
+  }
+  .page-loading{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:13px;
+    background:var(--bg);
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="topbar-title" id="topbarTitle">
+      <img class="topbar-logo" src="logo.svg" alt="Crypto Screener logo">
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop"></div>
+
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-name">TradeSphere</div>
+    </div>
+
+    <div class="nav-item active" data-page="screener">
+      <span class="nav-icon">☁️</span>
+      <span class="nav-label">Screener - Ichimoku<small>CK/PK breakouts, live scan</small></span>
+    </div>
+
+    <div class="nav-item" data-page="sizing">
+      <span class="nav-icon">🧮</span>
+      <span class="nav-label">Position Sizing<small>Risk-based quantity calculator</small></span>
+    </div>
+
+    <div class="nav-item" data-page="news">
+      <span class="nav-icon">📰</span>
+      <span class="nav-label">News<small>Latest crypto market stories</small></span>
+    </div>
+
+    <div class="drawer-footer">Binance &amp; CoinGecko public data · no login required</div>
+  </div>
+
+  <div class="content">
+    <div class="page active" data-page="screener">
+      <div class="page-loading" id="loading-screener">Loading screener…</div>
+      <iframe id="iframe-screener" src="screener.html"></iframe>
+    </div>
+    <div class="page" data-page="sizing">
+      <div class="page-loading" id="loading-sizing">Loading position sizer…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-sizing" data-src="position-sizing.html"></iframe>
+    </div>
+    <div class="page" data-page="news">
+      <div class="page-loading" id="loading-news">Loading news…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-news" data-src="news.html"></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+const PAGE_TITLES = {
+  screener: 'Screener - Ichimoku',
+  sizing: 'Position Sizing',
+  news: 'News'
+};
+
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const drawer = document.getElementById('drawer');
+const backdrop = document.getElementById('backdrop');
+const topbarTitle = document.getElementById('topbarTitle');
+const navItems = document.querySelectorAll('.nav-item');
+const pages = document.querySelectorAll('.page');
+
+function openDrawer(){
+  drawer.classList.add('open');
+  backdrop.classList.add('open');
+}
+function closeDrawer(){
+  drawer.classList.remove('open');
+  backdrop.classList.remove('open');
+}
+hamburgerBtn.addEventListener('click', () => {
+  drawer.classList.contains('open') ? closeDrawer() : openDrawer();
+});
+backdrop.addEventListener('click', closeDrawer);
+
+let currentPage = 'screener';
+
+function activatePage(pageId){
+  currentPage = pageId;
+  navItems.forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
+  pages.forEach(p => p.classList.toggle('active', p.dataset.page === pageId));
+  topbarTitle.innerHTML = '<img class="topbar-logo" src="logo.svg" alt="Crypto Screener logo">';
+  const sub = document.createElement('span');
+  sub.className = 'page-sub';
+  sub.textContent = PAGE_TITLES[pageId] || '';
+  topbarTitle.appendChild(sub);
+
+  // Lazy-load the iframe the first time its page is opened, so we don't
+  // fire both apps' network requests (Binance + CoinGecko) on startup.
+  const iframe = document.getElementById('iframe-' + pageId);
+  if(iframe && !iframe.getAttribute('src') && iframe.dataset.src){
+    iframe.addEventListener('load', () => {
+      const loadingEl = document.getElementById('loading-' + pageId);
+      if(loadingEl) loadingEl.style.display = 'none';
+    }, {once:true});
+    iframe.setAttribute('src', iframe.dataset.src);
+  } else {
+    const loadingEl = document.getElementById('loading-' + pageId);
+    if(loadingEl) loadingEl.style.display = 'none';
+  }
+
+  closeDrawer();
+}
+
+function handleAndroidBack(){
+  if(drawer.classList.contains('open')){
+    closeDrawer();
+    return;
+  }
+
+  const tradeModal = document.getElementById('tradeModal');
+  const analysisModal = document.getElementById('analysisModal');
+  if(tradeModal && tradeModal.classList.contains('open')){
+    closeTradePlan();
+    return;
+  }
+  if(analysisModal && analysisModal.classList.contains('open')){
+    closeAnalysis();
+    return;
+  }
+
+  if(currentPage !== 'screener'){
+    activatePage('screener');
+    return;
+  }
+
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App && typeof window.Capacitor.Plugins.App.exitApp === 'function'){
+    window.Capacitor.Plugins.App.exitApp();
+    return;
+  }
+  if(navigator.app && typeof navigator.app.exitApp === 'function'){
+    navigator.app.exitApp();
+    return;
+  }
+  if(window.history.length > 1){
+    window.history.back();
+  }
+}
+
+// Screener iframe is loaded eagerly (default page), just hide its loading label on load
+document.getElementById('iframe-screener').addEventListener('load', () => {
+  document.getElementById('loading-screener').style.display = 'none';
+}, {once:true});
+
+navItems.forEach(item => {
+  item.addEventListener('click', () => activatePage(item.dataset.page));
+});
+
+document.addEventListener('backbutton', event => {
+  event.preventDefault();
+  handleAndroidBack();
+}, { passive: false });
+window.addEventListener('keydown', event => {
+  if(event.key === 'Escape'){
+    event.preventDefault();
+    handleAndroidBack();
+  }
+});
+
+// initial title
+activatePageTitleOnly();
+function activatePageTitleOnly(){
+  const sub = document.createElement('span');
+  sub.className = 'page-sub';
+  sub.textContent = PAGE_TITLES['screener'];
+  topbarTitle.appendChild(sub);
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+}
+</script>
+
+</body>
+</html>

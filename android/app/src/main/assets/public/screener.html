@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ichimoku Breakout Screener (Binance USDT-M)</title>
+<style>
+  :root{
+    --bg:#0b0e17;
+    --panel:#131826;
+    --panel2:#1a2033;
+    --border:#242c42;
+    --text:#e6e9f2;
+    --muted:#8b93a8;
+    --purple:#8b5cf6;
+    --green:#22c55e;
+    --red:#ef4444;
+    --amber:#f59e0b;
+    --blue:#3b82f6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding:24px;
+  }
+  h1{font-size:20px;margin:0 0 4px 0;}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:20px;}
+  .bottom-sub{margin:24px 0 0;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:18px 20px;
+    margin-bottom:18px;
+  }
+  .settings-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px;
+  }
+  .field label{
+    display:block;
+    font-size:11px;
+    color:var(--muted);
+    margin-bottom:4px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
+  .field input, .field select{
+    width:100%;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    padding:8px 10px;
+    font-size:13px;
+  }
+  .field input:focus, .field select:focus{outline:none;border-color:var(--purple);}
+  .actions{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-top:16px;
+    flex-wrap:wrap;
+  }
+  button{
+    background:var(--purple);
+    color:white;
+    border:none;
+    padding:10px 20px;
+    border-radius:8px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  button.secondary{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text);
+  }
+  button.filter-btn{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--muted);
+    padding:6px 14px;
+    font-size:12px;
+    font-weight:600;
+  }
+  button.filter-btn.active{
+    background:rgba(139,92,246,.18);
+    border-color:var(--purple);
+    color:var(--text);
+  }
+  .status{font-size:13px;color:var(--muted);}
+  .progress-bar{
+    height:6px;
+    background:var(--panel2);
+    border-radius:4px;
+    overflow:hidden;
+    margin-top:10px;
+    display:none;
+  }
+  .progress-fill{
+    height:100%;
+    background:var(--purple);
+    width:0%;
+    transition:width .15s;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+  }
+  th,td{
+    padding:9px 10px;
+    text-align:right;
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  th{
+    text-align:right;
+    color:var(--muted);
+    font-weight:600;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    cursor:pointer;
+    user-select:none;
+  }
+  th:first-child,td:first-child{text-align:left;}
+  td:nth-child(2),td:nth-child(3){text-align:center;}
+  tr:hover{background:var(--panel2);}
+  .sym-link{color:var(--text);text-decoration:none;font-weight:600;}
+  .sym-link:hover{color:var(--purple);}
+  .pill{
+    display:inline-block;
+    padding:3px 9px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .pill-ck{background:rgba(59,130,246,.15);color:var(--blue);}
+  .pill-pk{background:rgba(245,158,11,.15);color:var(--amber);}
+  .pill-both{background:rgba(34,197,94,.15);color:var(--green);}
+  .pill-long{background:rgba(34,197,94,.15);color:var(--green);}
+  .pill-short{background:rgba(239,68,68,.15);color:var(--red);}
+  .pill-none{color:var(--muted);}
+  .table-wrap{overflow-x:auto;}
+  .count-badge{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:2px 8px;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .legend{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    font-size:11px;
+    color:var(--muted);
+    margin-top:12px;
+  }
+  .legend b{color:var(--text);}
+  .legend #csvBtn{flex-basis:100%;width:max-content;}
+  .error-box{
+    background:rgba(239,68,68,.1);
+    border:1px solid rgba(239,68,68,.3);
+    color:#fca5a5;
+    padding:10px 14px;
+    border-radius:8px;
+    font-size:13px;
+    margin-top:12px;
+    display:none;
+  }
+  .empty{color:var(--muted);text-align:center;padding:30px;font-size:13px;}
+  .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .plan-btn{padding:6px 10px;font-size:11px;background:var(--green);color:#07130b;}
+  .trade-modal{position:fixed;inset:0;background:rgba(0,0,0,.68);display:none;align-items:center;justify-content:center;padding:20px;z-index:10;}
+  .trade-modal.open{display:flex;}
+  .trade-dialog{width:min(620px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.45);}
+  .trade-head{display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:16px;}
+  .trade-head h2{font-size:18px;margin:0 0 4px;}
+  .trade-head p{color:var(--muted);font-size:12px;margin:0;}
+  .close-btn{background:transparent;border:1px solid var(--border);padding:5px 9px;font-size:16px;line-height:1;}
+  .plan-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px;}
+  .plan-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:11px;}
+  .plan-card .label{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+  .plan-card .value{font-size:15px;font-weight:700;}
+  .plan-section{border-top:1px solid var(--border);padding-top:14px;margin-top:14px;}
+  .plan-section h3{font-size:12px;margin:0 0 10px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em;}
+  .plan-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .plan-inputs label{display:block;color:var(--muted);font-size:11px;margin-bottom:4px;}
+  .plan-inputs input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px;font-size:13px;}
+  .plan-note{color:var(--muted);font-size:11px;line-height:1.5;margin:12px 0 0;}
+  .plan-rule{font-size:13px;line-height:1.5;margin:6px 0;color:var(--text);}
+  @media(max-width:520px){.plan-grid,.plan-inputs{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<h1>☁️ Ichimoku Breakout Screener</h1>
+<div class="panel">
+  <div class="settings-grid">
+    <div class="field"><label>Conversion (Tenkan)</label><input type="number" id="tenkanLen" value="9"></div>
+    <div class="field"><label>Base (Kijun)</label><input type="number" id="kijunLen" value="26"></div>
+    <div class="field"><label>Leading Span B</label><input type="number" id="senkouBLen" value="52"></div>
+    <div class="field"><label>Timeframe</label><select id="timeframe"><option value="1d" selected>Daily</option><option value="1w">Weekly</option><option value="4h">4 Hour</option></select></div>
+    <div class="field"><label id="volumeLabel">Min Daily Volume (USDT)</label><input type="number" id="minVolume" value="10000000"></div>
+    <div class="field"><label>Concurrent Requests</label><input type="number" id="concurrency" value="8"></div>
+  </div>
+  <div class="actions">
+    <button id="runBtn" onclick="runScreener()">▶ Run Screener</button>
+    <span class="status" id="statusText">Idle</span>
+    <span class="count-badge" id="countBadge" style="display:none;"></span>
+  </div>
+  <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="error-box" id="errorBox"></div>
+  <div class="legend">
+    <span><b>CK</b> = Chikou breakout (lagging span crosses its own cloud)</span>
+    <span><b>PK</b> = Price/Kumo breakout (price crosses the current cloud)</span>
+    <span><b>CK, PK</b> = both confirmed on the same day</span>
+    <span><b>Setup</b> = Long (bullish) or Short (bearish), shown only when fully confirmed</span>
+    <button class="secondary" onclick="downloadCSV()" id="csvBtn" disabled>⬇ Export CSV</button>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="filter-row">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="breakout" onclick="setFilter('breakout')">Breakouts Only</button>
+    <button class="filter-btn" data-filter="long" onclick="setFilter('long')">Long Only</button>
+    <button class="filter-btn" data-filter="short" onclick="setFilter('short')">Short Only</button>
+  </div>
+  <div id="tableContainer" class="table-wrap">
+    <div class="empty">Click "Run Screener" to scan all Binance USDT-M perpetual futures for confirmed Ichimoku breakouts.</div>
+  </div>
+</div>
+
+<div class="trade-modal" id="tradeModal" onclick="closeTradePlan(event)">
+  <div class="trade-dialog" role="dialog" aria-modal="true" aria-labelledby="tradeTitle" onclick="event.stopPropagation()">
+    <div class="trade-head">
+      <div><h2 id="tradeTitle">Trade plan</h2><p id="tradeSubtitle"></p></div>
+      <button class="close-btn" type="button" aria-label="Close" onclick="closeTradePlan()">×</button>
+    </div>
+    <div class="plan-grid" id="tradeLevels"></div>
+    <div class="plan-section">
+      <h3>Position sizing</h3>
+      <div class="plan-inputs">
+        <div><label for="planPortfolio">Portfolio value (USDT)</label><input id="planPortfolio" type="number" min="0" step="any" oninput="renderTradeSizing()"></div>
+        <div><label for="planRisk">Risk per trade (%)</label><input id="planRisk" type="number" min="0" step="0.1" value="1" oninput="renderTradeSizing()"></div>
+      </div>
+      <div class="actions" style="margin-top:10px"><button class="secondary" type="button" onclick="savePortfolio()">Save portfolio</button><span class="status" id="portfolioStatus"></span></div>
+      <div class="plan-grid" id="tradeSizing" style="margin-top:10px;margin-bottom:0"></div>
+    </div>
+    <div class="plan-section">
+      <h3>Management rules</h3>
+      <div class="plan-rule">Entry: use yesterday's closing price for confirmed trades and the current market price for unconfirmed setups.</div>
+      <div class="plan-rule">Base stop-loss: use the Kijun-sen baseline, below entry for Long and above entry for Short.</div>
+      <div class="plan-rule">Conservative stop-loss: use the opposite cloud boundary, below entry for Long and above entry for Short.</div>
+      <div class="plan-rule">TP1: exit at 2R using the selected stop. Conservative target: exit at 3R using the conservative stop.</div>
+      <div class="plan-rule">Exit: close at stop-loss, take-profit, or the next confirmed signal in the opposite direction.</div>
+      <p class="plan-note">Planning aid only. It does not place orders or track live positions. Prices, contract rules, fees, and slippage must be verified on Binance Futures.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const FAPI_HOSTS = [
+  "https://fapi.binance.com",
+  "https://fapi1.binance.com",
+  "https://fapi2.binance.com",
+  "https://fapi3.binance.com",
+  "https://fapi4.binance.com"
+];
+let activeHost = FAPI_HOSTS[0];
+let allResults = [];
+let currentFilter = 'all';
+let sortKey = null;
+let sortDir = 1;
+let activeTrade = null;
+const PORTFOLIO_STORAGE_KEY = 'crypto-screener-portfolio-usdt';
+
+function setStatus(msg){ document.getElementById('statusText').textContent = msg; }
+function showError(msg){
+  const box = document.getElementById('errorBox');
+  box.style.display = 'block';
+  box.innerHTML = msg;
+}
+function hideError(){ document.getElementById('errorBox').style.display = 'none'; }
+
+// ---------------- Math helpers ----------------
+function donchianMid(highs, lows, len, endIdx){
+  if(endIdx - len + 1 < 0) return NaN;
+  let hh=-Infinity, ll=Infinity;
+  for(let i=endIdx-len+1;i<=endIdx;i++){
+    if(highs[i]>hh) hh=highs[i];
+    if(lows[i]<ll) ll=lows[i];
+  }
+  return (hh+ll)/2;
+}
+
+// ---------------- Binance fetch helpers ----------------
+async function fetchWithTimeout(url, ms=10000){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), ms);
+  try{
+    const res = await fetch(url, { signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchJSON(path){
+  const order = [activeHost, ...FAPI_HOSTS.filter(h => h !== activeHost)];
+  let lastErr;
+  for(const host of order){
+    try{
+      const res = await fetchWithTimeout(host + path);
+      if(!res.ok) throw new Error(`HTTP ${res.status} on ${host}${path}`);
+      const data = await res.json();
+      activeHost = host;
+      return data;
+    }catch(e){
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
+
+async function getUSDTPerpetualSymbols(){
+  const info = await fetchJSON(`/fapi/v1/exchangeInfo`);
+  return info.symbols
+    .filter(s => s.contractType === "PERPETUAL" && s.quoteAsset === "USDT" && s.status === "TRADING")
+    .map(s => s.symbol);
+}
+
+async function getKlines(symbol, interval, limit){
+  const path = `/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  const raw = await fetchJSON(path);
+  return raw.map(k => ({
+    openTime: k[0], open: parseFloat(k[1]), high: parseFloat(k[2]),
+    low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5]),
+    closeTime: k[6], quoteVolume: parseFloat(k[7])
+  }));
+}
+
+async function getCurrentPrices(){
+  const data = await fetchJSON('/fapi/v1/ticker/price');
+  return Object.fromEntries(data.map(item => [item.symbol, parseFloat(item.price)]));
+}
+
+// ---------------- Concurrency-limited queue ----------------
+async function runPool(items, worker, concurrency, onProgress){
+  let idx = 0, done = 0;
+  const results = new Array(items.length);
+  async function next(){
+    while(idx < items.length){
+      const my = idx++;
+      try{
+        results[my] = await worker(items[my]);
+      }catch(e){
+        results[my] = { error: e.message, symbol: items[my] };
+      }
+      done++;
+      onProgress(done, items.length);
+    }
+  }
+  const workers = Array.from({length: Math.min(concurrency, items.length)}, next);
+  await Promise.all(workers);
+  return results;
+}
+
+// ---------------- Ichimoku core ----------------
+// Rule confirmed with the user:
+//   - Chikou (the lagging span) is always compared against ITS OWN cloud —
+//     i.e. the cloud drawn at the same bar position the chikou line is plotted at
+//     (which is `kijunLen` bars back from where the close value came from).
+//   - Price is always compared against the CURRENT bar's cloud.
+//
+// Tenkan(i)      = donchianMid(tenkanLen, i)
+// Kijun(i)       = donchianMid(kijunLen, i)
+// SenkouA_raw(i) = avg(Tenkan(i), Kijun(i))   -> displayed on chart at bar (i + kijunLen)
+// SenkouB_raw(i) = donchianMid(senkouBLen, i) -> displayed on chart at bar (i + kijunLen)
+// Chikou(t)      = close(t), displayed on chart at bar (t - kijunLen)
+//
+// Cloud as displayed AT bar X = raw values computed at index (X - kijunLen).
+//   cloudAtBar(t)       -> the cloud actually sitting under/over price at bar t (current-bar-cloud)
+//   cloudAtChikouBar(t) -> the cloud sitting under/over the chikou plotted from bar t
+//                          (i.e. the cloud displayed at bar (t - kijunLen)), which is
+//                          computed from raw values at index (t - 2*kijunLen)
+async function screenSymbol(symbol, params, currentPrices){
+  const needed = 2 * params.kijunLen + params.senkouBLen + 10;
+  const daily = await getKlines(symbol, params.interval, Math.max(needed, 150));
+  const currentPrice = currentPrices[symbol];
+  if(!Number.isFinite(currentPrice)) throw new Error("current price unavailable");
+  if(daily.length < needed) throw new Error("insufficient daily history");
+
+  const dHigh = daily.map(d=>d.high), dLow = daily.map(d=>d.low), dClose = daily.map(d=>d.close);
+
+  const senkouA_raw = i => {
+    const t = donchianMid(dHigh, dLow, params.tenkanLen, i);
+    const k = donchianMid(dHigh, dLow, params.kijunLen, i);
+    return (isNaN(t) || isNaN(k)) ? NaN : (t + k) / 2;
+  };
+  const senkouB_raw = i => donchianMid(dHigh, dLow, params.senkouBLen, i);
+
+  const cloudAtBar = t => {
+    const idx = t - params.kijunLen;
+    if(idx < 0) return {top: NaN, bottom: NaN};
+    const a = senkouA_raw(idx), b = senkouB_raw(idx);
+    return {top: Math.max(a,b), bottom: Math.min(a,b)};
+  };
+  const cloudAtChikouBar = t => {
+    const idx = t - 2 * params.kijunLen;
+    if(idx < 0) return {top: NaN, bottom: NaN};
+    const a = senkouA_raw(idx), b = senkouB_raw(idx);
+    return {top: Math.max(a,b), bottom: Math.min(a,b)};
+  };
+
+  const iToday = dClose.length - 1;
+  const iYest = iToday - 1;
+
+  function signalAt(index){
+    const previous = index - 1;
+    const price = dClose[index];
+    const pricePrevious = dClose[previous];
+    const cloud = cloudAtBar(index);
+    const cloudPrevious = cloudAtBar(previous);
+    const chikouCloud = cloudAtChikouBar(index);
+    const chikouCloudPrevious = cloudAtChikouBar(previous);
+    const tenkan = donchianMid(dHigh, dLow, params.tenkanLen, index);
+    const kijun = donchianMid(dHigh, dLow, params.kijunLen, index);
+    const futureA = senkouA_raw(index);
+    const futureB = senkouB_raw(index);
+    const volume = daily[index].quoteVolume;
+    const valid = [cloud.top, cloud.bottom, cloudPrevious.top, cloudPrevious.bottom,
+      chikouCloud.top, chikouCloud.bottom, chikouCloudPrevious.top,
+      chikouCloudPrevious.bottom, tenkan, kijun, futureA, futureB].every(v => !isNaN(v));
+    if(!valid) return null;
+
+    const volumeOk = volume > params.minVolume;
+    const longTrend = tenkan > kijun && futureA > futureB;
+    const shortTrend = tenkan < kijun && futureB > futureA;
+    const ckLong = pricePrevious < chikouCloudPrevious.top &&
+      price > chikouCloud.top && price > cloud.top && longTrend && volumeOk;
+    const pkLong = pricePrevious < cloudPrevious.top &&
+      price > cloud.top && price > chikouCloud.top && longTrend && volumeOk;
+    const ckShort = pricePrevious > chikouCloudPrevious.bottom &&
+      price < chikouCloud.bottom && price < cloud.bottom && shortTrend && volumeOk;
+    const pkShort = pricePrevious > cloudPrevious.bottom &&
+      price < cloud.bottom && price < chikouCloud.bottom && shortTrend && volumeOk;
+
+    return {
+      price, volume, cloud, chikouCloud, tenkan, kijun,
+      ckLong, pkLong, ckShort, pkShort,
+      long: ckLong || pkLong,
+      short: ckShort || pkShort
+    };
+  }
+
+  const today = signalAt(iToday);
+  const yesterday = signalAt(iYest);
+  if(!today || !yesterday){
+    throw new Error("insufficient history for ichimoku calc");
+  }
+
+  const confirmedLong = yesterday.long && today.price > today.cloud.top && today.price > today.chikouCloud.top;
+  const confirmedShort = yesterday.short && today.price < today.cloud.bottom && today.price < today.chikouCloud.bottom;
+  const confirmed = confirmedLong || confirmedShort;
+  const active = confirmed ? yesterday : today;
+  const isLong = confirmedLong || (!confirmed && today.long);
+  const isShort = confirmedShort || (!confirmed && today.short);
+  const ckLong = confirmed ? yesterday.ckLong : today.ckLong;
+  const pkLong = confirmed ? yesterday.pkLong : today.pkLong;
+  const ckShort = confirmed ? yesterday.ckShort : today.ckShort;
+  const pkShort = confirmed ? yesterday.pkShort : today.pkShort;
+  let breakout = '';
+  let setup = '';
+  if(isLong){
+    setup = 'Long';
+    breakout = (ckLong && pkLong) ? 'CK, PK' : (ckLong ? 'CK' : 'PK');
+  } else if(isShort){
+    setup = 'Short';
+    breakout = (ckShort && pkShort) ? 'CK, PK' : (ckShort ? 'CK' : 'PK');
+  }
+  const breakoutPrice = breakout === 'CK' ? active.chikouCloud[setup === 'Long' ? 'top' : 'bottom'] : active.cloud[setup === 'Long' ? 'top' : 'bottom'];
+  const priceToday = currentPrice;
+  const entryPrice = confirmed ? yesterday.price : currentPrice;
+
+  return {
+    symbol, confirmed, priceToday, breakoutPrice, entryPrice,
+    cloudTop: today.cloud.top, cloudBottom: today.cloud.bottom,
+    tenkanNow: today.tenkan, kijunNow: today.kijun, volToday: today.volume,
+    ckLong, pkLong, ckShort, pkShort, breakout, setup
+  };
+}
+
+function getParams(){
+  return {
+    tenkanLen: parseInt(document.getElementById('tenkanLen').value),
+    kijunLen: parseInt(document.getElementById('kijunLen').value),
+    senkouBLen: parseInt(document.getElementById('senkouBLen').value),
+    minVolume: parseFloat(document.getElementById('minVolume').value),
+    interval: document.getElementById('timeframe').value,
+  };
+}
+
+document.getElementById('timeframe').addEventListener('change', () => {
+  const timeframe = document.getElementById('timeframe').value;
+  const label = timeframe === '1w' ? 'Weekly' : (timeframe === '4h' ? '4-Hour' : 'Daily');
+  document.getElementById('volumeLabel').textContent = `Min ${label} Volume (USDT)`;
+  document.getElementById('minVolume').value = timeframe === '4h' ? '100000' : '10000000';
+});
+
+async function runScreener(){
+  hideError();
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('csvBtn').disabled = true;
+  document.getElementById('countBadge').style.display = 'none';
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = document.getElementById('progressFill');
+  progressBar.style.display = 'block';
+  progressFill.style.width = '0%';
+
+  const params = getParams();
+  const concurrency = Math.max(1, parseInt(document.getElementById('concurrency').value) || 8);
+
+  try{
+    setStatus('Fetching USDT-M perpetual futures symbol list…');
+    const symbols = await getUSDTPerpetualSymbols();
+    const currentPrices = await getCurrentPrices();
+    const timeframeLabel = params.interval === '1w' ? 'weekly' : (params.interval === '4h' ? '4-hour' : 'daily');
+    setStatus(`Scanning ${symbols.length} USDT-margined perpetual futures (${timeframeLabel})…`);
+
+    const raw = await runPool(symbols, s => screenSymbol(s, params, currentPrices), concurrency, (done,total)=>{
+      progressFill.style.width = `${(done/total*100).toFixed(1)}%`;
+      setStatus(`Scanning… ${done}/${total}`);
+    });
+
+    const scanned = raw.filter(r => r && !r.error);
+    const failedCount = raw.length - scanned.length;
+
+    allResults = scanned.filter(r => r.volToday > params.minVolume);
+    const belowVolCount = scanned.length - allResults.length;
+
+    sortAndRender();
+
+    const breakoutCount = allResults.filter(r => r.breakout !== '').length;
+    const longCount = allResults.filter(r => r.setup === 'Long').length;
+    const shortCount = allResults.filter(r => r.setup === 'Short').length;
+    document.getElementById('countBadge').style.display = 'inline-block';
+    document.getElementById('countBadge').textContent =
+      `${breakoutCount} breakouts (${longCount} long / ${shortCount} short) • ${allResults.length} listed (${timeframeLabel} vol > ${params.minVolume.toLocaleString()}) • ${belowVolCount} below volume • ${failedCount} skipped`;
+    setStatus('Done.');
+    document.getElementById('csvBtn').disabled = allResults.length === 0;
+  }catch(e){
+    showError(
+      `Error: <b>${e.message}</b><br><br>` +
+      `This usually means Binance's Futures API couldn't be reached — check your internet connection, or that Binance isn't blocked on your network/VPN.`
+    );
+    setStatus('Failed.');
+  }finally{
+    btn.disabled = false;
+    setTimeout(()=>{ progressBar.style.display = 'none'; }, 800);
+  }
+}
+
+function setFilter(f){
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+  sortAndRender();
+}
+
+function getFilteredResults(){
+  switch(currentFilter){
+    case 'breakout': return allResults.filter(r => r.breakout !== '');
+    case 'long': return allResults.filter(r => r.setup === 'Long');
+    case 'short': return allResults.filter(r => r.setup === 'Short');
+    default: return allResults;
+  }
+}
+
+function sortAndRender(){
+  let rows = getFilteredResults();
+  if(sortKey){
+    rows = [...rows].sort((a,b) => {
+      let av = a[sortKey], bv = b[sortKey];
+      if(typeof av === 'boolean'){ av = av?1:0; bv = bv?1:0; }
+      if(typeof av === 'string') return sortDir * av.localeCompare(bv);
+      return sortDir * ((av ?? -Infinity) - (bv ?? -Infinity));
+    });
+  } else {
+    // default: confirmed breakouts first (by presence), then by volume
+    rows = [...rows].sort((a,b) => {
+      const aHas = a.breakout !== '' ? 1 : 0;
+      const bHas = b.breakout !== '' ? 1 : 0;
+      if(aHas !== bHas) return bHas - aHas;
+      return b.volToday - a.volToday;
+    });
+  }
+  renderTable(rows);
+}
+
+function fmt(n, d=4){
+  if(n===undefined||n===null||isNaN(n)) return '—';
+  return Math.abs(n) < 0.01 ? String(n) : n.toFixed(d);
+}
+
+function breakoutPill(breakout){
+  if(!breakout) return '<span class="pill-none">—</span>';
+  const cls = breakout === 'CK, PK' ? 'pill-both' : (breakout === 'CK' ? 'pill-ck' : 'pill-pk');
+  return `<span class="pill ${cls}">${breakout}</span>`;
+}
+function setupPill(setup){
+  if(!setup) return '<span class="pill-none">—</span>';
+  return `<span class="pill ${setup === 'Long' ? 'pill-long' : 'pill-short'}">${setup}</span>`;
+}
+
+function renderTable(rows){
+  const container = document.getElementById('tableContainer');
+  if(rows.length === 0){
+    container.innerHTML = '<div class="empty">No results for this filter.</div>';
+    return;
+  }
+  const cols = [
+    {k:'confirmed', label:'Confirmed'},
+    {k:'symbol', label:'Symbol'},
+    {k:'breakout', label:'Breakout'},
+    {k:'setup', label:'Setup'},
+    {k:'priceToday', label:'Price'},
+    {k:'breakoutPrice', label:'Breakout Price'},
+    {k:'cloudTop', label:'Cloud Top'},
+    {k:'cloudBottom', label:'Cloud Bottom'},
+    {k:'tenkanNow', label:'Tenkan'},
+    {k:'kijunNow', label:'Kijun'},
+    {k:'volToday', label:'Volume (USDT)'},
+    {k:'tradePlan', label:'Action'},
+  ];
+  let html = '<table><thead><tr>';
+  cols.forEach(c => html += `<th${c.k === 'tradePlan' ? '' : ` onclick="sortBy('${c.k}')"`}>${c.label}</th>`);
+  html += '</tr></thead><tbody>';
+  rows.forEach(r => {
+    html += '<tr>';
+    html += `<td>${r.confirmed ? '<span class="pill pill-both" title="Yesterday\'s breakout confirmed by today\'s candle">✓</span>' : '<span class="pill-none">—</span>'}</td>`;
+    const tradingViewSymbol = encodeURIComponent(`BINANCE:${r.symbol}.P`);
+    html += `<td><a class="sym-link" target="_blank" href="tradingview://chart/?symbol=${tradingViewSymbol}">${r.symbol}</a></td>`;
+    html += `<td>${breakoutPill(r.breakout)}</td>`;
+    html += `<td>${setupPill(r.setup)}</td>`;
+    html += `<td>${fmt(r.priceToday, 2)}</td>`;
+    html += `<td>${fmt(r.breakoutPrice, 2)}</td>`;
+    html += `<td>${fmt(r.cloudTop, 2)}</td>`;
+    html += `<td>${fmt(r.cloudBottom, 2)}</td>`;
+    html += `<td>${fmt(r.tenkanNow, 2)}</td>`;
+    html += `<td>${fmt(r.kijunNow, 2)}</td>`;
+    html += `<td>${r.volToday ? Math.round(r.volToday).toLocaleString() : '—'}</td>`;
+    html += `<td>${r.setup ? `<button class="plan-btn" type="button" onclick="openTradePlan('${r.symbol}')">Trade Plan</button>` : '<span class="pill-none">—</span>'}</td>`;
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function openTradePlan(symbol){
+  activeTrade = allResults.find(r => r.symbol === symbol && r.setup);
+  if(!activeTrade) return;
+  const isLong = activeTrade.setup === 'Long';
+  const entry = activeTrade.entryPrice;
+  const kijun = activeTrade.kijunNow;
+  const baseStop = (isLong ? kijun < entry : kijun > entry) ? kijun : null;
+  const conservativeStop = isLong ? activeTrade.cloudBottom : activeTrade.cloudTop;
+  activeTrade.plan = {entry, baseStop, conservativeStop, isLong};
+  document.getElementById('tradeTitle').textContent = `${symbol} trade plan`;
+  document.getElementById('tradeSubtitle').textContent = `${activeTrade.setup} · ${activeTrade.breakout} · ${activeTrade.confirmed ? 'confirmed' : 'setup'}`;
+  const portfolio = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
+  document.getElementById('planPortfolio').value = portfolio || '';
+  document.getElementById('portfolioStatus').textContent = portfolio ? 'Saved locally' : 'Not saved';
+  const levels = [
+    ['Entry', fmt(entry)],
+    ['Conservative stop (cloud)', fmt(conservativeStop)],
+    ['Conservative target (cloud stop, 3R)', fmt(targetFor(entry, conservativeStop, isLong, 3))]
+  ];
+  if(baseStop !== null){
+    levels.splice(1, 0, ['Base stop (Kijun)', fmt(baseStop)]);
+    levels.splice(3, 0, ['TP1 (base stop, 2R)', fmt(targetFor(entry, baseStop, isLong, 2))]);
+  }
+  document.getElementById('tradeLevels').innerHTML = levels.map(([label, value]) => `<div class="plan-card"><span class="label">${label}</span><span class="value">${value}</span></div>`).join('');
+  renderTradeSizing();
+  document.getElementById('tradeModal').classList.add('open');
+}
+
+function targetFor(entry, stop, isLong, multiple){
+  if(stop === null || !Number.isFinite(stop)) return NaN;
+  const risk = Math.abs(entry - stop);
+  return isLong ? entry + multiple * risk : entry - multiple * risk;
+}
+
+function renderTradeSizing(){
+  if(!activeTrade || !activeTrade.plan) return;
+  const portfolio = parseFloat(document.getElementById('planPortfolio').value);
+  const riskPct = parseFloat(document.getElementById('planRisk').value);
+  const {entry, baseStop, conservativeStop, isLong} = activeTrade.plan;
+  const riskAmount = portfolio * riskPct / 100;
+  const baseRisk = baseStop === null ? NaN : Math.abs(entry - baseStop);
+  const conservativeRisk = Math.abs(entry - conservativeStop);
+  const baseQuantity = baseRisk > 0 ? riskAmount / baseRisk : NaN;
+  const conservativeQuantity = conservativeRisk > 0 ? riskAmount / conservativeRisk : NaN;
+  const basePositionSize = baseQuantity * entry;
+  const conservativePositionSize = conservativeQuantity * entry;
+  const baseLeverage = portfolio > 0 ? basePositionSize / portfolio : NaN;
+  const conservativeLeverage = portfolio > 0 ? conservativePositionSize / portfolio : NaN;
+  const sizing = [
+    ['Risk amount', fmt(riskAmount, 2) + ' USDT'],
+    ['Conservative position / leverage', fmt(conservativePositionSize, 2) + ' USDT / ' + fmt(conservativeLeverage, 2) + '×']
+  ];
+  if(baseStop !== null){
+    sizing.splice(1, 0, ['Base quantity / 2R TP1', fmt(baseQuantity, 6) + ' ' + activeTrade.symbol]);
+    sizing.splice(2, 0, ['Base position / leverage', fmt(basePositionSize, 2) + ' USDT / ' + fmt(baseLeverage, 2) + '×']);
+  }
+  document.getElementById('tradeSizing').innerHTML = sizing.map(([label, value]) => `<div class="plan-card"><span class="label">${label}</span><span class="value">${value}</span></div>`).join('');
+}
+
+function savePortfolio(){
+  const value = parseFloat(document.getElementById('planPortfolio').value);
+  const status = document.getElementById('portfolioStatus');
+  if(!Number.isFinite(value) || value <= 0){
+    status.textContent = 'Enter a valid portfolio value';
+    return;
+  }
+  localStorage.setItem(PORTFOLIO_STORAGE_KEY, String(value));
+  status.textContent = 'Saved locally';
+  renderTradeSizing();
+}
+
+function closeTradePlan(event){
+  if(event && event.target !== document.getElementById('tradeModal')) return;
+  document.getElementById('tradeModal').classList.remove('open');
+  activeTrade = null;
+}
+
+function handleScreenerBackButton(){
+  const tradeModal = document.getElementById('tradeModal');
+  const analysisModal = document.getElementById('analysisModal');
+
+  if(tradeModal && tradeModal.classList.contains('open')){
+    closeTradePlan();
+    return true;
+  }
+
+  if(analysisModal && analysisModal.classList.contains('open')){
+    closeAnalysis();
+    return true;
+  }
+
+  if(window.parent && window.parent !== window && typeof window.parent.activatePage === 'function'){
+    window.parent.activatePage('screener');
+    return true;
+  }
+
+  return false;
+}
+
+document.addEventListener('backbutton', event => {
+  event.preventDefault();
+  handleScreenerBackButton();
+}, { passive: false });
+
+document.addEventListener('keydown', event => {
+  if(event.key === 'Escape'){
+    event.preventDefault();
+    handleScreenerBackButton();
+  }
+});
+
+function sortBy(key){
+  if(sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+  sortAndRender();
+}
+
+function downloadCSV(){
+  if(allResults.length === 0) return;
+  const headers = ['confirmed','symbol','breakout','setup','priceToday','breakoutPrice','cloudTop','cloudBottom','tenkanNow','kijunNow','volToday',
+                    'ckLong','pkLong','ckShort','pkShort'];
+  const lines = [headers.join(',')];
+  getFilteredResults().forEach(r => {
+    lines.push(headers.map(h => r[h]).join(','));
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const timeframeValue = document.getElementById('timeframe').value;
+  const timeframe = timeframeValue === '1w' ? 'weekly' : (timeframeValue === '4h' ? '4hour' : 'daily');
+  a.download = `ichimoku_breakout_screener_${timeframe}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+
+<div class="sub bottom-sub">Binance USDT-M Perpetual Futures only — USDC and delivery contracts excluded. Detects Chikou-span breakouts (CK) and Price/Kumo breakouts (PK), long and short, computed live from Binance data.</div>
+
+</body>
+</html>

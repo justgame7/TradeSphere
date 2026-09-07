@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto-Position-Sizing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel-2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --text-dim:#8B93A3;
+    --text-faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --short:#FF5470;
+    --short-dim:#7A2E3B;
+    --warn:#F5A623;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-display);}
+  body{
+    min-height:100vh;
+    padding:32px 20px 60px;
+    display:flex;
+    justify-content:center;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(53,224,192,0.06), transparent 40%),
+      radial-gradient(circle at 90% 20%, rgba(255,84,112,0.05), transparent 35%);
+  }
+  .wrap{width:100%;max-width:920px;}
+
+  header{margin-bottom:28px;}
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.18em;
+    color:var(--accent);
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
+  h1{font-size:28px;font-weight:700;margin:0 0 6px;letter-spacing:-0.01em;}
+  .sub{color:var(--text-dim);font-size:14px;margin:0;}
+
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    align-items:start;
+  }
+  @media (max-width:760px){ .grid{grid-template-columns:1fr;} }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:24px;
+  }
+
+  .field{margin-bottom:18px;}
+  .field:last-child{margin-bottom:0;}
+  label{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin-bottom:8px;
+  }
+  .input-row{display:flex;gap:10px;}
+  input[type=text], input[type=number]{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:16px;
+    padding:11px 12px;
+    border-radius:8px;
+    outline:none;
+    transition:border-color .15s;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus{
+    border-color:var(--accent);
+  }
+  input::placeholder{color:var(--text-faint);}
+  #coin{display:none;}
+  .coin-picker{position:relative;}
+  .coin-toggle{width:100%;display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);border:1px solid var(--border);color:var(--text);font:15px var(--font-mono);padding:11px 12px;border-radius:8px;cursor:pointer;text-align:left;}
+  .coin-toggle::after{content:'⌄';color:var(--text-dim);font-size:18px;line-height:1;}
+  .coin-toggle:hover,.coin-picker.open .coin-toggle{border-color:var(--accent);}
+  .coin-menu{display:none;position:absolute;z-index:10;top:calc(100% + 6px);left:0;right:0;padding:8px;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.35);}
+  .coin-picker.open .coin-menu{display:block;}
+  #coinSearch{margin-bottom:8px;}
+  .coin-list{max-height:400px;overflow-y:auto;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;}
+  .coin-option{display:block;width:100%;padding:10px 12px;background:transparent;border:0;border-bottom:1px solid var(--border-soft);color:var(--text);font:15px var(--font-mono);text-align:left;cursor:pointer;}
+  .coin-option:last-child{border-bottom:0;}
+  .coin-option:hover,.coin-option.selected{background:rgba(53,224,192,0.1);color:var(--accent);}
+  .coin-empty{padding:14px;color:var(--text-faint);font:12px var(--font-mono);}
+
+  select{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:15px;
+    padding:11px 12px;
+    border-radius:8px;
+    outline:none;
+    appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%238B93A3' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    padding-right:34px;
+  }
+
+  .price-box{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:11px 14px;
+    margin-top:10px;
+  }
+  .price-box .p-left{display:flex;flex-direction:column;gap:2px;}
+  .price-val{font-family:var(--font-mono);font-size:18px;font-weight:600;}
+  .price-meta{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);}
+  .refresh-btn{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--accent);
+    font-family:var(--font-mono);
+    font-size:12px;
+    padding:8px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:all .15s;
+  }
+  .refresh-btn:hover{background:rgba(53,224,192,0.08);border-color:var(--accent);}
+  .refresh-btn:disabled{opacity:.5;cursor:default;}
+  .refresh-btn.err{color:var(--short);border-color:var(--short-dim);}
+
+  .risk-pct-row{display:flex;gap:8px;align-items:center;}
+  .risk-pct-row input{flex:1;}
+  .chip-row{display:flex;gap:6px;margin-top:8px;}
+  .chip{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-dim);
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    padding:5px 10px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .chip:hover{border-color:var(--accent);color:var(--accent);}
+  .chip.active{background:rgba(53,224,192,0.1);border-color:var(--accent);color:var(--accent);}
+
+  .dir-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.06em;
+    padding:5px 10px;
+    border-radius:20px;
+    margin-top:10px;
+  }
+  .dir-long{background:rgba(53,224,192,0.1);color:var(--accent);border:1px solid var(--accent-dim);}
+  .dir-short{background:rgba(255,84,112,0.1);color:var(--short);border:1px solid var(--short-dim);}
+
+  /* Ticket */
+  .ticket{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .ticket-top{padding:24px 24px 20px;}
+  .ticket-label{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin-bottom:4px;
+  }
+  .ticket-coin{
+    font-size:22px;
+    font-weight:700;
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+  }
+  .ticket-coin .sym{color:var(--text-faint);font-size:13px;font-weight:400;font-family:var(--font-mono);}
+
+  .perf{
+    position:relative;
+    height:0;
+    border-top:1px dashed var(--border);
+    margin:0 0;
+  }
+  .perf::before, .perf::after{
+    content:'';
+    position:absolute;
+    top:-11px;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:var(--bg);
+  }
+  .perf::before{left:-11px;}
+  .perf::after{right:-11px;}
+
+  .ticket-bottom{padding:22px 24px 26px;}
+  .metric{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding:11px 0;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .metric:last-child{border-bottom:none;}
+  .metric .m-label{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--text-dim);
+  }
+  .metric .m-val{
+    font-family:var(--font-mono);
+    font-size:15px;
+    font-weight:600;
+    color:var(--text);
+  }
+  .metric.hero{
+    padding:14px 0 16px;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .metric.hero .m-label{font-size:11px;letter-spacing:0.06em;text-transform:uppercase;}
+  .metric.hero .m-val{font-size:26px;color:var(--accent);}
+  .metric.hero .m-val.short{color:var(--short);}
+
+  .metric .m-val.warn{color:var(--warn);}
+  .metric .m-val.short{color:var(--short);}
+
+  .empty-note{
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    color:var(--text-faint);
+    line-height:1.6;
+    padding:6px 0;
+  }
+
+  .lev-flag{
+    margin-top:14px;
+    background:rgba(245,166,35,0.08);
+    border:1px solid rgba(245,166,35,0.3);
+    border-radius:8px;
+    padding:10px 12px;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    color:var(--warn);
+    line-height:1.5;
+  }
+
+  footer{
+    margin-top:22px;
+    text-align:center;
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    color:var(--text-faint);
+  }
+  footer a{color:var(--text-faint);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow"><span class="dot"></span>LIVE PRICE &middot; RISK-BASED SIZING</div>
+    <h1>Position Sizer</h1>
+    <p class="sub">Set your risk, pick a coin, drop in a stop &mdash; get the quantity and position size back.</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+
+      <div class="field">
+        <label for="portfolio">Portfolio Value (USD)</label>
+        <input type="number" id="portfolio" value="14000" min="0" step="any">
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <button class="refresh-btn" type="button" id="savePortfolioBtn">Save portfolio</button>
+          <span class="price-meta" id="portfolioStatus"></span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="riskPct">Risk %</label>
+        <div class="risk-pct-row">
+          <input type="number" id="riskPct" value="1" min="0" step="0.1">
+        </div>
+        <div class="chip-row" id="riskChips">
+          <div class="chip" data-v="0.5">0.5%</div>
+          <div class="chip active" data-v="1">1%</div>
+          <div class="chip" data-v="2">2%</div>
+          <div class="chip" data-v="3">3%</div>
+          <div class="chip" data-v="5">5%</div>
+          <div class="chip" data-v="10">10%</div>
+          <div class="chip" data-v="15">15%</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="coin">Coin</label>
+        <div class="coin-picker" id="coinPicker">
+          <button type="button" class="coin-toggle" id="coinToggle" aria-expanded="false">BTC &middot; BTCUSDT</button>
+          <div class="coin-menu">
+            <input type="text" id="coinSearch" placeholder="Search coin or symbol..." autocomplete="off">
+            <div class="coin-list" id="coinList" role="listbox" aria-label="Binance USDT-M perpetual markets"></div>
+          </div>
+          <select id="coin"><option value="BTCUSDT|BTC">Bitcoin &middot; BTC</option></select>
+        </div>
+        <div class="price-box">
+          <div class="p-left">
+            <div class="price-val" id="priceVal">&mdash;</div>
+            <div class="price-meta" id="priceMeta">no price fetched yet</div>
+          </div>
+          <button class="refresh-btn" id="fetchBtn">Fetch price</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="stopLoss">Stop Loss Price (USD)</label>
+        <input type="number" id="stopLoss" placeholder="e.g. 72000" min="0" step="any">
+        <div class="chip-row" id="stopChips" style="margin-top:8px;">
+          <div class="chip" data-v="5">5%</div>
+          <div class="chip" data-v="10">10%</div>
+          <div class="chip" data-v="15">15%</div>
+          <div class="chip" data-v="20">20%</div>
+          <div class="chip" data-v="25">25%</div>
+          <div class="chip" data-v="30">30%</div>
+          <div class="chip" data-v="50">50%</div>
+        </div>
+        <div id="dirBadge"></div>
+      </div>
+
+    </div>
+
+    <!-- TICKET / OUTPUT -->
+    <div class="ticket">
+      <div class="ticket-top">
+        <div class="ticket-label">Trade Ticket</div>
+        <div class="ticket-coin" id="ticketCoin">BTC <span class="sym">&middot; not sized yet</span></div>
+      </div>
+      <div class="perf"></div>
+      <div class="ticket-bottom" id="ticketBody">
+        <div class="empty-note">Enter a portfolio value, fetch a price, and set a stop loss to see quantity and position size here.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>Prices via Binance USDT-M perpetual futures &middot; verify on your exchange before executing &middot; not financial advice</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+const portfolioEl = $('portfolio');
+const riskPctEl = $('riskPct');
+const coinEl = $('coin');
+const coinSearchEl = $('coinSearch');
+const coinListEl = $('coinList');
+const coinPickerEl = $('coinPicker');
+const coinToggleEl = $('coinToggle');
+const stopLossEl = $('stopLoss');
+const fetchBtn = $('fetchBtn');
+const priceVal = $('priceVal');
+const priceMeta = $('priceMeta');
+const dirBadge = $('dirBadge');
+const ticketCoin = $('ticketCoin');
+const ticketBody = $('ticketBody');
+const riskChips = $('riskChips');
+const savePortfolioBtn = $('savePortfolioBtn');
+const portfolioStatus = $('portfolioStatus');
+const PORTFOLIO_STORAGE_KEY = 'crypto-screener-portfolio-usdt';
+
+let currentPrice = null;
+let currentSymbol = 'BTC';
+let binanceCoins = [];
+
+function getBinanceSymbol(){
+  return coinEl.value.split('|')[0];
+}
+function getSymbol(){
+  return coinEl.value.split('|')[1] || '???';
+}
+
+coinEl.addEventListener('change', ()=>{
+  coinToggleEl.textContent = `${getSymbol()} · ${getBinanceSymbol()}`;
+  currentPrice = null;
+  priceVal.textContent = '\u2014';
+  priceMeta.textContent = 'no price fetched yet';
+  fetchBtn.classList.remove('err');
+  fetchBtn.textContent = 'Fetch price';
+  compute();
+});
+
+riskChips.addEventListener('click', (e)=>{
+  const chip = e.target.closest('.chip');
+  if(!chip) return;
+  [...riskChips.children].forEach(c=>c.classList.remove('active'));
+  chip.classList.add('active');
+  riskPctEl.value = chip.dataset.v;
+  compute();
+});
+
+const stopChips = $('stopChips');
+
+stopChips.addEventListener('click', (e)=>{
+  const chip = e.target.closest('.chip');
+  if(!chip || !currentPrice) return;
+
+  // Optional: clear active class from other stop chips
+  [...stopChips.children].forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+
+  const pct = parseFloat(chip.dataset.v);
+
+  // Decide long/short based on existing stop input if present
+  let isLong = true; // default to long
+  if(stopLossEl.value){
+    const existingStop = parseFloat(stopLossEl.value);
+    isLong = existingStop < currentPrice;
+  }
+
+  let stopPrice;
+  if(isLong){
+    // Long: stop below price
+    stopPrice = currentPrice * (1 - pct/100);
+  } else {
+    // Short: stop above price
+    stopPrice = currentPrice * (1 + pct/100);
+  }
+
+  stopLossEl.value = stopPrice.toFixed(2);
+  compute();
+});
+
+async function fetchPrice(){
+  const binanceSymbol = getBinanceSymbol();
+  const symbol = getSymbol();
+  if(!binanceSymbol){
+    priceMeta.textContent = 'select a Binance contract first';
+    return;
+  }
+  fetchBtn.disabled = true;
+  fetchBtn.textContent = 'Fetching\u2026';
+  fetchBtn.classList.remove('err');
+  try{
+    const res = await fetch(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodeURIComponent(binanceSymbol)}`);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if(!data || !Number.isFinite(Number(data.price))){
+      throw new Error('price unavailable');
+    }
+    currentPrice = Number(data.price);
+    currentSymbol = symbol;
+    priceVal.textContent = formatUSD(currentPrice);
+    priceMeta.textContent = 'updated ' + new Date().toLocaleTimeString();
+    fetchBtn.textContent = 'Refresh';
+  }catch(err){
+    fetchBtn.classList.add('err');
+    fetchBtn.textContent = 'Retry';
+    priceMeta.textContent = 'fetch failed \u2014 ' + err.message;
+  }finally{
+    fetchBtn.disabled = false;
+    compute();
+  }
+}
+
+async function loadBinanceCoins(){
+  try{
+    const [exchangeRes, tickerRes] = await Promise.all([
+      fetch('https://fapi.binance.com/fapi/v1/exchangeInfo'),
+      fetch('https://fapi.binance.com/fapi/v1/ticker/24hr')
+    ]);
+    if(!exchangeRes.ok || !tickerRes.ok) throw new Error('Binance market data unavailable');
+    const exchangeData = await exchangeRes.json();
+    const tickerData = await tickerRes.json();
+    const perpetuals = new Map(exchangeData.symbols
+      .filter(item => item.status === 'TRADING' && item.quoteAsset === 'USDT' && item.contractType === 'PERPETUAL')
+      .map(item => [item.symbol, item]));
+    binanceCoins = tickerData
+      .filter(item => perpetuals.has(item.symbol))
+      .sort((first, second) => Number(second.quoteVolume) - Number(first.quoteVolume))
+      .map(item => perpetuals.get(item.symbol));
+    if(!binanceCoins.length) throw new Error('No Binance contracts returned');
+    renderBinanceCoins();
+    coinEl.dispatchEvent(new Event('change'));
+  }catch(error){
+    priceMeta.textContent = 'could not load Binance contracts';
+  }
+}
+
+function renderBinanceCoins(){
+  const query = coinSearchEl.value.trim().toUpperCase();
+  const selected = coinEl.value;
+  const filtered = binanceCoins.filter(item => !query || item.baseAsset.includes(query) || item.symbol.includes(query));
+  coinEl.innerHTML = filtered.map(item => `<option value="${item.symbol}|${item.baseAsset}">${item.baseAsset} &middot; ${item.symbol}</option>`).join('');
+  if(filtered.some(item => `${item.symbol}|${item.baseAsset}` === selected)) coinEl.value = selected;
+  coinListEl.innerHTML = filtered.length
+    ? filtered.map(item => `<button type="button" class="coin-option${`${item.symbol}|${item.baseAsset}` === coinEl.value ? ' selected' : ''}" data-value="${item.symbol}|${item.baseAsset}" role="option">${item.baseAsset} &middot; ${item.symbol}</button>`).join('')
+    : '<div class="coin-empty">No matching Binance markets</div>';
+}
+
+fetchBtn.addEventListener('click', fetchPrice);
+coinSearchEl.addEventListener('input', renderBinanceCoins);
+coinToggleEl.addEventListener('click', ()=>{
+  const isOpen = coinPickerEl.classList.toggle('open');
+  coinToggleEl.setAttribute('aria-expanded', String(isOpen));
+  if(isOpen) coinSearchEl.focus();
+});
+coinListEl.addEventListener('click', event => {
+  const option = event.target.closest('.coin-option');
+  if(!option) return;
+  coinEl.value = option.dataset.value;
+  coinSearchEl.value = '';
+  renderBinanceCoins();
+  coinEl.dispatchEvent(new Event('change'));
+  coinPickerEl.classList.remove('open');
+  coinToggleEl.setAttribute('aria-expanded', 'false');
+});
+document.addEventListener('click', event => {
+  if(!coinPickerEl.contains(event.target)){
+    coinPickerEl.classList.remove('open');
+    coinToggleEl.setAttribute('aria-expanded', 'false');
+  }
+});
+savePortfolioBtn.addEventListener('click', savePortfolio);
+[portfolioEl, riskPctEl, stopLossEl].forEach(el=>{
+  el.addEventListener('input', compute);
+});
+loadBinanceCoins();
+
+function savePortfolio(){
+  const value = parseFloat(portfolioEl.value);
+  if(!Number.isFinite(value) || value <= 0){
+    portfolioStatus.textContent = 'Enter a valid portfolio value';
+    return;
+  }
+  localStorage.setItem(PORTFOLIO_STORAGE_KEY, String(value));
+  portfolioStatus.textContent = 'Saved locally';
+  compute();
+}
+
+function formatUSD(n){
+  if(n === null || n === undefined || isNaN(n)) return '\u2014';
+  const abs = Math.abs(n);
+  let maxFrac = 2;
+  if(abs > 0 && abs < 1) maxFrac = 6;
+  else if(abs < 100) maxFrac = 4;
+  return n.toLocaleString('en-US', {style:'currency', currency:'USD', minimumFractionDigits:2, maximumFractionDigits:maxFrac});
+}
+function formatQty(n){
+  if(n === null || n === undefined || isNaN(n) || !isFinite(n)) return '\u2014';
+  const abs = Math.abs(n);
+  let frac = 4;
+  if(abs >= 1000) frac = 2;
+  else if(abs < 1) frac = 6;
+  return n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:frac});
+}
+
+function compute(){
+  const portfolio = parseFloat(portfolioEl.value);
+  const riskPct = parseFloat(riskPctEl.value);
+  const stop = parseFloat(stopLossEl.value);
+  const symbol = getSymbol();
+
+  ticketCoin.innerHTML = symbol + ' <span class="sym">' + (currentPrice ? '&middot; live' : '&middot; not sized yet') + '</span>';
+
+  // direction badge
+  if(currentPrice && !isNaN(stop) && stop > 0){
+    if(stop < currentPrice){
+      dirBadge.innerHTML = '<span class="dir-badge dir-long">\u25B2 LONG &middot; stop below price</span>';
+    } else if(stop > currentPrice){
+      dirBadge.innerHTML = '<span class="dir-badge dir-short">\u25BC SHORT &middot; stop above price</span>';
+    } else {
+      dirBadge.innerHTML = '';
+    }
+  } else {
+    dirBadge.innerHTML = '';
+  }
+
+  if(!portfolio || !riskPct || !currentPrice || !stop || stop === currentPrice){
+    let missing = [];
+    if(!portfolio) missing.push('portfolio value');
+    if(!riskPct) missing.push('risk %');
+    if(!currentPrice) missing.push('a fetched price');
+    if(!stop) missing.push('stop loss');
+    if(currentPrice && stop === currentPrice) missing.push('a stop different from current price');
+    ticketBody.innerHTML = '<div class="empty-note">Still need: ' + missing.join(', ') + '.</div>';
+    return;
+  }
+
+  const riskAmount = portfolio * (riskPct/100);
+  const priceDiff = Math.abs(currentPrice - stop);
+  const stopDistPct = (priceDiff / currentPrice) * 100;
+  const quantity = riskAmount / priceDiff;
+  const positionSize = quantity * currentPrice;
+  const positionPctOfPortfolio = (positionSize / portfolio) * 100;
+  const isShort = stop > currentPrice;
+  const impliedLeverage = positionSize / portfolio;
+
+  let html = '';
+  html += metricRow('Risk Amount', formatUSD(riskAmount), '');
+  html += metricRow('Stop Distance', stopDistPct.toFixed(2) + '%', '');
+  html += heroRow('Quantity', formatQty(quantity) + ' ' + symbol, isShort);
+  html += heroRow('Position Size', formatUSD(positionSize), isShort, true);
+  html += metricRow('% of Portfolio', positionPctOfPortfolio.toFixed(1) + '%', positionPctOfPortfolio > 100 ? 'warn' : '');
+
+  ticketBody.innerHTML = html;
+
+  if(impliedLeverage > 1.02){
+    ticketBody.innerHTML += '<div class="lev-flag">This position is ' + impliedLeverage.toFixed(2) + '&times; your portfolio value \u2014 you\'d need margin/leverage of about ' + impliedLeverage.toFixed(2) + '\u00d7 to take it as sized.</div>';
+  }
+}
+
+function metricRow(label, val, cls){
+  return '<div class="metric"><span class="m-label">' + label + '</span><span class="m-val ' + (cls||'') + '">' + val + '</span></div>';
+}
+function heroRow(label, val, isShort, small){
+  return '<div class="metric hero"><span class="m-label">' + label + '</span><span class="m-val' + (isShort?' short':'') + '">' + val + '</span></div>';
+}
+
+// init
+const savedPortfolio = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
+if(savedPortfolio){
+  portfolioEl.value = savedPortfolio;
+  portfolioStatus.textContent = 'Saved locally';
+}
+compute();
+</script>
+</body>
+</html>

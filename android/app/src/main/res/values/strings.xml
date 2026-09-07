@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TradeSphere</string>
+    <string name="title_activity_main">TradeSphere</string>
+    <string name="package_name">com.cryptoscreener.ichimoku</string>
+    <string name="custom_url_scheme">com.cryptoscreener.ichimoku</string>
+</resources>

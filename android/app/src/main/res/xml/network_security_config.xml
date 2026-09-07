@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Blocks any plaintext (non-HTTPS) network request app-wide. Every
+         remote source this app talks to (Binance, CoinGecko, the Cloudflare
+         Worker proxy, RSS sources) is already HTTPS-only, so this closes off
+         accidental/future cleartext requests rather than changing behavior. -->
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>
