@@ -74,7 +74,7 @@ const PARAMS = {
   minVolume: 10_000_000,
 };
 
-const CONCURRENCY = 2; // lowered again from 3 - concurrent bursts (not just sustained rate) were tripping OKX's 429, so pacing (below) matters more than lane count now
+const CONCURRENCY = 1; // fully serial - even 2 lanes were still bursting enough to trip OKX's 429 at a meaningful rate; the pacing throttle below now does all the rate control
 
 // Same Cloudflare Worker proxy the rest of the TradeSphere suite uses.
 // www.okx.com must be in the Worker's ALLOWED_HOSTS.
@@ -94,7 +94,7 @@ function sleep(ms) {
 // after cutting concurrency 8 -> 3. This enforces a minimum gap between the
 // start of any two requests across ALL lanes, so requests get spread out in
 // time regardless of how many lanes are running concurrently.
-const MIN_REQUEST_GAP_MS = 180;
+const MIN_REQUEST_GAP_MS = 500; // 180ms still left 145/458 erroring at concurrency 2 - going wider now that a longer total runtime is acceptable
 let nextSlot = 0;
 
 async function throttle() {
@@ -121,8 +121,9 @@ async function fetchWithTimeout(url, ms = 15000) {
 // host. This is separate from the host-fallback loop below: a 429 means
 // "you're going too fast", not "this host is broken" - retrying the SAME
 // host after a pause is the correct response, not immediately failing over.
-const MAX_429_RETRIES = 5;
-const BASE_BACKOFF_MS = 800;
+const MAX_429_RETRIES = 8;
+const BASE_BACKOFF_MS = 1000;
+const MAX_BACKOFF_MS = 12000; // cap so a single symbol's worst case stays bounded even with 8 retries
 
 async function fetchOnce(target) {
   await throttle();
@@ -164,7 +165,7 @@ async function fetchJSON(path) {
       } catch (e) {
         lastErr = e;
         if (e.isRateLimit && attempt < MAX_429_RETRIES) {
-          const delay = BASE_BACKOFF_MS * 2 ** attempt + Math.random() * 300;
+          const delay = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** attempt) + Math.random() * 300;
           await sleep(delay);
           continue; // retry same host, don't fall through to the next one yet
         }
