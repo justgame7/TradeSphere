@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prediction Markets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(53,224,192,0.06), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  /* ---- Top header ---- */
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .refresh-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 18px;max-width:720px;}
+
+  /* ---- Disclaimer / about panel ---- */
+  .notice{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin:22px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);
+  }
+  .notice b{color:var(--text);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{
+    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 13px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, color .15s, border-color .15s;
+  }
+  .notice-toggle:hover{border-color:var(--accent);color:var(--accent);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{
+    display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
+  }
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;}
+  .src-tag.polymarket .dot{background:var(--blue);}
+
+  .degraded-banner{
+    background:rgba(255,84,112,.08);border:1px solid rgba(255,84,112,.25);color:#ffb3c1;
+    border-radius:10px;padding:10px 14px;font:12px var(--font-mono);margin-bottom:18px;
+    display:none;
+  }
+  .degraded-banner.show{display:block;}
+
+  /* ---- Topic grid ---- */
+  .topic-grid{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media(min-width:760px){ .topic-grid{grid-template-columns:1fr 1fr;} }
+
+  .topic-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:16px 18px;display:flex;flex-direction:column;gap:12px;
+    transition:border-color .15s, transform .15s;
+  }
+  .topic-card:hover{border-color:var(--border-soft);transform:translateY(-2px);}
+  .topic-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .topic-title{font-size:16.5px;font-weight:700;line-height:1.35;}
+  .topic-blurb{color:var(--faint);font-size:12.5px;line-height:1.5;margin-top:3px;}
+
+  .poll{
+    background:var(--panel2);border:1px solid var(--border-soft);border-radius:10px;
+    padding:11px 12px;display:flex;flex-direction:column;gap:7px;
+    transition:border-color .15s;
+  }
+  .poll:hover{border-color:var(--border);}
+  .poll-head-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .poll-meta{font:11px var(--font-mono);color:var(--faint);white-space:nowrap;flex-shrink:0;}
+  .poll-question{font-size:14.5px;font-weight:600;line-height:1.4;color:var(--text);flex:1;min-width:0;}
+
+  .outcome-row{display:flex;flex-direction:column;gap:3px;}
+  .outcome-label-row{display:flex;justify-content:space-between;align-items:baseline;font:13px var(--font-mono);}
+  .outcome-label-row .lbl{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;}
+  .outcome-label-row .pct{color:var(--text);font-weight:700;flex-shrink:0;}
+  .outcome-bar-bg{height:6px;border-radius:4px;background:var(--border-soft);overflow:hidden;}
+  .outcome-bar-fill{height:100%;border-radius:4px;background:var(--accent);transition:width .5s ease;}
+  .outcome-bar-fill.c1{background:var(--accent);}
+  .outcome-bar-fill.c2{background:var(--blue);}
+  .outcome-bar-fill.c3{background:var(--amber);}
+  .outcome-bar-fill.c4{background:var(--violet);}
+
+  .poll-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px;}
+  .poll-vol{font:12px var(--font-mono);color:var(--faint);}
+  .poll-link{
+    font:600 12px var(--font-mono);color:var(--accent);text-decoration:none;
+    display:inline-flex;align-items:center;gap:4px;
+  }
+  .poll-link:hover{text-decoration:underline;}
+
+  .topic-empty{color:var(--faint);font:11.5px var(--font-mono);padding:6px 2px;}
+
+  .page-skeleton{display:flex;flex-direction:column;gap:14px;}
+  .skel-card{height:170px;border-radius:14px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 37%,var(--panel) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  .error-state{
+    padding:34px 20px;text-align:center;color:#ffb3c1;font:12.5px var(--font-mono);
+    border:1px dashed rgba(255,84,112,.3);border-radius:12px;line-height:1.7;
+  }
+  .retry-btn{
+    margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:8px 16px;border-radius:8px;font:600 12px var(--font-mono);cursor:pointer;
+  }
+  .retry-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  .page-footer{color:var(--faint);font-size:11.5px;line-height:1.6;margin-top:26px;padding-top:16px;border-top:1px solid var(--border-soft);max-width:700px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Prediction Markets</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="sub">Live implied odds on macro and crypto-policy events that tend to move the market: Fed decisions, inflation prints, ETFs, and pending crypto legislation.</p>
+
+  <div class="degraded-banner" id="degradedBanner"></div>
+
+  <div id="content"></div>
+
+  <div class="notice">
+    <div class="notice-summary">
+      <b>Read-only market data, not a trading venue.</b>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+    </div>
+    <div class="notice-details" id="noticeDetails" hidden>
+      Odds shown are implied probabilities (the current price of a "Yes" contract) pulled directly from Polymarket's public data feed, for research and context only — this page doesn't place trades or hold funds. Polymarket's own availability varies by jurisdiction. Check local rules before trading.
+      <div class="src-tags">
+        <span class="src-tag polymarket"><span class="dot"></span>Polymarket · gamma-api.polymarket.com</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">Each card shows the single most actively-traded matching market per topic on Polymarket. Refreshes automatically on open and every 15 minutes, or tap the refresh button any time. Not financial advice.</div>
+</div>
+
+<script>
+// ============================================================================
+// TOPICS - hand-picked, crypto-relevant prediction-market subjects. Polymarket
+// is queried live via free-text search (its /public-search endpoint actually
+// supports this, unlike its /events endpoint).
+// ============================================================================
+const TOPICS = [
+  {
+    id: 'fed-rate',
+    label: 'Next Fed rate decision',
+    blurb: 'Cuts/hikes drive risk appetite and crypto liquidity directly.',
+    pmQuery: 'fed interest rate decision',
+  },
+  {
+    id: 'cpi',
+    label: 'CPI / inflation print',
+    blurb: 'Hot CPI = fewer cuts priced in = usually risk-off for crypto.',
+    pmQuery: 'CPI inflation report',
+  },
+  {
+    id: 'recession',
+    label: 'US recession odds',
+    blurb: 'Recession calls reprice risk assets broadly, crypto included.',
+    pmQuery: 'US recession 2026',
+  },
+  {
+    id: 'btc-price',
+    label: 'Bitcoin price targets',
+    blurb: 'Where the market thinks BTC ends up by a given date.',
+    pmQuery: 'bitcoin price by end of year',
+  },
+  {
+    id: 'eth-price',
+    label: 'Ethereum price targets',
+    blurb: 'ETH-specific price milestones traders are pricing in.',
+    pmQuery: 'ethereum price by end of year',
+  },
+  {
+    id: 'sol-price',
+    label: 'Solana price targets',
+    blurb: 'SOL price milestones and comparative strength vs ETH.',
+    pmQuery: 'solana price target',
+  },
+  {
+    id: 'stablecoin-act',
+    label: 'Stablecoin regulation (GENIUS Act)',
+    blurb: 'Federal stablecoin framework — direct impact on USDT/USDC rails.',
+    pmQuery: 'GENIUS Act stablecoin regulation',
+  },
+  {
+    id: 'market-structure-act',
+    label: 'Crypto market structure bill (CLARITY Act)',
+    blurb: 'Defines SEC vs CFTC jurisdiction over crypto assets.',
+    pmQuery: 'CLARITY Act crypto market structure bill',
+  },
+  {
+    id: 'crypto-etf',
+    label: 'New crypto ETF approvals',
+    blurb: 'Spot ETF decisions for altcoins beyond BTC/ETH (SOL, XRP, etc).',
+    pmQuery: 'SEC crypto ETF approval',
+  },
+  {
+    id: 'gov-shutdown',
+    label: 'US government shutdown',
+    blurb: 'Shutdowns delay economic data releases the market trades around.',
+    pmQuery: 'government shutdown',
+  },
+  {
+    id: 'fed-chair',
+    label: 'Fed leadership / chair outlook',
+    blurb: 'Who runs the Fed shapes the rate path markets price in.',
+    pmQuery: 'next Federal Reserve chair',
+  },
+];
+
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+const PROXY_TIMEOUT_MS = 8000;
+const CACHE_KEY = 'crypto-prediction-markets-cache-v1';
+
+// Reuse the same personal Cloudflare Worker already used by youtube.html/news.html
+// for CORS passthrough. IMPORTANT: if your Worker has a target-domain allowlist,
+// make sure gamma-api.polymarket.com is on it, or these requests will be
+// rejected by the Worker itself even though the Worker is reachable.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function fetchJSONDirect(url){
+  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+// Worker first (most reliable, also routes around any ISP-level block on the
+// target domain since the request originates from the Worker's edge, not the
+// user's network), then race the public CORS proxies as fallback.
+async function fetchJSONViaProxyChain(url){
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker HTTP ' + res.status);
+      return await res.json();
+    }catch(err){
+      console.warn('[proxy] worker failed:', err && err.message);
+    }
+  }
+  return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
+    const res = await fetchWithTimeout(buildProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('proxy HTTP ' + res.status);
+    return await res.json();
+  })()));
+}
+
+// ---------------- Polymarket ----------------
+// Direct fetch first since Gamma is a fully public, CORS-open API; falls back
+// to the proxy chain only if that fails (network hiccup, temporary CORS issue).
+async function fetchPolymarket(topic){
+  const url = `https://gamma-api.polymarket.com/public-search?q=${encodeURIComponent(topic.pmQuery)}`;
+  let data;
+  try{
+    data = await fetchJSONDirect(url);
+  }catch(err){
+    data = await fetchJSONViaProxyChain(url);
+  }
+  const events = Array.isArray(data && data.events) ? data.events : [];
+  if(!events.length) return null;
+
+  // Prefer an open (not closed) event with the highest volume.
+  const candidates = events.filter(e => !e.closed && Array.isArray(e.markets) && e.markets.length);
+  const pool = candidates.length ? candidates : events.filter(e => Array.isArray(e.markets) && e.markets.length);
+  if(!pool.length) return null;
+  const event = pool.reduce((best, e) => (parseFloat(e.volume) || 0) > (parseFloat(best.volume) || 0) ? e : best, pool[0]);
+
+  let outcomes = [];
+  if(event.markets.length === 1){
+    const m = event.markets[0];
+    const labels = safeParseArray(m.outcomes);
+    const prices = safeParseArray(m.outcomePrices).map(Number);
+    outcomes = labels.map((label, i) => ({ label, prob: prices[i] || 0 }));
+  }else{
+    outcomes = event.markets.map(m => {
+      const prices = safeParseArray(m.outcomePrices).map(Number);
+      return { label: m.groupItemTitle || m.question || '?', prob: prices[0] || 0 };
+    });
+  }
+  outcomes.sort((a, b) => b.prob - a.prob);
+  outcomes = outcomes.slice(0, 4);
+  if(!outcomes.length) return null;
+
+  return {
+    source: 'Polymarket',
+    question: event.title || event.markets[0].question || topic.label,
+    outcomes,
+    volume: parseFloat(event.volume) || 0,
+    endDate: event.endDate || null,
+    url: event.slug ? `https://polymarket.com/event/${event.slug}` : 'https://polymarket.com'
+  };
+}
+
+function safeParseArray(value){
+  if(Array.isArray(value)) return value;
+  if(typeof value !== 'string') return [];
+  try{ const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; }
+  catch(err){ return []; }
+}
+
+// ---------------- Formatting ----------------
+function fmtPct(p){ return Math.round((p || 0) * 100) + '%'; }
+function fmtVolume(v){
+  if(!v) return '';
+  if(v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M vol';
+  if(v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K vol';
+  return '$' + Math.round(v) + ' vol';
+}
+function fmtEndDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  const diffDays = Math.round((d.getTime() - Date.now()) / 86400000);
+  const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if(diffDays < 0) return dateStr;
+  if(diffDays === 0) return `${dateStr} · today`;
+  if(diffDays === 1) return `${dateStr} · tmrw`;
+  return `${dateStr} · ${diffDays}d`;
+}
+function escapeHtml(value){
+  return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+}
+
+// ---------------- Rendering ----------------
+function renderPoll(poll){
+  const barColors = ['c1', 'c2', 'c3', 'c4'];
+  const outcomeRows = poll.outcomes.map((o, i) => `
+    <div class="outcome-row">
+      <div class="outcome-label-row"><span class="lbl">${escapeHtml(o.label)}</span><span class="pct">${fmtPct(o.prob)}</span></div>
+      <div class="outcome-bar-bg"><div class="outcome-bar-fill ${barColors[i % barColors.length]}" style="width:${Math.max(2, Math.round(o.prob * 100))}%"></div></div>
+    </div>`).join('');
+
+  return `
+    <div class="poll">
+      <div class="poll-head-row">
+        <div class="poll-question">${escapeHtml(poll.question)}</div>
+        <span class="poll-meta">${escapeHtml(fmtEndDate(poll.endDate))}</span>
+      </div>
+      ${outcomeRows}
+      <div class="poll-foot">
+        <span class="poll-vol">${escapeHtml(fmtVolume(poll.volume))}</span>
+        <a class="poll-link" href="${poll.url}" target="_blank" rel="noopener noreferrer">View ↗</a>
+      </div>
+    </div>`;
+}
+
+function renderTopics(results){
+  const el = document.getElementById('content');
+  const cards = TOPICS.map(topic => {
+    const r = results[topic.id];
+    if(!r || !r.polymarket) return '';
+    const polls = renderPoll(r.polymarket);
+    return `
+      <div class="topic-card">
+        <div class="topic-head">
+          <div><div class="topic-title">${escapeHtml(topic.label)}</div><div class="topic-blurb">${escapeHtml(topic.blurb)}</div></div>
+        </div>
+        ${polls}
+      </div>`;
+  }).filter(Boolean);
+
+  if(!cards.length){
+    el.innerHTML = `<div class="error-state">No live markets matched right now.<br><button class="retry-btn" id="retryBtn" type="button">Try again</button></div>`;
+    document.getElementById('retryBtn').addEventListener('click', loadAll);
+    return;
+  }
+  el.innerHTML = `<div class="topic-grid">${cards.join('')}</div>`;
+}
+
+function renderSkeleton(){
+  document.getElementById('content').innerHTML = `<div class="page-skeleton">${'<div class="skel-card"></div>'.repeat(4)}</div>`;
+}
+
+function updateLastUpdatedLabel(failed){
+  const el = document.getElementById('updatedLabel');
+  el.classList.toggle('label-error', !!failed);
+  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed - see console' : ''; return; }
+  const mins = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 60000));
+  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  el.textContent = (failed ? 'Refresh failed, showing cached · ' : 'Updated ') + ago;
+}
+
+function showDegradedBanner(text){
+  const el = document.getElementById('degradedBanner');
+  if(!text){ el.classList.remove('show'); el.textContent = ''; return; }
+  el.textContent = text;
+  el.classList.add('show');
+}
+
+// ---------------- Cache (stale-while-revalidate, same pattern as youtube.html) ----------------
+let lastResults = null;
+let lastUpdated = null;
+
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
+      results: lastResults
+    }));
+  }catch(err){ /* storage unavailable - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.results) return false;
+    lastResults = cached.results;
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+
+// ---------------- Main load ----------------
+async function loadAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  if(lastResults){
+    renderTopics(lastResults);
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  let pmFailures = 0;
+  const results = {};
+
+  await Promise.all(TOPICS.map(async topic => {
+    let pm = null;
+    try{
+      pm = await fetchPolymarket(topic);
+    }catch(err){
+      pmFailures++;
+      console.warn(`[${topic.label}] Polymarket failed:`, err && err.message);
+    }
+    results[topic.id] = { polymarket: pm };
+  }));
+
+  const anyResult = Object.values(results).some(r => r.polymarket);
+  let failed = false;
+
+  if(!anyResult){
+    failed = true;
+    if(!lastResults){
+      document.getElementById('content').innerHTML = `
+        <div class="error-state">
+          Couldn't load any prediction-market data right now (Polymarket unavailable).<br>
+          If you have a Cloudflare Worker configured for this app, make sure gamma-api.polymarket.com
+          is allowed through it. Check the console for per-topic errors.
+          <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+        </div>`;
+      document.getElementById('retryBtn').addEventListener('click', loadAll);
+    }
+  }else{
+    lastResults = results;
+    lastUpdated = new Date();
+    saveCache();
+    renderTopics(results);
+  }
+
+  // Non-blocking heads-up if Polymarket failed for some (but not all) topics
+  // this refresh - the full-failure case is already covered by the error
+  // state above, so no banner needed there.
+  if(pmFailures > 0 && anyResult){
+    showDegradedBanner(`Polymarket data unavailable for ${pmFailures} of ${TOPICS.length} topics this refresh.`);
+  }else{
+    showDegradedBanner(null);
+  }
+
+  updateLastUpdatedLabel(failed);
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+document.getElementById('noticeToggle').addEventListener('click', () => {
+  const btn = document.getElementById('noticeToggle');
+  const details = document.getElementById('noticeDetails');
+  const willOpen = details.hidden;
+  details.hidden = !willOpen;
+  btn.classList.toggle('open', willOpen);
+  btn.setAttribute('aria-expanded', String(willOpen));
+});
+
+loadCache();
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL_MS);
+setInterval(updateLastUpdatedLabel, 60000);
+</script>
+</body>
+</html>

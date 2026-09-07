@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TradeSphere</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0e17">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0e17;
+    --panel:#131826;
+    --panel2:#1a2033;
+    --border:#242c42;
+    --border-soft:#1c2334;
+    --text:#e6e9f2;
+    --muted:#8b93a8;
+    --faint:#5b6478;
+    --purple:#8b5cf6;
+    --accent:#35e0c0;
+    --red:#ff5470;
+    --amber:#f5a623;
+    --blue:#5b8cff;
+    --font-ui:'Space Grotesk',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;
+    height:100%;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-ui);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    height:100dvh;
+  }
+
+  /* ---- Top bar ---- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:calc(12px + env(safe-area-inset-top)) 14px 12px calc(10px + env(safe-area-inset-left));
+    background:var(--panel);
+    border-bottom:1px solid var(--border-soft);
+    box-shadow:0 2px 16px rgba(0,0,0,.22);
+    flex-shrink:0;
+    z-index:20;
+    position:relative;
+  }
+  .hamburger{
+    background:transparent;
+    border:none;
+    color:var(--text);
+    width:38px;
+    height:38px;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    transition:background .15s ease, transform .1s ease;
+  }
+  .hamburger:hover{background:var(--panel2);}
+  .hamburger:active{transform:scale(.92);background:var(--panel2);}
+  .hamburger svg{width:20px;height:20px;}
+  .topbar-title{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:0;
+    min-height:0;
+    transform:translateX(-16px);
+  }
+  .topbar-logo{
+    height:calc(100% - 12px);
+    max-height:44px;
+    width:auto;
+    display:block;
+    object-fit:contain;
+    filter:drop-shadow(0 6px 14px rgba(114, 122, 255, 0.28));
+  }
+  .topbar-title .page-sub{
+    color:var(--muted);
+    font-weight:500;
+    font-size:12px;
+    margin-left:8px;
+  }
+
+  /* ---- Drawer ---- */
+  .backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(4,6,12,.6);
+    backdrop-filter:blur(2px);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s;
+    z-index:30;
+  }
+  .backdrop.open{opacity:1;pointer-events:auto;}
+
+  .drawer{
+    position:fixed;
+    top:0;
+    left:0;
+    bottom:0;
+    width:280px;
+    max-width:82vw;
+    background:var(--panel);
+    border-right:1px solid var(--border-soft);
+    box-shadow:8px 0 32px rgba(0,0,0,.35);
+    transform:translateX(-100%);
+    transition:transform .24s cubic-bezier(.2,.8,.2,1);
+    z-index:31;
+    display:flex;
+    flex-direction:column;
+    padding:calc(16px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+  }
+  .drawer.open{transform:translateX(0);}
+
+  .drawer-header{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:6px 8px 20px 8px;
+  }
+  .drawer-header .brand-icon{
+    width:34px;height:34px;
+    border-radius:10px;
+    background:linear-gradient(135deg, var(--purple), #6d28d9);
+    box-shadow:0 4px 14px rgba(139,92,246,.35);
+    display:flex;align-items:center;justify-content:center;
+    font-size:17px;
+    flex-shrink:0;
+  }
+  .drawer-header .brand-name{
+    font-size:16.5px;
+    font-weight:800;
+    letter-spacing:-.01em;
+    background:linear-gradient(90deg, #ffffff 0%, #edfdf4 32%, #7fe4b6 58%, #2ac78a 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+
+  .drawer-nav{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    margin:0 -4px;
+    padding:0 4px;
+  }
+  .drawer-nav::-webkit-scrollbar{width:5px;}
+  .drawer-nav::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+  .drawer-nav::-webkit-scrollbar-track{background:transparent;}
+
+  .nav-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:11px 12px;
+    border-radius:12px;
+    cursor:pointer;
+    color:var(--text);
+    font-size:14px;
+    font-weight:600;
+    margin-bottom:2px;
+    user-select:none;
+    transition:background .15s ease, transform .1s ease;
+  }
+  .nav-item:hover{background:var(--panel2);}
+  .nav-item:active{transform:scale(.98);}
+  .nav-item.active{
+    background:rgba(139,92,246,.16);
+    color:#fff;
+  }
+  .nav-item .nav-icon{
+    width:20px;
+    height:20px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:16px;
+  }
+  .nav-item .nav-label small{
+    display:block;
+    color:var(--muted);
+    font-weight:500;
+    font-size:11px;
+    margin-top:1px;
+  }
+  .nav-item.active .nav-label small{color:rgba(230,233,242,.7);}
+
+  .drawer-tools{
+    padding:0 12px 10px;
+    display:flex;
+    justify-content:flex-end;
+  }
+  .settings-button{
+    width:38px;
+    height:38px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--border);
+    background:rgba(139,92,246,.12);
+    color:var(--text);
+    border-radius:10px;
+    padding:0;
+    cursor:pointer;
+    transition:background .15s ease, border-color .15s ease, transform .1s ease;
+  }
+  .settings-button svg{width:18px;height:18px;}
+  .settings-button:hover{border-color:var(--purple);background:rgba(139,92,246,.2);}
+  .settings-button:active{transform:scale(.92);}
+
+  .drawer-footer{
+    padding:10px 12px 4px;
+    font-size:11px;
+    color:var(--faint);
+    border-top:1px solid var(--border-soft);
+    padding-top:14px;
+  }
+
+  /* ---- Content ---- */
+  .content{
+    position:relative;
+    flex:1;
+    min-height:0;
+  }
+  .page{
+    position:absolute;
+    inset:0;
+    display:none;
+  }
+  .page.active{display:block;}
+  .page iframe{
+    width:100%;
+    height:100%;
+    border:none;
+    background:var(--bg);
+  }
+  .page-loading{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:13px;
+    background:var(--bg);
+  }
+
+  /* ---- Home menu ---- */
+  .home-wrap{
+    height:100%;
+    overflow-y:auto;
+    overflow-x:hidden;
+    padding:calc(16px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+    -webkit-overflow-scrolling:touch;
+    background:
+      radial-gradient(circle at 85% 0%, rgba(139,92,246,.10), transparent 45%),
+      radial-gradient(circle at 0% 25%, rgba(53,224,192,.06), transparent 40%);
+  }
+  .home-header{padding:2px 2px 16px;position:relative;}
+  .home-greeting{
+    font-size:20px;
+    font-weight:800;
+    letter-spacing:-.02em;
+    max-width:60%;
+    background:linear-gradient(90deg, #ffffff 0%, #edfdf4 32%, #7fe4b6 58%, #2ac78a 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .home-subtext{font-size:12px;color:var(--muted);margin-top:3px;}
+
+  /* Small live-looking candlestick + trend chart filling the empty space
+     to the right of the greeting text. Purely decorative (aria-hidden). */
+  .header-chart{
+    position:absolute;
+    top:-4px;
+    right:0;
+    width:108px;
+    height:62px;
+    pointer-events:none;
+  }
+  .header-chart .chart-dot{
+    animation:chartPulse 2.2s ease-in-out infinite;
+    transform-origin:center;
+  }
+  @keyframes chartPulse{
+    0%,100%{opacity:1;r:3.2;}
+    50%{opacity:.45;r:4.4;}
+  }
+
+  /* Large faint watermark trend line behind the whole card grid - very low
+     opacity so it reads as texture, not content. Cards sit above it (z-index).
+     Clipped to the wrapper (overflow:hidden) rather than left with negative
+     left/right offsets, which previously expanded the page's scrollable width
+     and let the layout shift/scroll sideways off-screen on phones. */
+  .home-grid-wrap{position:relative;overflow:hidden;}
+  .grid-watermark{
+    position:absolute;
+    top:-6px;
+    left:0;
+    width:100%;
+    height:calc(100% + 30px);
+    pointer-events:none;
+    opacity:.06;
+    z-index:0;
+  }
+  .home-grid{
+    position:relative;
+    z-index:1;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:9px;
+  }
+  .home-card{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:9px;
+    padding:14px 12px;
+    border-radius:16px;
+    background:var(--panel);
+    border:1px solid var(--border-soft);
+    cursor:pointer;
+    text-align:left;
+    color:inherit;
+    font:inherit;
+    width:100%;
+    transition:transform .12s ease, border-color .15s ease, background .15s ease;
+  }
+  .home-card:hover{border-color:var(--purple);background:var(--panel2);}
+  .home-card:active{transform:scale(.96);}
+  .home-card .home-icon{
+    width:40px;
+    height:40px;
+    flex-shrink:0;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:19px;
+    box-shadow:0 6px 16px rgba(0,0,0,.28);
+  }
+  .home-card .home-title{display:block;font-size:13.5px;font-weight:700;color:var(--text);line-height:1.25;font-family:var(--font-ui);}
+  .home-card .home-desc{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35;}
+
+  /* ---- Live ticker strip ---- */
+  .ticker-section{margin:0 0 18px;position:relative;z-index:1;}
+  .ticker-eyebrow{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 2px 8px;
+  }
+  .ticker-eyebrow-left{display:flex;align-items:center;gap:7px;}
+  .ticker-eyebrow-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+  .ticker-eyebrow .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 8px var(--accent);
+    animation:tickerPulse 2s infinite;
+  }
+  @keyframes tickerPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .ticker-eyebrow-label{
+    font:700 11px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  }
+  .ticker-updated{font-family:var(--font-mono);font-size:10px;color:var(--faint);}
+  .ticker-refresh{
+    width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--border);background:transparent;border-radius:8px;color:var(--muted);
+    cursor:pointer;transition:border-color .15s ease,color .15s ease;
+  }
+  .ticker-refresh svg{width:13px;height:13px;transition:transform .4s;}
+  .ticker-refresh.spinning svg{transform:rotate(360deg);}
+  .ticker-refresh.flipped svg{transform:rotate(180deg);}
+  .ticker-refresh:active{border-color:var(--accent);color:var(--accent);}
+  .ticker-row{
+    display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+    margin:0 -2px;padding:2px 2px 4px;
+  }
+  .ticker-row::-webkit-scrollbar{display:none;}
+  .ticker-card{
+    flex:0 0 auto;display:flex;align-items:center;gap:8px;
+    min-width:150px;padding:9px 13px;border-radius:14px;
+    background:var(--panel);border:1px solid var(--border-soft);
+    cursor:pointer;transition:border-color .15s ease,transform .1s ease;
+  }
+  .ticker-card:active{transform:scale(.96);}
+  .ticker-card.up{border-color:rgba(53,224,192,.28);}
+  .ticker-card.down{border-color:rgba(255,84,112,.28);}
+  .ticker-card-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px;}
+  .ticker-sym{font:700 11.5px var(--font-ui);color:var(--text);letter-spacing:.01em;}
+  .ticker-price{font:600 12px var(--font-mono);color:var(--text);transition:color .3s ease;white-space:nowrap;}
+  .ticker-price.flash-up{color:var(--accent);}
+  .ticker-price.flash-down{color:var(--red);}
+  .ticker-chg{font:700 12px var(--font-mono);white-space:nowrap;}
+  .ticker-chg.up{color:var(--accent);}
+  .ticker-chg.down{color:var(--red);}
+  .ticker-card.skeleton .ticker-price,
+  .ticker-card.skeleton .ticker-chg{
+    color:transparent;border-radius:4px;
+    background:linear-gradient(90deg,var(--panel2) 25%,var(--border-soft) 50%,var(--panel2) 75%);
+    background-size:200% 100%;animation:tickerShimmer 1.3s infinite;
+  }
+  @keyframes tickerShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  .ticker-error{
+    font-size:11px;color:var(--faint);padding:8px 2px;
+  }
+
+  /* ---- Top Movers rolling strip (2 rows: gainers on top, losers below) ---- */
+  .movers-section{
+    display:flex;flex-direction:column;gap:8px;
+    margin:0 0 18px;position:relative;z-index:1;
+  }
+  .movers-eyebrow{
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .movers-eyebrow-left{display:flex;align-items:center;gap:7px;}
+  .movers-eyebrow-label{
+    font:700 11px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  }
+  .movers-updated{font-family:var(--font-mono);font-size:10px;color:var(--faint);}
+  .movers-track-wrap{
+    position:relative;overflow:hidden;border-radius:14px;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);
+  }
+  .movers-track{
+    display:flex;gap:8px;width:max-content;
+    animation:moversScroll 34s linear infinite;
+  }
+  .movers-track.losers{
+    animation-name:moversScrollReverse;
+  }
+  .movers-track.paused{animation-play-state:paused;}
+  @keyframes moversScroll{
+    0%{transform:translateX(0);}
+    100%{transform:translateX(-50%);}
+  }
+  @keyframes moversScrollReverse{
+    0%{transform:translateX(-50%);}
+    100%{transform:translateX(0);}
+  }
+  .mover-chip{
+    flex:0 0 auto;display:flex;align-items:center;gap:8px;
+    min-width:150px;padding:9px 13px;border-radius:14px;
+    background:var(--panel);border:1px solid var(--border-soft);
+    cursor:pointer;
+  }
+  .mover-chip.up{border-color:rgba(53,224,192,.28);}
+  .mover-chip.down{border-color:rgba(255,84,112,.28);}
+  .mover-chip img{width:20px;height:20px;border-radius:50%;flex-shrink:0;background:var(--panel2);}
+  .mover-chip-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px;}
+  .mover-chip-top{display:flex;align-items:baseline;gap:6px;}
+  .mover-sym{font:700 11.5px var(--font-ui);color:var(--text);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mover-price{font:600 10px var(--font-mono);color:var(--faint);white-space:nowrap;}
+  .mover-chg{font:700 12px var(--font-mono);white-space:nowrap;}
+  .mover-chg.up{color:var(--accent);}
+  .mover-chg.down{color:var(--red);}
+  .movers-error{font-size:11px;color:var(--faint);padding:8px 2px;}
+  .movers-section.skeleton .mover-chip{opacity:.5;}
+
+  /* ---- Recently visited ---- */
+  .recent-section{margin:0 0 18px;position:relative;z-index:1;}
+  .recent-section.hidden{display:none;}
+  .recent-row{
+    display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;margin:0 -2px;padding:0 2px 2px;
+  }
+  .recent-row::-webkit-scrollbar{display:none;}
+  .recent-chip{
+    flex:0 0 auto;display:flex;align-items:center;gap:7px;
+    padding:8px 13px 8px 10px;border-radius:999px;
+    background:var(--panel);border:1px solid var(--border-soft);
+    cursor:pointer;font:600 12px var(--font-ui);color:var(--text);
+    white-space:nowrap;transition:border-color .15s ease,transform .1s ease;
+  }
+  .recent-chip:active{transform:scale(.95);}
+  .recent-chip .recent-icon{font-size:13px;}
+
+  /* ---- Category sections ---- */
+  .section-heading{
+    display:flex;align-items:baseline;gap:8px;
+    padding:0 2px 9px;position:relative;z-index:1;
+  }
+  .category-section > .section-heading{
+    align-items:center;justify-content:space-between;
+    cursor:pointer;user-select:none;
+  }
+  .section-heading-left{display:flex;align-items:baseline;gap:8px;min-width:0;}
+  .section-heading h3{
+    margin:0;font:700 13px var(--font-ui);letter-spacing:.02em;color:var(--text);
+  }
+  .section-heading .section-count{
+    font:600 10.5px var(--font-mono);color:var(--faint);
+  }
+  .section-toggle-btn{
+    background:transparent;border:none;color:var(--muted);padding:0;margin:0;
+    width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;border-radius:7px;cursor:pointer;
+  }
+  .section-toggle-btn:hover{color:var(--text);background:var(--panel2);}
+  .section-toggle-btn svg{width:15px;height:15px;transition:transform .2s ease;}
+  .category-section.collapsed .section-toggle-btn svg{transform:rotate(-90deg);}
+  .category-section.collapsed .home-grid{display:none;}
+  .category-section{margin:0 0 20px;}
+
+  .home-card[data-page="screener"] .home-icon{background:linear-gradient(135deg,#35e0c0,#1c8f79);}
+  .home-card[data-page="defi"] .home-icon{background:linear-gradient(135deg,#35e0c0,#5b8cff);}
+  .home-card[data-page="liquidations"] .home-icon{background:linear-gradient(135deg,#ff5470,#f5a623);}
+  .home-card[data-page="sizing"] .home-icon{background:linear-gradient(135deg,#6ea8ff,#3a5fc9);}
+  .home-card[data-page="news"] .home-icon{background:linear-gradient(135deg,#ffb84d,#c9791a);}
+  .home-card[data-page="calendar"] .home-icon{background:linear-gradient(135deg,#ff6b8b,#c22d5c);}
+  .home-card[data-page="trump-truth"] .home-icon{background:linear-gradient(135deg,#ff9a5c,#d95a2b);}
+  .home-card[data-page="youtube"] .home-icon{background:linear-gradient(135deg,#ff5f5f,#c22626);}
+  .home-card[data-page="predictions"] .home-icon{background:linear-gradient(135deg,#a78bfa,#6d28d9);}
+  .home-card[data-page="oil"] .home-icon{background:linear-gradient(135deg,#ff8a4c,#c2501a);}
+  .home-card[data-page="etf"] .home-icon{background:linear-gradient(135deg,#f5a623,#5b8cff);}
+  .home-card[data-page="macro"] .home-icon{background:linear-gradient(135deg,#5b8cff,#a78bfa);}
+  .home-card[data-page="watchlist"] .home-icon{background:linear-gradient(135deg,#f0c24b,#b8860b);}
+  .home-card[data-page="fear-greed"] .home-icon{background:linear-gradient(135deg,#ff5470,#35e0c0);}
+  .home-card[data-page="btc-returns"] .home-icon{background:linear-gradient(135deg,#f7931a,#35e0c0);}
+  .home-card[data-page="season"] .home-icon{background:linear-gradient(135deg,#f5a623,#35e0c0);}
+  .home-card[data-page="pulse"] .home-icon{background:linear-gradient(135deg,#5b8cff,#35e0c0);}
+  .home-card[data-page="settings"] .home-icon{background:linear-gradient(135deg,#9aa5b8,#5b6478);}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="topbar-title" id="topbarTitle">
+      <svg class="topbar-logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TradeSphere logo"> <defs> <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(160 128) rotate(39.2) scale(400 376)"> <stop offset="0" stop-color="#F4FAFF"/> <stop offset="0.15" stop-color="#DCEBFF"/> <stop offset="0.38" stop-color="#A8C5FF"/> <stop offset="0.68" stop-color="#5F66D9"/> <stop offset="1" stop-color="#0C0F22"/> </radialGradient> <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(224 170) rotate(66) scale(308 298)"> <stop offset="0" stop-color="#F5F7FF"/> <stop offset="0.18" stop-color="#E4E9FF"/> <stop offset="0.38" stop-color="#8EC2FF"/> <stop offset="0.66" stop-color="#4A5DE7"/> <stop offset="1" stop-color="#1A1A4B"/> </radialGradient> <linearGradient id="blueBand" x1="118" y1="138" x2="412" y2="348" gradientUnits="userSpaceOnUse"> <stop offset="0" stop-color="#2B7CFF"/> <stop offset="0.24" stop-color="#2E5EE8"/> <stop offset="0.52" stop-color="#2E4AE8"/> <stop offset="0.82" stop-color="#2E2BAF"/> <stop offset="1" stop-color="#1A1B77"/> </linearGradient> <linearGradient id="purpleBand" x1="116" y1="282" x2="422" y2="164" gradientUnits="userSpaceOnUse"> <stop offset="0" stop-color="#F3D7FF"/> <stop offset="0.22" stop-color="#C7B9FF"/> <stop offset="0.5" stop-color="#9A88F0"/> <stop offset="0.8" stop-color="#5648D8"/> <stop offset="1" stop-color="#2A2E9C"/> </linearGradient> <linearGradient id="deepBlue" x1="124" y1="100" x2="396" y2="430" gradientUnits="userSpaceOnUse"> <stop offset="0" stop-color="#1C2E9A"/> <stop offset="0.3" stop-color="#1A2AB0"/> <stop offset="0.7" stop-color="#111A57"/> <stop offset="1" stop-color="#0A0F2E"/> </linearGradient> <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%"> <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#030814" flood-opacity="0.45"/> </filter> </defs> <g filter="url(#softShadow)"> <circle cx="256" cy="256" r="220" fill="url(#bgGlow)"/> <circle cx="256" cy="256" r="216" fill="url(#orb)"/> <path d="M120 298C155 254 214 101 322 111C394 117 445 169 432 236C419 305 347 341 291 341C234 341 173 314 120 298Z" fill="url(#purpleBand)" opacity="0.92"/> <path d="M86 234C118 150 188 90 291 93C353 95 431 135 460 197C465 208 470 219 472 232C453 208 433 193 410 181C364 160 319 170 274 183C222 198 173 219 117 240C101 246 92 242 86 234Z" fill="url(#blueBand)" opacity="0.98"/> <path d="M116 245C167 216 214 181 280 184C347 188 410 225 448 280C454 290 457 299 455 310C423 271 387 250 348 240C311 230 276 230 225 251C185 267 126 286 79 299C82 283 92 262 116 245Z" fill="url(#purpleBand)" opacity="0.9"/> <path d="M72 304C147 284 220 301 292 330C358 356 415 401 447 459C434 468 418 474 402 474C355 474 312 449 278 426C230 394 148 370 72 304Z" fill="url(#deepBlue)" opacity="0.95"/> <path d="M105 123C148 100 190 117 230 142C266 164 313 204 343 246C358 267 372 286 399 298C384 332 338 362 289 374C238 386 177 380 136 353C98 327 71 282 61 232C52 191 69 147 105 123Z" fill="url(#blueBand)" opacity="0.9"/> <path d="M90 283C149 260 205 253 250 267C296 281 351 314 390 356C408 374 424 392 444 406C421 417 397 423 373 425C263 434 181 427 118 382C90 360 72 325 90 283Z" fill="url(#purpleBand)" opacity="0.94"/> <path d="M139 255C178 215 234 188 299 196C365 205 414 245 434 287C366 302 281 314 221 332C179 345 140 338 110 319C116 298 123 274 139 255Z" fill="url(#deepBlue)" opacity="0.68"/> <path d="M116 140C170 110 230 103 293 120C352 136 405 176 426 222C387 197 347 180 299 176C254 172 208 184 168 209C143 224 121 244 102 266C82 232 83 176 116 140Z" fill="url(#purpleBand)" opacity="0.7"/> <path d="M256 72C194 72 129 101 90 154C135 123 186 111 242 111C293 111 346 126 391 161C373 111 321 72 256 72Z" fill="#F7F9FF" opacity="0.2"/> </g> </svg>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop"></div>
+
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-name">TradeSphere</div>
+    </div>
+
+    <div class="drawer-nav">
+    <div class="nav-item" data-page="home">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </div>
+
+    <div class="nav-item" data-page="season">
+      <span class="nav-icon">🌗</span>
+      <span class="nav-label">Season Index<small>Bitcoin vs Altcoin season</small></span>
+    </div>
+
+    <div class="nav-item" data-page="screener">
+      <span class="nav-icon">☁️</span>
+      <span class="nav-label">Screener - Ichimoku<small>CK/PK breakouts, live scan</small></span>
+    </div>
+
+    <div class="nav-item" data-page="defi">
+      <span class="nav-icon">💧</span>
+      <span class="nav-label">DeFi & TVL<small>TVL, trade volume & unlocks</small></span>
+    </div>
+
+    <div class="nav-item" data-page="liquidations">
+      <span class="nav-icon">💥</span>
+      <span class="nav-label">Long/Short &amp; Liquidations<small>Ratios, open interest &amp; live liq feed</small></span>
+    </div>
+
+    <div class="nav-item" data-page="calendar">
+      <span class="nav-icon">📅</span>
+      <span class="nav-label">Calendar<small>Upcoming macro and crypto events</small></span>
+    </div>
+
+    <div class="nav-item" data-page="news">
+      <span class="nav-icon">📰</span>
+      <span class="nav-label">News<small>Latest crypto market stories</small></span>
+    </div>
+
+    <div class="nav-item" data-page="trump-truth">
+      <span class="nav-icon">🚀</span>
+      <span class="nav-label">Trump's Truth SM<small>Latest posts on crypto & clarity</small></span>
+    </div>
+
+    <div class="nav-item" data-page="youtube">
+      <span class="nav-icon">▶️</span>
+      <span class="nav-label">YouTube Crypto<small>Recent uploads</small></span>
+    </div>
+
+    <div class="nav-item" data-page="pulse">
+      <span class="nav-icon">🐋</span>
+      <span class="nav-label">Whale & Social Pulse<small>Exchange flows & X accounts</small></span>
+    </div>
+
+    <div class="nav-item" data-page="predictions">
+      <span class="nav-icon">🎯</span>
+      <span class="nav-label">Prediction Markets<small>Fed, CPI, ETFs & crypto policy odds</small></span>
+    </div>
+
+    <div class="nav-item" data-page="oil">
+      <span class="nav-icon">🛢️</span>
+      <span class="nav-label">Oil & Energy<small>Brent, WTI prices & the spread</small></span>
+    </div>
+
+    <div class="nav-item" data-page="etf">
+      <span class="nav-icon">🏦</span>
+      <span class="nav-label">ETF Flows<small>BTC, ETH, SOL &amp; HYPE spot ETF flows</small></span>
+    </div>
+
+    <div class="nav-item" data-page="macro">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">Macro & Indices<small>S&P, Nasdaq, VIX, DXY, yields & more</small></span>
+    </div>
+
+    <div class="nav-item" data-page="fear-greed">
+      <span class="nav-icon">🌡️</span>
+      <span class="nav-label">Fear &amp; Greed Index<small>Crypto market sentiment, 0-100</small></span>
+    </div>
+
+    <div class="nav-item" data-page="btc-returns">
+      <span class="nav-icon">📆</span>
+      <span class="nav-label">Bitcoin Returns<small>Monthly, quarterly &amp; yearly performance</small></span>
+    </div>
+
+    <div class="nav-item" data-page="watchlist">
+      <span class="nav-icon">👀</span>
+      <span class="nav-label">Watchlist<small>Live BTC, ETH, SOL & HYPE prices</small></span>
+    </div>
+
+    <div class="nav-item" data-page="sizing">
+      <span class="nav-icon">🧮</span>
+      <span class="nav-label">Position Sizing<small>Risk-based quantity calculator</small></span>
+    </div>
+    </div>
+
+    <div class="drawer-tools">
+      <button class="settings-button" id="settingsBtn" type="button" aria-label="Trading Settings" title="Trading Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+      </button>
+    </div>
+
+    <div class="drawer-footer">Binance public data · no login required</div>
+  </div>
+
+  <div class="content">
+    <div class="page active" data-page="home">
+      <div class="home-wrap">
+        <div class="home-header">
+          <div class="home-greeting" id="homeGreeting">TradeSphere</div>
+          <div class="home-subtext">Your crypto market cockpit</div>
+        </div>
+
+        <div class="ticker-section">
+          <div class="ticker-eyebrow">
+            <div class="ticker-eyebrow-left">
+              <span class="dot"></span>
+              <span class="ticker-eyebrow-label">Live</span>
+              <span class="ticker-updated" id="tickerUpdated"></span>
+            </div>
+            <div class="ticker-eyebrow-actions">
+              <button class="ticker-refresh" id="toggleAllBtn" type="button" aria-label="Collapse all" title="Collapse all">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 8 12 3 17 8"/><polyline points="7 21 12 16 17 21"/></svg>
+              </button>
+              <button class="ticker-refresh" id="tickerRefreshBtn" type="button" aria-label="Refresh prices">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="ticker-row" id="tickerRow"></div>
+        </div>
+
+        <div class="movers-section" id="moversSection">
+          <div class="movers-eyebrow">
+            <div class="movers-eyebrow-left">
+              <span class="movers-eyebrow-label">Top Movers · 24h</span>
+              <span class="movers-updated" id="moversUpdated"></span>
+            </div>
+          </div>
+          <div class="movers-track-wrap">
+            <div class="movers-track gainers" id="moversTrackGainers"></div>
+          </div>
+          <div class="movers-track-wrap">
+            <div class="movers-track losers" id="moversTrackLosers"></div>
+          </div>
+        </div>
+
+        <div class="recent-section hidden" id="recentSection">
+          <div class="section-heading"><h3>Recently visited</h3></div>
+          <div class="recent-row" id="recentRow"></div>
+        </div>
+
+        <div id="categoriesWrap">
+          <div class="category-section" data-category="markets">
+            <div class="section-heading" data-toggle-heading><div class="section-heading-left"><h3>Markets</h3></div><button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></div>
+            <div class="home-grid">
+              <button class="home-card" type="button" data-page="watchlist">
+                <span class="home-icon">👀</span>
+                <span><span class="home-title">Watchlist</span><span class="home-desc">Live BTC, ETH, SOL & HYPE prices</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="screener">
+                <span class="home-icon">☁️</span>
+                <span><span class="home-title">Screener - Ichimoku</span><span class="home-desc">CK/PK breakouts, live scan</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="macro">
+                <span class="home-icon">📊</span>
+                <span><span class="home-title">Macro & Indices</span><span class="home-desc">Equities, dollar, rates & global risk</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="calendar">
+                <span class="home-icon">📅</span>
+                <span><span class="home-title">Calendar</span><span class="home-desc">Upcoming macro and crypto events</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="oil">
+                <span class="home-icon">🛢️</span>
+                <span><span class="home-title">Oil & Energy</span><span class="home-desc">Live Brent & WTI crude prices</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="liquidations">
+                <span class="home-icon">💥</span>
+                <span><span class="home-title">Long/Short & Liquidations</span><span class="home-desc">Ratios, open interest & live liq feed</span></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="category-section" data-category="news">
+            <div class="section-heading" data-toggle-heading><div class="section-heading-left"><h3>News &amp; Social</h3></div><button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></div>
+            <div class="home-grid">
+              <button class="home-card" type="button" data-page="youtube">
+                <span class="home-icon">▶️</span>
+                <span><span class="home-title">YouTube Crypto</span><span class="home-desc">Recent uploads</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="news">
+                <span class="home-icon">📰</span>
+                <span><span class="home-title">News</span><span class="home-desc">Latest crypto market stories</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="trump-truth">
+                <span class="home-icon">🚀</span>
+                <span><span class="home-title">Trump's Truth SM</span><span class="home-desc">Latest posts on crypto & clarity</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="pulse">
+                <span class="home-icon">🐋</span>
+                <span><span class="home-title">Whale & Social Pulse</span><span class="home-desc">Exchange flows & X accounts</span></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="category-section" data-category="insights">
+            <div class="section-heading" data-toggle-heading><div class="section-heading-left"><h3>Insights</h3></div><button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></div>
+            <div class="home-grid">
+              <button class="home-card" type="button" data-page="season">
+                <span class="home-icon">🌗</span>
+                <span><span class="home-title">Season Index</span><span class="home-desc">Bitcoin vs Altcoin season, live</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="defi">
+                <span class="home-icon">💧</span>
+                <span><span class="home-title">DeFi & TVL</span><span class="home-desc">Chains, protocols, DEX volume & unlocks</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="etf">
+                <span class="home-icon">🏦</span>
+                <span><span class="home-title">ETF Flows</span><span class="home-desc">BTC, ETH, SOL &amp; HYPE spot ETF flows</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="btc-returns">
+                <span class="home-icon">📆</span>
+                <span><span class="home-title">Bitcoin Returns</span><span class="home-desc">Monthly, quarterly &amp; yearly performance</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="fear-greed">
+                <span class="home-icon">🌡️</span>
+                <span><span class="home-title">Fear &amp; Greed Index</span><span class="home-desc">Crypto market sentiment, 0-100</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="predictions">
+                <span class="home-icon">🎯</span>
+                <span><span class="home-title">Prediction Markets</span><span class="home-desc">Fed, CPI, ETFs & crypto policy odds</span></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="category-section" data-category="tools">
+            <div class="section-heading" data-toggle-heading><div class="section-heading-left"><h3>Tools</h3></div><button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></div>
+            <div class="home-grid">
+              <button class="home-card" type="button" data-page="sizing">
+                <span class="home-icon">🧮</span>
+                <span><span class="home-title">Position Sizing</span><span class="home-desc">Risk-based quantity calculator</span></span>
+              </button>
+              <button class="home-card" type="button" data-page="settings">
+                <span class="home-icon">⚙️</span>
+                <span><span class="home-title">Trading Settings</span><span class="home-desc">Portfolio, exchange & YouTube channels</span></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="page" data-page="screener">
+      <div class="page-loading" id="loading-screener">Loading screener…</div>
+      <!-- lazy-loaded on first open, same as every other page now -->
+      <iframe id="iframe-screener" data-src="screener.html"></iframe>
+    </div>
+    <div class="page" data-page="defi">
+      <div class="page-loading" id="loading-defi">Loading DeFi & TVL…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-defi" data-src="defi.html"></iframe>
+    </div>
+    <div class="page" data-page="watchlist">
+      <div class="page-loading" id="loading-watchlist">Loading watchlist…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-watchlist" data-src="watchlist.html"></iframe>
+    </div>
+    <div class="page" data-page="liquidations">
+      <div class="page-loading" id="loading-liquidations">Loading Long/Short &amp; Liquidations…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-liquidations" data-src="liquidations.html"></iframe>
+    </div>
+    <div class="page" data-page="fear-greed">
+      <div class="page-loading" id="loading-fear-greed">Loading Fear &amp; Greed Index…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-fear-greed" data-src="fear-greed.html"></iframe>
+    </div>
+    <div class="page" data-page="btc-returns">
+      <div class="page-loading" id="loading-btc-returns">Loading Bitcoin Returns…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-btc-returns" data-src="btc-returns.html"></iframe>
+    </div>
+    <div class="page" data-page="sizing">
+      <div class="page-loading" id="loading-sizing">Loading position sizer…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-sizing" data-src="position-sizing.html"></iframe>
+    </div>
+    <div class="page" data-page="news">
+      <div class="page-loading" id="loading-news">Loading news…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-news" data-src="news.html"></iframe>
+    </div>
+    <div class="page" data-page="calendar">
+      <div class="page-loading" id="loading-calendar">Loading calendar…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-calendar" data-src="calendar.html"></iframe>
+    </div>
+    <div class="page" data-page="trump-truth">
+      <div class="page-loading" id="loading-trump-truth">Loading Trump's Truth…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-trump-truth" data-src="trump-truth.html"></iframe>
+    </div>
+    <div class="page" data-page="youtube">
+      <div class="page-loading" id="loading-youtube">Loading YouTube…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-youtube" data-src="youtube.html"></iframe>
+    </div>
+    <div class="page" data-page="pulse">
+      <div class="page-loading" id="loading-pulse">Loading whale & social pulse…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-pulse" data-src="pulse.html"></iframe>
+    </div>
+    <div class="page" data-page="predictions">
+      <div class="page-loading" id="loading-predictions">Loading prediction markets…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-predictions" data-src="prediction-markets.html"></iframe>
+    </div>
+    <div class="page" data-page="oil">
+      <div class="page-loading" id="loading-oil">Loading oil prices…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-oil" data-src="oil.html"></iframe>
+    </div>
+    <div class="page" data-page="etf">
+      <div class="page-loading" id="loading-etf">Loading ETF flows…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-etf" data-src="etf-flows.html"></iframe>
+    </div>
+    <div class="page" data-page="macro">
+      <div class="page-loading" id="loading-macro">Loading macro & indices…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-macro" data-src="macro.html"></iframe>
+    </div>
+    <div class="page" data-page="season">
+      <div class="page-loading" id="loading-season">Loading season index…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-season" data-src="season-index.html"></iframe>
+    </div>
+    <div class="page" data-page="settings">
+      <div class="page-loading" id="loading-settings">Loading settings…</div>
+      <iframe id="iframe-settings" data-src="trading-settings.html"></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+const PAGE_TITLES = {
+  home: '',
+  screener: 'Screener - Ichimoku',
+  defi: 'DeFi & TVL',
+  liquidations: 'Long/Short & Liquidations',
+  sizing: 'Position Sizing',
+  news: 'News',
+  calendar: 'Calendar',
+  'trump-truth': 'Trump\'s Truth SM',
+  youtube: 'YouTube Crypto',
+  pulse: 'Whale & Social Pulse',
+  predictions: 'Prediction Markets',
+  oil: 'Oil & Energy',
+  etf: 'ETF Flows',
+  macro: 'Macro & Indices',
+  watchlist: 'Watchlist',
+  'fear-greed': 'Fear & Greed Index',
+  'btc-returns': 'Bitcoin Returns',
+  season: 'Season Index',
+  settings: 'Trading Settings'
+};
+
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const drawer = document.getElementById('drawer');
+const backdrop = document.getElementById('backdrop');
+const topbarTitle = document.getElementById('topbarTitle');
+const navItems = document.querySelectorAll('.nav-item');
+const pages = document.querySelectorAll('.page');
+
+/* ================= Home: live ticker strip ================= */
+const TICKER_COINS = [
+  { symbol:'BTC',  binanceSymbol:'BTCUSDT'  },
+  { symbol:'ETH',  binanceSymbol:'ETHUSDT'  },
+  { symbol:'SOL',  binanceSymbol:'SOLUSDT'  },
+  { symbol:'HYPE', binanceSymbol:'HYPEUSDT' },
+];
+const TICKER_CACHE_KEY = 'ts_home_ticker_cache_v1';
+const TICKER_REFRESH_MS = 20000;
+
+const tickerRow = document.getElementById('tickerRow');
+const tickerUpdatedEl = document.getElementById('tickerUpdated');
+const tickerRefreshBtn = document.getElementById('tickerRefreshBtn');
+
+// Same personal Cloudflare Worker + public CORS proxy fallback chain used by
+// watchlist.html and every other data page in this app.
+const TICKER_WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildTickerWorkerUrl(u){ return `${TICKER_WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`; }
+const TICKER_CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+async function tickerFetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{ return await fetch(url, { cache:'no-store', signal: controller.signal }); }
+  finally{ clearTimeout(timer); }
+}
+async function tickerFetchJSON(url){
+  try{
+    const res = await tickerFetchWithTimeout(url, 6000);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  }catch(directErr){
+    try{
+      const res = await tickerFetchWithTimeout(buildTickerWorkerUrl(url), 6000);
+      if(!res.ok) throw new Error('worker HTTP ' + res.status);
+      return await res.json();
+    }catch(workerErr){
+      return await Promise.any(TICKER_CORS_PROXIES.map(build => (async () => {
+        const res = await tickerFetchWithTimeout(build(url), 6000);
+        if(!res.ok) throw new Error('proxy HTTP ' + res.status);
+        return await res.json();
+      })()));
+    }
+  }
+}
+
+function readTickerCache(){
+  try{
+    const raw = localStorage.getItem(TICKER_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function writeTickerCache(data){
+  try{ localStorage.setItem(TICKER_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); }catch(e){}
+}
+function formatTickerPrice(n){
+  const num = Number(n);
+  if(!isFinite(num)) return '—';
+  if(num >= 1000) return num.toLocaleString('en-US', { maximumFractionDigits:0 });
+  if(num >= 1) return num.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  return num.toLocaleString('en-US', { minimumFractionDigits:4, maximumFractionDigits:4 });
+}
+function formatTickerUpdatedLabel(ts){
+  if(!ts) return '';
+  const secs = Math.round((Date.now() - ts) / 1000);
+  if(secs < 5) return 'just now';
+  if(secs < 60) return secs + 's ago';
+  return Math.round(secs / 60) + 'm ago';
+}
+
+let tickerLastData = null;
+let tickerLastTs = null;
+
+function renderTicker(map, opts){
+  opts = opts || {};
+  tickerRow.innerHTML = '';
+  TICKER_COINS.forEach(coin => {
+    const row = map ? map[coin.binanceSymbol] : null;
+    const card = document.createElement('div');
+    card.className = 'ticker-card' + (opts.skeleton ? ' skeleton' : '');
+
+    let priceText = '—', chgText = '—', dirClass = '', flashDir = null;
+    if(row){
+      const price = parseFloat(row.lastPrice);
+      const chg = parseFloat(row.priceChangePercent);
+      priceText = '$' + formatTickerPrice(price);
+      chgText = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+      dirClass = chg >= 0 ? 'up' : 'down';
+      card.classList.add(dirClass);
+
+      const prevRow = tickerLastData ? tickerLastData[coin.binanceSymbol] : null;
+      if(prevRow){
+        const prevPrice = parseFloat(prevRow.lastPrice);
+        if(price > prevPrice) flashDir = 'up';
+        else if(price < prevPrice) flashDir = 'down';
+      }
+    }
+
+    card.innerHTML =
+      '<div class="ticker-card-body">' +
+        '<span class="ticker-sym">' + coin.symbol + '</span>' +
+        '<span class="ticker-price">' + priceText + '</span>' +
+      '</div>' +
+      '<span class="ticker-chg ' + dirClass + '">' + chgText + '</span>';
+    card.addEventListener('click', () => activatePage('watchlist'));
+    tickerRow.appendChild(card);
+
+    if(flashDir){
+      const priceEl = card.querySelector('.ticker-price');
+      priceEl.classList.add('flash-' + flashDir);
+      setTimeout(() => priceEl.classList.remove('flash-' + flashDir), 700);
+    }
+  });
+}
+
+function updateTickerLabel(){
+  tickerUpdatedEl.textContent = tickerLastTs ? formatTickerUpdatedLabel(tickerLastTs) : '';
+}
+setInterval(updateTickerLabel, 5000);
+
+async function loadTicker(opts){
+  opts = opts || {};
+  if(opts.manual) tickerRefreshBtn.classList.add('spinning');
+  try{
+    const data = await tickerFetchJSON('https://fapi.binance.com/fapi/v1/ticker/24hr');
+    if(!Array.isArray(data)) throw new Error('Unexpected Binance ticker response shape');
+    const wanted = new Set(TICKER_COINS.map(c => c.binanceSymbol));
+    const map = {};
+    data.forEach(row => { if(wanted.has(row.symbol)) map[row.symbol] = row; });
+    renderTicker(map);
+    tickerLastData = map;
+    tickerLastTs = Date.now();
+    writeTickerCache(map);
+    updateTickerLabel();
+  }catch(err){
+    console.warn('[home ticker] fetch failed:', err && err.message);
+    if(!tickerLastData){
+      tickerRow.innerHTML = '<div class="ticker-error">Live prices unavailable right now</div>';
+    }
+  }finally{
+    if(opts.manual) setTimeout(() => tickerRefreshBtn.classList.remove('spinning'), 400);
+  }
+}
+
+// stale-while-revalidate: paint any cached prices instantly, then refresh
+const tickerCached = readTickerCache();
+if(tickerCached && tickerCached.data){
+  tickerLastData = tickerCached.data;
+  tickerLastTs = tickerCached.ts;
+  renderTicker(tickerCached.data);
+  updateTickerLabel();
+}else{
+  renderTicker(null, { skeleton:true });
+}
+loadTicker();
+tickerRefreshBtn.addEventListener('click', () => loadTicker({ manual:true }));
+setInterval(() => {
+  if(currentPage === 'home' && !document.hidden) loadTicker();
+}, TICKER_REFRESH_MS);
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && currentPage === 'home') loadTicker();
+});
+
+/* ================= Home: top gainers / losers rolling strip =================
+   Same source and endpoint defi.html's "Top Gainers / Top Losers" panel uses:
+   CoinGecko's /coins/markets endpoint (top 100 coins by market cap, with
+   24h % change attached). Re-fetched here directly (not read from the defi
+   iframe) so the strip works even before that page has ever been opened,
+   and reuses the same Worker + public-CORS-proxy fallback chain (tickerFetchJSON)
+   already defined above for the price ticker. */
+const MOVERS_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&price_change_percentage=24h&sparkline=false';
+const MOVERS_CACHE_KEY = 'ts_home_movers_cache_v1';
+const MOVERS_REFRESH_MS = 5 * 60 * 1000; // 5 min - CoinGecko's free tier rate-limits aggressively
+// Shared with trading-settings.html (Top Movers Count field) - same key name,
+// so a change saved there takes effect here without any other plumbing.
+const MOVERS_COUNT_STORAGE_KEY = 'crypto-screener-movers-count';
+const MOVERS_ENABLED_STORAGE_KEY = 'crypto-screener-movers-enabled';
+const MOVERS_COUNT_DEFAULT = 5;
+const MOVERS_COUNT_MIN = 3;
+const MOVERS_COUNT_MAX = 8;
+
+function getMoversCount(){
+  let n = parseInt(localStorage.getItem(MOVERS_COUNT_STORAGE_KEY), 10);
+  if(!Number.isFinite(n)) return MOVERS_COUNT_DEFAULT;
+  return Math.min(MOVERS_COUNT_MAX, Math.max(MOVERS_COUNT_MIN, n));
+}
+function isMoversEnabled(){
+  const v = localStorage.getItem(MOVERS_ENABLED_STORAGE_KEY);
+  return v === null ? true : v === 'true';
+}
+
+const moversSection = document.getElementById('moversSection');
+const moversUpdatedEl = document.getElementById('moversUpdated');
+const moversTrackGainers = document.getElementById('moversTrackGainers');
+const moversTrackLosers = document.getElementById('moversTrackLosers');
+
+function readMoversCache(){
+  try{
+    const raw = localStorage.getItem(MOVERS_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function writeMoversCache(list){
+  try{ localStorage.setItem(MOVERS_CACHE_KEY, JSON.stringify({ data:list, ts:Date.now() })); }catch(e){}
+}
+function formatMoverPrice(n){
+  const num = Number(n) || 0;
+  if(num >= 1) return '$' + num.toLocaleString('en-US', { maximumFractionDigits:2 });
+  return '$' + num.toLocaleString('en-US', { minimumFractionDigits:4, maximumFractionDigits:6 });
+}
+
+let moversLastTs = null;
+let moversLastRaw = null; // last successfully fetched full list, so changing the
+                           // count in Settings can re-render instantly without a re-fetch
+function updateMoversLabel(){
+  moversUpdatedEl.textContent = moversLastTs ? formatTickerUpdatedLabel(moversLastTs) : '';
+}
+setInterval(updateMoversLabel, 5000);
+
+// Tapping a mover chip opens the watchlist (rather than DeFi & TVL) and asks
+// it to collapse every coin group except the Top Movers section it also has,
+// since that's the whole reason for following the chip over there. The
+// watchlist iframe stays alive across visits once loaded (activatePage()
+// only toggles which .page is visible), so a postMessage is used instead of
+// a one-time query param - it works whether this is the iframe's first load
+// or its hundredth.
+function openWatchlistFocusedOnMovers(){
+  const iframe = document.getElementById('iframe-watchlist');
+  let alreadyLoaded = false;
+  try{
+    alreadyLoaded = !!(iframe && iframe.getAttribute('src') && iframe.contentDocument && iframe.contentDocument.readyState === 'complete');
+  }catch(e){ /* cross-origin or not ready - treat as not loaded */ }
+  activatePage('watchlist');
+  const sendFocusMessage = () => {
+    if(iframe && iframe.contentWindow){
+      iframe.contentWindow.postMessage({ type: 'ts-collapse-groups-except-topmovers' }, '*');
+    }
+  };
+  if(alreadyLoaded){
+    sendFocusMessage();
+  }else if(iframe){
+    iframe.addEventListener('load', sendFocusMessage, {once:true});
+  }
+}
+
+function buildMoverChip(coin, dir){
+  const chip = document.createElement('div');
+  chip.className = 'mover-chip ' + dir;
+  const chg = coin.price_change_percentage_24h;
+  const chgText = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+  chip.innerHTML =
+    '<img src="' + (coin.image || '') + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' +
+    '<div class="mover-chip-body">' +
+      '<div class="mover-chip-top"><span class="mover-sym">' + (coin.symbol || '').toUpperCase() + '</span></div>' +
+      '<span class="mover-price">' + formatMoverPrice(coin.current_price) + '</span>' +
+    '</div>' +
+    '<span class="mover-chg ' + dir + '">' + chgText + '</span>';
+  chip.addEventListener('click', openWatchlistFocusedOnMovers);
+  return chip;
+}
+
+// Fills one row's track with a coin list, duplicated back-to-back so the
+// CSS marquee (translateX -50%/0%) loops seamlessly with no visible seam.
+function fillMoversTrack(trackEl, coins, dir){
+  trackEl.innerHTML = '';
+  [0, 1].forEach(() => {
+    coins.forEach(coin => trackEl.appendChild(buildMoverChip(coin, dir)));
+  });
+}
+
+function renderMoversStrip(list){
+  moversSection.classList.remove('skeleton');
+  moversLastRaw = list;
+  const withChange = list.filter(c => typeof c.price_change_percentage_24h === 'number');
+  if(!withChange.length){
+    moversTrackGainers.style.animation = 'none';
+    moversTrackLosers.style.animation = 'none';
+    moversTrackGainers.innerHTML = '<div class="movers-error">Top movers unavailable right now</div>';
+    moversTrackLosers.innerHTML = '';
+    return;
+  }
+  const count = getMoversCount();
+  const gainers = withChange.slice().sort((a,b) => b.price_change_percentage_24h - a.price_change_percentage_24h).slice(0, count);
+  const losers = withChange.slice().sort((a,b) => a.price_change_percentage_24h - b.price_change_percentage_24h).slice(0, count);
+
+  fillMoversTrack(moversTrackGainers, gainers, 'up');
+  fillMoversTrack(moversTrackLosers, losers, 'down');
+  moversTrackGainers.style.animation = '';
+  moversTrackLosers.style.animation = '';
+}
+
+async function loadMovers(){
+  try{
+    const data = await tickerFetchJSON(MOVERS_URL);
+    if(!Array.isArray(data)) throw new Error('Unexpected CoinGecko markets response shape');
+    renderMoversStrip(data);
+    moversLastTs = Date.now();
+    writeMoversCache(data);
+    updateMoversLabel();
+  }catch(err){
+    console.warn('[home movers] fetch failed:', err && err.message);
+    if(!moversLastTs){
+      moversTrackGainers.style.animation = 'none';
+      moversTrackLosers.style.animation = 'none';
+      moversTrackGainers.innerHTML = '<div class="movers-error">Top movers unavailable right now</div>';
+      moversTrackLosers.innerHTML = '';
+    }
+  }
+}
+
+// Single source of truth for "is the strip visible right now" - handles
+// initial load, the Settings toggle flipping on/off later (via the
+// "storage" listener below), and landing back on Home (activatePage's
+// fallback). Reuses whatever data is already in hand before hitting the
+// network, so flipping the toggle back on doesn't force an extra fetch.
+function applyMoversVisibility(){
+  if(!isMoversEnabled()){
+    moversSection.style.display = 'none';
+    return;
+  }
+  moversSection.style.display = '';
+  if(moversLastRaw){
+    renderMoversStrip(moversLastRaw);
+    updateMoversLabel();
+    return;
+  }
+  const cached = readMoversCache();
+  if(cached && cached.data){
+    moversLastTs = cached.ts;
+    renderMoversStrip(cached.data);
+    updateMoversLabel();
+  }else{
+    moversSection.classList.add('skeleton');
+  }
+  loadMovers();
+}
+
+applyMoversVisibility();
+setInterval(() => {
+  if(currentPage === 'home' && !document.hidden && isMoversEnabled()) loadMovers();
+}, MOVERS_REFRESH_MS);
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && currentPage === 'home' && isMoversEnabled()) loadMovers();
+});
+// The Settings page (trading-settings.html) lives in its own iframe; when it
+// writes either key, this top-level document gets a native "storage" event
+// (same-origin, different document) - react instantly rather than waiting
+// for the next refresh or a page revisit.
+window.addEventListener('storage', (e) => {
+  if(e.key === MOVERS_ENABLED_STORAGE_KEY){
+    applyMoversVisibility();
+  }else if(e.key === MOVERS_COUNT_STORAGE_KEY && isMoversEnabled() && moversLastRaw){
+    renderMoversStrip(moversLastRaw);
+  }
+});
+// Pause the auto-scroll while the user is touching/pointing at either row so
+// they can actually read a chip, resume once they let go.
+[moversTrackGainers, moversTrackLosers].forEach(track => {
+  ['pointerdown','touchstart'].forEach(evt => track.addEventListener(evt, () => track.classList.add('paused')));
+  ['pointerup','pointerleave','touchend','touchcancel'].forEach(evt => track.addEventListener(evt, () => track.classList.remove('paused')));
+});
+
+/* ================= Home: recently visited ================= */
+const RECENT_KEY = 'ts_recent_pages_v1';
+const RECENT_MAX = 6;
+const recentSection = document.getElementById('recentSection');
+const recentRow = document.getElementById('recentRow');
+
+function readRecentPages(){
+  try{
+    const raw = localStorage.getItem(RECENT_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){ return []; }
+}
+function writeRecentPages(arr){
+  try{ localStorage.setItem(RECENT_KEY, JSON.stringify(arr)); }catch(e){}
+}
+function recordRecentVisit(pageId){
+  if(!pageId || pageId === 'home') return;
+  let arr = readRecentPages().filter(id => id !== pageId);
+  arr.unshift(pageId);
+  writeRecentPages(arr.slice(0, RECENT_MAX));
+}
+function getNavIconFor(pageId){
+  const el = document.querySelector('.nav-item[data-page="' + pageId + '"] .nav-icon');
+  return el ? el.textContent : '•';
+}
+function renderRecentVisited(){
+  const arr = readRecentPages().filter(id => PAGE_TITLES.hasOwnProperty(id) && id !== 'home');
+  recentRow.innerHTML = '';
+  if(!arr.length){
+    recentSection.classList.add('hidden');
+    return;
+  }
+  recentSection.classList.remove('hidden');
+  arr.forEach(pageId => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'recent-chip';
+    chip.innerHTML = '<span class="recent-icon">' + getNavIconFor(pageId) + '</span><span>' + PAGE_TITLES[pageId] + '</span>';
+    chip.addEventListener('click', () => activatePage(pageId));
+    recentRow.appendChild(chip);
+  });
+}
+
+const categorySections = document.querySelectorAll('.category-section');
+
+/* ================= Home: collapsible category sections ================= */
+function setCategoryCollapsed(sectionEl, collapsed){
+  sectionEl.classList.toggle('collapsed', collapsed);
+  const btn = sectionEl.querySelector('.section-toggle-btn');
+  if(btn) btn.setAttribute('aria-expanded', String(!collapsed));
+}
+function updateToggleAllLabel(){
+  const anyExpanded = Array.from(categorySections).some(s => !s.classList.contains('collapsed'));
+  const label = anyExpanded ? 'Collapse all' : 'Expand all';
+  toggleAllBtn.setAttribute('aria-label', label);
+  toggleAllBtn.setAttribute('title', label);
+  toggleAllBtn.classList.toggle('flipped', !anyExpanded);
+}
+document.querySelectorAll('.category-section > .section-heading[data-toggle-heading]').forEach(heading => {
+  heading.addEventListener('click', () => {
+    const sectionEl = heading.closest('.category-section');
+    if(!sectionEl) return;
+    setCategoryCollapsed(sectionEl, !sectionEl.classList.contains('collapsed'));
+    updateToggleAllLabel();
+  });
+});
+const toggleAllBtn = document.getElementById('toggleAllBtn');
+toggleAllBtn.addEventListener('click', () => {
+  const anyExpanded = Array.from(categorySections).some(s => !s.classList.contains('collapsed'));
+  categorySections.forEach(s => setCategoryCollapsed(s, anyExpanded));
+  updateToggleAllLabel();
+});
+updateToggleAllLabel();
+
+function openDrawer(){
+  drawer.classList.add('open');
+  backdrop.classList.add('open');
+}
+function closeDrawer(){
+  drawer.classList.remove('open');
+  backdrop.classList.remove('open');
+}
+hamburgerBtn.addEventListener('click', () => {
+  drawer.classList.contains('open') ? closeDrawer() : openDrawer();
+});
+backdrop.addEventListener('click', closeDrawer);
+
+let currentPage = 'home';
+
+function activatePage(pageId){
+  currentPage = pageId;
+  navItems.forEach(n => n.classList.toggle('active', n.dataset.page === pageId));
+  pages.forEach(p => p.classList.toggle('active', p.dataset.page === pageId));
+  topbarTitle.innerHTML = '<svg class="topbar-logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TradeSphere logo"> <defs> <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(160 128) rotate(39.2) scale(400 376)"> <stop offset="0" stop-color="#F4FAFF"/> <stop offset="0.15" stop-color="#DCEBFF"/> <stop offset="0.38" stop-color="#A8C5FF"/> <stop offset="0.68" stop-color="#5F66D9"/> <stop offset="1" stop-color="#0C0F22"/> </radialGradient> <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(224 170) rotate(66) scale(308 298)"> <stop offset="0" stop-color="#F5F7FF"/> <stop offset="0.18" stop-color="#E4E9FF"/> <stop offset="0.38" stop-color="#8EC2FF"/> <stop offset="0.66" stop-color="#4A5DE7"/> <stop offset="1" stop-color="#1A1A4B"/> </radialGradient> <linearGradient id="blueBand" x1="118" y1="138" x2="412" y2="348" gradientUnits="userSpaceOnUse"> <stop offset="0" stop-color="#2B7CFF"/> <stop offset="0.24" stop-color="#2E5EE8"/> <stop offset="0.52" stop-color="#2E4AE8"/> <stop offset="0.82" stop-color="#2E2BAF"/> <stop offset="1" stop-color="#1A1B77"/> </linearGradient> <linearGradient id="purpleBand" x1="116" y1="282" x2="422" y2="164" gradientUnits="userSpaceOnUse"> <stop offset="0" stop-color="#F3D7FF"/> <stop offset="0.22" stop-color="#C7B9FF"/> <stop offset="0.5" stop-color="#9A88F0"/> <stop offset="0.8" stop-color="#5648D8"/> <stop offset="1" stop-color="#2A2E9C"/> </linearGradient> <linearGradient id="deepBlue" x1="124" y1="100" x2="396" y2="430" gradientUnits="userSpaceOnUse"> <stop offset="0" stop-color="#1C2E9A"/> <stop offset="0.3" stop-color="#1A2AB0"/> <stop offset="0.7" stop-color="#111A57"/> <stop offset="1" stop-color="#0A0F2E"/> </linearGradient> <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%"> <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#030814" flood-opacity="0.45"/> </filter> </defs> <g filter="url(#softShadow)"> <circle cx="256" cy="256" r="220" fill="url(#bgGlow)"/> <circle cx="256" cy="256" r="216" fill="url(#orb)"/> <path d="M120 298C155 254 214 101 322 111C394 117 445 169 432 236C419 305 347 341 291 341C234 341 173 314 120 298Z" fill="url(#purpleBand)" opacity="0.92"/> <path d="M86 234C118 150 188 90 291 93C353 95 431 135 460 197C465 208 470 219 472 232C453 208 433 193 410 181C364 160 319 170 274 183C222 198 173 219 117 240C101 246 92 242 86 234Z" fill="url(#blueBand)" opacity="0.98"/> <path d="M116 245C167 216 214 181 280 184C347 188 410 225 448 280C454 290 457 299 455 310C423 271 387 250 348 240C311 230 276 230 225 251C185 267 126 286 79 299C82 283 92 262 116 245Z" fill="url(#purpleBand)" opacity="0.9"/> <path d="M72 304C147 284 220 301 292 330C358 356 415 401 447 459C434 468 418 474 402 474C355 474 312 449 278 426C230 394 148 370 72 304Z" fill="url(#deepBlue)" opacity="0.95"/> <path d="M105 123C148 100 190 117 230 142C266 164 313 204 343 246C358 267 372 286 399 298C384 332 338 362 289 374C238 386 177 380 136 353C98 327 71 282 61 232C52 191 69 147 105 123Z" fill="url(#blueBand)" opacity="0.9"/> <path d="M90 283C149 260 205 253 250 267C296 281 351 314 390 356C408 374 424 392 444 406C421 417 397 423 373 425C263 434 181 427 118 382C90 360 72 325 90 283Z" fill="url(#purpleBand)" opacity="0.94"/> <path d="M139 255C178 215 234 188 299 196C365 205 414 245 434 287C366 302 281 314 221 332C179 345 140 338 110 319C116 298 123 274 139 255Z" fill="url(#deepBlue)" opacity="0.68"/> <path d="M116 140C170 110 230 103 293 120C352 136 405 176 426 222C387 197 347 180 299 176C254 172 208 184 168 209C143 224 121 244 102 266C82 232 83 176 116 140Z" fill="url(#purpleBand)" opacity="0.7"/> <path d="M256 72C194 72 129 101 90 154C135 123 186 111 242 111C293 111 346 126 391 161C373 111 321 72 256 72Z" fill="#F7F9FF" opacity="0.2"/> </g> </svg>';
+  const pageLabel = PAGE_TITLES[pageId];
+  if(pageLabel){
+    const sub = document.createElement('span');
+    sub.className = 'page-sub';
+    sub.textContent = pageLabel;
+    topbarTitle.appendChild(sub);
+  }
+
+  // Track this page for the "Recently visited" strip on Home, and refresh
+  // that strip whenever we land back on Home so it reflects the latest order.
+  if(pageId === 'home'){
+    renderRecentVisited();
+    // Fallback in case a Settings change didn't produce a "storage" event
+    // (e.g. this browser doesn't fire it for same-tab iframes) - cheap to
+    // just re-apply the current enabled/count state against data in hand.
+    if(typeof applyMoversVisibility === 'function'){
+      applyMoversVisibility();
+    }
+  }else{
+    recordRecentVisit(pageId);
+  }
+
+  // Lazy-load the iframe the first time its page is opened, so we don't
+  // fire both apps' network requests (Binance + CoinGecko) on startup.
+  const iframe = document.getElementById('iframe-' + pageId);
+  if(iframe && !iframe.getAttribute('src') && iframe.dataset.src){
+    iframe.addEventListener('load', () => {
+      const loadingEl = document.getElementById('loading-' + pageId);
+      if(loadingEl) loadingEl.style.display = 'none';
+    }, {once:true});
+    iframe.setAttribute('src', iframe.dataset.src);
+  } else {
+    const loadingEl = document.getElementById('loading-' + pageId);
+    if(loadingEl) loadingEl.style.display = 'none';
+  }
+
+  syncHistoryForCurrentPage();
+  closeDrawer();
+}
+
+// Modals (Analysis, Trade Plan, and anything future pages add) live inside each page's
+// iframe document, not in this top-level document, so document.getElementById can never
+// see them here — that's why the back button used to fall straight through to exitApp().
+// This reaches into whichever iframe is currently visible and looks for any element whose
+// id ends in "Modal" (or has class "modal") carrying the "open" class — the convention
+// screener.html already uses for analysisModal/tradeModal. Any page added to the drawer
+// later just needs to follow the same id-ends-with-"Modal" + "open"-class convention and
+// it's handled automatically, no changes needed here.
+function getActivePageDocument(){
+  const iframe = document.querySelector('.page.active iframe');
+  try{ return iframe ? iframe.contentDocument : null; }catch(e){ return null; }
+}
+function closeOpenModalInActivePage(){
+  const activeDoc = getActivePageDocument();
+  if(!activeDoc) return false;
+  const openModal = activeDoc.querySelector('[id$="Modal"].open, .modal.open');
+  if(!openModal) return false;
+  const win = activeDoc.defaultView;
+  const closeFnNames = ['closeAnalysis','closeTradePlan','closeModal'];
+  for(const name of closeFnNames){
+    if(win && typeof win[name] === 'function'){ win[name](); return true; }
+  }
+  openModal.classList.remove('open');
+  return true;
+}
+function handleAndroidBack(){
+  if(drawer.classList.contains('open')){
+    closeDrawer();
+    return;
+  }
+
+  if(closeOpenModalInActivePage()){
+    return;
+  }
+
+  if(currentPage !== 'home'){
+    activatePage('home');
+    return;
+  }
+
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App && typeof window.Capacitor.Plugins.App.exitApp === 'function'){
+    window.Capacitor.Plugins.App.exitApp();
+    return;
+  }
+  if(navigator.app && typeof navigator.app.exitApp === 'function'){
+    navigator.app.exitApp();
+    return;
+  }
+  if(window.history.length > 1){
+    window.history.back();
+  }
+}
+
+document.querySelectorAll('.home-card').forEach(card => {
+  card.addEventListener('click', () => activatePage(card.dataset.page));
+});
+
+navItems.forEach(item => {
+  item.addEventListener('click', () => activatePage(item.dataset.page));
+});
+
+document.getElementById('settingsBtn').addEventListener('click', () => activatePage('settings'));
+
+// This app can run in several different shells - a plain browser tab, an
+// installed PWA/TWA (desktop or mobile), or wrapped in Cordova/Capacitor -
+// and each one signals a "back" press differently. Previously only the old
+// Cordova "backbutton" DOM event and Escape were handled, which meant real
+// desktop browser Back, and Capacitor's own back-button plugin (Capacitor
+// does NOT fire the Cordova-style DOM event), fell straight through to a
+// real navigation/exit from every single page. All three are now covered.
+
+// 1) Cordova-style back-button plugin (dispatches a DOM CustomEvent).
+document.addEventListener('backbutton', event => {
+  event.preventDefault();
+  handleAndroidBack();
+}, { passive: false });
+
+// 2) Capacitor's native back-button listener - separate from the Cordova
+// event above, and the one that actually fires in a Capacitor-wrapped app.
+if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App && typeof window.Capacitor.Plugins.App.addListener === 'function'){
+  window.Capacitor.Plugins.App.addListener('backButton', () => handleAndroidBack());
+}
+
+window.addEventListener('keydown', event => {
+  if(event.key === 'Escape'){
+    event.preventDefault();
+    handleAndroidBack();
+  }
+});
+
+// 3) Real browser/History-API back - covers a plain browser tab, an
+// installed PWA, and a Trusted Web Activity, where a hardware button or
+// swipe-back gesture is genuine browser navigation ("popstate"), not a
+// custom "backbutton" event. We keep exactly one extra history entry
+// whenever we're away from Home, so a single real Back press anywhere else
+// returns to Home instead of leaving the app; from Home itself, Back is left
+// to behave normally (i.e. actually exit/navigate away).
+function syncHistoryForCurrentPage(){
+  if(currentPage === 'home'){
+    if(!history.state || history.state.page !== 'home'){
+      history.replaceState({ page: 'home' }, '', location.href);
+    }
+    return;
+  }
+  if(!history.state || history.state.page === 'home'){
+    history.pushState({ page: currentPage }, '', location.href);
+  } else {
+    history.replaceState({ page: currentPage }, '', location.href);
+  }
+}
+
+window.addEventListener('popstate', event => {
+  // A real Back navigation already happened by the time this fires, so if the
+  // drawer or an in-page modal was open, close it and restore the history
+  // entry that navigation just consumed - keeping this Back press consistent
+  // with the "close overlays first" behavior above, and leaving a further
+  // Back still available to actually leave the page.
+  if(drawer.classList.contains('open')){
+    closeDrawer();
+    syncHistoryForCurrentPage();
+    return;
+  }
+  if(closeOpenModalInActivePage()){
+    syncHistoryForCurrentPage();
+    return;
+  }
+  const targetPage = (event.state && event.state.page) || 'home';
+  activatePage(targetPage);
+});
+
+// initial state
+activatePage('home');
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+}
+</script>
+
+</body>
+</html>

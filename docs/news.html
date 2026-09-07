@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto News</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(53,224,192,0.06), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  .topheader{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;}
+  .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;color:var(--accent);text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.warn{color:var(--red);}
+
+  .refresh-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+
+  /* ---- Hero: lead story ---- */
+  .hero{
+    background:linear-gradient(135deg, rgba(53,224,192,.08), rgba(91,140,255,.05));
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:22px 24px;
+    margin-bottom:22px;
+    position:relative;
+    overflow:hidden;
+    text-decoration:none;
+    color:inherit;
+    display:block;
+  }
+  .hero:hover{border-color:var(--border-soft);}
+  .hero-label{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px;}
+  .hero-title{font-size:22px;font-weight:700;line-height:1.32;margin-bottom:14px;max-width:80ch;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .hero-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  @media(max-width:620px){.hero-title{font-size:18px;}}
+
+  /* ---- Source badge ---- */
+  .srcbadge{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;font-weight:700;padding:3px 10px 3px 7px;border-radius:20px;background:var(--panel2);border:1px solid var(--border);}
+  .srcbadge .srcdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .ago{font-family:var(--font-mono);font-size:11px;color:var(--faint);}
+
+  /* ---- Filters ---- */
+  .filters-toggle{margin-bottom:20px;}
+  .filters-toggle > summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--border);border-radius:20px;padding:8px 14px;font-family:var(--font-mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text);}
+  .filters-toggle > summary::-webkit-details-marker{display:none;}
+  .filters-toggle > summary::after{content:'+';color:var(--accent);font-size:14px;line-height:1;}
+  .filters-toggle[open] > summary{border-color:var(--accent);color:var(--accent);}
+  .filters-toggle[open] > summary::after{content:'\2212';}
+  .filters-toggle-body{margin-top:16px;}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;}
+  .filter-btn{background:var(--panel2);border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);padding:7px 13px;font-size:11.5px;font-weight:600;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;}
+  .filter-btn .srcdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .filter-btn.active{background:rgba(53,224,192,.12);border-color:var(--accent);color:var(--accent);}
+  .filter-btn .count{color:var(--faint);}
+  .filter-btn.active .count{color:var(--accent-dim);}
+
+  /* ---- Article grid ---- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:14px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:12px;transition:border-color .15s, transform .15s;}
+  .card:hover{border-color:var(--border-soft);transform:translateY(-2px);}
+  .card-title{font-size:14.5px;font-weight:600;line-height:1.4;flex:1;
+    display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
+  .card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+
+  /* ---- Skeletons ---- */
+  .skel{background:linear-gradient(90deg, var(--panel2) 25%, #1d222b 37%, var(--panel2) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;border-radius:8px;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+  .skel-hero{height:150px;border-radius:16px;margin-bottom:22px;}
+  .skel-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;}
+  .skel-line{height:12px;}
+
+  .empty,.error-state{padding:28px;color:var(--faint);font:12px var(--font-mono);text-align:center;border:1px dashed var(--border);border-radius:14px;line-height:1.7;}
+  .error-state{color:#ffb3c1;border-color:rgba(255,84,112,.35);}
+  .retry-btn{margin-top:14px;background:var(--panel2);border:1px solid var(--border);color:var(--text);cursor:pointer;font:600 12px var(--font-mono);padding:9px 16px;border-radius:8px;}
+  .retry-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  @media(max-width:600px){body{padding:22px 14px 40px;} .hero{padding:18px;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Market Brief &middot; Crypto News</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="heroWrap"></div>
+
+  <details class="filters-toggle" id="filtersToggle">
+    <summary>Sources</summary>
+    <div class="filters-toggle-body">
+      <div class="filters" id="filters"></div>
+    </div>
+  </details>
+
+  <main id="articleGrid"></main>
+</div>
+<script>
+const NEWS_SOURCES = [
+  {name:'CoinDesk', feed:'https://www.coindesk.com/arc/outboundfeeds/rss/', color:'var(--blue)'},
+  {name:'Cointelegraph', feed:'https://cointelegraph.com/rss', color:'var(--amber)'},
+  {name:'Decrypt', feed:'https://decrypt.co/feed', color:'var(--violet)'},
+  {name:'Bitcoin.com', feed:'https://news.bitcoin.com/feed/', color:'var(--orange)'},
+  {name:'The Block', feed:'https://www.theblock.co/rss.xml', color:'var(--red)'}
+];
+const SOURCE_COLOR = Object.fromEntries(NEWS_SOURCES.map(s => [s.name, s.color]));
+const CACHE_KEY = 'crypto-news-cache-v1';
+const AUTO_REFRESH_MS = 15 * 60 * 1000;
+
+// Your own Cloudflare Worker (see cloudflare-worker.js). Not a shared public
+// proxy, so it can't be blocked/rate-limited by other users of that service -
+// this is now the PRIMARY fetch path. Leave blank to skip straight to the
+// public proxies below (e.g. before you've deployed the worker).
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+// CORS proxies fetch each feed's raw XML directly from the source, with no extra
+// caching hop of their own - this is the primary path, tried in parallel (first
+// success wins). rss2json (below) is used ONLY as a last-resort fallback if every
+// proxy fails, because rss2json runs its own backend crawler on its own schedule
+// rather than live-proxying each request - it can return an already-stale
+// snapshot with a normal-looking 200 response. Demoting it to emergency-fallback-
+// only keeps the page from silently going stale on a refresh where a live proxy
+// would have worked.
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://thingproxy.freeboard.io/fetch/${u}`,
+];
+const PROXY_TIMEOUT_MS = 7000;
+
+let allArticles = [];
+let lastUpdated = null;
+let lastRefreshFailed = false;
+let lastFailedSources = [];
+let activeFilter = 'all';
+let refreshTimer;
+
+function escapeHtml(value){
+  return String(value).replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
+}
+function getText(el, tag){
+  const node = el.getElementsByTagName(tag)[0];
+  return node ? node.textContent.trim() : '';
+}
+function parseGenericFeed(xmlText, sourceName){
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if(doc.getElementsByTagName('parsererror').length) throw new Error('feed parse error');
+  const rssItems = Array.from(doc.getElementsByTagName('item'));
+  if(rssItems.length){
+    return rssItems.map(item => ({
+      title: getText(item, 'title'),
+      link: getText(item, 'link'),
+      pubDate: getText(item, 'pubDate'),
+      source: sourceName
+    })).filter(a => a.title && a.link);
+  }
+  const entries = Array.from(doc.getElementsByTagName('entry'));
+  return entries.map(entry => {
+    const linkEl = entry.getElementsByTagName('link')[0];
+    return {
+      title: getText(entry, 'title'),
+      link: linkEl ? (linkEl.getAttribute('href') || linkEl.textContent.trim()) : '',
+      pubDate: getText(entry, 'updated') || getText(entry, 'published'),
+      source: sourceName
+    };
+  }).filter(a => a.title && a.link);
+}
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, {cache:'no-store', signal: controller.signal});
+  }finally{
+    clearTimeout(timer);
+  }
+}
+async function fetchViaRss2Json(source, bustedFeed){
+  const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(bustedFeed)}`;
+  const response = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
+  if(!response.ok) throw new Error(`rss2json responded ${response.status}`);
+  const data = await response.json();
+  if(!Array.isArray(data.items)) throw new Error('rss2json returned no items');
+  return data.items.filter(article => article.title && article.link)
+    .map(article => ({...article, source: source.name}));
+}
+async function fetchSourceArticles(source){
+  // Append a changing param so any cache along the way (proxy or origin CDN)
+  // is less likely to serve back a stale copy of this exact URL.
+  const bustedFeed = `${source.feed}${source.feed.includes('?') ? '&' : '?'}_=${Date.now()}`;
+
+  // 1) Your own Cloudflare Worker, if configured - the most reliable path since
+  // it isn't a shared public proxy that other users can overload or that an
+  // ISP/network might be blocking.
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(bustedFeed), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker responded ' + res.status);
+      const text = await res.text();
+      const items = parseGenericFeed(text, source.name);
+      if(!items.length) throw new Error('empty feed');
+      return {items: dedupeByLink(items), method: 'live'};
+    }catch(err){
+      const msg = err && err.name === 'AbortError' ? 'timed out' : err.message;
+      console.warn(`[${source.name}] worker failed:`, msg);
+    }
+  }
+
+  // 2) Race all CORS proxies - they fetch the origin feed directly, so whichever
+  // responds first gives us live data straight from the source.
+  const proxyAttempts = CORS_PROXIES.map(buildProxyUrl => (async () => {
+    const res = await fetchWithTimeout(buildProxyUrl(bustedFeed), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('proxy responded ' + res.status);
+    const text = await res.text();
+    const items = parseGenericFeed(text, source.name);
+    if(!items.length) throw new Error('empty feed');
+    return items;
+  })());
+
+  try{
+    const items = await Promise.any(proxyAttempts);
+    return {items: dedupeByLink(items), method: 'live'};
+  }catch(err){
+    const reasons = (err && err.errors) ? err.errors.map(e => e.message).join('; ') : (err && err.message);
+    console.warn(`[${source.name}] all proxies failed (${reasons}), falling back to rss2json`);
+  }
+
+  // 3) Everything above failed. Fall back to rss2json's cached copy - stale-but-
+  // something beats nothing.
+  try{
+    const items = await fetchViaRss2Json(source, bustedFeed);
+    return {items: dedupeByLink(items), method: 'cached-fallback'};
+  }catch(err){
+    const msg = err && err.name === 'AbortError' ? 'timed out' : err.message;
+    console.warn(`[${source.name}] rss2json fallback also failed:`, msg);
+  }
+
+  throw new Error(`${source.name} unavailable`);
+}
+function dedupeByLink(items){
+  const byLink = new Map();
+  items.forEach(a => { if(!byLink.has(a.link)) byLink.set(a.link, a); });
+  return Array.from(byLink.values());
+}
+function normalizeTitle(value){
+  return String(value).toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+function areSimilar(first, second){
+  const firstWords = new Set(normalizeTitle(first).split(' ').filter(word => word.length > 2));
+  const secondWords = new Set(normalizeTitle(second).split(' ').filter(word => word.length > 2));
+  if(!firstWords.size || !secondWords.size) return false;
+  let overlap = 0;
+  firstWords.forEach(word => { if(secondWords.has(word)) overlap += 1; });
+  return overlap / Math.min(firstWords.size, secondWords.size) >= 0.65;
+}
+const MAX_ARTICLE_AGE_MS = 5 * 24 * 60 * 60 * 1000; // 5 days, applies to every source
+function withinRecencyWindow(date){
+  return date instanceof Date && !isNaN(date.getTime()) && (Date.now() - date.getTime()) <= MAX_ARTICLE_AGE_MS;
+}
+function removeSimilarArticles(articles){
+  return articles
+    .map(a => ({...a, publishedDate: new Date(a.pubDate)}))
+    .filter(a => withinRecencyWindow(a.publishedDate))
+    .sort((first, second) => second.publishedDate - first.publishedDate)
+    .filter((article, index, allArticles) => !allArticles.slice(0,index).some(previous => areSimilar(article.title, previous.title)));
+}
+
+function timeAgo(date){
+  const diffMs = Date.now() - date.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if(mins < 1) return 'just now';
+  if(mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if(hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function buildFilters(){
+  const el = document.getElementById('filters');
+  const counts = { all: allArticles.length };
+  NEWS_SOURCES.forEach(s => { counts[s.name] = allArticles.filter(a => a.source === s.name).length; });
+
+  const chips = [`
+    <button class="filter-btn ${activeFilter==='all'?'active':''}" data-src="all">
+      All sources <span class="count">${counts.all}</span>
+    </button>`];
+  NEWS_SOURCES.forEach(s => {
+    if(!counts[s.name]) return;
+    chips.push(`
+      <button class="filter-btn ${activeFilter===s.name?'active':''}" data-src="${escapeHtml(s.name)}">
+        <span class="srcdot" style="background:${s.color}"></span>${escapeHtml(s.name)} <span class="count">${counts[s.name]}</span>
+      </button>`);
+  });
+  el.innerHTML = chips.join('');
+  el.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeFilter = btn.dataset.src;
+      render();
+    });
+  });
+}
+
+function renderHero(list){
+  const heroEl = document.getElementById('heroWrap');
+  if(!list.length){ heroEl.innerHTML = ''; return; }
+  const lead = list[0];
+  const color = SOURCE_COLOR[lead.source] || 'var(--accent)';
+  heroEl.innerHTML = `
+    <a class="hero" href="${escapeHtml(lead.link)}" target="_blank" rel="noopener noreferrer">
+      <div class="hero-label">Top story</div>
+      <div class="hero-title">${escapeHtml(lead.title)}</div>
+      <div class="hero-meta">
+        <span class="srcbadge"><span class="srcdot" style="background:${color}"></span>${escapeHtml(lead.source)}</span>
+        <span class="ago">${timeAgo(lead.publishedDate)}</span>
+      </div>
+    </a>`;
+}
+
+function renderGrid(list){
+  const el = document.getElementById('articleGrid');
+  const rest = list.slice(1);
+  if(!list.length){
+    el.innerHTML = `<div class="empty">No articles from ${activeFilter === 'all' ? 'any source' : escapeHtml(activeFilter)} right now.</div>`;
+    return;
+  }
+  if(!rest.length){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="grid">${rest.map(article => {
+    const color = SOURCE_COLOR[article.source] || 'var(--accent)';
+    return `
+    <a class="card" href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer">
+      <div class="card-title">${escapeHtml(article.title)}</div>
+      <div class="card-foot">
+        <span class="srcbadge"><span class="srcdot" style="background:${color}"></span>${escapeHtml(article.source)}</span>
+        <span class="ago">${timeAgo(article.publishedDate)}</span>
+      </div>
+    </a>`;
+  }).join('')}</div>`;
+}
+
+function render(){
+  buildFilters();
+  const list = allArticles
+    .filter(a => activeFilter === 'all' || a.source === activeFilter)
+    .sort((a,b) => b.publishedDate - a.publishedDate);
+  renderHero(list);
+  renderGrid(list);
+}
+
+function renderSkeleton(){
+  document.getElementById('heroWrap').innerHTML = '<div class="skel skel-hero"></div>';
+  document.getElementById('filters').innerHTML = '';
+  let html = '<div class="grid">';
+  for(let i=0;i<6;i++){
+    html += `<div class="skel-card">
+      <div class="skel skel-line" style="width:95%"></div>
+      <div class="skel skel-line" style="width:80%"></div>
+      <div class="skel skel-line" style="width:40%"></div>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('articleGrid').innerHTML = html;
+}
+
+function renderErrorState(err){
+  document.getElementById('heroWrap').innerHTML = '';
+  document.getElementById('filters').innerHTML = '';
+  document.getElementById('articleGrid').innerHTML = `
+    <div class="error-state">
+      Couldn't load news right now (${escapeHtml(err && err.message ? err.message : 'network error')}).<br>
+      This page relies on public feed-reading services that are sometimes temporarily down -
+      or blocked by an ad blocker/privacy extension, since several look like generic "proxy" domains.
+      If you have one enabled, try allow-listing this page (or a private/incognito window) and retry.
+      Open the browser console for the specific per-source error.
+      <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+    </div>`;
+  document.getElementById('retryBtn').addEventListener('click', loadNews);
+}
+
+function updateLastUpdatedLabel(){
+  const el = document.getElementById('updatedLabel');
+  if(!lastUpdated){ el.textContent = ''; el.classList.remove('warn'); return; }
+  if(lastRefreshFailed){
+    const who = lastFailedSources.length ? ` (${lastFailedSources.join(', ')})` : '';
+    el.textContent = `Refresh failed${who} \u00b7 showing data from ${timeAgo(lastUpdated)}`;
+    el.classList.add('warn');
+  }else{
+    el.textContent = 'Updated ' + timeAgo(lastUpdated);
+    el.classList.remove('warn');
+  }
+}
+
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
+      articles: allArticles.map(a => ({ ...a, publishedDate: a.publishedDate.toISOString() }))
+    }));
+  }catch(err){ /* storage full/unavailable - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.articles || !cached.articles.length) return false;
+    allArticles = cached.articles.map(a => ({ ...a, publishedDate: new Date(a.publishedDate) }));
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+
+async function loadNews(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  // Show cached/previous results immediately (if any) instead of a blank skeleton
+  // while fresh data loads in the background.
+  if(allArticles.length){
+    render();
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  const failedSources = [];
+  const fallbackSources = [];
+  try{
+    const results = await Promise.allSettled(NEWS_SOURCES.map(source =>
+      fetchSourceArticles(source).catch(err => { failedSources.push(source.name); throw err; })
+    ));
+    const fulfilled = results.filter(result => result.status === 'fulfilled');
+    const rawItems = fulfilled.flatMap(result => {
+      if(result.value.method === 'cached-fallback') fallbackSources.push(result.value.items[0]?.source);
+      return result.value.items;
+    });
+    const merged = removeSimilarArticles(rawItems);
+
+    if(!merged.length){
+      lastRefreshFailed = true;
+      lastFailedSources = failedSources;
+      if(!allArticles.length) throw new Error('No articles returned');
+    }else{
+      allArticles = merged;
+      lastUpdated = new Date();
+      lastRefreshFailed = failedSources.length > 0 || fallbackSources.length > 0;
+      lastFailedSources = failedSources;
+      saveCache();
+    }
+    render();
+    updateLastUpdatedLabel();
+  }catch(error){
+    if(!allArticles.length){
+      renderErrorState(error);
+    }
+  }finally{
+    setTimeout(() => btn.classList.remove('spinning'), 400);
+    scheduleRefresh();
+  }
+}
+
+function scheduleRefresh(){
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(loadNews, AUTO_REFRESH_MS);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadNews);
+
+loadCache();
+loadNews();
+setInterval(updateLastUpdatedLabel, 60000);
+</script>
+</body>
+</html>

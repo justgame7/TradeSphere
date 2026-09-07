@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Long/Short &amp; Liquidations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --gold:#F0C24B;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(255,84,112,0.07), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+  a{color:inherit;}
+
+  /* ---- Top header ---- */
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .refresh-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--red);color:var(--red);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+  .refresh-btn.flipped svg{transform:rotate(180deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 18px;max-width:720px;}
+
+  .degraded-banner{
+    background:rgba(255,84,112,.08);border:1px solid rgba(255,84,112,.25);color:#ffb3c1;
+    border-radius:10px;padding:10px 14px;font:12px var(--font-mono);margin-bottom:18px;
+    display:none;
+  }
+  .degraded-banner.show{display:block;}
+
+  /* ---- Symbol chips / segmented controls (reused everywhere) ---- */
+  .chip-row{display:flex;gap:6px;overflow-x:auto;padding:1px 1px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .chip-row::-webkit-scrollbar{display:none;}
+  .chip{
+    flex-shrink:0;background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 12px var(--font-mono);border-radius:20px;padding:7px 13px;cursor:pointer;white-space:nowrap;
+    display:flex;align-items:center;gap:6px;transition:border-color .15s, color .15s, background .15s;
+  }
+  .chip:hover{border-color:var(--border-soft);color:var(--text);}
+  .chip.active{background:rgba(255,84,112,.12);border-color:var(--red);color:var(--red);}
+  .chip .swatch{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .chip-row.tabs .chip.active{background:rgba(53,224,192,.12);border-color:var(--accent);color:var(--accent);}
+  .chip-sub{font-size:11px;color:var(--faint);margin:-4px 0 10px;line-height:1.5;}
+
+  /* ---- Section shell ---- */
+  .section{margin-bottom:26px;}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .section-head.toggleable{cursor:pointer;user-select:none;}
+  .section-title{font-size:15px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;}
+  .section-title .si{font-size:16px;}
+  .section-toggle-btn{
+    background:transparent;border:none;color:var(--muted);padding:0;margin:0;
+    width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;border-radius:6px;cursor:pointer;
+  }
+  .section-toggle-btn:hover{color:var(--red);}
+  .section-toggle-btn svg{width:14px;height:14px;transition:transform .2s ease;}
+  .section.collapsed .section-toggle-btn svg{transform:rotate(-90deg);}
+  .section-body{overflow:hidden;}
+  .section.collapsed .section-body{display:none;}
+  .section.collapsed .section-head{margin-bottom:0;}
+  .section-note{font-size:11px;color:var(--faint);}
+  .section-note-inline{font-size:11.5px;color:var(--muted);padding:2px 2px 10px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;}
+
+  /* ---- Stat strip ---- */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px;}
+  @media(min-width:760px){ .stat-grid{grid-template-columns:repeat(3,1fr);} }
+  @media(min-width:980px){ .stat-grid{grid-template-columns:repeat(6,1fr);} }
+  .stat-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:14px 14px;display:flex;flex-direction:column;gap:8px;
+    transition:border-color .15s, transform .15s;
+  }
+  .stat-card:hover{border-color:var(--border-soft);transform:translateY(-2px);}
+  .stat-top{display:flex;align-items:center;gap:8px;}
+  .stat-icon{
+    width:26px;height:26px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:12px;
+  }
+  .stat-label{font:700 9.5px var(--font-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);}
+  .stat-value{font-size:17px;font-weight:700;letter-spacing:-.01em;line-height:1.15;}
+  .stat-sub{display:flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);flex-wrap:wrap;}
+  .stat-sub .pill{padding:1px 6px;border-radius:6px;}
+  .pill.up{color:var(--accent);background:rgba(53,224,192,.1);}
+  .pill.down{color:var(--red);background:rgba(255,84,112,.1);}
+  .pill.flat{color:var(--muted);background:rgba(139,147,163,.1);}
+  .pill.warn{color:var(--amber);background:rgba(245,166,35,.1);}
+
+  /* ---- Split bar (long vs short / buy vs sell) ---- */
+  .split-wrap{padding:16px 18px 4px;}
+  .split-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .split-side{font:700 12.5px var(--font-mono);}
+  .split-side.long{color:var(--accent);}
+  .split-side.short{color:var(--red);}
+  .split-ratio{font:700 13px var(--font-mono);color:var(--text);}
+  .split-bar{height:10px;border-radius:6px;overflow:hidden;display:flex;background:var(--border-soft);}
+  .split-long-fill{height:100%;background:linear-gradient(90deg,#1c8f79,#35e0c0);}
+  .split-short-fill{height:100%;background:linear-gradient(90deg,#c22d5c,#ff5470);}
+  .split-foot{display:flex;justify-content:space-between;font:10.5px var(--font-mono);color:var(--faint);margin-top:6px;padding-bottom:14px;}
+
+  /* ---- Generic sparkline chart ---- */
+  .chart-wrap{padding:6px 18px 14px;}
+  .chart-svg{width:100%;height:130px;display:block;}
+  .chart-range-labels{display:flex;justify-content:space-between;font:10.5px var(--font-mono);color:var(--faint);margin-top:6px;}
+
+  /* ---- Controls row ---- */
+  .controls-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .ctrl{
+    background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    font:600 11.5px var(--font-mono);border-radius:9px;padding:8px 10px;
+    outline:none;flex:1;min-width:120px;
+  }
+  select.ctrl{cursor:pointer;}
+
+  .empty-note{padding:26px 16px;text-align:center;color:var(--faint);font:12px var(--font-mono);}
+  .empty-note b{color:var(--muted);}
+
+  .skel-block{border-radius:14px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 37%,var(--panel) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+  .error-state{
+    padding:34px 20px;text-align:center;color:#ffb3c1;font:12.5px var(--font-mono);
+    border:1px dashed rgba(255,84,112,.3);border-radius:12px;line-height:1.7;
+  }
+  .retry-btn{
+    margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:8px 16px;border-radius:8px;font:600 12px var(--font-mono);cursor:pointer;
+  }
+  .retry-btn:hover{border-color:var(--red);color:var(--red);}
+
+  /* ---- Liquidation totals table ---- */
+  .liqtotals-keybar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--border-soft);}
+  .liqtotals-keybar input{
+    background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    font:600 11.5px var(--font-mono);border-radius:9px;padding:8px 10px;outline:none;flex:1;min-width:180px;
+  }
+  .liqtotals-keybar button{
+    background:rgba(53,224,192,.12);border:1px solid var(--accent-dim);color:var(--accent);
+    font:700 11.5px var(--font-mono);border-radius:9px;padding:8px 14px;cursor:pointer;white-space:nowrap;
+  }
+  .liqtotals-keybar button:hover{border-color:var(--accent);}
+  .liqtotals-keybar .keybar-msg{font:11px var(--font-mono);color:var(--faint);flex-basis:100%;}
+  .liqtotals-keybar a{color:var(--accent);}
+  .liqtotals-table{width:100%;border-collapse:collapse;}
+  .liqtotals-table th{
+    text-align:right;font:700 9.5px var(--font-mono);letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--border-soft);white-space:nowrap;
+  }
+  .liqtotals-table th:first-child, .liqtotals-table td:first-child{text-align:left;}
+  .liqtotals-table td{padding:10px 14px;border-bottom:1px solid var(--border-soft);font:600 12px var(--font-mono);text-align:right;white-space:nowrap;}
+  .liqtotals-table tr:last-child td{border-bottom:none;}
+  .liqtotals-table th:first-child, .liqtotals-table td:first-child{
+    position:sticky;left:0;z-index:2;background:var(--panel);
+    box-shadow:4px 0 8px -4px rgba(0,0,0,.35);
+  }
+  .liqtotals-table th:first-child{z-index:3;}
+  .liqtotals-coin{display:flex;align-items:center;gap:8px;font:700 12.5px var(--font-display);}
+  .liqtotals-coin .swatch{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .liqtotals-long{color:var(--red);}
+  .liqtotals-short{color:var(--accent);}
+  .liqtotals-cell-sep{color:var(--faint);font-weight:400;margin:0 2px;}
+
+  /* ---- Disclaimer / about panel ---- */
+  .notice{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin:22px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);
+  }
+  .notice b{color:var(--text);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{
+    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 13px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, color .15s, border-color .15s;
+  }
+  .notice-toggle:hover{border-color:var(--red);color:var(--red);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{
+    display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
+  }
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Long/Short &amp; Liquidations</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="toggleAllBtn" type="button" aria-label="Collapse all" title="Collapse all">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 8 12 3 17 8"/><polyline points="7 21 12 16 17 21"/></svg>
+      </button>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="sub">Positioning and forced-exit data for perpetual futures: long/short ratios across account and top-trader cohorts, open interest, funding, and 1h/8h/24h liquidation totals per coin.</p>
+
+  <div class="degraded-banner" id="degradedBanner"></div>
+
+  <!-- Symbol picker -->
+  <div class="chip-row" id="symbolChips"></div>
+
+  <!-- Stat strip -->
+  <div id="statSection"></div>
+
+  <!-- Long/Short Ratio -->
+  <div class="section" id="sec-ratio">
+    <div class="section-head toggleable" data-toggle="sec-ratio">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">⚖️</span>Long/Short Ratio</div>
+      <div class="section-note" id="ratioNote"></div>
+    </div>
+    <div class="section-body">
+      <div class="chip-row tabs" id="ratioTypeChips"></div>
+      <div class="chip-sub" id="ratioTypeDesc"></div>
+      <div class="chip-row" id="periodChips"></div>
+      <div class="panel" id="ratioPanel"></div>
+    </div>
+  </div>
+
+  <!-- Open Interest -->
+  <div class="section collapsed" id="sec-oi">
+    <div class="section-head toggleable" data-toggle="sec-oi">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="false" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">📊</span>Open Interest</div>
+      <div class="section-note" id="oiNote"></div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline">Total outstanding perpetual contracts on Binance Futures, tracked at the selected period</div>
+      <div class="panel" id="oiPanel"></div>
+    </div>
+  </div>
+
+  <!-- Funding Rate -->
+  <div class="section collapsed" id="sec-funding">
+    <div class="section-head toggleable" data-toggle="sec-funding">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="false" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">⏱️</span>Funding Rate History</div>
+      <div class="section-note" id="fundingNote"></div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline">Positive = longs pay shorts (crowded long). Negative = shorts pay longs (crowded short)</div>
+      <div class="panel" id="fundingPanel"></div>
+    </div>
+  </div>
+
+  <!-- Liquidation Totals (1h / 8h / 24h) -->
+  <div class="section" id="sec-liqtotals">
+    <div class="section-head toggleable" data-toggle="sec-liqtotals">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">🧮</span>Liquidation Totals</div>
+      <div class="section-note" id="liqTotalsNote"></div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline">Long vs. short liquidations aggregated across exchanges over the last 1h / 8h / 24h, per coin. Powered by the free <a href="https://coinalyze.net" target="_blank" rel="noopener">Coinalyze</a> API.</div>
+      <div class="panel" id="liqTotalsPanel"></div>
+    </div>
+  </div>
+
+  <div class="notice">
+    <div class="notice-summary">
+      <b>Reference data only, not financial advice.</b>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+    </div>
+    <div class="notice-details" id="noticeDetails" hidden>
+      Ratio/open interest/funding figures come from Binance Futures public endpoints (USDⓈ-M perpetuals) and reflect Binance's own order book and traders only — not the whole market. "Top trader" ratios cover Binance's top 20% of accounts/positions by margin balance, which behaves differently from the retail-heavy "global accounts" ratio, so the two can diverge or even point opposite directions. The <b>Liquidation Totals</b> section (1h/8h/24h per coin) comes from the free Coinalyze API, aggregated across the exchanges Coinalyze tracks — it needs a free API key (see the section itself). Ratio/open interest/funding refresh every 10 minutes; Liquidation Totals every 5 minutes.
+      <div class="src-tags">
+        <span class="src-tag"><span class="dot"></span>Ratios/OI/Funding · Binance Futures REST</span>
+        <span class="src-tag"><span class="dot"></span>Liquidation Totals (1h/8h/24h) · Coinalyze API</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ==================== Config ====================
+const FAPI_BASE = 'https://fapi.binance.com';
+const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes, matches the rest of the suite
+const PROXY_TIMEOUT_MS = 12000;
+const CACHE_KEY = 'crypto-liq-ratio-cache-v1';
+
+// Historical (1h/8h/24h) liquidation totals come from Coinalyze's free
+// public API (https://coinalyze.net) — Binance's own endpoints have no free
+// REST history for market-wide liquidations, so a second free source is
+// needed to answer "how much got liquidated in the last N hours". Requires a
+// free Coinalyze API key.
+const COINALYZE_BASE = 'https://api.coinalyze.net/v1';
+const COINALYZE_KEY_STORAGE = 'crypto-liq-coinalyze-key-v1';
+const COINALYZE_SYMBOL_CACHE_KEY = 'crypto-liq-coinalyze-symbols-v1';
+const COINALYZE_SYMBOL_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // re-resolve symbols once a day
+const COINALYZE_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes, well under the 40/min rate limit
+const COINALYZE_PROXY_TIMEOUT_MS = 20000; // public CORS proxies double-hop, so give them more room than PROXY_TIMEOUT_MS
+
+const SYMBOLS = [
+  { sym:'BTCUSDT',  label:'BTC',  grad:'linear-gradient(135deg,#f7931a,#c9791a)' },
+  { sym:'ETHUSDT',  label:'ETH',  grad:'linear-gradient(135deg,#6ea8ff,#3a5fc9)' },
+  { sym:'SOLUSDT',  label:'SOL',  grad:'linear-gradient(135deg,#a78bfa,#6d28d9)' },
+  { sym:'BNBUSDT',  label:'BNB',  grad:'linear-gradient(135deg,#f0c24b,#b8860b)' },
+  { sym:'XRPUSDT',  label:'XRP',  grad:'linear-gradient(135deg,#9aa5b8,#4a5568)' },
+  { sym:'DOGEUSDT', label:'DOGE', grad:'linear-gradient(135deg,#f0c24b,#c9791a)' },
+  { sym:'HYPEUSDT', label:'HYPE', grad:'linear-gradient(135deg,#35e0c0,#1c8f79)' },
+  { sym:'ADAUSDT',  label:'ADA',  grad:'linear-gradient(135deg,#5b8cff,#2b4fb0)' },
+];
+
+const RATIO_TYPES = {
+  global:  { path:'globalLongShortAccountRatio', label:'Global Accounts',  desc:'Share of ALL accounts holding BTC (or the picked asset) net long vs net short.' },
+  topPos:  { path:'topLongShortPositionRatio',    label:'Top Positions',    desc:'Position value held long vs short among Binance\u2019s top 20% of traders by margin balance.' },
+  topAcct: { path:'topLongShortAccountRatio',     label:'Top Accounts',     desc:'Account count long vs short among that same top 20% cohort \u2014 can diverge from Top Positions.' },
+  taker:   { path:'takerlongshortRatio',          label:'Taker Volume',     desc:'Aggressive (market-order) taker buy volume vs sell volume \u2014 who is paying to cross the spread right now.' },
+};
+const PERIODS = ['5m', '15m', '1h', '4h'];
+
+// Reuse the same personal Cloudflare Worker + public CORS proxy fallback chain
+// used across the rest of the suite. Binance's fapi.binance.com endpoints are
+// generally reachable directly from the browser; the worker/proxy chain is a
+// fallback of last resort if direct fetches are ever blocked. This proxy path
+// only applies to REST calls \u2014 the liquidation feed is a WebSocket and
+// connects directly to fstream.binance.com (cannot be proxied through a CORS
+// worker), so if outbound WebSocket connections are blocked in your
+// environment, the feed section will show a connection error while
+// everything else on the page keeps working.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){ return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`; }
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{ return await fetch(url, { cache:'no-store', signal: controller.signal }); }
+  finally{ clearTimeout(timer); }
+}
+async function fetchJSONDirect(url){
+  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+async function fetchJSONViaProxyChain(url){
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker HTTP ' + res.status);
+      return await res.json();
+    }catch(err){ console.warn('[proxy] worker failed:', err && err.message); }
+  }
+  return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
+    const res = await fetchWithTimeout(buildProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('proxy HTTP ' + res.status);
+    return await res.json();
+  })()));
+}
+async function fetchJSON(url){
+  try{ return await fetchJSONDirect(url); }
+  catch(err){ return await fetchJSONViaProxyChain(url); }
+}
+
+// ==================== Formatting helpers ====================
+function escapeHtml(s){ return (s || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function formatUSD(n){
+  if(typeof n !== 'number' || !isFinite(n)) return '\u2014';
+  const abs = Math.abs(n), sign = n < 0 ? '-' : '';
+  if(abs >= 1e12) return sign + '$' + (abs/1e12).toFixed(2) + 'T';
+  if(abs >= 1e9)  return sign + '$' + (abs/1e9).toFixed(2) + 'B';
+  if(abs >= 1e6)  return sign + '$' + (abs/1e6).toFixed(2) + 'M';
+  if(abs >= 1e3)  return sign + '$' + (abs/1e3).toFixed(1) + 'K';
+  return sign + '$' + abs.toFixed(2);
+}
+function formatQty(n, decimals){
+  if(typeof n !== 'number' || !isFinite(n)) return '\u2014';
+  if(n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if(n >= 1e3) return (n/1e3).toFixed(2) + 'K';
+  return n.toFixed(decimals != null ? decimals : 3);
+}
+function formatPct(n){
+  if(typeof n !== 'number' || !isFinite(n)) return '\u2014';
+  return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+}
+function pctClass(n){
+  if(typeof n !== 'number' || !isFinite(n)) return 'flat';
+  return n > 0 ? 'up' : (n < 0 ? 'down' : 'flat');
+}
+function priceDecimals(price){
+  if(!isFinite(price)) return 2;
+  if(price >= 1000) return 1;
+  if(price >= 100) return 2;
+  if(price >= 1) return 3;
+  if(price >= 0.01) return 5;
+  return 7;
+}
+function formatPrice(price){
+  if(typeof price !== 'number' || !isFinite(price)) return '\u2014';
+  return '$' + price.toLocaleString(undefined, { minimumFractionDigits: priceDecimals(price), maximumFractionDigits: priceDecimals(price) });
+}
+function timeAgo(ts){
+  const secs = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if(secs < 5) return 'just now';
+  if(secs < 60) return secs + 's ago';
+  const mins = Math.round(secs / 60);
+  if(mins < 60) return mins + 'm ago';
+  const hrs = Math.round(mins / 60);
+  return hrs + 'h ago';
+}
+
+// ==================== State ====================
+let STATE = { symbol:'BTCUSDT', ratioType:'global', period:'15m' };
+let DATA = { ticker:null, oiCurrent:null, oiHist:null, funding:null, fundingHist:null, ratioHist:null };
+let lastResults = null;
+let lastUpdated = null;
+let fundingCountdownTimer = null;
+
+// ==================== Coinalyze liquidation totals state ====================
+let coinalyzeApiKey = '';
+try{ coinalyzeApiKey = localStorage.getItem(COINALYZE_KEY_STORAGE) || ''; }catch(err){ /* storage unavailable */ }
+let coinalyzeSymbolMap = null; // { BTC: 'BTCUSDT_PERP.A', ETH: '...', ... }
+let coinalyzeTotals = null;    // { BTC: { h1:{l,s}, h8:{l,s}, h24:{l,s} }, ... }
+let coinalyzeStatus = 'idle';  // idle | nokey | loading | ok | error
+let coinalyzeErrorMsg = '';
+let coinalyzeUpdatedAt = null;
+
+// ==================== Local cache (stale-while-revalidate) ====================
+function cacheKeyFor(){ return `${STATE.symbol}|${STATE.ratioType}|${STATE.period}`; }
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      key: cacheKeyFor(),
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
+      results: lastResults
+    }));
+  }catch(err){ /* storage unavailable */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.results || cached.key !== cacheKeyFor()) return false;
+    lastResults = cached.results;
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+function updateLastUpdatedLabel(failed){
+  const el = document.getElementById('updatedLabel');
+  el.classList.toggle('label-error', !!failed);
+  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed \u2014 see console' : ''; return; }
+  const mins = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 60000));
+  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  el.textContent = (failed ? 'Refresh failed, showing cached \u00b7 ' : 'Updated ') + ago;
+}
+function showDegradedBanner(text){
+  const el = document.getElementById('degradedBanner');
+  if(!text){ el.classList.remove('show'); el.textContent = ''; return; }
+  el.textContent = text;
+  el.classList.add('show');
+}
+
+// ==================== Coinalyze liquidation totals (1h/8h/24h) ====================
+// Coinalyze calls get their own fetch helper (instead of the generic
+// fetchJSON used for Binance) because when everything fails we want to know
+// *why* — was it a CORS/network block, a bad HTTP status from Coinalyze
+// itself (e.g. 401 = bad key), or the proxy chain being down — rather than a
+// single opaque "All promises were rejected" from Promise.any.
+async function coinalyzeFetchJSON(url){
+  const attempts = [];
+  // 1) Direct (works only if Coinalyze sends CORS headers for browser JS)
+  try{
+    const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
+    if(!res.ok){
+      const body = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status}${body ? ' \u2014 ' + body.slice(0, 160) : ''}`);
+    }
+    return await res.json();
+  }catch(err){
+    attempts.push(`direct: ${err && err.message ? err.message : 'network/CORS error'}`);
+  }
+  // 2) Personal worker proxy (only reliable if its ALLOWED_HOSTS includes api.coinalyze.net)
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+      if(!res.ok){
+        const body = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}${body ? ' \u2014 ' + body.slice(0, 160) : ''}`);
+      }
+      return await res.json();
+    }catch(err){
+      attempts.push(`worker: ${err && err.message ? err.message : 'failed'}`);
+    }
+  }
+  // 3) Public CORS proxies, tried one at a time so each failure is attributable.
+  // corsfix is deliberately excluded here: its free tier requires the
+  // calling site's origin to be pre-registered in their dashboard, which
+  // can't be satisfied from an arbitrary local/self-hosted HTML file, so it
+  // would only ever fail with "invalid_origin" in this context.
+  const coinalyzeProxies = [
+    (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+    (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  ];
+  const proxyNames = ['codetabs', 'allorigins'];
+  for(let i = 0; i < coinalyzeProxies.length; i++){
+    try{
+      const res = await fetchWithTimeout(coinalyzeProxies[i](url), COINALYZE_PROXY_TIMEOUT_MS);
+      if(!res.ok){
+        const body = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}${body ? ' \u2014 ' + body.slice(0, 160) : ''}`);
+      }
+      return await res.json();
+    }catch(err){
+      attempts.push(`${proxyNames[i] || 'proxy' + i}: ${err && err.message ? err.message : 'failed'}`);
+    }
+  }
+  const authIssue = attempts.some(a => /HTTP 401/.test(a));
+  const prefix = authIssue
+    ? 'Invalid/rejected API key (401) \u2014 double-check you copied the whole key with no extra spaces. '
+    : '';
+  throw new Error(prefix + attempts.join(' | '));
+}
+function saveCoinalyzeKey(key){
+  coinalyzeApiKey = (key || '').trim();
+  try{ localStorage.setItem(COINALYZE_KEY_STORAGE, coinalyzeApiKey); }catch(err){ /* storage unavailable */ }
+  coinalyzeSymbolMap = null; // force re-resolve with the new key
+  fetchCoinalyzeTotals();
+}
+function loadCoinalyzeSymbolCache(){
+  try{
+    const raw = localStorage.getItem(COINALYZE_SYMBOL_CACHE_KEY);
+    if(!raw) return null;
+    const cached = JSON.parse(raw);
+    if(!cached.map || !cached.savedAt) return null;
+    if(Date.now() - cached.savedAt > COINALYZE_SYMBOL_CACHE_TTL_MS) return null;
+    return cached.map;
+  }catch(err){ return null; }
+}
+function saveCoinalyzeSymbolCache(map){
+  try{ localStorage.setItem(COINALYZE_SYMBOL_CACHE_KEY, JSON.stringify({ map, savedAt: Date.now() })); }
+  catch(err){ /* storage unavailable */ }
+}
+// Resolve each of our coins to its Binance USDT-margined perpetual symbol in
+// Coinalyze's own symbol notation (e.g. BTCUSDT_PERP.A), by asking Coinalyze
+// which exchange code corresponds to "Binance" and cross-referencing its
+// future-markets list, rather than hardcoding an exchange suffix that could
+// silently break if Coinalyze ever renumbers exchange codes.
+async function resolveCoinalyzeSymbols(){
+  const cached = loadCoinalyzeSymbolCache();
+  if(cached){ coinalyzeSymbolMap = cached; return; }
+  const withKey = (path) => `${COINALYZE_BASE}${path}${path.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(coinalyzeApiKey)}`;
+  const [exchanges, markets] = await Promise.all([
+    coinalyzeFetchJSON(withKey('/exchanges')),
+    coinalyzeFetchJSON(withKey('/future-markets')),
+  ]);
+  const binance = Array.isArray(exchanges) ? exchanges.find(e => /^binance$/i.test(e.name)) : null;
+  if(!binance) throw new Error('could not find Binance in Coinalyze exchange list');
+  const wanted = new Set(SYMBOLS.map(s => s.label));
+  const map = {};
+  (Array.isArray(markets) ? markets : []).forEach(m => {
+    if(m.exchange !== binance.code) return;
+    if(!m.is_perpetual) return;
+    if(m.quote_asset !== 'USDT') return;
+    if(!wanted.has(m.base_asset)) return;
+    map[m.base_asset] = m.symbol;
+  });
+  coinalyzeSymbolMap = map;
+  saveCoinalyzeSymbolCache(map);
+}
+async function fetchCoinalyzeTotals(){
+  if(!coinalyzeApiKey){ coinalyzeStatus = 'nokey'; renderLiqTotals(); return; }
+  coinalyzeStatus = 'loading';
+  renderLiqTotals();
+  try{
+    if(!coinalyzeSymbolMap) await resolveCoinalyzeSymbols();
+    const symbols = Object.values(coinalyzeSymbolMap || {});
+    if(!symbols.length) throw new Error('no matching Binance USDT perpetuals found on Coinalyze');
+    const toTs = Math.floor(Date.now() / 1000);
+    const fromTs = toTs - 25 * 3600; // 24h of hourly candles + a little slack
+    const url = `${COINALYZE_BASE}/liquidation-history?symbols=${encodeURIComponent(symbols.join(','))}` +
+      `&interval=1hour&from=${fromTs}&to=${toTs}&convert_to_usd=true&api_key=${encodeURIComponent(coinalyzeApiKey)}`;
+    const data = await coinalyzeFetchJSON(url);
+    const historyBySymbol = {};
+    (Array.isArray(data) ? data : []).forEach(d => { historyBySymbol[d.symbol] = Array.isArray(d.history) ? d.history : []; });
+    const sumSince = (history, hours) => {
+      const cutoff = toTs - hours * 3600;
+      return history.reduce((acc, pt) => {
+        if(pt.t >= cutoff){ acc.l += (pt.l || 0); acc.s += (pt.s || 0); }
+        return acc;
+      }, { l: 0, s: 0 });
+    };
+    const totals = {};
+    Object.entries(coinalyzeSymbolMap).forEach(([label, sym]) => {
+      const hist = historyBySymbol[sym] || [];
+      totals[label] = { h1: sumSince(hist, 1), h8: sumSince(hist, 8), h24: sumSince(hist, 24) };
+    });
+    coinalyzeTotals = totals;
+    coinalyzeStatus = 'ok';
+    coinalyzeUpdatedAt = new Date();
+  }catch(err){
+    console.warn('[coinalyze] failed:', err && err.message);
+    coinalyzeStatus = 'error';
+    coinalyzeErrorMsg = (err && err.message) || 'unknown error';
+  }
+  renderLiqTotals();
+}
+function renderLiqTotals(){
+  const panel = document.getElementById('liqTotalsPanel');
+  const note = document.getElementById('liqTotalsNote');
+  if(!panel) return;
+
+  if(coinalyzeStatus === 'nokey' || coinalyzeStatus === 'error'){
+    const errLine = coinalyzeStatus === 'error'
+      ? `<div class="keybar-msg" style="color:#ffb3c1;word-break:break-word;">Couldn\u2019t load totals \u2014 ${escapeHtml(coinalyzeErrorMsg)}</div>`
+      : `<div class="keybar-msg">Free, no credit card \u2014 sign up and grab a key from <a href="https://coinalyze.net/account/api-key/" target="_blank" rel="noopener">coinalyze.net/account/api-key</a>, then paste it here. Stored only in this browser.</div>`;
+    panel.innerHTML = `
+      <div class="liqtotals-keybar">
+        <input type="text" id="coinalyzeKeyInput" placeholder="Paste your free Coinalyze API key" value="${escapeHtml(coinalyzeApiKey)}" autocomplete="off" spellcheck="false"/>
+        <button type="button" id="coinalyzeKeySave">Save &amp; load</button>
+        ${errLine}
+      </div>
+      <div class="empty-note">${coinalyzeStatus === 'error' ? 'Totals unavailable this refresh.' : 'Add a key above to see 1h / 8h / 24h liquidation totals per coin.'}</div>`;
+    const saveBtn = document.getElementById('coinalyzeKeySave');
+    if(saveBtn){
+      saveBtn.addEventListener('click', () => {
+        const val = document.getElementById('coinalyzeKeyInput').value;
+        saveCoinalyzeKey(val);
+      });
+    }
+    note.textContent = '';
+    return;
+  }
+
+  if(coinalyzeStatus === 'loading' && !coinalyzeTotals){
+    panel.innerHTML = '<div class="skel-block" style="height:180px;border-radius:14px"></div>';
+    note.textContent = 'Loading\u2026';
+    return;
+  }
+
+  const rows = SYMBOLS.filter(s => coinalyzeTotals && coinalyzeTotals[s.label]).map(s => {
+    const t = coinalyzeTotals[s.label];
+    const cell = (bucket) => `<span class="liqtotals-long">${formatUSD(bucket.l)}</span><span class="liqtotals-cell-sep">/</span><span class="liqtotals-short">${formatUSD(bucket.s)}</span>`;
+    return `
+      <tr>
+        <td><div class="liqtotals-coin"><span class="swatch" style="background:${s.grad}"></span>${s.label}</div></td>
+        <td>${cell(t.h1)}</td>
+        <td>${cell(t.h8)}</td>
+        <td>${cell(t.h24)}</td>
+      </tr>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table class="liqtotals-table">
+        <thead><tr><th>Coin</th><th>1h (long/short)</th><th>8h (long/short)</th><th>24h (long/short)</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:var(--faint)">No data returned.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+  note.textContent = coinalyzeUpdatedAt ? `Updated ${timeAgo(coinalyzeUpdatedAt.getTime())} \u00b7 aggregated across exchanges` : '';
+}
+
+// ==================== Chip builders ====================
+function buildChip(active, label, onClick, swatch){
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'chip' + (active ? ' active' : '');
+  if(swatch){
+    const sw = document.createElement('span');
+    sw.className = 'swatch';
+    sw.style.background = swatch;
+    btn.appendChild(sw);
+  }
+  btn.appendChild(document.createTextNode(label));
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+function renderSymbolChips(){
+  const row = document.getElementById('symbolChips');
+  row.innerHTML = '';
+  SYMBOLS.forEach(s => {
+    row.appendChild(buildChip(s.sym === STATE.symbol, s.label, () => {
+      STATE.symbol = s.sym;
+      onSymbolChange();
+    }, s.grad));
+  });
+}
+function renderRatioTypeChips(){
+  const row = document.getElementById('ratioTypeChips');
+  row.innerHTML = '';
+  Object.keys(RATIO_TYPES).forEach(key => {
+    row.appendChild(buildChip(key === STATE.ratioType, RATIO_TYPES[key].label, () => {
+      STATE.ratioType = key;
+      document.getElementById('ratioTypeDesc').textContent = RATIO_TYPES[key].desc;
+      renderRatioTypeChips();
+      fetchAll();
+    }));
+  });
+  document.getElementById('ratioTypeDesc').textContent = RATIO_TYPES[STATE.ratioType].desc;
+}
+function renderPeriodChips(){
+  const row = document.getElementById('periodChips');
+  row.innerHTML = '';
+  PERIODS.forEach(p => {
+    row.appendChild(buildChip(p === STATE.period, p, () => {
+      STATE.period = p;
+      renderPeriodChips();
+      fetchAll();
+    }));
+  });
+}
+function onSymbolChange(){
+  renderSymbolChips();
+  renderRatioTypeChips();
+  fetchAll();
+}
+
+// ==================== Chart builder (generic sparkline) ====================
+function buildAreaChart(values, strokeColor, baseline){
+  const w = 1000, h = 130, padY = 10;
+  const vals = values.filter(v => typeof v === 'number' && isFinite(v));
+  if(vals.length < 2) return '<div class="empty-note">Not enough history to chart yet.</div>';
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if(typeof baseline === 'number'){ min = Math.min(min, baseline); max = Math.max(max, baseline); }
+  const range = (max - min) || 1;
+  const stepX = w / (values.length - 1);
+  const pts = values.map((v, i) => {
+    const x = i * stepX;
+    const y = padY + (1 - (v - min) / range) * (h - 2 * padY);
+    return [x.toFixed(1), y.toFixed(1)];
+  });
+  const lineD = 'M' + pts.map(p => p.join(',')).join(' L');
+  const areaD = lineD + ` L${w},${h} L0,${h} Z`;
+  let baselineSvg = '';
+  if(typeof baseline === 'number'){
+    const by = (padY + (1 - (baseline - min) / range) * (h - 2 * padY)).toFixed(1);
+    baselineSvg = `<line x1="0" y1="${by}" x2="${w}" y2="${by}" stroke="var(--faint)" stroke-width="1" stroke-dasharray="4 4" opacity=".6"/>`;
+  }
+  return `<svg class="chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="chartArea-${strokeColor.replace('#','')}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${strokeColor}" stop-opacity=".30"/>
+      <stop offset="100%" stop-color="${strokeColor}" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${baselineSvg}
+    <path d="${areaD}" fill="url(#chartArea-${strokeColor.replace('#','')})"/>
+    <path d="${lineD}" fill="none" stroke="${strokeColor}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+// ==================== Renderers: stat strip ====================
+function renderStatCard(icon, grad, label, value, sub){
+  return `
+    <div class="stat-card">
+      <div class="stat-top">
+        <span class="stat-icon" style="background:${grad}">${icon}</span>
+        <span class="stat-label">${label}</span>
+      </div>
+      <div class="stat-value">${value}</div>
+      ${sub || ''}
+    </div>`;
+}
+function renderStats(){
+  const { ticker, oiCurrent, funding, ratioHist } = DATA;
+  const price = ticker ? parseFloat(ticker.lastPrice) : null;
+  const chg = ticker ? parseFloat(ticker.priceChangePercent) : null;
+
+  const oiQty = oiCurrent ? parseFloat(oiCurrent.openInterest) : null;
+  const oiUsd = (oiQty != null && price != null) ? oiQty * price : null;
+
+  const fundingRate = funding ? parseFloat(funding.lastFundingRate) * 100 : null;
+  const nextFundingTs = funding ? parseInt(funding.nextFundingTime, 10) : null;
+
+  let latestRatio = null, latestLongPct = null, latestShortPct = null, latestLabel = 'Long:Short';
+  if(Array.isArray(ratioHist) && ratioHist.length){
+    const last = ratioHist[ratioHist.length - 1];
+    if(STATE.ratioType === 'taker'){
+      latestRatio = parseFloat(last.buySellRatio);
+      latestLabel = 'Buy:Sell';
+    }else{
+      latestRatio = parseFloat(last.longShortRatio);
+      latestLongPct = parseFloat(last.longAccount) * 100;
+      latestShortPct = parseFloat(last.shortAccount) * 100;
+    }
+  }
+
+  const cards = [
+    renderStatCard('\ud83d\udcb0', 'linear-gradient(135deg,#5b8cff,#2b4fb0)', STATE.symbol.replace('USDT','') + ' Price',
+      formatPrice(price),
+      chg !== null ? `<div class="stat-sub"><span class="pill ${pctClass(chg)}">${formatPct(chg)} 24h</span></div>` : ''
+    ),
+    renderStatCard('\ud83d\udcca', 'linear-gradient(135deg,#a78bfa,#6d28d9)', 'Open Interest',
+      formatUSD(oiUsd),
+      oiQty !== null ? `<div class="stat-sub" style="color:var(--faint)">${formatQty(oiQty, 0)} contracts</div>` : ''
+    ),
+    renderStatCard('\u23f1\ufe0f', 'linear-gradient(135deg,#f5a623,#c9791a)', 'Funding Rate',
+      fundingRate !== null ? formatPct(fundingRate) : '\u2014',
+      nextFundingTs ? `<div class="stat-sub" style="color:var(--faint)" id="fundingCountdown" data-next="${nextFundingTs}">next in \u2014</div>` : ''
+    ),
+    renderStatCard('\u2696\ufe0f', 'linear-gradient(135deg,#ff5470,#c22d5c)', RATIO_TYPES[STATE.ratioType].label,
+      latestRatio !== null ? latestRatio.toFixed(2) : '\u2014',
+      latestLongPct !== null ? `<div class="stat-sub"><span class="pill up">${latestLongPct.toFixed(1)}% long</span><span class="pill down">${latestShortPct.toFixed(1)}% short</span></div>` : `<div class="stat-sub" style="color:var(--faint)">${latestLabel}</div>`
+    ),
+  ];
+  document.getElementById('statSection').innerHTML = `<div class="stat-grid">${cards.join('')}</div>`;
+  startFundingCountdown();
+}
+function startFundingCountdown(){
+  if(fundingCountdownTimer) clearInterval(fundingCountdownTimer);
+  const tick = () => {
+    const el = document.getElementById('fundingCountdown');
+    if(!el) return;
+    const next = parseInt(el.getAttribute('data-next'), 10);
+    if(!next) return;
+    let diff = Math.max(0, next - Date.now());
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    el.textContent = `next in ${h}h ${m}m ${s}s`;
+  };
+  tick();
+  fundingCountdownTimer = setInterval(tick, 1000);
+}
+
+// ==================== Renderers: ratio panel ====================
+function renderRatioPanel(){
+  const panel = document.getElementById('ratioPanel');
+  const note = document.getElementById('ratioNote');
+  const hist = DATA.ratioHist;
+  if(!Array.isArray(hist) || !hist.length){
+    panel.innerHTML = '<div class="empty-note">Ratio history unavailable this refresh.</div>';
+    note.textContent = '';
+    return;
+  }
+  const last = hist[hist.length - 1];
+  const isTaker = STATE.ratioType === 'taker';
+  let leftPct, rightPct, ratio, leftLabel, rightLabel;
+  if(isTaker){
+    const buyVol = parseFloat(last.buyVol), sellVol = parseFloat(last.sellVol);
+    const total = buyVol + sellVol || 1;
+    leftPct = buyVol / total * 100; rightPct = sellVol / total * 100;
+    ratio = parseFloat(last.buySellRatio);
+    leftLabel = 'Buy'; rightLabel = 'Sell';
+  }else{
+    leftPct = parseFloat(last.longAccount) * 100; rightPct = parseFloat(last.shortAccount) * 100;
+    ratio = parseFloat(last.longShortRatio);
+    leftLabel = 'Long'; rightLabel = 'Short';
+  }
+  const values = hist.map(h => parseFloat(isTaker ? h.buySellRatio : h.longShortRatio));
+  const chart = buildAreaChart(values, '#FF5470', 1);
+
+  panel.innerHTML = `
+    <div class="split-wrap">
+      <div class="split-top">
+        <span class="split-side long">${leftLabel} ${leftPct.toFixed(1)}%</span>
+        <span class="split-ratio">${ratio.toFixed(3)} ratio</span>
+        <span class="split-side short">${rightLabel} ${rightPct.toFixed(1)}%</span>
+      </div>
+      <div class="split-bar">
+        <div class="split-long-fill" style="width:${leftPct.toFixed(2)}%"></div>
+        <div class="split-short-fill" style="width:${rightPct.toFixed(2)}%"></div>
+      </div>
+    </div>
+    <div class="chart-wrap">${chart}</div>
+    <div class="chart-range-labels"><span>${hist.length} periods \u00b7 ${STATE.period} interval</span><span>dashed line = 1.0 (neutral)</span></div>
+  `;
+  note.textContent = `Updated every ${STATE.period}`;
+}
+
+// ==================== Renderers: open interest ====================
+function renderOI(){
+  const panel = document.getElementById('oiPanel');
+  const note = document.getElementById('oiNote');
+  const hist = DATA.oiHist;
+  if(!Array.isArray(hist) || hist.length < 2){
+    panel.innerHTML = '<div class="empty-note">Open interest history unavailable this refresh.</div>';
+    note.textContent = '';
+    return;
+  }
+  const values = hist.map(h => parseFloat(h.sumOpenInterestValue));
+  const first = values[0], last = values[values.length - 1];
+  const chg = first ? (last - first) / first * 100 : null;
+  const chart = buildAreaChart(values, '#A78BFA');
+  panel.innerHTML = `
+    <div class="chart-wrap">${chart}</div>
+    <div class="chart-range-labels"><span>${formatUSD(values[0])}</span><span>${formatUSD(values[values.length-1])}</span></div>
+  `;
+  note.textContent = chg !== null ? `${formatPct(chg)} over window` : '';
+}
+
+// ==================== Renderers: funding history ====================
+function renderFunding(){
+  const panel = document.getElementById('fundingPanel');
+  const note = document.getElementById('fundingNote');
+  const hist = DATA.fundingHist;
+  if(!Array.isArray(hist) || hist.length < 2){
+    panel.innerHTML = '<div class="empty-note">Funding history unavailable this refresh.</div>';
+    note.textContent = '';
+    return;
+  }
+  const values = hist.map(h => parseFloat(h.fundingRate) * 100);
+  const chart = buildAreaChart(values, '#F5A623', 0);
+  const last = values[values.length - 1];
+  panel.innerHTML = `
+    <div class="chart-wrap">${chart}</div>
+    <div class="chart-range-labels"><span>${hist.length} settlements</span><span>latest ${formatPct(last)}</span></div>
+  `;
+  note.textContent = last > 0.05 ? 'Elevated positive funding \u2014 longs crowded' : (last < -0.05 ? 'Elevated negative funding \u2014 shorts crowded' : '');
+}
+
+// ==================== Data fetch ====================
+function apiUrlData(path, params){
+  const qs = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  return `${FAPI_BASE}/futures/data/${path}?${qs}`;
+}
+function apiUrlV1(path, params){
+  const qs = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  return `${FAPI_BASE}/fapi/v1/${path}?${qs}`;
+}
+
+async function fetchAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  if(lastResults){
+    DATA = Object.assign({}, DATA, lastResults);
+    renderAll();
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  const sym = STATE.symbol, period = STATE.period;
+  const ratioUrl = apiUrlData(RATIO_TYPES[STATE.ratioType].path, { symbol: sym, period, limit: 30 });
+
+  const settled = await Promise.allSettled([
+    fetchJSON(apiUrlV1('ticker/24hr', { symbol: sym })),
+    fetchJSON(apiUrlV1('openInterest', { symbol: sym })),
+    fetchJSON(apiUrlData('openInterestHist', { symbol: sym, period, limit: 30 })),
+    fetchJSON(apiUrlV1('premiumIndex', { symbol: sym })),
+    fetchJSON(apiUrlV1('fundingRate', { symbol: sym, limit: 30 })),
+    fetchJSON(ratioUrl),
+  ]);
+  const [tickerS, oiCurS, oiHistS, fundingS, fundingHistS, ratioS] = settled;
+  const val = s => s.status === 'fulfilled' ? s.value : null;
+  ['ticker','oiCurrent','oiHist','funding','fundingHist','ratioHist'].forEach((k,i) => {
+    if(settled[i].status === 'rejected') console.warn(`[${k}] failed:`, settled[i].reason && settled[i].reason.message);
+  });
+
+  const newResults = {
+    ticker: val(tickerS),
+    oiCurrent: val(oiCurS),
+    oiHist: val(oiHistS),
+    funding: val(fundingS),
+    fundingHist: val(fundingHistS),
+    ratioHist: val(ratioS),
+  };
+
+  let failed = false;
+  if(!newResults.ticker && !newResults.ratioHist){
+    failed = true;
+    if(!lastResults){
+      document.getElementById('statSection').innerHTML = `
+        <div class="error-state">
+          Couldn't load futures data right now (Binance unreachable).<br>
+          If direct fetches are blocked in your environment, add <b>fapi.binance.com</b> to your
+          Cloudflare Worker's ALLOWED_HOSTS so the proxy fallback can reach it. Check the console for details.
+          <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+        </div>`;
+      document.getElementById('retryBtn').addEventListener('click', fetchAll);
+    }
+  }else{
+    lastResults = newResults;
+    DATA = Object.assign({}, DATA, newResults);
+    lastUpdated = new Date();
+    saveCache();
+    renderAll();
+  }
+
+  const missing = [];
+  if(!newResults.ticker) missing.push('price');
+  if(!newResults.oiCurrent || !newResults.oiHist) missing.push('open interest');
+  if(!newResults.funding || !newResults.fundingHist) missing.push('funding');
+  if(!newResults.ratioHist) missing.push('ratio history');
+  if(missing.length && !failed){
+    showDegradedBanner(`Some sections couldn't refresh this cycle (${missing.join(', ')}) \u2014 showing last known data where available.`);
+  }else if(!failed){
+    showDegradedBanner(null);
+  }
+
+  updateLastUpdatedLabel(failed);
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+}
+
+function renderAll(){
+  renderStats();
+  renderRatioPanel();
+  renderOI();
+  renderFunding();
+}
+function renderSkeleton(){
+  document.getElementById('statSection').innerHTML = `<div class="stat-grid">${'<div class="stat-card skel-block" style="height:78px"></div>'.repeat(6)}</div>`;
+  document.getElementById('ratioPanel').innerHTML = '<div class="skel-block" style="height:220px;border-radius:14px"></div>';
+  document.getElementById('oiPanel').innerHTML = '<div class="skel-block" style="height:170px;border-radius:14px"></div>';
+  document.getElementById('fundingPanel').innerHTML = '<div class="skel-block" style="height:170px;border-radius:14px"></div>';
+}
+
+// ==================== Collapsible sections (chevron + expand/collapse all) ====================
+// Each section keeps whatever collapsed/expanded state is authored in the
+// HTML (Ratio and Feed start open; Open Interest and Funding start
+// collapsed) rather than forcing everything shut on load, matching
+// macro.html's behavior.
+function setSectionCollapsed(sectionEl, collapsed){
+  sectionEl.classList.toggle('collapsed', collapsed);
+  const btn = sectionEl.querySelector('.section-toggle-btn');
+  if(btn) btn.setAttribute('aria-expanded', String(!collapsed));
+}
+document.querySelectorAll('.section-head[data-toggle]').forEach(head => {
+  head.addEventListener('click', () => {
+    const sectionEl = document.getElementById(head.getAttribute('data-toggle'));
+    if(!sectionEl) return;
+    setSectionCollapsed(sectionEl, !sectionEl.classList.contains('collapsed'));
+    updateToggleAllLabel();
+  });
+});
+const toggleAllBtn = document.getElementById('toggleAllBtn');
+function updateToggleAllLabel(){
+  const sections = document.querySelectorAll('.section');
+  const anyExpanded = Array.from(sections).some(s => !s.classList.contains('collapsed'));
+  const label = anyExpanded ? 'Collapse all' : 'Expand all';
+  toggleAllBtn.setAttribute('aria-label', label);
+  toggleAllBtn.setAttribute('title', label);
+  toggleAllBtn.classList.toggle('flipped', !anyExpanded);
+}
+toggleAllBtn.addEventListener('click', () => {
+  const sections = document.querySelectorAll('.section');
+  const anyExpanded = Array.from(sections).some(s => !s.classList.contains('collapsed'));
+  sections.forEach(s => setSectionCollapsed(s, anyExpanded));
+  updateToggleAllLabel();
+});
+updateToggleAllLabel();
+
+// ==================== Wire up ====================
+document.getElementById('refreshBtn').addEventListener('click', fetchAll);
+document.getElementById('noticeToggle').addEventListener('click', () => {
+  const btn = document.getElementById('noticeToggle');
+  const details = document.getElementById('noticeDetails');
+  const willOpen = details.hidden;
+  details.hidden = !willOpen;
+  btn.classList.toggle('open', willOpen);
+  btn.setAttribute('aria-expanded', String(willOpen));
+});
+
+renderSymbolChips();
+renderRatioTypeChips();
+renderPeriodChips();
+
+loadCache();
+fetchAll();
+
+fetchCoinalyzeTotals();
+
+setInterval(fetchAll, REFRESH_INTERVAL_MS);
+setInterval(updateLastUpdatedLabel, 60000);
+setInterval(fetchCoinalyzeTotals, COINALYZE_REFRESH_INTERVAL_MS);
+</script>
+</body>
+</html>

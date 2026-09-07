@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeFi & TVL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(53,224,192,0.07), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+  a{color:inherit;}
+
+  /* ---- Top header ---- */
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .refresh-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 18px;max-width:720px;}
+
+  .degraded-banner{
+    background:rgba(255,84,112,.08);border:1px solid rgba(255,84,112,.25);color:#ffb3c1;
+    border-radius:10px;padding:10px 14px;font:12px var(--font-mono);margin-bottom:18px;
+    display:none;
+  }
+  .degraded-banner.show{display:block;}
+
+  /* ---- Section shell ---- */
+  .section{margin-bottom:26px;}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .section-head.toggleable{cursor:pointer;user-select:none;}
+  .section-title{font-size:15px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;}
+  .section-title .si{font-size:16px;}
+  .section-toggle-btn{
+    background:transparent;border:none;color:var(--muted);padding:0;margin:0;
+    width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;border-radius:6px;cursor:pointer;
+  }
+  .section-toggle-btn:hover{color:var(--accent);}
+  .section-toggle-btn svg{width:14px;height:14px;transition:transform .2s ease;}
+  .section.collapsed .section-toggle-btn svg{transform:rotate(-90deg);}
+  .section-body{overflow:hidden;}
+  .section.collapsed .section-body{display:none;}
+  .section.collapsed .section-head{margin-bottom:0;}
+  .section-note{font-size:11px;color:var(--faint);}
+  .section-note-inline{font-size:11.5px;color:var(--muted);padding:2px 2px 10px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;}
+
+  /* ---- Stat strip ---- */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px;}
+  @media(min-width:760px){ .stat-grid{grid-template-columns:repeat(4,1fr);} }
+  .stat-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:14px 16px;display:flex;flex-direction:column;gap:8px;
+    transition:border-color .15s, transform .15s;
+  }
+  .stat-card:hover{border-color:var(--border-soft);transform:translateY(-2px);}
+  .stat-top{display:flex;align-items:center;gap:8px;}
+  .stat-icon{
+    width:28px;height:28px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+  }
+  .stat-label{font:700 10px var(--font-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);}
+  .stat-value{font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.1;}
+  .stat-sub{display:flex;align-items:center;gap:6px;font:600 11px var(--font-mono);}
+  .stat-sub .pill{padding:1px 6px;border-radius:6px;}
+  .pill.up{color:var(--accent);background:rgba(53,224,192,.1);}
+  .pill.down{color:var(--red);background:rgba(255,84,112,.1);}
+  .pill.flat{color:var(--muted);background:rgba(139,147,163,.1);}
+
+  /* ---- TVL chart ---- */
+  .tvl-chart-wrap{padding:18px 18px 14px;}
+  .tvl-chart-svg{width:100%;height:150px;display:block;}
+  .tvl-range-labels{display:flex;justify-content:space-between;font:10.5px var(--font-mono);color:var(--faint);margin-top:6px;}
+
+  /* ---- Share bars (chains / categories) ---- */
+  .share-list{padding:6px 16px 14px;}
+  .share-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-soft);}
+  .share-row:last-child{border-bottom:none;}
+  .share-rank{width:16px;text-align:right;font:600 11px var(--font-mono);color:var(--faint);flex-shrink:0;}
+  .avatar{
+    width:26px;height:26px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font:700 10px var(--font-display);color:#fff;overflow:hidden;
+  }
+  .avatar img{width:100%;height:100%;object-fit:cover;}
+  .share-body{flex:1;min-width:0;}
+  .share-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .share-name{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .share-val{font:600 12px var(--font-mono);color:var(--text);white-space:nowrap;}
+  .share-track{height:5px;border-radius:4px;background:var(--border-soft);margin-top:6px;overflow:hidden;}
+  .share-fill{height:100%;border-radius:4px;}
+  .share-meta{font:10.5px var(--font-mono);color:var(--faint);margin-top:3px;}
+
+  /* ---- Controls row ---- */
+  .controls-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .ctrl{
+    background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    font:600 11.5px var(--font-mono);border-radius:9px;padding:8px 10px;
+    outline:none;flex:1;min-width:120px;
+  }
+  .ctrl::placeholder{color:var(--faint);}
+  select.ctrl{cursor:pointer;}
+
+  /* ---- Protocol rows ---- */
+  .protocol-list{padding:2px 0;}
+  .protocol-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border-soft);}
+  .protocol-row:last-child{border-bottom:none;}
+  .protocol-rank{width:20px;text-align:right;font:600 11px var(--font-mono);color:var(--faint);flex-shrink:0;}
+  .protocol-info{flex:1;min-width:0;}
+  .protocol-name-row{display:flex;align-items:center;gap:6px;}
+  .protocol-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .protocol-cat{
+    font:600 9px var(--font-mono);text-transform:uppercase;letter-spacing:.03em;
+    color:var(--muted);border:1px solid var(--border);border-radius:20px;padding:1px 7px;flex-shrink:0;
+  }
+  .protocol-meta{font:10.5px var(--font-mono);color:var(--faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .protocol-stats{text-align:right;flex-shrink:0;}
+  .protocol-tvl{font:700 13px var(--font-mono);}
+  .protocol-changes{display:flex;gap:5px;justify-content:flex-end;margin-top:3px;}
+  .chg-pill{font:600 10px var(--font-mono);padding:1px 5px;border-radius:6px;white-space:nowrap;}
+  .list-foot{padding:12px 16px;font:11px var(--font-mono);color:var(--faint);text-align:center;}
+
+  /* ---- DEX / Fees leaderboard ---- */
+  .lb-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border-soft);}
+  .lb-row:last-child{border-bottom:none;}
+  .lb-body{flex:1;min-width:0;}
+  .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .lb-name{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lb-vol{font:700 12.5px var(--font-mono);}
+  .lb-track{height:5px;border-radius:4px;background:var(--border-soft);margin-top:6px;overflow:hidden;}
+  .lb-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#5b8cff,#35e0c0);}
+  .lb-meta{display:flex;justify-content:space-between;font:10.5px var(--font-mono);color:var(--faint);margin-top:3px;}
+
+  /* ---- Movers ---- */
+  .movers-grid{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media(min-width:700px){ .movers-grid{grid-template-columns:1fr 1fr;} }
+  .movers-col-title{font:700 11px var(--font-mono);text-transform:uppercase;letter-spacing:.06em;padding:12px 16px 4px;}
+  .movers-col-title.gain{color:var(--accent);}
+  .movers-col-title.lose{color:var(--red);}
+  .mover-row{display:flex;align-items:center;gap:10px;padding:8px 16px;}
+  .mover-row img{width:24px;height:24px;border-radius:50%;flex-shrink:0;background:var(--panel2);}
+  .mover-info{flex:1;min-width:0;}
+  .mover-name{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mover-price{font:10.5px var(--font-mono);color:var(--faint);}
+
+  /* ---- Events / unlocks ---- */
+  .event-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border-soft);}
+  .event-row:last-child{border-bottom:none;}
+  .event-date{
+    flex-shrink:0;width:52px;text-align:center;background:var(--panel2);border:1px solid var(--border);
+    border-radius:9px;padding:6px 4px;font:700 10px var(--font-mono);color:var(--violet);line-height:1.3;
+  }
+  .event-date .dnum{font-size:14px;display:block;color:var(--text);}
+  .event-body{flex:1;min-width:0;}
+  .event-name{font-size:12.5px;font-weight:700;}
+  .event-desc{font:10.5px var(--font-mono);color:var(--faint);margin-top:2px;}
+
+  /* ---- Crypto countdowns ---- */
+  .cd-tabs{display:flex;gap:8px;margin-bottom:12px;}
+  .cd-tab{
+    flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 11.5px var(--font-mono);text-transform:uppercase;letter-spacing:.05em;
+    padding:9px;border-radius:9px;cursor:pointer;text-align:center;transition:all .15s;
+  }
+  .cd-tab:hover{color:var(--text);}
+  .cd-tab.active{color:#04110D;background:var(--accent);border-color:var(--accent);}
+  .cd-grid{display:grid;grid-template-columns:1fr;gap:10px;padding:14px;}
+  @media(min-width:700px){ .cd-grid{grid-template-columns:1fr 1fr;} }
+  .cd-card{
+    background:var(--panel2);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;transition:border-color .15s, transform .15s;
+  }
+  .cd-card:hover{border-color:var(--border-soft);transform:translateY(-2px);}
+  .cd-card.cd-past{opacity:.78;}
+  .cd-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px;}
+  .cd-coin{display:flex;align-items:center;gap:9px;min-width:0;}
+  .cd-badge{
+    width:32px;height:32px;border-radius:9px;flex-shrink:0;color:#fff;
+    display:flex;align-items:center;justify-content:center;font:700 10.5px var(--font-mono);
+  }
+  .cd-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cd-sub{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-top:1px;}
+  .cd-type-chip{
+    font:700 9px var(--font-mono);text-transform:uppercase;letter-spacing:.03em;
+    padding:3px 8px;border-radius:20px;border:1px solid var(--border);color:var(--muted);flex-shrink:0;white-space:nowrap;
+  }
+  .cd-type-chip.halving{color:var(--amber);border-color:rgba(245,166,35,.35);background:rgba(245,166,35,.1);}
+  .cd-type-chip.fork{color:var(--violet);border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.1);}
+  .cd-type-chip.upgrade{color:var(--blue);border-color:rgba(91,140,255,.35);background:rgba(91,140,255,.1);}
+  .cd-timer{display:flex;gap:6px;margin-bottom:10px;}
+  .cd-unit{flex:1;background:var(--bg);border:1px solid var(--border-soft);border-radius:8px;padding:7px 2px 6px;text-align:center;}
+  .cd-unit .num{font:700 16px var(--font-mono);color:var(--text);display:block;line-height:1.2;}
+  .cd-unit .lbl{font:8.5px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.05em;}
+  .cd-past-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .cd-check{font:700 11px var(--font-mono);color:var(--accent);}
+  .cd-ago{font:700 12px var(--font-mono);color:var(--faint);}
+  .cd-desc{font:11px var(--font-mono);color:var(--muted);line-height:1.5;}
+
+  .fallback-panel{padding:20px 18px;text-align:center;}
+  .fallback-panel .fp-icon{font-size:26px;margin-bottom:8px;}
+  .fallback-panel .fp-title{font-size:13.5px;font-weight:700;margin-bottom:6px;}
+  .fallback-panel .fp-text{font-size:12px;color:var(--muted);line-height:1.6;max-width:480px;margin:0 auto 14px;}
+  .fp-links{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .fp-link{
+    font:600 11px var(--font-mono);color:var(--violet);text-decoration:none;
+    border:1px solid var(--border);border-radius:20px;padding:6px 12px;display:inline-flex;align-items:center;gap:5px;
+  }
+  .fp-link:hover{border-color:var(--violet);}
+
+  /* ---- Disclaimer / about panel ---- */
+  .notice{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin:22px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);
+  }
+  .notice b{color:var(--text);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{
+    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 13px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, color .15s, border-color .15s;
+  }
+  .notice-toggle:hover{border-color:var(--accent);color:var(--accent);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{
+    display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
+  }
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+
+  .skel-block{border-radius:14px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 37%,var(--panel) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  .error-state{
+    padding:34px 20px;text-align:center;color:#ffb3c1;font:12.5px var(--font-mono);
+    border:1px dashed rgba(255,84,112,.3);border-radius:12px;line-height:1.7;
+  }
+  .retry-btn{
+    margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:8px 16px;border-radius:8px;font:600 12px var(--font-mono);cursor:pointer;
+  }
+  .retry-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .empty-note{padding:20px 16px;text-align:center;color:var(--faint);font:12px var(--font-mono);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>DeFi & TVL</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="sub">Total value locked, chain and category breakdowns, top protocols, DEX trade volume, market movers, and unlock/event tracking across DeFi — one screen to understand where capital is flowing.</p>
+
+  <div class="degraded-banner" id="degradedBanner"></div>
+
+  <!-- Stat strip -->
+  <div id="statSection"></div>
+
+  <!-- TVL trend -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="si">📈</span>Total Value Locked</div>
+      <div class="section-note" id="tvlNote"></div>
+    </div>
+    <div class="panel" id="tvlChartPanel"></div>
+  </div>
+
+  <!-- Chains -->
+  <div class="section collapsed" id="sec-chains">
+    <div class="section-head toggleable" data-toggle="sec-chains">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="false" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">⛓️</span>TVL by Chain</div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline">Top 12 of tracked chains</div>
+      <div class="panel" id="chainsPanel"></div>
+    </div>
+  </div>
+
+  <!-- Categories -->
+  <div class="section collapsed" id="sec-categories">
+    <div class="section-head toggleable" data-toggle="sec-categories">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="false" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">🗂️</span>TVL by Category</div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline">Where DeFi capital is deployed</div>
+      <div class="panel" id="categoriesPanel"></div>
+    </div>
+  </div>
+
+  <!-- Protocols -->
+  <div class="section collapsed" id="sec-protocols">
+    <div class="section-head toggleable" data-toggle="sec-protocols">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="false" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">🏛️</span>Top Protocols</div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline" id="protocolsNote"></div>
+      <div class="controls-row">
+        <input class="ctrl" id="protoSearch" type="text" placeholder="Search protocol…">
+        <select class="ctrl" id="protoCategory"><option value="all">All categories</option></select>
+        <select class="ctrl" id="protoSort">
+          <option value="tvl">Sort: TVL (high→low)</option>
+          <option value="chg1d_desc">Sort: 24h change (best)</option>
+          <option value="chg1d_asc">Sort: 24h change (worst)</option>
+          <option value="chg7d_desc">Sort: 7d change (best)</option>
+        </select>
+      </div>
+      <div class="panel" id="protocolsPanel"></div>
+    </div>
+  </div>
+
+  <!-- DEX volume -->
+  <div class="section collapsed" id="sec-dex">
+    <div class="section-head toggleable" data-toggle="sec-dex">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="false" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">🔁</span>DEX Trade Volume (24h)</div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline" id="dexNote"></div>
+      <div class="panel" id="dexPanel"></div>
+    </div>
+  </div>
+
+  <!-- Movers -->
+  <div class="section collapsed" id="sec-movers">
+    <div class="section-head toggleable" data-toggle="sec-movers">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="false" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">🚀</span>Market Movers</div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline">Top 100 coins by market cap, 24h</div>
+      <div class="panel"><div class="movers-grid" id="moversPanel"></div></div>
+    </div>
+  </div>
+
+  <!-- Events / Unlocks -->
+  <div class="section collapsed" id="sec-events">
+    <div class="section-head toggleable" data-toggle="sec-events">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="false" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">🗓️</span>Unlocks & Major Events</div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline">Token vesting & emission schedules</div>
+      <div class="panel" id="eventsPanel"></div>
+    </div>
+  </div>
+
+  <!-- Crypto Countdowns -->
+  <div class="section collapsed" id="sec-countdowns">
+    <div class="section-head toggleable" data-toggle="sec-countdowns">
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="false" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">⏱️</span>Crypto Countdowns</div>
+    </div>
+    <div class="section-body">
+      <div class="section-note-inline">Live halving & network-upgrade countdowns, past and upcoming</div>
+      <div class="cd-tabs">
+        <button class="cd-tab active" id="cdTabUpcoming" type="button" data-tab="upcoming">Upcoming</button>
+        <button class="cd-tab" id="cdTabPast" type="button" data-tab="past">Past</button>
+      </div>
+      <div class="controls-row">
+        <select class="ctrl" id="cdTypeFilter">
+          <option value="all">All types</option>
+          <option value="halving">Halvings</option>
+          <option value="fork">Forks</option>
+          <option value="upgrade">Upgrades</option>
+        </select>
+      </div>
+      <div class="panel" id="countdownPanel"></div>
+      <div class="list-foot">Curated reference dates, ticking client-side · <a href="https://www.nicehash.com/countdown" target="_blank" rel="noopener">Full live tracker on NiceHash ↗</a></div>
+    </div>
+  </div>
+
+  <div class="notice">
+    <div class="notice-summary">
+      <b>Reference data only, not financial advice.</b>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+    </div>
+    <div class="notice-details" id="noticeDetails" hidden>
+      TVL figures follow DefiLlama's methodology (assets deposited into a protocol's smart contracts, whether they be lending markets, DEX pools, staking contracts, etc.). "TVL" is not the same as a protocol's market cap or revenue, and double-counting can occur when protocols compose on top of each other. DEX volume reflects on-chain trade volume reported by each DEX's own adapter, not order-book/CEX activity. Unlock and emission-schedule data is thinner than TVL data industry-wide — DefiLlama moved its full unlock calendar behind a paid Pro plan, so this page shows whatever the free tier still exposes and links out to dedicated unlock trackers as a fallback. Figures refresh roughly every 10 minutes; DefiLlama itself typically updates TVL every few hours.
+      <div class="src-tags">
+        <span class="src-tag"><span class="dot"></span>TVL/Protocols/DEX · DefiLlama</span>
+        <span class="src-tag"><span class="dot"></span>Prices/Movers · CoinGecko</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------------- Config ----------------
+const CONFIG = {
+  tvlHistUrl:   'https://api.llama.fi/v2/historicalChainTvl',
+  chainsUrl:    'https://api.llama.fi/v2/chains',
+  protocolsUrl: 'https://api.llama.fi/protocols',
+  dexUrl:       'https://api.llama.fi/overview/dexs?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true',
+  feesUrl:      'https://api.llama.fi/overview/fees?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true',
+  emissionsUrl: 'https://api.llama.fi/emissions',
+  cgMarketsUrl: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&price_change_percentage=24h&sparkline=false'
+};
+
+const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const PROXY_TIMEOUT_MS = 14000;
+const CACHE_KEY = 'crypto-defi-tvl-cache-v1';
+
+const GRADIENTS = [
+  'linear-gradient(135deg,#35e0c0,#1c8f79)', 'linear-gradient(135deg,#6ea8ff,#3a5fc9)',
+  'linear-gradient(135deg,#ffb84d,#c9791a)', 'linear-gradient(135deg,#ff6b8b,#c22d5c)',
+  'linear-gradient(135deg,#a78bfa,#6d28d9)', 'linear-gradient(135deg,#ff8a4c,#c2501a)',
+  'linear-gradient(135deg,#f0c24b,#b8860b)', 'linear-gradient(135deg,#5b8cff,#2b4fb0)',
+  'linear-gradient(135deg,#ff5470,#35e0c0)', 'linear-gradient(135deg,#4dd0e1,#0d7a8c)'
+];
+
+// Curated halving / fork / upgrade dates, in the spirit of NiceHash's
+// countdown tracker (https://www.nicehash.com/countdown). There's no free,
+// CORS-friendly API for this data, so — same pattern as the Unlocks section
+// above — this is a hand-maintained reference list rather than a live fetch.
+// The countdowns themselves still tick in real time client-side against
+// these fixed dates. `estimated: true` marks dates without an on-chain-fixed
+// or officially confirmed schedule yet.
+const COUNTDOWN_EVENTS = [
+  { coin:'BTC', name:'Bitcoin', type:'halving', date:'2024-04-20T00:09:27Z', desc:'Block reward fell from 6.25 → 3.125 BTC at block 840,000.' },
+  { coin:'BTC', name:'Bitcoin', type:'halving', date:'2028-04-10T12:00:00Z', desc:'Block reward drop 3.125 → 1.5625 BTC at block 1,050,000.' },
+  { coin:'LTC', name:'Litecoin', type:'halving', date:'2023-08-02T00:00:00Z', desc:'Block reward fell from 12.5 → 6.25 LTC at block 2,520,000.' },
+  { coin:'LTC', name:'Litecoin', type:'halving', date:'2027-07-30T12:00:00Z', desc:'Block reward drop 6.25 → 3.125 LTC at block 3,360,000.' },
+  { coin:'BCH', name:'Bitcoin Cash', type:'halving', date:'2024-04-04T00:00:00Z', desc:'Block reward fell from 6.25 → 3.125 BCH.' },
+  { coin:'BCH', name:'Bitcoin Cash', type:'halving', date:'2028-04-03T12:00:00Z', desc:'Next Bitcoin Cash block reward halving at block 1,050,000.' },
+  { coin:'ZEC', name:'Zcash', type:'halving', date:'2024-11-23T12:00:00Z', desc:'Second Zcash block subsidy halving.' },
+  { coin:'ZEC', name:'Zcash', type:'halving', date:'2028-11-16T12:00:00Z', desc:'Third Zcash block subsidy halving at block 4,406,400.' },
+  { coin:'RVN', name:'Ravencoin', type:'halving', date:'2022-01-11T12:00:00Z', desc:'Block reward fell from 5000 → 2500 RVN.' },
+  { coin:'RVN', name:'Ravencoin', type:'halving', date:'2026-01-11T12:00:00Z', desc:'Block reward drop 2500 → 1250 RVN.' },
+  { coin:'ETC', name:'Ethereum Classic', type:'halving', date:'2026-09-15T12:00:00Z', desc:'Block reward halving ("ECIP-1017" era) at block 25,000,001.' },
+  { coin:'MONA', name:'Monacoin', type:'halving', date:'2026-11-20T12:00:00Z', desc:'Block reward halving at block 4,204,800.' },
+  { coin:'HNS', name:'Handshake', type:'halving', date:'2023-04-26T12:00:00Z', desc:'Handshake issuance halving event.' },
+  { coin:'HNS', name:'Handshake', type:'halving', date:'2025-08-01T12:00:00Z', desc:'Est. next Handshake issuance halving.', estimated:true },
+  { coin:'ETH', name:'Ethereum', type:'upgrade', date:'2022-09-15T06:42:42Z', desc:'The Merge — mainnet transition to proof-of-stake.' },
+  { coin:'ETH', name:'Ethereum', type:'upgrade', date:'2023-04-12T22:27:35Z', desc:'Shapella upgrade — enabled validator staking withdrawals.' },
+  { coin:'ETH', name:'Ethereum', type:'upgrade', date:'2024-03-13T13:55:35Z', desc:'Dencun upgrade — proto-danksharding via EIP-4844 blobs.' },
+  { coin:'ETH', name:'Ethereum', type:'upgrade', date:'2025-05-07T10:05:11Z', desc:'Pectra upgrade — account abstraction (EIP-7702) & higher staking limits.' },
+  { coin:'BTC', name:'Bitcoin', type:'fork', date:'2021-11-14T00:00:00Z', desc:'Taproot activation — Schnorr signatures & script upgrades.' },
+  { coin:'XMR', name:'Monero', type:'fork', date:'2022-07-16T12:00:00Z', desc:'Network upgrade activating tail emission (0.6 XMR/block minimum).' },
+];
+
+const COUNTDOWN_STATE = { tab: 'upcoming' };
+
+function cdFormatParts(diffMs){
+  const total = Math.max(0, Math.floor(diffMs / 1000));
+  return {
+    d: Math.floor(total / 86400),
+    h: Math.floor((total % 86400) / 3600),
+    m: Math.floor((total % 3600) / 60),
+    s: total % 60,
+  };
+}
+function cdPad(n){ return String(n).padStart(2, '0'); }
+function cdFormatAgo(diffMs){
+  const totalSec = Math.floor(diffMs / 1000);
+  const days = Math.floor(totalSec / 86400);
+  if(days >= 365) return `${(days / 365).toFixed(1)}y ago`;
+  if(days >= 30) return `${Math.floor(days / 30)}mo ago`;
+  if(days >= 1) return `${days}d ago`;
+  const hrs = Math.floor(totalSec / 3600);
+  if(hrs >= 1) return `${hrs}h ago`;
+  return 'moments ago';
+}
+function cdTypeLabel(t){ return t === 'halving' ? 'Halving' : (t === 'fork' ? 'Fork' : 'Upgrade'); }
+
+function renderCountdowns(){
+  const panel = document.getElementById('countdownPanel');
+  if(!panel) return;
+  const now = Date.now();
+  const typeFilter = document.getElementById('cdTypeFilter').value;
+  const withTs = COUNTDOWN_EVENTS.map((e, i) => Object.assign({ ts: new Date(e.date).getTime(), _i: i }, e));
+  let list = withTs.filter(e => typeFilter === 'all' || e.type === typeFilter);
+  if(COUNTDOWN_STATE.tab === 'upcoming'){
+    list = list.filter(e => e.ts > now).sort((a, b) => a.ts - b.ts);
+  }else{
+    list = list.filter(e => e.ts <= now).sort((a, b) => b.ts - a.ts);
+  }
+  if(!list.length){
+    panel.innerHTML = `<div class="empty-note">No ${COUNTDOWN_STATE.tab} events for this filter.</div>`;
+    return;
+  }
+  const cards = list.map(e => {
+    const grad = GRADIENTS[e._i % GRADIENTS.length];
+    const dateStr = new Date(e.ts).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+    const subLabel = e.estimated ? `Est. ${dateStr}` : dateStr;
+    if(COUNTDOWN_STATE.tab === 'upcoming'){
+      const { d, h, m, s } = cdFormatParts(e.ts - now);
+      return `
+        <div class="cd-card" data-ts="${e.ts}">
+          <div class="cd-top">
+            <div class="cd-coin">
+              <div class="cd-badge" style="background:${grad}">${escapeHtml(e.coin)}</div>
+              <div>
+                <div class="cd-name">${escapeHtml(e.name)}</div>
+                <div class="cd-sub">${escapeHtml(subLabel)}</div>
+              </div>
+            </div>
+            <div class="cd-type-chip ${e.type}">${cdTypeLabel(e.type)}</div>
+          </div>
+          <div class="cd-timer">
+            <div class="cd-unit"><span class="num cd-d">${d}</span><span class="lbl">Days</span></div>
+            <div class="cd-unit"><span class="num cd-h">${cdPad(h)}</span><span class="lbl">Hrs</span></div>
+            <div class="cd-unit"><span class="num cd-m">${cdPad(m)}</span><span class="lbl">Min</span></div>
+            <div class="cd-unit"><span class="num cd-s">${cdPad(s)}</span><span class="lbl">Sec</span></div>
+          </div>
+          <div class="cd-desc">${escapeHtml(e.desc)}</div>
+        </div>`;
+    }
+    return `
+      <div class="cd-card cd-past" data-ts="${e.ts}">
+        <div class="cd-top">
+          <div class="cd-coin">
+            <div class="cd-badge" style="background:${grad}">${escapeHtml(e.coin)}</div>
+            <div>
+              <div class="cd-name">${escapeHtml(e.name)}</div>
+              <div class="cd-sub">${escapeHtml(dateStr)}</div>
+            </div>
+          </div>
+          <div class="cd-type-chip ${e.type}">${cdTypeLabel(e.type)}</div>
+        </div>
+        <div class="cd-past-row">
+          <span class="cd-check">✓ Completed</span>
+          <span class="cd-ago">${cdFormatAgo(now - e.ts)}</span>
+        </div>
+        <div class="cd-desc">${escapeHtml(e.desc)}</div>
+      </div>`;
+  }).join('');
+  panel.innerHTML = `<div class="cd-grid">${cards}</div>`;
+}
+
+// Cheap per-second tick: only patch the four numeric spans in each upcoming
+// card instead of re-rendering the whole panel, so filtering/scroll position
+// isn't disturbed every second.
+function tickCountdowns(){
+  if(COUNTDOWN_STATE.tab !== 'upcoming') return;
+  const now = Date.now();
+  document.querySelectorAll('#countdownPanel .cd-card[data-ts]').forEach(card => {
+    const ts = Number(card.getAttribute('data-ts'));
+    const { d, h, m, s } = cdFormatParts(ts - now);
+    const dEl = card.querySelector('.cd-d'), hEl = card.querySelector('.cd-h'),
+          mEl = card.querySelector('.cd-m'), sEl = card.querySelector('.cd-s');
+    if(dEl) dEl.textContent = d;
+    if(hEl) hEl.textContent = cdPad(h);
+    if(mEl) mEl.textContent = cdPad(m);
+    if(sEl) sEl.textContent = cdPad(s);
+  });
+}
+
+// Reuse the same personal Cloudflare Worker used by the other pages in this
+// app (news.html, youtube.html, oil.html, ...) for CORS passthrough.
+// IMPORTANT: api.llama.fi is CORS-open on its own (direct fetch works from
+// the browser without a proxy), so the Worker path here is a fallback of
+// last resort. If direct fetches are ever blocked in your environment, add
+// api.llama.fi to the Worker's ALLOWED_HOSTS list so the fallback also works.
+// api.coingecko.com is already allow-listed for the other pages.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+async function fetchJSONDirect(url){
+  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+async function fetchJSONViaProxyChain(url){
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker HTTP ' + res.status);
+      return await res.json();
+    }catch(err){
+      console.warn('[proxy] worker failed:', err && err.message);
+    }
+  }
+  return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
+    const res = await fetchWithTimeout(buildProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('proxy HTTP ' + res.status);
+    return await res.json();
+  })()));
+}
+async function fetchJSON(url){
+  try{
+    return await fetchJSONDirect(url);
+  }catch(err){
+    return await fetchJSONViaProxyChain(url);
+  }
+}
+
+// ---------------- Formatting helpers ----------------
+function escapeHtml(s){
+  return (s || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function formatUSD(n){
+  if(typeof n !== 'number' || !isFinite(n)) return '—';
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if(abs >= 1e12) return sign + '$' + (abs/1e12).toFixed(2) + 'T';
+  if(abs >= 1e9)  return sign + '$' + (abs/1e9).toFixed(2) + 'B';
+  if(abs >= 1e6)  return sign + '$' + (abs/1e6).toFixed(2) + 'M';
+  if(abs >= 1e3)  return sign + '$' + (abs/1e3).toFixed(1) + 'K';
+  return sign + '$' + abs.toFixed(2);
+}
+function formatPct(n){
+  if(typeof n !== 'number' || !isFinite(n)) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+}
+function pctClass(n){
+  if(typeof n !== 'number' || !isFinite(n)) return 'flat';
+  return n > 0 ? 'up' : (n < 0 ? 'down' : 'flat');
+}
+function initials(name){
+  const s = (name || '?').trim();
+  const parts = s.split(/\s+/).filter(Boolean);
+  if(parts.length === 0) return '?';
+  if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+function gradientFor(name){
+  const s = (name || '').toString();
+  let h = 0;
+  for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) >>> 0;
+  return GRADIENTS[h % GRADIENTS.length];
+}
+function avatar(name, logoUrl){
+  const grad = gradientFor(name);
+  const initialsHtml = `<span>${escapeHtml(initials(name))}</span>`;
+  if(logoUrl){
+    return `<div class="avatar" style="background:${grad}"><img src="${escapeHtml(logoUrl)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${escapeHtml(initials(name)).replace(/'/g,"\\'")}'}))"></div>`;
+  }
+  return `<div class="avatar" style="background:${grad}">${initialsHtml}</div>`;
+}
+
+// ---------------- Data state ----------------
+let DATA = { tvlHist:null, chains:null, protocols:null, dex:null, fees:null, cg:null, emissions:null };
+let lastResults = null;
+let lastUpdated = null;
+
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
+      results: lastResults
+    }));
+  }catch(err){ /* storage unavailable - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.results) return false;
+    lastResults = cached.results;
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+function updateLastUpdatedLabel(failed){
+  const el = document.getElementById('updatedLabel');
+  el.classList.toggle('label-error', !!failed);
+  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed - see console' : ''; return; }
+  const mins = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 60000));
+  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  el.textContent = (failed ? 'Refresh failed, showing cached · ' : 'Updated ') + ago;
+}
+function showDegradedBanner(text){
+  const el = document.getElementById('degradedBanner');
+  if(!text){ el.classList.remove('show'); el.textContent = ''; return; }
+  el.textContent = text;
+  el.classList.add('show');
+}
+
+// ---------------- Chart ----------------
+function buildAreaChart(points, isUp){
+  const w = 1000, h = 150, padY = 8;
+  const vals = points.map(p => p.tvl).filter(v => typeof v === 'number' && isFinite(v));
+  if(vals.length < 2) return '<div class="empty-note">Not enough history to chart yet.</div>';
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = (max - min) || 1;
+  const stepX = w / (points.length - 1);
+  const pts = points.map((p, i) => {
+    const x = i * stepX;
+    const y = padY + (1 - (p.tvl - min) / range) * (h - 2 * padY);
+    return [x.toFixed(1), y.toFixed(1)];
+  });
+  const lineD = 'M' + pts.map(p => p.join(',')).join(' L');
+  const areaD = lineD + ` L${w},${h} L0,${h} Z`;
+  const stroke = isUp ? '#35E0C0' : '#FF5470';
+  return `<svg class="tvl-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="tvlArea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${stroke}" stop-opacity=".30"/>
+      <stop offset="100%" stop-color="${stroke}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${areaD}" fill="url(#tvlArea)"/>
+    <path d="${lineD}" fill="none" stroke="${stroke}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+// ---------------- Renderers ----------------
+function renderStatCard(icon, label, value, sub){
+  return `
+    <div class="stat-card">
+      <div class="stat-top">
+        <span class="stat-icon" style="background:${icon.grad}">${icon.emoji}</span>
+        <span class="stat-label">${label}</span>
+      </div>
+      <div class="stat-value">${value}</div>
+      ${sub || ''}
+    </div>`;
+}
+
+function renderStats(){
+  const { tvlHist, protocols, dex, fees } = DATA;
+  let totalTvl = null, chg1d = null, chg7d = null;
+  if(Array.isArray(tvlHist) && tvlHist.length){
+    const last = tvlHist[tvlHist.length - 1];
+    totalTvl = last.tvl;
+    const prev1d = tvlHist[tvlHist.length - 2];
+    if(prev1d && prev1d.tvl) chg1d = (last.tvl - prev1d.tvl) / prev1d.tvl * 100;
+    const idx7d = tvlHist.length - 8;
+    if(idx7d >= 0 && tvlHist[idx7d].tvl) chg7d = (last.tvl - tvlHist[idx7d].tvl) / tvlHist[idx7d].tvl * 100;
+  }
+  const protocolCount = Array.isArray(protocols) ? protocols.filter(p => (p.tvl || 0) > 0).length : null;
+  const dexTotal24h = dex && typeof dex.total24h === 'number' ? dex.total24h : null;
+  const dexChg1d = dex && typeof dex.change_1d === 'number' ? dex.change_1d : null;
+  const feesTotal24h = fees && typeof fees.total24h === 'number' ? fees.total24h : null;
+  const feesChg1d = fees && typeof fees.change_1d === 'number' ? fees.change_1d : null;
+
+  const cards = [
+    renderStatCard(
+      { emoji:'🔒', grad:GRADIENTS[0] }, 'Total DeFi TVL',
+      formatUSD(totalTvl),
+      chg1d !== null ? `<div class="stat-sub"><span class="pill ${pctClass(chg1d)}">${formatPct(chg1d)} 24h</span>${chg7d !== null ? `<span class="pill ${pctClass(chg7d)}">${formatPct(chg7d)} 7d</span>` : ''}</div>` : ''
+    ),
+    renderStatCard(
+      { emoji:'🔁', grad:GRADIENTS[7] }, 'DEX Volume 24h',
+      formatUSD(dexTotal24h),
+      dexChg1d !== null ? `<div class="stat-sub"><span class="pill ${pctClass(dexChg1d)}">${formatPct(dexChg1d)} 24h</span></div>` : ''
+    ),
+    renderStatCard(
+      { emoji:'💸', grad:GRADIENTS[4] }, 'Fees & Revenue 24h',
+      formatUSD(feesTotal24h),
+      feesChg1d !== null ? `<div class="stat-sub"><span class="pill ${pctClass(feesChg1d)}">${formatPct(feesChg1d)} 24h</span></div>` : ''
+    ),
+    renderStatCard(
+      { emoji:'🧩', grad:GRADIENTS[2] }, 'Protocols Tracked',
+      protocolCount !== null ? protocolCount.toLocaleString() : '—',
+      '<div class="stat-sub" style="color:var(--faint)">with active TVL</div>'
+    )
+  ];
+  document.getElementById('statSection').innerHTML = `<div class="stat-grid">${cards.join('')}</div>`;
+}
+
+function renderTvlChart(){
+  const { tvlHist } = DATA;
+  const panel = document.getElementById('tvlChartPanel');
+  const note = document.getElementById('tvlNote');
+  if(!Array.isArray(tvlHist) || tvlHist.length < 2){
+    panel.innerHTML = '<div class="empty-note">TVL history unavailable this refresh.</div>';
+    note.textContent = '';
+    return;
+  }
+  const points = tvlHist.slice(-90).map(p => ({ date: p.date, tvl: p.tvl }));
+  const first = points[0], last = points[points.length - 1];
+  const isUp = last.tvl >= first.tvl;
+  const fmt = ts => new Date(ts * 1000).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  note.textContent = `${fmt(first.date)} – ${fmt(last.date)}`;
+  panel.innerHTML = `<div class="tvl-chart-wrap">${buildAreaChart(points, isUp)}<div class="tvl-range-labels"><span>${formatUSD(Math.min(...points.map(p=>p.tvl)))}</span><span>${formatUSD(Math.max(...points.map(p=>p.tvl)))}</span></div></div>`;
+}
+
+function renderChains(){
+  const panel = document.getElementById('chainsPanel');
+  let chains = Array.isArray(DATA.chains) ? DATA.chains.slice() : null;
+
+  // Fallback: derive chain totals from protocol chainTvls if /v2/chains failed.
+  if(!chains && Array.isArray(DATA.protocols)){
+    const map = {};
+    DATA.protocols.forEach(p => {
+      const ct = p.chainTvls || {};
+      Object.keys(ct).forEach(k => {
+        if(k.includes('-')) return; // skip breakdown keys like "Ethereum-staking"
+        map[k] = (map[k] || 0) + (typeof ct[k] === 'number' ? ct[k] : 0);
+      });
+    });
+    chains = Object.keys(map).map(name => ({ name, tvl: map[name] }));
+  }
+
+  if(!chains || !chains.length){
+    panel.innerHTML = '<div class="empty-note">Chain TVL data unavailable this refresh.</div>';
+    return;
+  }
+  chains = chains.filter(c => typeof c.tvl === 'number' && c.tvl > 0).sort((a,b) => b.tvl - a.tvl);
+  const total = chains.reduce((s,c) => s + c.tvl, 0);
+  const top = chains.slice(0, 12);
+  const maxTvl = top[0] ? top[0].tvl : 1;
+
+  const rows = top.map((c, i) => {
+    const share = total ? (c.tvl / total * 100) : 0;
+    const barPct = (c.tvl / maxTvl * 100).toFixed(1);
+    return `
+      <div class="share-row">
+        <span class="share-rank">${i+1}</span>
+        ${avatar(c.name)}
+        <div class="share-body">
+          <div class="share-top"><span class="share-name">${escapeHtml(c.name)}</span><span class="share-val">${formatUSD(c.tvl)}</span></div>
+          <div class="share-track"><div class="share-fill" style="width:${barPct}%;background:${gradientFor(c.name)}"></div></div>
+          <div class="share-meta">${share.toFixed(1)}% of tracked chain TVL</div>
+        </div>
+      </div>`;
+  }).join('');
+  panel.innerHTML = `<div class="share-list">${rows}</div>`;
+}
+
+function renderCategories(){
+  const panel = document.getElementById('categoriesPanel');
+  const protocols = DATA.protocols;
+  if(!Array.isArray(protocols) || !protocols.length){
+    panel.innerHTML = '<div class="empty-note">Category data unavailable this refresh.</div>';
+    return;
+  }
+  const map = {};
+  protocols.forEach(p => {
+    if(typeof p.tvl !== 'number' || p.tvl <= 0) return;
+    const cat = p.category || 'Other';
+    if(!map[cat]) map[cat] = { tvl:0, count:0 };
+    map[cat].tvl += p.tvl;
+    map[cat].count += 1;
+  });
+  const total = Object.values(map).reduce((s,c) => s + c.tvl, 0);
+  const sorted = Object.keys(map).map(name => ({ name, tvl: map[name].tvl, count: map[name].count }))
+    .sort((a,b) => b.tvl - a.tvl);
+  const top = sorted.slice(0, 8);
+  const rest = sorted.slice(8);
+  if(rest.length){
+    top.push({ name:'Other', tvl: rest.reduce((s,c)=>s+c.tvl,0), count: rest.reduce((s,c)=>s+c.count,0) });
+  }
+  const maxTvl = Math.max(...top.map(c => c.tvl)) || 1;
+
+  const rows = top.map((c, i) => {
+    const share = total ? (c.tvl / total * 100) : 0;
+    const barPct = (c.tvl / maxTvl * 100).toFixed(1);
+    return `
+      <div class="share-row">
+        <span class="share-rank">${i+1}</span>
+        ${avatar(c.name)}
+        <div class="share-body">
+          <div class="share-top"><span class="share-name">${escapeHtml(c.name)}</span><span class="share-val">${formatUSD(c.tvl)}</span></div>
+          <div class="share-track"><div class="share-fill" style="width:${barPct}%;background:${gradientFor(c.name)}"></div></div>
+          <div class="share-meta">${share.toFixed(1)}% · ${c.count} protocol${c.count===1?'':'s'}</div>
+        </div>
+      </div>`;
+  }).join('');
+  panel.innerHTML = `<div class="share-list">${rows}</div>`;
+}
+
+const PROTO_STATE = { search:'', category:'all', sort:'tvl' };
+function populateCategoryOptions(){
+  const sel = document.getElementById('protoCategory');
+  if(!Array.isArray(DATA.protocols) || sel.dataset.filled === '1') return;
+  const cats = Array.from(new Set(DATA.protocols.map(p => p.category).filter(Boolean))).sort();
+  cats.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    sel.appendChild(opt);
+  });
+  sel.dataset.filled = '1';
+}
+
+function renderProtocols(){
+  const panel = document.getElementById('protocolsPanel');
+  const note = document.getElementById('protocolsNote');
+  const protocols = DATA.protocols;
+  if(!Array.isArray(protocols) || !protocols.length){
+    panel.innerHTML = '<div class="empty-note">Protocol data unavailable this refresh.</div>';
+    note.textContent = '';
+    return;
+  }
+  populateCategoryOptions();
+
+  let list = protocols.filter(p => typeof p.tvl === 'number' && p.tvl > 0);
+  if(PROTO_STATE.category !== 'all') list = list.filter(p => p.category === PROTO_STATE.category);
+  if(PROTO_STATE.search) {
+    const q = PROTO_STATE.search.toLowerCase();
+    list = list.filter(p => (p.name || '').toLowerCase().includes(q));
+  }
+  switch(PROTO_STATE.sort){
+    case 'chg1d_desc': list.sort((a,b) => (b.change_1d ?? -Infinity) - (a.change_1d ?? -Infinity)); break;
+    case 'chg1d_asc':  list.sort((a,b) => (a.change_1d ?? Infinity) - (b.change_1d ?? Infinity)); break;
+    case 'chg7d_desc': list.sort((a,b) => (b.change_7d ?? -Infinity) - (a.change_7d ?? -Infinity)); break;
+    default: list.sort((a,b) => b.tvl - a.tvl);
+  }
+
+  const shown = list.slice(0, 30);
+  note.textContent = `Showing ${shown.length} of ${list.length.toLocaleString()} matching`;
+
+  if(!shown.length){
+    panel.innerHTML = '<div class="empty-note">No protocols match your filters.</div>';
+    return;
+  }
+
+  const rows = shown.map((p, i) => {
+    const chainsList = Array.isArray(p.chains) ? p.chains.slice(0,3).join(', ') + (p.chains.length > 3 ? ` +${p.chains.length-3}` : '') : (p.chain || '');
+    return `
+      <div class="protocol-row">
+        <span class="protocol-rank">${i+1}</span>
+        ${avatar(p.name, p.logo)}
+        <div class="protocol-info">
+          <div class="protocol-name-row">
+            <span class="protocol-name">${escapeHtml(p.name)}</span>
+            ${p.category ? `<span class="protocol-cat">${escapeHtml(p.category)}</span>` : ''}
+          </div>
+          <div class="protocol-meta">${escapeHtml(chainsList || '—')}</div>
+        </div>
+        <div class="protocol-stats">
+          <div class="protocol-tvl">${formatUSD(p.tvl)}</div>
+          <div class="protocol-changes">
+            <span class="chg-pill ${pctClass(p.change_1d)}">${formatPct(p.change_1d)}</span>
+            <span class="chg-pill ${pctClass(p.change_7d)}">${formatPct(p.change_7d)} 7d</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  panel.innerHTML = `<div class="protocol-list">${rows}</div>${list.length > 30 ? '<div class="list-foot">Refine search or category to narrow further</div>' : ''}`;
+}
+
+function renderDex(){
+  const panel = document.getElementById('dexPanel');
+  const note = document.getElementById('dexNote');
+  const dex = DATA.dex;
+  const protos = dex && Array.isArray(dex.protocols) ? dex.protocols.slice() : null;
+  if(!protos || !protos.length){
+    panel.innerHTML = '<div class="empty-note">DEX volume data unavailable this refresh.</div>';
+    note.textContent = '';
+    return;
+  }
+  protos.sort((a,b) => (b.total24h||0) - (a.total24h||0));
+  const top = protos.slice(0, 10);
+  const dexTotal = typeof dex.total24h === 'number' ? dex.total24h : top.reduce((s,p)=>s+(p.total24h||0),0);
+  const maxVol = top[0] ? (top[0].total24h || 1) : 1;
+  note.textContent = `Total 24h: ${formatUSD(dexTotal)}`;
+
+  const rows = top.map(p => {
+    const dom = dexTotal ? (p.total24h / dexTotal * 100) : 0;
+    const barPct = ((p.total24h||0) / maxVol * 100).toFixed(1);
+    return `
+      <div class="lb-row">
+        ${avatar(p.name, p.logo)}
+        <div class="lb-body">
+          <div class="lb-top"><span class="lb-name">${escapeHtml(p.name)}</span><span class="lb-vol">${formatUSD(p.total24h)}</span></div>
+          <div class="lb-track"><div class="lb-fill" style="width:${barPct}%"></div></div>
+          <div class="lb-meta"><span>${dom.toFixed(1)}% of 24h volume</span><span class="${pctClass(p.change_1d)}" style="color:${p.change_1d>=0?'var(--accent)':'var(--red)'}">${formatPct(p.change_1d)}</span></div>
+        </div>
+      </div>`;
+  }).join('');
+  panel.innerHTML = `<div class="protocol-list">${rows}</div>`;
+}
+
+function renderMovers(){
+  const panel = document.getElementById('moversPanel');
+  const cg = DATA.cg;
+  if(!Array.isArray(cg) || !cg.length){
+    panel.innerHTML = '<div class="empty-note">Market mover data unavailable this refresh.</div>';
+    return;
+  }
+  const withChange = cg.filter(c => typeof c.price_change_percentage_24h === 'number');
+  const gainers = withChange.slice().sort((a,b) => b.price_change_percentage_24h - a.price_change_percentage_24h).slice(0,5);
+  const losers = withChange.slice().sort((a,b) => a.price_change_percentage_24h - b.price_change_percentage_24h).slice(0,5);
+
+  const renderCol = (title, cls, coins) => `
+    <div>
+      <div class="movers-col-title ${cls}">${title}</div>
+      ${coins.map(c => `
+        <div class="mover-row">
+          <img src="${escapeHtml(c.image||'')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+          <div class="mover-info">
+            <div class="mover-name">${escapeHtml(c.name)} <span style="color:var(--faint)">${escapeHtml((c.symbol||'').toUpperCase())}</span></div>
+            <div class="mover-price">$${(c.current_price||0) < 1 ? (c.current_price||0).toFixed(4) : (c.current_price||0).toLocaleString(undefined,{maximumFractionDigits:2})}</div>
+          </div>
+          <span class="chg-pill ${pctClass(c.price_change_percentage_24h)}">${formatPct(c.price_change_percentage_24h)}</span>
+        </div>`).join('')}
+    </div>`;
+  panel.innerHTML = renderCol('Top Gainers', 'gain', gainers) + renderCol('Top Losers', 'lose', losers);
+}
+
+function renderEventsFallback(reason){
+  const panel = document.getElementById('eventsPanel');
+  panel.innerHTML = `
+    <div class="fallback-panel">
+      <div class="fp-icon">🔐</div>
+      <div class="fp-title">Live unlock calendar not available on the free tier</div>
+      <div class="fp-text">${escapeHtml(reason || "DefiLlama moved its full token-unlock and vesting-schedule dataset behind a paid Pro API. This page will show real unlock events here automatically whenever the free endpoint returns usable data — meanwhile, use these dedicated trackers for upcoming unlocks and protocol-level emission schedules.")}</div>
+      <div class="fp-links">
+        <a class="fp-link" href="https://defillama.com/unlocks" target="_blank" rel="noopener">DefiLlama Unlocks ↗</a>
+        <a class="fp-link" href="https://token.unlocks.app" target="_blank" rel="noopener">Token Unlocks ↗</a>
+        <a class="fp-link" href="https://coinmarketcal.com" target="_blank" rel="noopener">CoinMarketCal ↗</a>
+      </div>
+    </div>`;
+}
+
+function extractUpcomingUnlocks(list){
+  const now = Date.now() / 1000;
+  const out = [];
+  if(!Array.isArray(list)) return out;
+  list.forEach(p => {
+    const events = p.events || p.upcomingEvents || p.unlockEvents;
+    if(!Array.isArray(events)) return;
+    let soonest = null;
+    events.forEach(ev => {
+      const ts = typeof ev.timestamp === 'number' ? ev.timestamp
+               : typeof ev.date === 'number' ? ev.date
+               : typeof ev.ts === 'number' ? ev.ts : null;
+      if(ts !== null && ts > now && (soonest === null || ts < soonest.ts)){
+        soonest = { ts, desc: ev.category || ev.description || ev.event || '' };
+      }
+    });
+    if(soonest){
+      out.push({ name: p.name || p.protocolName || p.gecko_id || 'Unknown protocol', ts: soonest.ts, desc: soonest.desc });
+    }
+  });
+  out.sort((a,b) => a.ts - b.ts);
+  return out.slice(0, 10);
+}
+
+function renderEvents(){
+  const emissions = DATA.emissions;
+  const upcoming = extractUpcomingUnlocks(emissions);
+  if(!upcoming.length){
+    renderEventsFallback();
+    return;
+  }
+  const panel = document.getElementById('eventsPanel');
+  const rows = upcoming.map(ev => {
+    const d = new Date(ev.ts * 1000);
+    const mon = d.toLocaleDateString(undefined, { month:'short' });
+    const day = d.getDate();
+    return `
+      <div class="event-row">
+        <div class="event-date">${mon}<span class="dnum">${day}</span></div>
+        <div class="event-body">
+          <div class="event-name">${escapeHtml(ev.name)}</div>
+          <div class="event-desc">${escapeHtml(ev.desc || 'Token unlock / emission event')}</div>
+        </div>
+      </div>`;
+  }).join('');
+  panel.innerHTML = `<div class="protocol-list">${rows}</div>`;
+}
+
+function renderAll(){
+  renderStats();
+  renderTvlChart();
+  renderChains();
+  renderCategories();
+  renderProtocols();
+  renderDex();
+  renderMovers();
+}
+
+function renderSkeleton(){
+  document.getElementById('statSection').innerHTML = `<div class="stat-grid">${'<div class="stat-card skel-block" style="height:78px"></div>'.repeat(4)}</div>`;
+  document.getElementById('tvlChartPanel').innerHTML = '<div class="skel-block" style="height:170px;border-radius:14px"></div>';
+  document.getElementById('chainsPanel').innerHTML = '<div class="skel-block" style="height:220px;border-radius:14px"></div>';
+  document.getElementById('categoriesPanel').innerHTML = '<div class="skel-block" style="height:200px;border-radius:14px"></div>';
+  document.getElementById('protocolsPanel').innerHTML = '<div class="skel-block" style="height:320px;border-radius:14px"></div>';
+  document.getElementById('dexPanel').innerHTML = '<div class="skel-block" style="height:220px;border-radius:14px"></div>';
+  document.getElementById('moversPanel').innerHTML = '<div class="skel-block" style="height:220px;border-radius:14px;grid-column:1/-1"></div>';
+  document.getElementById('eventsPanel').innerHTML = '<div class="skel-block" style="height:140px;border-radius:14px"></div>';
+}
+
+// ---------------- Main load ----------------
+async function loadEmissions(){
+  try{
+    const data = await fetchJSON(CONFIG.emissionsUrl);
+    DATA.emissions = data;
+  }catch(err){
+    console.warn('[emissions] failed:', err && err.message);
+    DATA.emissions = null;
+  }
+  renderEvents();
+}
+
+async function loadAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  if(lastResults){
+    DATA = Object.assign({}, DATA, lastResults);
+    renderAll();
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  const settled = await Promise.allSettled([
+    fetchJSON(CONFIG.tvlHistUrl),
+    fetchJSON(CONFIG.chainsUrl),
+    fetchJSON(CONFIG.protocolsUrl),
+    fetchJSON(CONFIG.dexUrl),
+    fetchJSON(CONFIG.feesUrl),
+    fetchJSON(CONFIG.cgMarketsUrl),
+  ]);
+  const [tvlHistS, chainsS, protocolsS, dexS, feesS, cgS] = settled;
+  const val = s => s.status === 'fulfilled' ? s.value : null;
+  ['tvlHist','chains','protocols','dex','fees','cg'].forEach((k,i) => {
+    if(settled[i].status === 'rejected') console.warn(`[${k}] failed:`, settled[i].reason && settled[i].reason.message);
+  });
+
+  const newResults = {
+    tvlHist: val(tvlHistS),
+    chains: val(chainsS),
+    protocols: val(protocolsS),
+    dex: val(dexS),
+    fees: val(feesS),
+    cg: val(cgS),
+  };
+
+  let failed = false;
+  if(!newResults.protocols && !newResults.tvlHist){
+    failed = true;
+    if(!lastResults){
+      document.getElementById('statSection').innerHTML = `
+        <div class="error-state">
+          Couldn't load DeFi data right now (DefiLlama unreachable).<br>
+          If direct fetches are blocked in your environment, add <b>api.llama.fi</b> to your
+          Cloudflare Worker's ALLOWED_HOSTS so the proxy fallback can reach it. Check the console for details.
+          <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+        </div>`;
+      document.getElementById('retryBtn').addEventListener('click', loadAll);
+    }
+  }else{
+    lastResults = newResults;
+    DATA = Object.assign({}, DATA, newResults);
+    lastUpdated = new Date();
+    saveCache();
+    renderAll();
+  }
+
+  const missing = [];
+  if(!newResults.tvlHist) missing.push('TVL history');
+  if(!newResults.chains) missing.push('chain breakdown');
+  if(!newResults.protocols) missing.push('protocols');
+  if(!newResults.dex) missing.push('DEX volume');
+  if(!newResults.fees) missing.push('fees/revenue');
+  if(!newResults.cg) missing.push('market movers');
+  if(missing.length && !failed){
+    showDegradedBanner(`Some sections couldn't refresh this cycle (${missing.join(', ')}) — showing last known data where available.`);
+  }else if(!failed){
+    showDegradedBanner(null);
+  }
+
+  updateLastUpdatedLabel(failed);
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+
+  // Events/unlocks fetched independently so a slow/failing Pro-gated endpoint
+  // never blocks the rest of the page from rendering.
+  loadEmissions();
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+document.getElementById('protoSearch').addEventListener('input', (e) => { PROTO_STATE.search = e.target.value; renderProtocols(); });
+document.getElementById('protoCategory').addEventListener('change', (e) => { PROTO_STATE.category = e.target.value; renderProtocols(); });
+document.getElementById('protoSort').addEventListener('change', (e) => { PROTO_STATE.sort = e.target.value; renderProtocols(); });
+
+document.getElementById('cdTabUpcoming').addEventListener('click', () => {
+  COUNTDOWN_STATE.tab = 'upcoming';
+  document.getElementById('cdTabUpcoming').classList.add('active');
+  document.getElementById('cdTabPast').classList.remove('active');
+  renderCountdowns();
+});
+document.getElementById('cdTabPast').addEventListener('click', () => {
+  COUNTDOWN_STATE.tab = 'past';
+  document.getElementById('cdTabPast').classList.add('active');
+  document.getElementById('cdTabUpcoming').classList.remove('active');
+  renderCountdowns();
+});
+document.getElementById('cdTypeFilter').addEventListener('change', renderCountdowns);
+
+document.getElementById('noticeToggle').addEventListener('click', () => {
+  const btn = document.getElementById('noticeToggle');
+  const details = document.getElementById('noticeDetails');
+  const willOpen = details.hidden;
+  details.hidden = !willOpen;
+  btn.classList.toggle('open', willOpen);
+  btn.setAttribute('aria-expanded', String(willOpen));
+});
+
+// ---------------- Collapsible sections ----------------
+// Lets long sections (chains, categories, protocols, DEX volume, movers,
+// unlocks) be collapsed to make the page easier to scan/navigate. They
+// always start collapsed on open/reopen - expanding one only lasts for the
+// current visit, not persisted across app closes.
+function setSectionCollapsed(sectionEl, collapsed){
+  sectionEl.classList.toggle('collapsed', collapsed);
+  const btn = sectionEl.querySelector('.section-toggle-btn');
+  if(btn) btn.setAttribute('aria-expanded', String(!collapsed));
+}
+(function initCollapsibleSections(){
+  document.querySelectorAll('.section-head[data-toggle]').forEach(head => {
+    const id = head.getAttribute('data-toggle');
+    const sectionEl = document.getElementById(id);
+    if(!sectionEl) return;
+    setSectionCollapsed(sectionEl, true);
+    head.addEventListener('click', () => {
+      setSectionCollapsed(sectionEl, !sectionEl.classList.contains('collapsed'));
+    });
+  });
+})();
+
+renderCountdowns();
+setInterval(tickCountdowns, 1000);
+
+loadCache();
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL_MS);
+setInterval(updateLastUpdatedLabel, 60000);
+</script>
+</body>
+</html>

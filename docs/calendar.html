@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto Market Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(53,224,192,0.06), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
+  }
+  .wrap{max-width:900px;margin:0 auto;}
+
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.18em;
+    color:var(--accent);
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .topheader{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:18px;
+  }
+
+  /* ---- Staleness banner ---- */
+  .stale-banner{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    padding:8px 12px;
+    border-radius:10px;
+    margin-bottom:14px;
+    border:1px solid var(--border);
+    color:var(--muted);
+    background:var(--panel2);
+  }
+  .stale-banner.warn{
+    color:var(--amber);
+    border-color:rgba(245,166,35,.4);
+    background:rgba(245,166,35,.08);
+  }
+  .stale-banner.stale{
+    color:var(--red);
+    border-color:rgba(255,84,112,.4);
+    background:rgba(255,84,112,.08);
+  }
+  .stale-banner .dot2{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+  /* ---- Hero: next event ---- */
+  .hero{
+    background:linear-gradient(135deg, rgba(53,224,192,.08), rgba(91,140,255,.05));
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:20px 22px;
+    margin-bottom:18px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero-label{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--faint);
+    margin-bottom:8px;
+  }
+  .hero-title{font-size:19px;font-weight:700;margin-bottom:4px;}
+  .hero-meta{font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-bottom:14px;}
+  .hero-countdown{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .cd-unit{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px 14px;
+    text-align:center;
+    min-width:64px;
+  }
+  .cd-unit .num{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--accent);}
+  .cd-unit .lbl{font-family:var(--font-mono);font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+
+  /* ---- Refresh button ---- */
+  .refresh-btn{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    width:32px;
+    height:32px;
+    padding:0;
+    border-radius:8px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+
+  /* ---- Events toggle (collapsed by default) ---- */
+  .events-toggle{margin-bottom:20px;}
+  .events-toggle > summary{
+    list-style:none;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:8px 14px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--text);
+  }
+  .events-toggle > summary::-webkit-details-marker{display:none;}
+  .events-toggle > summary::after{content:'+';color:var(--accent);font-size:14px;line-height:1;}
+  .events-toggle[open] > summary{border-color:var(--accent);color:var(--accent);}
+  .events-toggle[open] > summary::after{content:'−';}
+  .events-toggle-body{margin-top:16px;}
+
+  /* ---- Events row (toggle left, CC Calendar link right) ---- */
+  .events-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+  .events-row .events-toggle{margin-bottom:0;}
+  .cc-calendar-link{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--panel2);border:1px solid var(--border);border-radius:20px;
+    padding:8px 14px;font-family:var(--font-mono);font-size:11px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.08em;color:var(--text);
+    cursor:pointer;transition:border-color .15s,color .15s;
+  }
+  .cc-calendar-link:hover{border-color:var(--accent);color:var(--accent);}
+  .cc-calendar-link svg{width:13px;height:13px;flex-shrink:0;}
+
+  /* ---- CC Calendar modal ---- */
+  .cc-modal-overlay{
+    position:fixed;inset:0;background:rgba(5,6,9,.72);backdrop-filter:blur(3px);
+    z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;
+  }
+  .cc-modal-overlay.open{display:flex;}
+  .cc-modal{
+    position:relative;width:100%;max-width:700px;height:88vh;max-height:840px;
+    background:var(--bg);border:1px solid var(--border);border-radius:16px;
+    overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55);
+    animation:cc-modal-in .18s ease;
+  }
+  @keyframes cc-modal-in{from{opacity:0;transform:translateY(8px) scale(.98);}to{opacity:1;transform:translateY(0) scale(1);}}
+  .cc-modal iframe{width:100%;height:100%;border:0;display:block;background:var(--bg);}
+  .cc-modal-close{
+    position:absolute;top:10px;right:10px;z-index:2;
+    width:30px;height:30px;border-radius:8px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    transition:border-color .15s,color .15s;
+  }
+  .cc-modal-close:hover{border-color:var(--accent);color:var(--accent);}
+  .cc-modal-close svg{width:15px;height:15px;}
+
+  /* ---- Filters ---- */
+  .filters{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+  }
+  .filter-btn{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--muted);
+    font-family:var(--font-mono);
+    padding:7px 13px;
+    font-size:11.5px;
+    font-weight:600;
+    border-radius:20px;
+    cursor:pointer;
+  }
+  .filter-btn.active{
+    background:rgba(53,224,192,.12);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+
+  /* ---- Month group ---- */
+  .month-heading{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--faint);
+    margin:26px 0 10px;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .month-heading:first-of-type{margin-top:0;}
+
+  /* ---- Event card ---- */
+  .event{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px 18px;
+    margin-bottom:12px;
+    display:flex;
+    gap:14px;
+    transition:border-color .15s;
+  }
+  .event:hover{border-color:var(--border-soft);}
+  .event.today{border-color:var(--accent);background:rgba(53,224,192,.04);}
+  .event.past{opacity:.45;}
+
+  .event-date{
+    flex-shrink:0;
+    width:56px;
+    text-align:center;
+    font-family:var(--font-mono);
+  }
+  .event-date .d{font-size:20px;font-weight:700;line-height:1;}
+  .event-date .m{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-top:3px;}
+  .event-date .y{font-size:9px;color:var(--faint);margin-top:1px;}
+
+  .event-body{flex:1;min-width:0;}
+  .event-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;}
+  .badge{
+    font-family:var(--font-mono);
+    font-size:9.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    padding:2.5px 8px;
+    border-radius:5px;
+  }
+  .impact-dot{
+    display:inline-block;
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    flex-shrink:0;
+  }
+  .impact-dot.impact-high{background:var(--red);box-shadow:0 0 6px rgba(255,84,112,.6);}
+  .impact-dot.impact-medium{background:var(--amber);box-shadow:0 0 6px rgba(245,166,35,.5);}
+  .impact-dot.impact-low{background:var(--muted);}
+  .badge.cat{background:var(--panel2);color:var(--muted);border:1px solid var(--border);}
+  .badge.verified{
+    background:rgba(53,224,192,.12);
+    color:var(--accent);
+    width:17px;
+    height:17px;
+    padding:0;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:50%;
+    font-size:10px;
+    line-height:1;
+  }
+  .badge.tentative{background:rgba(245,166,35,.12);color:var(--amber);}
+
+  .event-title{font-size:14.5px;font-weight:700;margin-bottom:4px;}
+  .event-desc{font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:8px;}
+  .event-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:var(--font-mono);font-size:11px;color:var(--faint);}
+  .event-foot .time{color:var(--muted);}
+  .event-foot .cd{color:var(--accent);}
+  .event-foot a{color:var(--blue);text-decoration:none;}
+  .event-foot a:hover{text-decoration:underline;}
+
+  /* ---- Sources / methodology ---- */
+  .info-details{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px 18px;
+    margin-top:26px;
+  }
+  .info-details > summary{
+    list-style:none;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    color:var(--muted);
+    font-family:var(--font-mono);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  .info-details > summary::-webkit-details-marker{display:none;}
+  .info-details > summary::after{content:'+';color:var(--faint);font-size:15px;line-height:1;}
+  .info-details[open] > summary{color:var(--accent);margin-bottom:12px;}
+  .info-details[open] > summary::after{content:'-';}
+  .src-list{list-style:none;margin:0;padding:0;font-size:12px;color:var(--muted);line-height:1.9;}
+  .src-list li{border-bottom:1px dashed var(--border-soft);padding-bottom:8px;margin-bottom:8px;}
+  .src-list li:last-child{border-bottom:none;}
+  .src-list .name{color:var(--text);font-weight:600;}
+  .src-list a{color:var(--blue);text-decoration:none;font-family:var(--font-mono);font-size:11px;}
+  .src-list a:hover{text-decoration:underline;}
+  .checked-note{font-size:11.5px;color:var(--faint);margin-top:12px;line-height:1.6;}
+
+  .empty{text-align:center;padding:40px 0;color:var(--faint);font-family:var(--font-mono);font-size:12.5px;}
+
+  .page-footer{
+    color:var(--faint);
+    font-size:12px;
+    line-height:1.6;
+    margin-top:30px;
+    padding-top:18px;
+    border-top:1px solid var(--border-soft);
+    max-width:640px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Crypto Market Calendar</div>
+    <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>
+  </div>
+
+  <div id="staleBanner"></div>
+
+  <div id="hero"></div>
+
+  <div class="events-row">
+    <details class="events-toggle">
+      <summary>Events</summary>
+      <div class="events-toggle-body">
+        <div class="filters" id="filters"></div>
+      </div>
+    </details>
+
+    <a class="cc-calendar-link" id="ccCalendarLink" href="calendar-sub.html" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      CC Calendar
+    </a>
+  </div>
+
+  <div id="eventList"></div>
+
+  <details class="info-details">
+    <summary>Sources checked &amp; methodology</summary>
+    <ul class="src-list" id="sourceList"></ul>
+    <div class="checked-note">
+      Dates come from primary sources (Federal Reserve, BLS, Census, BEA, ISM, Treasury, OPEC, official event sites, Congress.gov trackers) as of the "last verified" date shown in the banner at the top. Legislative, upgrade, and estimated-cadence dates in particular can shift — items marked <b>Tentative</b> have no locked date yet, and items with a ✓ have been directly confirmed against a primary source. This page has no backend, so it can't check the web itself on a schedule — it re-verifies only when someone edits this file (you, or Claude on request) after checking the live sources above. The banner turns amber after 7 days without a check and red after 14, as a nudge to ask for a re-verify rather than a guarantee anything changed. Countdowns and Live/Upcoming/Past sorting auto-refresh every 30 seconds in the background (or on tap of Refresh) for as long as the page stays open, but that only re-sorts today's data — it doesn't fetch anything new. Weekly initial jobless claims (every Thursday, 8:30am ET, from the Department of Labor) aren't listed as individual entries since they recur weekly — check dol.gov for the latest. DOGE and XRP already trade via several US spot ETFs launched in late 2025/early 2026, so this calendar tracks upcoming catalysts (conferences, network upgrades, macro prints) rather than day-to-day ETF flows for those two. Re-check primary sources before trading around any single date.
+    </div>
+  </details>
+
+  <div class="page-footer">Macro releases, Fed decisions, U.S. crypto regulation, network upgrades, options expiries, and the major industry conferences — curated and cross-checked against primary sources.</div>
+
+</div>
+
+<div class="cc-modal-overlay" id="ccModalOverlay">
+  <div class="cc-modal">
+    <button class="cc-modal-close" id="ccModalClose" aria-label="Close CC Calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <iframe id="ccModalFrame" title="Crypto Craft Calendar"></iframe>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CURATED EVENT DATA
+   Every date below was checked against a primary or well-sourced
+   reference as of the "verifiedThrough" timestamp. Times are ET
+   (America/New_York) unless noted, converted to the user's local
+   time for display.
+   ============================================================ */
+const VERIFIED_THROUGH = "2026-09-05";
+
+const EVENTS = [
+  {
+    id: "cpi-aug",
+    title: "US CPI — August 2026 data",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-09-11T08:30:00-04:00",
+    desc: "Bureau of Labor Statistics releases the August inflation print. Hot prints push back Fed cut expectations and tend to pressure BTC/ETH; cool prints do the opposite.",
+    source: { name: "BLS CPI schedule", url: "https://www.bls.gov/cpi/" }
+  },
+  {
+    id: "clarity-cloture",
+    title: "CLARITY Act — Senate cloture vote",
+    category: "regulatory",
+    impact: "high",
+    verified: true,
+    date: "2026-09-15T14:15:00-04:00",
+    desc: "Procedural cloture vote on the motion to proceed to the Digital Asset Market Clarity Act (H.R. 3633), the U.S. crypto market-structure bill — this is a procedural step, not final passage, and needs 60 votes to succeed. Analyst odds of passage this year have fallen sharply (Galaxy Research cut its estimate from ~50% to ~30% in early September) given the shrinking pre-midterm legislative calendar and unresolved ethics/stablecoin provisions.",
+    source: { name: "CoinDesk / Congress.gov tracker", url: "https://www.coindesk.com/policy/2026/08/08/u-s-senate-opens-first-stage-of-crypto-clarity-act-voting-to-give-bill-a-chance-next-month" }
+  },
+  {
+    id: "fomc-sep",
+    title: "FOMC Meeting — rate decision + dot plot",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-09-16T14:00:00-04:00",
+    desc: "Two-day meeting concluding Sep 16 with the rate decision at 2:00pm ET and press conference ~30 min later. This meeting includes the quarterly Summary of Economic Projections (\"dot plot\"). Current target range: 3.50%–3.75%.",
+    source: { name: "Federal Reserve meeting calendar", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" }
+  },
+  {
+    id: "opex-sep",
+    title: "Quarterly options expiry (BTC & ETH)",
+    category: "derivatives",
+    impact: "medium",
+    verified: true,
+    date: "2026-09-25T08:00:00-04:00",
+    desc: "Deribit's largest quarterly BTC/ETH options expiry of the quarter. Historically brings elevated volatility and max-pain pinning in the hours around 08:00 UTC.",
+    source: { name: "Deribit expiry calendar", url: "https://www.deribit.com/options-expiration" }
+  },
+  {
+    id: "kbw",
+    title: "Korea Blockchain Week 2026 (Seoul)",
+    category: "conference",
+    impact: "medium",
+    verified: true,
+    date: "2026-09-29T00:00:00+09:00",
+    endDate: "2026-10-01T23:59:00+09:00",
+    desc: "Major East Asia industry gathering with Upbit as headline sponsor — often a catalyst for exchange listings and Korea-driven altcoin flows.",
+    source: { name: "Korea Blockchain Week", url: "https://koreablockchainweek.com/" }
+  },
+  {
+    id: "token2049",
+    title: "TOKEN2049 Singapore",
+    category: "conference",
+    impact: "medium",
+    verified: true,
+    date: "2026-10-07T00:00:00+08:00",
+    endDate: "2026-10-08T23:59:00+08:00",
+    desc: "The largest crypto conference on the calendar (25,000+ attendees). Expect a wave of partnership, listing and product announcements through Token2049 Week (Oct 5–11).",
+    source: { name: "TOKEN2049 official site", url: "https://www.token2049.com/singapore" }
+  },
+  {
+    id: "cpi-sep",
+    title: "US CPI — September 2026 data",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-10-14T08:30:00-04:00",
+    desc: "Confirmed on the official BLS release calendar. Hot prints push back Fed cut expectations and tend to pressure BTC/ETH; cool prints do the opposite.",
+    source: { name: "BLS release schedule", url: "https://www.bls.gov/schedule/news_release/cpi.htm" }
+  },
+  {
+    id: "fomc-oct",
+    title: "FOMC Meeting — rate decision",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-10-28T14:00:00-04:00",
+    desc: "Two-day meeting concluding Oct 28. No Summary of Economic Projections at this meeting (SEP only occurs in Mar/Jun/Sep/Dec).",
+    source: { name: "Federal Reserve meeting calendar", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" }
+  },
+  {
+    id: "opex-oct",
+    title: "Monthly options expiry (BTC & ETH)",
+    category: "derivatives",
+    impact: "low",
+    verified: true,
+    date: "2026-10-30T08:00:00-04:00",
+    desc: "Last-Friday-of-month Deribit options expiry — smaller than the quarterly expiries but still a volatility marker.",
+    source: { name: "Deribit expiry calendar", url: "https://www.deribit.com/options-expiration" }
+  },
+  {
+    id: "devcon",
+    title: "Devcon 8 (Mumbai)",
+    category: "conference",
+    impact: "medium",
+    verified: true,
+    date: "2026-11-03T00:00:00+05:30",
+    endDate: "2026-11-06T23:59:00+05:30",
+    desc: "Ethereum Foundation's flagship developer conference — the main venue for protocol roadmap announcements, including progress updates on the Glamsterdam upgrade below.",
+    source: { name: "Devcon official site", url: "https://devcon.org/" }
+  },
+  {
+    id: "cpi-oct",
+    title: "US CPI — October 2026 data",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-11-10T08:30:00-05:00",
+    desc: "Confirmed on the official BLS release calendar.",
+    source: { name: "BLS release schedule", url: "https://www.bls.gov/schedule/news_release/cpi.htm" }
+  },
+  {
+    id: "cpi-nov",
+    title: "US CPI — November 2026 data",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-12-10T08:30:00-05:00",
+    desc: "Confirmed on the official BLS release calendar. The last CPI print of the year, landing the day after the final FOMC meeting's decision — a hot or cool read here shapes rate-path expectations heading into January.",
+    source: { name: "BLS release schedule", url: "https://www.bls.gov/schedule/news_release/cpi.htm" }
+  },
+  {
+    id: "glamsterdam",
+    title: "Ethereum \"Glamsterdam\" mainnet upgrade",
+    category: "network",
+    impact: "high",
+    verified: false,
+    date: "2026-12-15T12:00:00-05:00",
+    tentative: true,
+    desc: "Ethereum's next major hard fork (enshrined proposer-builder separation + block-level access lists). Originally targeted for H1 2026, developers pushed it to Q4 2026 in mid-August; no mainnet block/date is locked yet — placeholder date shown is illustrative only. Watch ethereum.org/roadmap for the confirmed fork date.",
+    source: { name: "Ethereum Foundation roadmap", url: "https://ethereum.org/roadmap/glamsterdam/" }
+  },
+  {
+    id: "fomc-dec",
+    title: "FOMC Meeting — final decision of 2026 + dot plot",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-12-09T14:00:00-05:00",
+    desc: "Two-day meeting concluding Dec 9, the year's last rate decision, with an updated Summary of Economic Projections.",
+    source: { name: "Federal Reserve meeting calendar", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" }
+  },
+  {
+    id: "blockchain-life",
+    title: "Blockchain Life Forum (Dubai)",
+    category: "conference",
+    impact: "low",
+    verified: true,
+    date: "2026-12-01T00:00:00+04:00",
+    endDate: "2026-12-02T23:59:00+04:00",
+    desc: "Large UAE-based crypto/blockchain forum closing out the conference calendar for the year.",
+    source: { name: "Blockchain Life official site", url: "https://blockchainlife.com/" }
+  },
+  {
+    id: "opex-dec",
+    title: "Quarterly options expiry (BTC & ETH)",
+    category: "derivatives",
+    impact: "medium",
+    verified: true,
+    date: "2026-12-25T08:00:00-05:00",
+    desc: "Year-end quarterly Deribit expiry — typically the largest single expiry of the year by open interest.",
+    source: { name: "Deribit expiry calendar", url: "https://www.deribit.com/options-expiration" }
+  },
+  {
+    id: "holiday-labor-day",
+    title: "US market holiday — Labor Day",
+    category: "holiday",
+    impact: "low",
+    verified: true,
+    date: "2026-09-07T00:00:00-04:00",
+    desc: "NYSE, Nasdaq, and US bond markets closed. Thinner liquidity often bleeds into crypto over the long weekend.",
+    source: { name: "NYSE holiday calendar", url: "https://www.nyse.com/markets/hours-calendars" }
+  },
+  {
+    id: "nfp-aug",
+    title: "US Employment Situation — August 2026 (NFP + unemployment rate)",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-09-04T08:30:00-04:00",
+    desc: "BLS nonfarm payrolls, unemployment rate, and wage growth for August. One of the two data points (with CPI) that most directly moves Fed rate-cut odds and crypto beta to risk assets.",
+    source: { name: "BLS Employment Situation", url: "https://www.bls.gov/news.release/empsit.htm" }
+  },
+  {
+    id: "ppi-aug",
+    title: "US PPI — August 2026 data",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-09-10T08:30:00-04:00",
+    desc: "Producer Price Index, the upstream-inflation read that lands the day before CPI this cycle. Confirmed on the official BLS release calendar.",
+    source: { name: "BLS PPI schedule", url: "https://www.bls.gov/schedule/news_release/ppi.htm" }
+  },
+  {
+    id: "retail-sales-aug",
+    title: "US Retail Sales — August 2026 data",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-09-16T08:30:00-04:00",
+    desc: "Census Bureau consumer-spending read. Confirmed release date from the Census Bureau's Advance Monthly Retail Trade schedule.",
+    source: { name: "Census retail sales schedule", url: "https://www.census.gov/retail/marts/www/martsdates.html" }
+  },
+  {
+    id: "housing-starts-aug",
+    title: "US Housing Starts — August 2026 data",
+    category: "macro",
+    impact: "low",
+    verified: true,
+    date: "2026-09-17T08:30:00-04:00",
+    desc: "Census/HUD new residential construction data, a secondary growth signal. Confirmed release date from the Census/HUD joint schedule.",
+    source: { name: "Census new residential construction", url: "https://www.census.gov/construction/nrc/index.html" }
+  },
+  {
+    id: "opex-triple-sep",
+    title: "Triple witching — quarterly index/futures/options expiry",
+    category: "derivatives",
+    impact: "medium",
+    verified: true,
+    date: "2026-09-18T09:30:00-04:00",
+    desc: "Simultaneous expiry of stock-index futures, index options, and single-stock options on the third Friday of the quarter-end month. Elevated equity and crypto-correlated-stock volatility is typical into the close.",
+    source: { name: "Cboe expiration calendar", url: "https://www.cboe.com/available_weeklys/" }
+  },
+  {
+    id: "consumer-confidence-sep",
+    title: "Conference Board Consumer Confidence — September 2026",
+    category: "macro",
+    impact: "low",
+    verified: false,
+    date: "2026-09-29T10:00:00-04:00",
+    desc: "Estimated for the last Tuesday of the month, the Conference Board's usual release day. A soft confidence read alongside weak retail sales can reinforce a risk-off macro tone.",
+    source: { name: "Conference Board", url: "https://www.conference-board.org/topics/consumer-confidence" }
+  },
+  {
+    id: "ism-pmi-sep",
+    title: "ISM Manufacturing PMI — September 2026",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-10-01T10:00:00-04:00",
+    desc: "Confirmed on ISM's official release calendar. A print below 50 signals manufacturing contraction and can weigh on risk appetite broadly.",
+    source: { name: "ISM Report on Business", url: "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/" }
+  },
+  {
+    id: "nfp-sep",
+    title: "US Employment Situation — September 2026 (NFP + unemployment rate)",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-10-02T08:30:00-04:00",
+    desc: "Confirmed on the official BLS release calendar.",
+    source: { name: "BLS Employment Situation", url: "https://www.bls.gov/news.release/empsit.htm" }
+  },
+  {
+    id: "earnings-q3-kickoff",
+    title: "Q3 2026 earnings season kickoff (big banks)",
+    category: "earnings",
+    impact: "medium",
+    verified: false,
+    date: "2026-10-14T07:00:00-04:00",
+    desc: "Major US banks (JPMorgan, Wells Fargo, Citi, Goldman) traditionally open earnings season in mid-October. Sets the macro-liquidity tone for risk assets heading into Q4. Exact dates confirmed closer to the print.",
+    source: { name: "Nasdaq earnings calendar", url: "https://www.nasdaq.com/market-activity/earnings" }
+  },
+  {
+    id: "ripple-swell-2026",
+    title: "Ripple Swell 2026 (New York) — XRP / XRPL Apex",
+    category: "conference",
+    impact: "medium",
+    verified: true,
+    date: "2026-10-27T09:00:00-04:00",
+    endDate: "2026-10-29T18:00:00-04:00",
+    desc: "Ripple's flagship annual conference, merged for the first time with the XRPL Apex developer summit — 75+ speakers across 3 stages covering RLUSD, tokenization, payments, and XRPL development. The usual venue for major Ripple/XRP product and partnership announcements.",
+    source: { name: "Ripple Swell official site", url: "https://ripple.com/events/swell/" }
+  },
+  {
+    id: "gdp-q3-advance",
+    title: "US GDP — Q3 2026 advance estimate",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-10-29T08:30:00-04:00",
+    desc: "BEA's first cut at Q3 growth. Confirmed on BEA's official release schedule (BEA 26-36).",
+    source: { name: "BEA GDP release schedule", url: "https://www.bea.gov/news/schedule" }
+  },
+  {
+    id: "election-midterms",
+    title: "US midterm elections",
+    category: "election",
+    impact: "high",
+    verified: true,
+    date: "2026-11-03T00:00:00-05:00",
+    desc: "All 435 House seats and roughly a third of the Senate are up. A shift in control of either chamber directly affects the outlook for crypto market-structure legislation like the CLARITY Act.",
+    source: { name: "US House of Representatives", url: "https://www.house.gov/" }
+  },
+  {
+    id: "treasury-refunding-q4",
+    title: "US Treasury Quarterly Refunding Announcement",
+    category: "macro",
+    impact: "medium",
+    verified: false,
+    date: "2026-11-04T08:30:00-04:00",
+    desc: "Treasury sets note/bond auction sizes for the quarter ahead. Estimated for the first Wednesday of November, the usual cadence; surprises in issuance size can move rates and, with them, risk assets.",
+    source: { name: "TreasuryDirect auction schedule", url: "https://www.treasurydirect.gov/auctions/auction-query/" }
+  },
+  {
+    id: "opec-plus-review",
+    title: "OPEC+ eight-country output review meeting",
+    category: "commodities",
+    impact: "medium",
+    verified: false,
+    tentative: true,
+    date: "2026-11-01T09:00:00-04:00",
+    desc: "The eight-country OPEC+ subgroup has been meeting on a roughly monthly cadence (confirmed dates so far: Jan 4 and Jun 7, 2026) to review production levels. No exact November date is locked yet — placeholder based on the observed cadence. Oil-price swings feed through to risk sentiment and inflation expectations.",
+    source: { name: "OPEC official statements", url: "https://www.opec.org/" }
+  },
+  {
+    id: "nfp-oct",
+    title: "US Employment Situation — October 2026 (NFP + unemployment rate)",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-11-06T08:30:00-04:00",
+    desc: "Confirmed on the official BLS release calendar.",
+    source: { name: "BLS Employment Situation", url: "https://www.bls.gov/news.release/empsit.htm" }
+  },
+  {
+    id: "solana-breakpoint-2026",
+    title: "Solana Breakpoint 2026 (London) — SOL",
+    category: "conference",
+    impact: "medium",
+    verified: true,
+    date: "2026-11-15T09:00:00+00:00",
+    endDate: "2026-11-17T18:00:00+00:00",
+    desc: "Solana Foundation's flagship annual conference, held for the first time in London (Olympia). 6,000+ attendees expected; historically the venue for major ecosystem, institutional-adoption, and protocol-roadmap announcements.",
+    source: { name: "Solana Breakpoint official site", url: "https://solana.com/breakpoint" }
+  },
+  {
+    id: "holiday-thanksgiving",
+    title: "US market holiday — Thanksgiving",
+    category: "holiday",
+    impact: "low",
+    verified: true,
+    date: "2026-11-26T00:00:00-05:00",
+    desc: "NYSE, Nasdaq, and bond markets closed; equities close early (1:00pm ET) the following day. Historically thin crypto liquidity over the long weekend.",
+    source: { name: "NYSE holiday calendar", url: "https://www.nyse.com/markets/hours-calendars" }
+  },
+  {
+    id: "nfp-nov",
+    title: "US Employment Situation — November 2026 (NFP + unemployment rate)",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-12-04T08:30:00-05:00",
+    desc: "Confirmed on the official BLS release calendar.",
+    source: { name: "BLS Employment Situation", url: "https://www.bls.gov/news.release/empsit.htm" }
+  },
+  {
+    id: "opex-triple-dec",
+    title: "Triple witching — quarterly index/futures/options expiry",
+    category: "derivatives",
+    impact: "medium",
+    verified: true,
+    date: "2026-12-18T09:30:00-05:00",
+    desc: "Third-Friday-of-quarter simultaneous expiry of stock-index futures, index options, and single-stock options — the year's largest, often paired with index-rebalancing flows.",
+    source: { name: "Cboe expiration calendar", url: "https://www.cboe.com/available_weeklys/" }
+  },
+  {
+    id: "holiday-christmas",
+    title: "US market holiday — Christmas",
+    category: "holiday",
+    impact: "low",
+    verified: true,
+    date: "2026-12-25T00:00:00-05:00",
+    desc: "NYSE, Nasdaq, and bond markets closed. Year-end illiquidity tends to exaggerate crypto moves in both directions through the last week of December.",
+    source: { name: "NYSE holiday calendar", url: "https://www.nyse.com/markets/hours-calendars" }
+  },
+  {
+    id: "fed-stress-test-2027",
+    title: "Federal Reserve annual bank stress test results (next cycle)",
+    category: "macro",
+    impact: "medium",
+    verified: false,
+    tentative: true,
+    date: "2027-06-25T16:30:00-04:00",
+    desc: "The Fed publishes stress-test results in late June each year — the 2026 results were released in June 2026, so the next cycle falls outside this calendar's Sep–Dec 2026 window. Included for completeness; date is a placeholder based on the usual late-June cadence.",
+    source: { name: "Federal Reserve supervision & regulation", url: "https://www.federalreserve.gov/supervisionreg/stress-tests-capital-planning.htm" }
+  },
+  {
+    id: "btc-halving-2028",
+    title: "Bitcoin halving (next, ~block 1,050,000)",
+    category: "network",
+    impact: "high",
+    verified: false,
+    tentative: true,
+    date: "2028-04-15T00:00:00+00:00",
+    desc: "The next block-subsidy halving (to 1.5625 BTC/block) is expected around April 2028 based on current block-production pace — well outside this calendar's Sep–Dec 2026 window, but included since it's the single most-watched long-horizon BTC catalyst. The exact date will drift with hashrate/block-time variance; treat this as directional, not scheduled.",
+    source: { name: "Bitcoin halving countdown trackers", url: "https://www.coingecko.com/en/bitcoin-halving" }
+  }
+];
+
+const CATEGORY_META = {
+  macro:       { label: "Macro / Fed",   color: "var(--red)" },
+  regulatory:  { label: "Regulation",    color: "var(--amber)" },
+  network:     { label: "Network",       color: "var(--blue)" },
+  conference:  { label: "Conference",    color: "var(--accent)" },
+  derivatives: { label: "Derivatives",   color: "var(--muted)" },
+  election:    { label: "Elections",     color: "var(--red)" },
+  holiday:     { label: "Market Holiday",color: "var(--muted)" },
+  earnings:    { label: "Earnings",      color: "var(--blue)" },
+  commodities: { label: "Commodities",   color: "var(--amber)" }
+};
+
+let activeFilter = "all";
+
+function buildFilters(){
+  const el = document.getElementById('filters');
+  const cats = ["all", ...Object.keys(CATEGORY_META)];
+  el.innerHTML = cats.map(c => {
+    const label = c === "all" ? "All events" : CATEGORY_META[c].label;
+    return `<button class="filter-btn ${c===activeFilter?'active':''}" data-cat="${c}">${label}</button>`;
+  }).join('');
+  el.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeFilter = btn.dataset.cat;
+      render();
+    });
+  });
+}
+
+function timeUntil(target){
+  const now = new Date();
+  let diff = target - now;
+  const past = diff < 0;
+  diff = Math.abs(diff);
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  return {days, hours, mins, past};
+}
+
+function fmtCountdown(target){
+  const t = timeUntil(target);
+  if(t.past) return "In progress / passed";
+  if(t.days > 0) return `in ${t.days}d ${t.hours}h`;
+  if(t.hours > 0) return `in ${t.hours}h ${t.mins}m`;
+  return `in ${t.mins}m`;
+}
+
+function isSameDay(a, b){
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
+
+// An event's day is only "complete" once we're past midnight following its
+// end date (not the instant its start/end time passes). This keeps events
+// visible for their entire calendar day, then drops them the next day.
+function isDayComplete(endDate, now){
+  const dayAfterEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1);
+  return now >= dayAfterEnd;
+}
+
+// This file has no backend and can't check the web on its own — dates only
+// update when someone (you, or Claude on request) re-verifies them against
+// primary sources and edits this file. This banner just tells you how old
+// the last check is, so you know when it's worth asking for a re-verify.
+function renderStaleBanner(){
+  const el = document.getElementById('staleBanner');
+  if(!el) return;
+  const verified = new Date(VERIFIED_THROUGH + "T00:00:00");
+  const now = new Date();
+  const daysSince = Math.floor((now - verified) / 86400000);
+  let cls = '', msg = '';
+  if(daysSince < 7){
+    cls = '';
+    msg = `Last verified ${VERIFIED_THROUGH} (${daysSince}d ago) — dates checked against primary sources.`;
+  } else if(daysSince < 14){
+    cls = 'warn';
+    msg = `Last verified ${VERIFIED_THROUGH} (${daysSince}d ago) — worth a re-check soon, especially "Estimated" items.`;
+  } else {
+    cls = 'stale';
+    msg = `Last verified ${VERIFIED_THROUGH} (${daysSince}d ago) — this is stale. Ask Claude to re-verify against BLS/Fed/Census/etc. before trading around any date here.`;
+  }
+  el.innerHTML = `<div class="stale-banner ${cls}"><span class="dot2"></span>${msg}</div>`;
+}
+
+function renderHero(){
+  const now = new Date();
+  const upcoming = EVENTS
+    .map(e => ({...e, _d: new Date(e.date), _end: e.endDate ? new Date(e.endDate) : new Date(e.date)}))
+    .filter(e => !isDayComplete(e._end, now))
+    .sort((a,b) => a._d - b._d);
+  const heroEl = document.getElementById('hero');
+  if(!upcoming.length){
+    heroEl.innerHTML = '';
+    return;
+  }
+  const next = upcoming[0];
+  const t = timeUntil(next._d);
+  const meta = CATEGORY_META[next.category];
+  heroEl.innerHTML = `
+    <div class="hero">
+      <div class="hero-label">Next up · ${meta.label}</div>
+      <div class="hero-title">${next.title}</div>
+      <div class="hero-meta">${formatFullDate(next._d)}${next.endDate ? ' – ' + formatFullDate(next._end) : ''}</div>
+      <div class="hero-countdown">
+        <div class="cd-unit"><div class="num">${t.days}</div><div class="lbl">days</div></div>
+        <div class="cd-unit"><div class="num">${t.hours}</div><div class="lbl">hrs</div></div>
+        <div class="cd-unit"><div class="num">${t.mins}</div><div class="lbl">min</div></div>
+      </div>
+    </div>`;
+}
+
+function formatFullDate(d){
+  return d.toLocaleString(undefined, { weekday:'short', month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+}
+
+function render(){
+  buildFilters();
+  renderStaleBanner();
+  renderHero();
+
+  const now = new Date();
+  const list = EVENTS
+    .map(e => ({...e, _d: new Date(e.date), _end: e.endDate ? new Date(e.endDate) : new Date(e.date)}))
+    .filter(e => !isDayComplete(e._end, now))
+    .filter(e => activeFilter === "all" || e.category === activeFilter)
+    .sort((a,b) => a._d - b._d);
+
+  const container = document.getElementById('eventList');
+  if(!list.length){
+    container.innerHTML = '<div class="empty">No events in this category.</div>';
+    return;
+  }
+
+  let html = '';
+  let lastMonth = '';
+  list.forEach(e => {
+    const monthLabel = e._d.toLocaleString(undefined, { month:'long', year:'numeric' });
+    if(monthLabel !== lastMonth){
+      html += `<div class="month-heading">${monthLabel}</div>`;
+      lastMonth = monthLabel;
+    }
+    const isPast = e._end < now;
+    const isToday = isSameDay(e._d, now) || (e.endDate && now >= e._d && now <= e._end);
+    const meta = CATEGORY_META[e.category];
+    const verifiedBadge = e.tentative
+      ? `<span class="badge tentative">Tentative</span>`
+      : (e.verified ? `<span class="badge verified" title="Verified">✓</span>` : `<span class="badge tentative">Estimated</span>`);
+
+    html += `
+      <div class="event ${isToday?'today':''} ${isPast?'past':''}">
+        <div class="event-date">
+          <div class="d">${e._d.getDate()}</div>
+          <div class="m">${e._d.toLocaleString(undefined,{month:'short'})}</div>
+          <div class="y">${e._d.getFullYear()}</div>
+        </div>
+        <div class="event-body">
+          <div class="event-top">
+            <span class="impact-dot impact-${e.impact}" title="${e.impact} impact"></span>
+            <span class="badge cat">${meta.label}</span>
+            ${verifiedBadge}
+          </div>
+          <div class="event-title">${e.title}</div>
+          <div class="event-desc">${e.desc}</div>
+          <div class="event-foot">
+            <span class="time">${formatFullDate(e._d)}${e.endDate ? ' – ' + formatFullDate(e._end) : ''} (your local time)</span>
+            <span class="cd">${isPast ? 'Passed' : fmtCountdown(e._d)}</span>
+            <a href="${e.source.url}" target="_blank" rel="noopener">Source: ${e.source.name} ↗</a>
+          </div>
+        </div>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function renderSources(){
+  const uniq = {};
+  EVENTS.forEach(e => { uniq[e.source.url] = e.source.name; });
+  const el = document.getElementById('sourceList');
+  el.innerHTML = Object.entries(uniq).map(([url,name]) => `
+    <li><span class="name">${name}</span><br><a href="${url}" target="_blank" rel="noopener">${url}</a></li>
+  `).join('') + `<li><span class="name">Verified through</span><br><span>${VERIFIED_THROUGH} — re-checked manually against the sources above</span></li>`;
+}
+
+function refreshAll(){
+  render();
+}
+
+document.getElementById('refreshBtn').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  btn.classList.add('spinning');
+  refreshAll();
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+});
+
+// Auto-refresh: recompute countdowns/reorder every 30s.
+renderSources();
+refreshAll();
+setInterval(refreshAll, 30000);
+
+// ---- CC Calendar modal ----
+// Opens calendar-sub.html in an overlay on top of this page. The iframe src
+// is only set the first time it's opened (lazy load) so calendar-sub.html
+// doesn't fetch/run until the user actually wants it.
+(function(){
+  const link = document.getElementById('ccCalendarLink');
+  const overlay = document.getElementById('ccModalOverlay');
+  const closeBtn = document.getElementById('ccModalClose');
+  const frame = document.getElementById('ccModalFrame');
+  let loaded = false;
+
+  function openModal(){
+    if(!loaded){
+      frame.src = 'calendar-sub.html';
+      loaded = true;
+    }
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal(){
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  link.addEventListener('click', (e) => {
+    e.preventDefault(); // stop the plain <a href> navigation; open in-page instead
+    openModal();
+  });
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if(e.target === overlay) closeModal(); // click outside the modal card
+  });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+  });
+})();
+</script>
+
+</body>
+</html>

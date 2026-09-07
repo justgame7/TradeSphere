@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto YouTube</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(53,224,192,0.06), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  .topheader{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:18px;
+  }
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.18em;
+    color:var(--accent);
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.warn{color:var(--red);}
+
+  .refresh-btn{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    width:32px;
+    height:32px;
+    padding:0;
+    border-radius:8px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+
+  /* ---- Hero: latest video ---- */
+  .hero{
+    background:linear-gradient(135deg, rgba(53,224,192,.08), rgba(91,140,255,.05));
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:22px;
+    display:flex;
+    gap:18px;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+    text-decoration:none;
+    color:inherit;
+  }
+  .hero:hover{border-color:var(--border-soft);}
+  .hero-thumb-wrap{
+    flex-shrink:0;
+    width:280px;
+    aspect-ratio:16/9;
+    border-radius:12px;
+    overflow:hidden;
+    position:relative;
+    background:var(--panel2);
+  }
+  .hero-thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
+  .hero-play{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,0);
+    transition:background .15s;
+  }
+  .hero:hover .hero-play{background:rgba(0,0,0,.15);}
+  .hero-play svg{width:46px;height:46px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5));}
+  .hero-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;}
+  .hero-label{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--faint);
+    margin-bottom:8px;
+  }
+  .hero-title{font-size:18px;font-weight:700;line-height:1.35;margin-bottom:10px;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .hero-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  @media(max-width:620px){
+    .hero{flex-direction:column;}
+    .hero-thumb-wrap{width:100%;}
+  }
+
+  /* ---- Channel badge ---- */
+  .chbadge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    font-weight:700;
+    padding:3px 10px 3px 7px;
+    border-radius:20px;
+    background:var(--panel2);
+    border:1px solid var(--border);
+  }
+  .chbadge .chdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .ago{font-family:var(--font-mono);font-size:11px;color:var(--faint);}
+
+  /* ---- Filters ---- */
+  .filters-toggle{margin-bottom:20px;}
+  .filters-toggle > summary{
+    list-style:none;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:8px 14px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--text);
+  }
+  .filters-toggle > summary::-webkit-details-marker{display:none;}
+  .filters-toggle > summary::after{content:'+';color:var(--accent);font-size:14px;line-height:1;}
+  .filters-toggle[open] > summary{border-color:var(--accent);color:var(--accent);}
+  .filters-toggle[open] > summary::after{content:'−';}
+  .filters-toggle-body{margin-top:16px;}
+  .filters{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .filter-btn{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--muted);
+    font-family:var(--font-mono);
+    padding:7px 13px;
+    font-size:11.5px;
+    font-weight:600;
+    border-radius:20px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+  }
+  .filter-btn .chdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .filter-btn.active{
+    background:rgba(53,224,192,.12);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .filter-btn .count{color:var(--faint);}
+  .filter-btn.active .count{color:var(--accent-dim);}
+
+  /* ---- Video grid ---- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(250px, 1fr));
+    gap:16px;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    text-decoration:none;
+    color:inherit;
+    display:flex;
+    flex-direction:column;
+    transition:border-color .15s, transform .15s;
+  }
+  .card:hover{border-color:var(--border-soft);transform:translateY(-2px);}
+  .card-thumb-wrap{
+    position:relative;
+    width:100%;
+    aspect-ratio:16/9;
+    background:var(--panel2);
+    overflow:hidden;
+  }
+  .card-thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
+  .card-play{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,0);
+    opacity:0;
+    transition:opacity .15s, background .15s;
+  }
+  .card:hover .card-play{opacity:1;background:rgba(0,0,0,.18);}
+  .card-play svg{width:34px;height:34px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));}
+  .card-body{padding:12px 13px 14px;display:flex;flex-direction:column;gap:8px;flex:1;}
+  .card-title{font-size:13.5px;font-weight:700;line-height:1.4;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:37px;}
+  .card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;flex-wrap:wrap;}
+
+  /* ---- States ---- */
+  .empty, .error-state{
+    text-align:center;
+    padding:50px 20px;
+    color:var(--faint);
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+  }
+  .error-state{color:var(--red);}
+  .error-state .retry-btn{
+    margin-top:14px;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    font-weight:700;
+    padding:8px 16px;
+    border-radius:20px;
+    cursor:pointer;
+  }
+  .error-state .retry-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .skel{
+    background:linear-gradient(90deg, var(--panel) 0%, var(--panel2) 50%, var(--panel) 100%);
+    background-size:200% 100%;
+    animation:shimmer 1.4s infinite;
+  }
+  @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  .skel-card{border-radius:14px;overflow:hidden;border:1px solid var(--border);}
+  .skel-thumb{width:100%;aspect-ratio:16/9;}
+  .skel-lines{padding:12px 13px;}
+  .skel-line{height:10px;border-radius:5px;margin-bottom:8px;}
+
+  .page-footer{
+    color:var(--faint);
+    font-size:12px;
+    line-height:1.6;
+    margin-top:30px;
+    padding-top:18px;
+    border-top:1px solid var(--border-soft);
+    max-width:640px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Crypto YouTube</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="heroWrap"></div>
+
+  <details class="filters-toggle">
+    <summary>Channels</summary>
+    <div class="filters-toggle-body">
+      <div class="filters" id="filters"></div>
+    </div>
+  </details>
+
+  <div id="videoGrid"></div>
+
+  <div class="page-footer" id="pageFooter"></div>
+
+</div>
+
+<script>
+// Default channels the app ships with pre-installed, so the feed is never
+// empty on a fresh install. Shown as normal (removable) rows on the Trading
+// Settings page too — seeded into localStorage the first time either page
+// loads, so removals there are respected everywhere from then on.
+const DEFAULT_CHANNELS = [
+  { id: 'UCJuvMjmY4-KFrBJXx-5aRKQ', name: '100X Club' },
+  { id: 'UCJQY1CkwtFNfJfIzROc8KiA', name: 'Conor Kenny' },
+  { id: 'UCi7RBPfTtRkVchV6qO8PUzg', name: 'Crypto Casey' },
+];
+
+// Shared with the Trading Settings page via this same localStorage key.
+const CHANNELS_STORAGE_KEY = 'crypto-screener-youtube-channels';
+// Separate marker for "have we ever seeded the defaults", kept apart from
+// the channels list itself so an already-empty list (e.g. from before this
+// feature existed) doesn't get mistaken for a deliberate removal.
+const CHANNELS_SEEDED_KEY = 'crypto-screener-youtube-channels-seeded';
+const CHANNEL_COLOR_PALETTE = [
+  'var(--accent)', 'var(--blue)', 'var(--amber)', 'var(--red)',
+  'var(--purple, #8b5cf6)', '#35A7FF', '#FF9F5B', '#6BE675'
+];
+
+function loadChannels(){
+  let list = [];
+  try{
+    if(localStorage.getItem(CHANNELS_SEEDED_KEY) !== 'true'){
+      // Never seeded before (fresh install, or an existing save from before
+      // this feature existed) — seed the defaults so the feed isn't empty,
+      // then mark it seeded so future removals (even down to zero) stick.
+      list = DEFAULT_CHANNELS;
+      localStorage.setItem(CHANNELS_STORAGE_KEY, JSON.stringify(DEFAULT_CHANNELS));
+      localStorage.setItem(CHANNELS_SEEDED_KEY, 'true');
+    } else {
+      const raw = localStorage.getItem(CHANNELS_STORAGE_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        if(Array.isArray(parsed)){
+          list = parsed.filter(c => c && typeof c.id === 'string' && c.id.trim());
+        }
+      }
+    }
+  }catch(err){
+    console.warn('Unable to load saved channels, using defaults', err);
+    list = DEFAULT_CHANNELS;
+  }
+  return list.map((c, i) => {
+    const hasCustomName = !!(c.name && c.name.trim());
+    return {
+      id: c.id.trim(),
+      name: hasCustomName ? c.name.trim() : c.id.trim(),
+      customName: hasCustomName, // true if the user typed a label; false = still needs resolving
+      color: CHANNEL_COLOR_PALETTE[i % CHANNEL_COLOR_PALETTE.length]
+    };
+  });
+}
+
+// After a channel's real name is resolved from its feed, write it back into
+// localStorage (only for channels the user didn't already label themselves)
+// so the Trading Settings page picks up the real name too, and we don't have
+// to re-resolve it on every load.
+function persistResolvedChannelNames(){
+  try{
+    const raw = localStorage.getItem(CHANNELS_STORAGE_KEY);
+    if(!raw) return;
+    const stored = JSON.parse(raw);
+    if(!Array.isArray(stored)) return;
+    let changed = false;
+    const updated = stored.map(sc => {
+      const match = CHANNELS.find(c => c.id === sc.id);
+      if(match && !match.customName && match.name && match.name !== sc.id && match.name !== sc.name){
+        changed = true;
+        return { ...sc, name: match.name };
+      }
+      return sc;
+    });
+    if(changed) localStorage.setItem(CHANNELS_STORAGE_KEY, JSON.stringify(updated));
+  }catch(err){ /* not critical */ }
+}
+
+const CHANNELS = loadChannels();
+
+const DAYS_WINDOW = 30;
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+
+function updateFooterText(){
+  const names = CHANNELS.map(c => c.name);
+  let namesStr;
+  if(names.length <= 1){
+    namesStr = names.join('');
+  }else if(names.length === 2){
+    namesStr = `${names[0]} and ${names[1]}`;
+  }else{
+    namesStr = `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+  }
+  document.getElementById('pageFooter').textContent =
+    `Videos published in the last ${DAYS_WINDOW} days from ${namesStr}, pulled from each channel's public feed. ` +
+    `Refreshes automatically every 15 minutes, or tap the refresh button any time. ` +
+    `Manage which channels show up on the Trading Settings page.`;
+}
+updateFooterText();
+
+// Your own Cloudflare Worker (see cloudflare-worker.js). Not a shared public
+// proxy, so it can't be blocked/rate-limited by other users of that service -
+// this is now the PRIMARY fetch path. Leave blank to skip straight to the
+// public proxies below (e.g. before you've deployed the worker).
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+
+// YouTube's RSS feed has no CORS headers, so it can't be fetched directly from
+// the browser. We go through a couple of public read-only CORS proxies and fall
+// back through the list if one is down/rate-limited.
+// Ordered by reliability: codetabs and corsfix are the sturdiest free options as
+// of 2026; allorigins is kept as a last resort since it's frequently slow/rate-limited.
+// (corsproxy.io was removed - its free tier now only works from localhost, so it
+// always failed on a deployed page.)
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+const PROXY_TIMEOUT_MS = 7000; // don't let a hung/slow proxy stall the whole load
+const CACHE_KEY = 'crypto-youtube-cache-v1';
+
+let activeFilter = 'all';
+let allVideos = [];
+let lastUpdated = null;
+let lastRefreshFailed = false;
+let lastFailedChannels = [];
+
+function getText(el, tag){
+  const node = el.getElementsByTagName(tag)[0];
+  return node ? node.textContent.trim() : '';
+}
+
+function getFeedChannelName(doc){
+  // YouTube's feed has a top-level <author><name> with the channel's real
+  // display name (and a top-level <title> that matches it too).
+  const authorEl = doc.getElementsByTagName('author')[0];
+  const nameEl = authorEl ? authorEl.getElementsByTagName('name')[0] : null;
+  if(nameEl && nameEl.textContent.trim()) return nameEl.textContent.trim();
+  const titleEl = doc.getElementsByTagName('title')[0];
+  return titleEl ? titleEl.textContent.trim() : '';
+}
+
+function parseFeed(xmlText, channel){
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if(doc.getElementsByTagName('parsererror').length) throw new Error('feed parse error');
+
+  // Resolve the channel's real display name from the feed itself, unless the
+  // user already gave it a custom label on the Trading Settings page.
+  if(!channel.customName){
+    const resolvedName = getFeedChannelName(doc);
+    if(resolvedName) channel.name = resolvedName;
+  }
+
+  const entries = Array.from(doc.getElementsByTagName('entry'));
+  return entries.map(entry => {
+    let videoId = getText(entry, 'yt:videoId');
+    if(!videoId){
+      const idText = getText(entry, 'id');
+      videoId = idText.split(':').pop();
+    }
+    const title = getText(entry, 'title');
+    const publishedRaw = getText(entry, 'published');
+    const published = publishedRaw ? new Date(publishedRaw) : null;
+    const thumbEl = entry.getElementsByTagName('media:thumbnail')[0];
+    const thumb = (thumbEl && thumbEl.getAttribute('url')) || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    return {
+      videoId,
+      title,
+      published,
+      thumb,
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      channel
+    };
+  }).filter(v => v.videoId && v.published);
+}
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+// rss2json is a dedicated feed-reading API with its own CORS headers - it isn't a
+// generic "cors proxy" the way the others are, so it's much less likely to be on
+// an ad blocker's filter list. Tried first since it's usually the fastest path.
+async function fetchViaRss2Json(channel, feedUrl){
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
+  const res = await fetchWithTimeout(apiUrl, PROXY_TIMEOUT_MS);
+  if(!res.ok) throw new Error('rss2json responded ' + res.status);
+  const data = await res.json();
+  if(data.status !== 'ok' || !Array.isArray(data.items)) throw new Error('rss2json returned an error: ' + (data.message || 'unknown'));
+  if(!channel.customName && data.feed && data.feed.title && data.feed.title.trim()){
+    channel.name = data.feed.title.trim();
+  }
+  return data.items.map(item => {
+    const link = item.link || '';
+    const guid = item.guid || '';
+    const idMatch = /[?&]v=([^&]+)/.exec(link) || /:([a-zA-Z0-9_-]{6,})$/.exec(guid);
+    const videoId = idMatch ? idMatch[1] : '';
+    const published = item.pubDate ? new Date(item.pubDate.replace(' ', 'T') + 'Z') : null;
+    return {
+      videoId,
+      title: item.title || '',
+      published,
+      thumb: (item.thumbnail && item.thumbnail.trim()) || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : link,
+      channel
+    };
+  }).filter(v => v.videoId && v.published);
+}
+
+async function fetchChannelFeed(channel){
+  // Append a changing param so any cache along the way (proxy or origin CDN)
+  // is less likely to serve back a stale copy of this exact URL.
+  const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channel.id}&_=${Date.now()}`;
+  let lastErr;
+
+  // 1) Your own Cloudflare Worker, if configured - the most reliable path since
+  // it isn't a shared public proxy that other users can overload or that an
+  // ISP/network might be blocking.
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(feedUrl), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker responded ' + res.status);
+      const text = await res.text();
+      if(!text || text.indexOf('<feed') === -1) throw new Error('unexpected feed response');
+      return parseFeed(text, channel);
+    }catch(err){
+      const msg = err && err.name === 'AbortError' ? 'timed out' : err.message;
+      console.warn(`[${channel.name}] worker failed:`, msg);
+      lastErr = err;
+    }
+  }
+
+  // 2) Race the public CORS proxies - they fetch YouTube's feed directly, so
+  // whichever responds first gives us live data straight from the source.
+  try{
+    return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
+      const res = await fetchWithTimeout(buildProxyUrl(feedUrl), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('proxy responded ' + res.status);
+      const text = await res.text();
+      if(!text || text.indexOf('<feed') === -1) throw new Error('unexpected feed response');
+      return parseFeed(text, channel);
+    })()));
+  }catch(err){
+    const reasons = (err && err.errors) ? err.errors.map(e => e.message).join('; ') : (err && err.message);
+    console.warn(`[${channel.name}] all proxies failed (${reasons})`);
+    lastErr = err;
+  }
+
+  // 3) rss2json last resort. It runs its own backend crawler on its own
+  // schedule rather than live-proxying each request, so it can return an
+  // already-stale snapshot on a normal-looking 200 response - it used to be
+  // tried FIRST here, which meant a stale-but-"successful" response could win
+  // out over genuinely fresh data from a working proxy on every single
+  // refresh. Only used now if the worker and every live proxy have failed.
+  try{
+    return await fetchViaRss2Json(channel, feedUrl);
+  }catch(err){
+    const msg = err && err.name === 'AbortError' ? 'timed out' : err.message;
+    console.warn(`[${channel.name}] rss2json fallback also failed:`, msg);
+    lastErr = err;
+  }
+
+  throw lastErr || new Error('all sources failed');
+}
+
+function timeAgo(date){
+  const diffMs = Date.now() - date.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if(mins < 1) return 'just now';
+  if(mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if(hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function buildFilters(){
+  const el = document.getElementById('filters');
+  const cutoff = Date.now() - DAYS_WINDOW * 86400000;
+  const recentVideos = allVideos.filter(v => v.published.getTime() >= cutoff);
+  const counts = { all: recentVideos.length };
+  CHANNELS.forEach(c => { counts[c.id] = recentVideos.filter(v => v.channel.id === c.id).length; });
+
+  const chips = [`
+    <button class="filter-btn ${activeFilter==='all'?'active':''}" data-ch="all">
+      All videos <span class="count">${counts.all}</span>
+    </button>`];
+  CHANNELS.forEach(c => {
+    chips.push(`
+      <button class="filter-btn ${activeFilter===c.id?'active':''}" data-ch="${c.id}">
+        <span class="chdot" style="background:${c.color}"></span>${escapeHtml(c.name)} <span class="count">${counts[c.id]}</span>
+      </button>`);
+  });
+  el.innerHTML = chips.join('');
+  el.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeFilter = btn.dataset.ch;
+      render();
+    });
+  });
+}
+
+function renderHero(list){
+  const heroEl = document.getElementById('heroWrap');
+  if(!list.length){ heroEl.innerHTML = ''; return; }
+  const latest = list[0];
+  heroEl.innerHTML = `
+    <a class="hero" href="${latest.url}" target="_blank" rel="noopener noreferrer">
+      <div class="hero-thumb-wrap">
+        <img src="${latest.thumb}" alt="" loading="lazy">
+        <div class="hero-play">
+          <svg viewBox="0 0 68 48"><path d="M66.5 7.7c-.8-2.9-2.5-5.2-5.4-6C55.8 0 34 0 34 0S12.2 0 6.9 1.7c-2.9.8-4.6 3.1-5.4 6C0 13 0 24 0 24s0 11 1.5 16.3c.8 2.9 2.5 5.2 5.4 6C12.2 48 34 48 34 48s21.8 0 27.1-1.7c2.9-.8 4.6-3.1 5.4-6C68 35 68 24 68 24s0-11-1.5-16.3z" fill="rgba(255,84,112,.92)"/><path d="M45 24 27 14v20z" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="hero-body">
+        <div class="hero-label">Latest upload</div>
+        <div class="hero-title">${escapeHtml(latest.title)}</div>
+        <div class="hero-meta">
+          <span class="chbadge"><span class="chdot" style="background:${latest.channel.color}"></span>${latest.channel.name}</span>
+          <span class="ago">${timeAgo(latest.published)}</span>
+        </div>
+      </div>
+    </a>`;
+}
+
+function renderGrid(list){
+  const el = document.getElementById('videoGrid');
+  const rest = list.slice(1);
+  if(!list.length){
+    el.innerHTML = `<div class="empty">No videos from ${activeFilter === 'all' ? 'these channels' : CHANNELS.find(c=>c.id===activeFilter)?.name || 'this channel'} in the last ${DAYS_WINDOW} days.</div>`;
+    return;
+  }
+  if(!rest.length){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="grid">${rest.map(v => `
+    <a class="card" href="${v.url}" target="_blank" rel="noopener noreferrer">
+      <div class="card-thumb-wrap">
+        <img src="${v.thumb}" alt="" loading="lazy">
+        <div class="card-play">
+          <svg viewBox="0 0 68 48"><path d="M66.5 7.7c-.8-2.9-2.5-5.2-5.4-6C55.8 0 34 0 34 0S12.2 0 6.9 1.7c-2.9.8-4.6 3.1-5.4 6C0 13 0 24 0 24s0 11 1.5 16.3c.8 2.9 2.5 5.2 5.4 6C12.2 48 34 48 34 48s21.8 0 27.1-1.7c2.9-.8 4.6-3.1 5.4-6C68 35 68 24 68 24s0-11-1.5-16.3z" fill="rgba(255,84,112,.92)"/><path d="M45 24 27 14v20z" fill="#fff"/></svg>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(v.title)}</div>
+        <div class="card-foot">
+          <span class="chbadge"><span class="chdot" style="background:${v.channel.color}"></span>${v.channel.name}</span>
+          <span class="ago">${timeAgo(v.published)}</span>
+        </div>
+      </div>
+    </a>`).join('')}</div>`;
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function render(){
+  buildFilters();
+  const cutoff = Date.now() - DAYS_WINDOW * 86400000;
+  const list = allVideos
+    .filter(v => v.published.getTime() >= cutoff)
+    .filter(v => activeFilter === 'all' || v.channel.id === activeFilter)
+    .sort((a,b) => b.published - a.published);
+  renderHero(list);
+  renderGrid(list);
+}
+
+function renderSkeleton(){
+  const grid = document.getElementById('videoGrid');
+  let html = '<div class="grid">';
+  for(let i=0;i<6;i++){
+    html += `<div class="skel-card">
+      <div class="skel skel-thumb"></div>
+      <div class="skel-lines">
+        <div class="skel skel-line" style="width:90%"></div>
+        <div class="skel skel-line" style="width:60%"></div>
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+  grid.innerHTML = html;
+  document.getElementById('heroWrap').innerHTML = '';
+  document.getElementById('filters').innerHTML = '';
+}
+
+function renderErrorState(err){
+  document.getElementById('heroWrap').innerHTML = '';
+  document.getElementById('filters').innerHTML = '';
+  document.getElementById('videoGrid').innerHTML = `
+    <div class="error-state">
+      Couldn't load videos right now (${escapeHtml(err && err.message ? err.message : 'network error')}).<br>
+      This page relies on public feed-reading services that are sometimes temporarily down -
+      or blocked by an ad blocker/privacy extension, since several look like generic "proxy" domains.
+      If you have one enabled, try allow-listing this page (or a private/incognito window) and retry.
+      Open the browser console for the specific per-channel error.
+      <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+    </div>`;
+  document.getElementById('retryBtn').addEventListener('click', loadAll);
+}
+
+function updateLastUpdatedLabel(){
+  const el = document.getElementById('updatedLabel');
+  if(!lastUpdated){ el.textContent = ''; el.classList.remove('warn'); return; }
+  if(lastRefreshFailed){
+    const who = lastFailedChannels.length ? ` (${lastFailedChannels.join(', ')})` : '';
+    el.textContent = `Refresh failed${who} · showing data from ${timeAgo(lastUpdated)}`;
+    el.classList.add('warn');
+  }else{
+    el.textContent = 'Updated ' + timeAgo(lastUpdated);
+    el.classList.remove('warn');
+  }
+}
+
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
+      videos: allVideos.map(v => ({ ...v, published: v.published.toISOString() }))
+    }));
+  }catch(err){ /* storage full/unavailable - not critical */ }
+}
+
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.videos || !cached.videos.length) return false;
+    allVideos = cached.videos.map(v => ({ ...v, published: new Date(v.published) }));
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+
+async function loadAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  // Show cached/previous results immediately (if any) instead of a blank skeleton
+  // while fresh data loads in the background.
+  if(allVideos.length){
+    render();
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  const failedChannels = [];
+  try{
+    const results = await Promise.all(CHANNELS.map(c =>
+      fetchChannelFeed(c).catch(err => {
+        console.warn('feed failed for', c.name, err);
+        failedChannels.push(c.name);
+        return [];
+      })
+    ));
+    const merged = results.flat();
+
+    if(!merged.length){
+      // Every single channel failed this refresh. This is the case that used to
+      // be swallowed silently: if we already had cached videos, the old code
+      // skipped updating allVideos/lastUpdated and just re-rendered the stale
+      // list with no sign anything went wrong. Now we flag it explicitly.
+      lastRefreshFailed = true;
+      lastFailedChannels = failedChannels;
+      if(!allVideos.length){
+        throw new Error('no channels returned data');
+      }
+    }else{
+      allVideos = merged;
+      lastUpdated = new Date();
+      lastRefreshFailed = failedChannels.length > 0;
+      lastFailedChannels = failedChannels;
+      saveCache();
+    }
+    persistResolvedChannelNames();
+    updateFooterText();
+    render();
+    updateLastUpdatedLabel();
+  }catch(err){
+    if(!allVideos.length){
+      renderErrorState(err);
+    }
+  }finally{
+    setTimeout(() => btn.classList.remove('spinning'), 400);
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+loadCache();
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL_MS);
+// Keep the "Updated Xm ago" label ticking between refreshes.
+setInterval(updateLastUpdatedLabel, 60000);
+</script>
+
+</body>
+</html>

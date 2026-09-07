@@ -1,0 +1,2425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ichimoku Breakout Screener (Binance USDT-M)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --gold:#F0C24B;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+    --ticket-accent:#35E0C0;
+    --ticket-accent-dim:#1E7F6F;
+    --ticket-short:#FF5470;
+    --ticket-short-dim:#7A2E3B;
+    --ticket-warn:#F5A623;
+    --ticket-border-soft:#1B1F28;
+    --ticket-faint:#565F70;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(53,224,192,0.07), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%),
+      radial-gradient(circle at 50% 100%, rgba(167,139,250,0.04), transparent 45%);
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+  a{color:inherit;}
+
+  /* ---- Top header ---- */
+  .header-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-bottom:6px;
+  }
+  .eyebrow{
+    font:700 12px var(--font-mono);
+    letter-spacing:0.14em;
+    color:var(--text);
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  h1{font-size:23px;font-weight:700;margin:4px 0 0;letter-spacing:-0.01em;}
+  .live-tag{
+    display:inline-flex;align-items:center;gap:6px;
+    font:600 10.5px var(--font-mono);color:var(--accent);
+    background:rgba(53,224,192,.1);border:1px solid rgba(53,224,192,.3);
+    border-radius:20px;padding:5px 10px;white-space:nowrap;
+  }
+  .sub{color:var(--muted);font-size:13px;margin:10px 0 22px;line-height:1.55;max-width:720px;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:20px 22px;
+    margin-bottom:16px;
+    transition:border-color .15s;
+  }
+  .settings-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px;
+  }
+  .screener-controls{display:flex;flex-direction:column;gap:14px;}
+  .timeframe-toggle{
+    display:flex;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:3px;
+    gap:2px;
+  }
+  .timeframe-toggle button{
+    flex:1;
+    background:transparent;
+    border:none;
+    color:var(--muted);
+    font-family:var(--font-mono);
+    padding:8px 10px;
+    font-size:12px;
+    font-weight:600;
+    border-radius:7px;
+    cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .timeframe-toggle button:hover{color:var(--accent);}
+  .timeframe-toggle button.active{
+    background:var(--accent);
+    color:#07130f;
+    box-shadow:0 2px 10px rgba(53,224,192,.35);
+  }
+  .timeframe-toggle button.active:hover{color:#07130f;}
+  .volume-search-row{display:flex;gap:10px;align-items:end;flex-wrap:nowrap;}
+  .volume-search-row .volume-field{flex:1;min-width:0;margin-bottom:0;}
+  .volume-search-row .coin-search{flex:1;min-width:0;}
+  .volume-search-row .coin-search input{width:100%;flex:1;min-width:0;}
+  @media(max-width:520px){
+    .volume-search-row{gap:8px;}
+    .volume-field input{padding:9px 8px;font-size:12.5px;}
+    .volume-search-row .coin-search input{padding:9px 8px;font-size:12.5px;}
+    .coin-search-btn{width:33px;height:33px;flex-shrink:0;}
+  }
+  .settings-details > summary,
+  .info-details > summary{
+    list-style:none;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    color:var(--muted);
+    font-family:var(--font-mono);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  .settings-details > summary::-webkit-details-marker,
+  .info-details > summary::-webkit-details-marker{display:none;}
+  .settings-details > summary::after,
+  .info-details > summary::after{content:'+';color:var(--faint);font-size:15px;line-height:1;}
+  .settings-details[open] > summary,
+  .info-details[open] > summary{color:var(--accent);margin-bottom:14px;}
+  .settings-details[open] > summary::after,
+  .info-details[open] > summary::after{content:'-';}
+  .info-details{margin-top:14px;}
+  .field label{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--faint);
+    margin-bottom:6px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  .volume-field{margin-bottom:0;}
+  .volume-field input{min-height:39px;}
+  .field input, .field select{
+    width:100%;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:9px;
+    color:var(--text);
+    font-family:var(--font-mono);
+    padding:9px 10px;
+    font-size:13px;
+    outline:none;
+    transition:border-color .15s;
+  }
+  .field input:focus, .field select:focus{outline:none;border-color:var(--accent);}
+  .actions{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-top:18px;
+    flex-wrap:wrap;
+  }
+  button{
+    background:var(--accent);
+    color:#07130f;
+    border:none;
+    padding:11px 22px;
+    border-radius:10px;
+    font-family:var(--font-display);
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 4px 16px rgba(53,224,192,.25);
+    transition:opacity .15s, transform .15s, box-shadow .15s;
+  }
+  button:hover{opacity:.92;transform:translateY(-1px);box-shadow:0 6px 20px rgba(53,224,192,.32);}
+  button:active{transform:translateY(0);}
+  button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+  button.secondary{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-weight:600;
+    box-shadow:none;
+  }
+  button.secondary:hover{border-color:var(--accent);color:var(--accent);opacity:1;transform:none;}
+  button.filter-btn{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--muted);
+    font-family:var(--font-mono);
+    padding:7px 14px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+    box-shadow:none;
+  }
+  button.filter-btn:hover{border-color:var(--border-soft);color:var(--text);transform:none;}
+  button.filter-btn.active{
+    background:rgba(53,224,192,.12);
+    border-color:var(--accent);
+    color:var(--accent);
+    box-shadow:0 0 0 1px rgba(53,224,192,.15) inset;
+  }
+  .status{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);}
+  .coin-search{display:flex;align-items:center;gap:6px;}
+  .coin-search input{
+    width:96px;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:9px;
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-weight:700;
+    letter-spacing:.03em;
+    padding:9px 10px;
+    font-size:13px;
+    text-transform:uppercase;
+    outline:none;
+    transition:border-color .15s;
+  }
+  .coin-search input::placeholder{color:var(--faint);font-weight:500;text-transform:none;}
+  .coin-search input:focus{border-color:var(--accent);}
+  .coin-search-btn{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    width:37px;
+    height:37px;
+    flex-shrink:0;
+    padding:0;
+    border-radius:9px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:15px;
+    cursor:pointer;
+    box-shadow:none;
+  }
+  .coin-search-btn:hover{border-color:var(--accent);color:var(--accent);transform:none;}
+  .coin-search-btn:disabled{opacity:.5;cursor:not-allowed;}
+  @media(max-width:520px){.header-row{align-items:flex-start;}}
+  .progress-bar{
+    height:6px;
+    background:var(--panel2);
+    border-radius:4px;
+    overflow:hidden;
+    margin-top:12px;
+    display:none;
+  }
+  .progress-fill{
+    height:100%;
+    background:linear-gradient(90deg,var(--accent),var(--blue));
+    width:0%;
+    transition:width .15s;
+  }
+  table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    font-family:var(--font-mono);
+    font-size:12.5px;
+  }
+  th,td{
+    padding:12px 10px;
+    text-align:right;
+    border-bottom:1px solid var(--border-soft);
+    white-space:nowrap;
+  }
+  th{
+    text-align:right;
+    color:var(--faint);
+    font-weight:600;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+    cursor:pointer;
+    user-select:none;
+    border-bottom:1px solid var(--border);
+    position:sticky;
+    top:0;
+    background:var(--panel);
+    z-index:1;
+    transition:color .15s;
+  }
+  th:hover{color:var(--accent);}
+  th:first-child,td:first-child{text-align:left;}
+  th:nth-child(2),td:nth-child(2),
+  th:nth-child(3),td:nth-child(3),
+  th:nth-child(4),td:nth-child(4),
+  th:nth-child(5),td:nth-child(5){text-align:center;}
+  tbody tr{transition:background .12s;}
+  tbody tr:hover{background:var(--panel2);}
+  tbody tr:last-child td{border-bottom:none;}
+  .sym-link{color:var(--text);text-decoration:none;font-weight:700;letter-spacing:.01em;}
+  .sym-link:hover{color:var(--accent);}
+  .pill{
+    display:inline-block;
+    padding:4px 10px;
+    border-radius:999px;
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .pill-ck{background:rgba(91,140,255,.14);color:var(--blue);}
+  .pill-pk{background:rgba(245,166,35,.14);color:var(--amber);}
+  .pill-both{background:rgba(53,224,192,.14);color:var(--accent);}
+  .pill-long{background:rgba(53,224,192,.14);color:var(--accent);}
+  .pill-short{background:rgba(255,84,112,.14);color:var(--red);}
+  .pill-none{color:var(--faint);}
+  .bybit-tag{
+    display:inline-block;
+    margin-left:6px;
+    padding:2px 7px;
+    border-radius:999px;
+    font-family:var(--font-mono);
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:.04em;
+    background:rgba(245,166,35,.14);
+    color:var(--amber);
+    vertical-align:middle;
+  }
+  .table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--border-soft);max-height:70vh;}
+  .count-badge{
+    background:rgba(53,224,192,.1);
+    border:1px solid rgba(53,224,192,.28);
+    border-radius:20px;
+    padding:4px 11px;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--accent);
+  }
+  .legend{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--muted);
+    margin-top:14px;
+  }
+  .legend > span{flex-basis:100%;}
+  .legend b{color:var(--text);}
+  .legend #csvBtn{flex-basis:100%;width:max-content;}
+  .error-box{
+    background:rgba(255,84,112,.08);
+    border:1px solid rgba(255,84,112,.3);
+    color:#ffb3c1;
+    padding:10px 14px;
+    border-radius:10px;
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    margin-top:12px;
+    display:none;
+  }
+  .empty{color:var(--faint);text-align:center;padding:34px;font-family:var(--font-mono);font-size:12.5px;}
+  .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .plan-btn{padding:6px 12px;font-size:11px;font-family:var(--font-mono);font-weight:700;background:var(--accent);color:#07130f;border-radius:8px;box-shadow:none;}
+  .wl-btn{padding:6px 11px;font-size:11px;font-family:var(--font-mono);font-weight:700;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;cursor:pointer;box-shadow:none;}
+  .wl-btn:hover{border-color:var(--accent);color:var(--accent);box-shadow:none;transform:none;}
+  .wl-btn.added{background:transparent;border-color:var(--border-soft);color:var(--faint);cursor:default;}
+  .wl-btn.added:hover{border-color:var(--border-soft);color:var(--faint);}
+  .trade-modal{position:fixed;inset:0;background:rgba(5,6,9,.75);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:20px;z-index:10;}
+  .trade-modal.open{display:flex;}
+  .trade-dialog{width:min(640px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .trade-head{display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:18px;}
+  .trade-head h2{font-size:19px;margin:0 0 4px;font-weight:700;}
+  .trade-head p{color:var(--faint);font-family:var(--font-mono);font-size:11.5px;margin:0;text-transform:uppercase;letter-spacing:.04em;}
+  .header-title-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .analysis-subtitle-row{display:flex;align-items:center;gap:6px;}
+  .trade-head p.analysis-subtitle-row{margin:2px 0 0;}
+  .analysis-subtitle-row .info-btn{text-transform:none;}
+  .analysis-meta-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .close-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);width:30px;height:30px;padding:0;font-size:16px;line-height:1;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:none;}
+  .close-btn:hover{border-color:var(--accent);color:var(--accent);transform:none;}
+  .plan-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px;}
+  .plan-card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px;}
+  .plan-card .label{display:block;color:var(--faint);font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+  .plan-card .value{font-family:var(--font-mono);font-size:15px;font-weight:600;}
+  .plan-section{border-top:1px solid var(--border);padding-top:16px;margin-top:16px;}
+  .plan-section h3{font-family:var(--font-mono);font-size:11px;margin:0 0 12px;text-transform:uppercase;color:var(--faint);letter-spacing:.08em;}
+  .plan-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .plan-inputs label{display:block;color:var(--faint);font-family:var(--font-mono);font-size:11px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}
+  .plan-inputs input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:var(--font-mono);padding:9px;font-size:13px;outline:none;}
+  .plan-inputs input:focus{border-color:var(--accent);}
+  .plan-note{color:var(--faint);font-family:var(--font-mono);font-size:11px;line-height:1.6;margin:14px 0 0;}
+  .plan-rule{font-size:13px;line-height:1.6;margin:7px 0;color:var(--text);}
+  @media(max-width:520px){.plan-grid,.plan-inputs{grid-template-columns:1fr;}}
+  .analysis-modal{position:fixed;inset:0;background:rgba(5,6,9,.78);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:20px;z-index:11;}
+  .analysis-modal.open{display:flex;}
+  .analysis-dialog{width:min(1100px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:0 22px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  /* .analysis-dialog itself is the scrolling container (overflow:auto), so the
+     sticky header pins relative to IT, not the page - stays visible while
+     scrolling through the analysis on mobile. */
+  .analysis-dialog .trade-head{position:sticky;top:0;z-index:5;background:var(--panel);padding:22px 0 14px;margin-bottom:0;border-bottom:1px solid var(--border-soft);}
+  .analysis-ltp{display:inline-flex;align-items:baseline;gap:6px;background:rgba(53,224,192,.1);border:1px solid rgba(53,224,192,.3);border-radius:7px;padding:4px 9px;font-family:var(--font-mono);white-space:nowrap;}
+  .analysis-ltp .ltp-label{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-dim);}
+  .analysis-ltp .ltp-value{font-size:13px;font-weight:700;color:var(--accent);}
+  .analysis-setup{display:inline-flex;align-items:center;font-family:var(--font-mono);font-size:12px;font-weight:700;border-radius:7px;padding:4px 10px;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em;}
+  .analysis-setup.setup-long{background:rgba(53,224,192,.1);border:1px solid rgba(53,224,192,.3);color:var(--accent);}
+  .analysis-setup.setup-short{background:rgba(255,84,112,.1);border:1px solid rgba(255,84,112,.3);color:var(--red);}
+  .analysis-setup.setup-none{background:rgba(139,147,163,.08);border:1px solid rgba(139,147,163,.25);color:var(--faint);}
+  .analysis-actions{display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
+  .exchange-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:rgba(139,92,246,.12);color:var(--text);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);}
+  .exchange-btn:hover{border-color:var(--violet);background:rgba(139,92,246,.2);transform:none;}
+  #analysisTitle{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+  .analysis-symbol-link{color:var(--text);text-decoration:none;}
+  .analysis-symbol-link:hover,.analysis-symbol-link:focus-visible{color:var(--accent);text-decoration:underline;}
+  .chart-wrap{height:430px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;padding:8px;position:relative;}
+  #analysisChart{width:100%;height:100%;display:block;}
+  .analysis-status{color:var(--muted);font:11px var(--font-mono);margin:0 0 10px;}
+  .analysis-decision{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;margin-top:16px;padding:15px 16px;background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;}
+  .analysis-decision.wait{border-left-color:var(--amber);}
+  .analysis-decision.conflict{border-left-color:var(--red);}
+  .analysis-decision strong{display:block;font-size:15px;margin-bottom:5px;}
+  .analysis-decision p{margin:0;color:var(--muted);font:12px/1.55 var(--font-mono);}
+  .decision-tag{font:11px var(--font-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent);white-space:nowrap;}
+  .analysis-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px;}
+  .analysis-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:13px;color:var(--text);font:12px/1.55 var(--font-mono);transition:border-color .15s;}
+  .analysis-card strong{display:block;color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px;}
+  .analysis-card .analysis-value{display:block;color:var(--text);font-size:13px;font-weight:600;margin-bottom:8px;}
+  .analysis-card .analysis-value em{font-style:normal;color:var(--accent);}
+  .analysis-card p{margin:0;color:var(--muted);}
+  .analysis-card.execution{border-color:rgba(53,224,192,.3);}
+  .analysis-levels{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:0 0 10px;}
+  .analysis-level{padding:8px;border:1px solid var(--border);border-radius:9px;background:rgba(10,12,16,.35);}
+  .analysis-level b{display:block;color:var(--faint);font-size:9px;font-weight:500;text-transform:uppercase;margin-bottom:4px;}
+  .analysis-level span{font-size:12px;color:var(--text);}
+  .analysis-level.entry span{color:var(--accent);}
+  .analysis-level.stop span{color:var(--red);}
+  .analysis-level.target span{color:var(--amber);}
+  .funding-row{font:600 12px var(--font-mono);color:var(--muted);margin:0 0 10px;}
+  .funding-row span{font-weight:700;color:var(--text);}
+  .funding-row span.funding-pos{color:var(--red);}
+  .funding-row span.funding-neg{color:var(--accent);}
+  .tf-switch-row{margin-top:-4px;}
+  .tf-switch-link{color:var(--accent);text-decoration:none;font-weight:700;}
+  .tf-switch-link:hover{text-decoration:underline;}
+  @media(max-width:700px){.analysis-grid{grid-template-columns:1fr;}.chart-wrap{height:340px;}}
+  .analysis-cell{display:flex;align-items:center;gap:6px;}
+  .info-btn{width:28px;height:28px;flex:0 0 28px;padding:0;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-family:var(--font-mono);font-weight:700;font-size:12px;font-style:italic;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:none;}
+  .info-btn:hover{border-color:var(--accent);color:var(--accent);transform:none;}
+  .twitter-btn{font-style:normal;font-size:13px;margin-left:6px;}
+  .coininfo-modal{position:fixed;inset:0;background:rgba(5,6,9,.78);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:20px;z-index:12;}
+  .coininfo-modal.open{display:flex;}
+  .coininfo-dialog{width:min(560px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:0 22px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .coininfo-dialog .trade-head{position:sticky;top:0;z-index:5;background:var(--panel);padding:22px 0 14px;margin-bottom:0;border-bottom:1px solid var(--border-soft);}
+  .coininfo-website{display:inline-block;color:var(--accent);font-family:var(--font-mono);font-size:12.5px;word-break:break-all;background:transparent;border:none;padding:0;cursor:pointer;text-decoration:underline;}
+  .coininfo-website:hover{color:var(--text);}
+  .coininfo-about{color:var(--muted);font:12px/1.6 var(--font-mono);margin:0 0 14px;}
+  .coininfo-about p{margin:0 0 10px;}
+  .coininfo-about p:last-child{margin-bottom:0;}
+  .coininfo-about ul{margin:0 0 10px;padding-left:18px;}
+  .coininfo-about li{margin-bottom:4px;}
+  .coininfo-about .about-heading{font-weight:700;color:var(--text);margin:0 0 6px;}
+  @media(max-width:520px){.analysis-decision{grid-template-columns:1fr;}.analysis-levels{grid-template-columns:1fr 1fr;}}
+
+  /* Trade ticket — mirrors the Position Sizer app */
+  .ticket-stack{display:flex;flex-direction:column;gap:16px;}
+  .ticket{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    position:relative;
+    overflow:hidden;
+    transition:border-color .15s;
+  }
+  .ticket-top{padding:20px 22px 16px;}
+  .ticket-label{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--ticket-faint);
+    margin-bottom:4px;
+  }
+  .ticket-coin{
+    font-family:var(--font-display);
+    font-size:20px;
+    font-weight:700;
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .ticket-coin .sym{color:var(--ticket-faint);font-size:12px;font-weight:400;font-family:var(--font-mono);}
+  .perf{position:relative;height:0;border-top:1px dashed var(--border);margin:0;}
+  .perf::before, .perf::after{
+    content:'';
+    position:absolute;
+    top:-11px;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:var(--bg);
+  }
+  .perf::before{left:-11px;}
+  .perf::after{right:-11px;}
+  .ticket-bottom{padding:18px 22px 22px;}
+  .metric{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding:10px 0;
+    border-bottom:1px solid var(--ticket-border-soft);
+  }
+  .metric:last-child{border-bottom:none;}
+  .metric .m-label{font-family:var(--font-mono);font-size:12px;color:var(--muted);}
+  .metric .m-val{font-family:var(--font-mono);font-size:15px;font-weight:600;color:var(--text);}
+  .metric.hero{padding:13px 0 15px;}
+  .metric.hero .m-label{font-size:11px;letter-spacing:0.06em;text-transform:uppercase;}
+  .metric.hero .m-val{font-size:24px;color:var(--ticket-accent);}
+  .metric.hero .m-val.short{color:var(--ticket-short);}
+  .metric .m-val.warn{color:var(--ticket-warn);}
+  .metric .m-val.short{color:var(--ticket-short);}
+  .m-dual{display:flex;align-items:flex-end;gap:20px;}
+  .m-dual-item{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
+  .m-dual-tag{font-family:var(--font-mono);font-size:9.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--ticket-faint);}
+  .metric.hero .m-dual{gap:22px;}
+  .metric.hero .m-dual .m-val{font-size:20px;}
+  @media(max-width:480px){.m-dual{gap:12px;}.metric.hero .m-dual{gap:14px;}.metric.hero .m-dual .m-val{font-size:17px;}}
+  .lev-flag{
+    margin:0 22px 20px;
+    background:rgba(245,166,35,0.08);
+    border:1px solid rgba(245,166,35,0.3);
+    border-radius:8px;
+    padding:10px 12px;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    color:var(--ticket-warn);
+    line-height:1.5;
+  }
+  .ticket .empty-note{
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    color:var(--ticket-faint);
+    line-height:1.6;
+    padding:6px 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="header-row">
+  <div>
+    <div class="eyebrow"><span class="dot"></span>Ichimoku Breakout Screener</div>
+    <div class="title-row">
+      <h1>Binance USDT-M Futures Scanner</h1>
+      <span class="live-tag">● Live market data</span>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <input type="hidden" id="tenkanLen" value="9">
+  <input type="hidden" id="kijunLen" value="26">
+  <input type="hidden" id="senkouBLen" value="52">
+  <input type="hidden" id="concurrency" value="8">
+  <div class="screener-controls">
+    <div class="field">
+      <label>Timeframe</label>
+      <select id="timeframe" style="display:none;"><option value="1d" selected>Daily</option><option value="1w">Weekly</option><option value="4h">4 Hour</option></select>
+      <div class="timeframe-toggle" id="timeframeToggle">
+        <button type="button" data-tf="4h">4 Hour</button>
+        <button type="button" data-tf="1d" class="active">Daily</button>
+        <button type="button" data-tf="1w">Weekly</button>
+      </div>
+    </div>
+    <div class="volume-search-row">
+      <div class="field volume-field"><label id="volumeLabel">Daily Volume ($)</label><input type="number" id="minVolume" value="10000000"></div>
+      <div class="coin-search">
+        <input type="text" id="coinSearchInput" placeholder="Coin" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button class="coin-search-btn" id="coinSearchBtn" type="button" aria-label="Analyze coin" onclick="searchAndAnalyze()">🔎</button>
+      </div>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="runBtn" onclick="runScreener()">▶ Run Screener</button>
+    <span class="status" id="statusText">Idle</span>
+    <span class="count-badge" id="countBadge" style="display:none;"></span>
+  </div>
+  <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="error-box" id="errorBox"></div>
+  <details class="info-details">
+    <summary>Info</summary>
+    <div class="legend">
+    <span>Binance USDT-M Perpetual Futures only — USDC and delivery contracts excluded. Detects Chikou-span breakouts (CK) and Price/Kumo breakouts (PK), long and short, computed live from Binance data.</span>
+    <span><b>CK</b> = Chikou breakout (lagging span crosses its own cloud)</span>
+    <span><b>PK</b> = Price/Kumo breakout (price crosses the current cloud)</span>
+    <span><b>CK, PK</b> = both confirmed on the same day</span>
+    <span><b>Setup</b> = Long (bullish) or Short (bearish), shown only when fully confirmed</span>
+    <button class="secondary" onclick="downloadCSV()" id="csvBtn" disabled>⬇ Export CSV</button>
+    </div>
+  </details>
+</div>
+
+<div class="panel">
+  <div class="filter-row">
+    <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn active" data-filter="breakout" onclick="setFilter('breakout')">Breakouts Only</button>
+    <button class="filter-btn" data-filter="long" onclick="setFilter('long')">Long Only</button>
+    <button class="filter-btn" data-filter="short" onclick="setFilter('short')">Short Only</button>
+  </div>
+  <div id="tableContainer" class="table-wrap">
+    <div class="empty">Click "Run Screener" to scan all Binance USDT-M perpetual futures for confirmed Ichimoku breakouts.</div>
+  </div>
+</div>
+
+<div class="trade-modal" id="tradeModal" onclick="closeTradePlan(event)">
+  <div class="trade-dialog" role="dialog" aria-modal="true" aria-labelledby="tradeTitle" onclick="event.stopPropagation()">
+    <div class="trade-head">
+      <div class="header-title-wrap">
+        <button class="exchange-btn" type="button" aria-label="Open trading exchange" onclick="openSelectedTradingExchange()">₿</button>
+        <div><h2 id="tradeTitle">Trade plan</h2><p id="tradeSubtitle"></p></div>
+      </div>
+      <div class="analysis-actions">
+        <button class="close-btn" type="button" aria-label="Close" onclick="closeTradePlan()">×</button>
+      </div>
+    </div>
+    <div class="plan-grid" id="tradeLevels"></div>
+    <div class="plan-section">
+      <h3>Position sizing</h3>
+      <div class="plan-inputs">
+        <div><label for="planPortfolio">Portfolio value (USDT)</label><input id="planPortfolio" type="number" min="0" step="any" oninput="renderTradeSizing(); persistPortfolioValue();"></div>
+        <div><label for="planRisk">Risk per trade (%)</label><input id="planRisk" type="number" min="0" step="0.1" value="1" oninput="renderTradeSizing()"></div>
+      </div>
+      <div class="ticket-stack" id="tradeSizing" style="margin-top:14px"></div>
+    </div>
+    <div class="plan-section">
+      <h3>Management rules</h3>
+      <div class="plan-rule">Entry: use the current market price (Price column) for both confirmed and unconfirmed setups.</div>
+      <div class="plan-rule">Base stop-loss: use the Kijun-sen baseline, below entry for Long and above entry for Short.</div>
+      <div class="plan-rule">Conservative stop-loss: use the opposite cloud boundary, below entry for Long and above entry for Short.</div>
+      <div class="plan-rule">TP1: 2R from Entry using the cloud stop distance. TP2: 3R from Entry using the cloud stop distance. Kijun is used only for Stop 1.</div>
+      <div class="plan-rule">Exit: close at stop-loss, take-profit, or the next confirmed signal in the opposite direction.</div>
+      <p class="plan-note">Planning aid only. It does not place orders or track live positions. Prices, contract rules, fees, and slippage must be verified on Binance Futures.</p>
+    </div>
+  </div>
+</div>
+<div class="analysis-modal" id="analysisModal" onclick="closeAnalysis(event)">
+  <div class="analysis-dialog" role="dialog" aria-modal="true" aria-labelledby="analysisTitle" onclick="event.stopPropagation()">
+    <div class="trade-head">
+      <div class="header-title-wrap">
+        <button class="exchange-btn" type="button" aria-label="Open trading exchange" onclick="openSelectedTradingExchange()">₿</button>
+        <div>
+          <h2 id="analysisTitle"><a class="analysis-symbol-link" id="analysisSymbolLink" target="_blank" rel="noopener">Market analysis</a><span>&nbsp;analysis</span></h2>
+          <p class="analysis-subtitle-row">
+            <span id="analysisSubtitle"></span>
+            <span class="subtitle-sep">·</span>
+            <button class="info-btn" type="button" onclick="openCoinInfo(currentExchangeSymbol)" aria-label="Coin info">i</button>
+            <button class="info-btn twitter-btn" type="button" onclick="openTwitterSearch(currentExchangeSymbol)" aria-label="Search coin on X (Twitter)" title="Search on X">𝕏</button>
+            <span id="analysisWatchlistBtn"></span>
+          </p>
+          <div class="analysis-meta-row">
+            <span class="analysis-ltp"><span class="ltp-label">LTP</span><span class="ltp-value" id="analysisLTP">—</span></span>
+            <span class="analysis-setup setup-none" id="analysisSetupBox">—</span>
+            <span class="pill pill-both" id="analysisCfmBox" style="display:none;" title="Yesterday's breakout confirmed by today's candle">✓</span>
+          </div>
+        </div>
+      </div>
+      <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="closeAnalysis()">×</button><button class="plan-btn" type="button" id="analysisTradePlan" onclick="openTradePlan()" style="display:none;">Trade Plan</button></div>
+    </div>
+    <p class="analysis-status" id="analysisStatus">Loading Binance candles...</p>
+    <div class="chart-wrap"><canvas id="analysisChart"></canvas></div>
+    <div id="analysisDetails"></div>
+  </div>
+</div>
+<div class="coininfo-modal" id="coinInfoModal" onclick="closeCoinInfo(event)">
+  <div class="coininfo-dialog" role="dialog" aria-modal="true" aria-labelledby="coinInfoTitle" onclick="event.stopPropagation()">
+    <div class="trade-head">
+      <div class="header-title-wrap">
+        <div><h2 id="coinInfoTitle">Coin info</h2><p id="coinInfoSubtitle"></p></div>
+      </div>
+      <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="closeCoinInfo()">×</button></div>
+    </div>
+    <p class="analysis-status" id="coinInfoStatus">Loading CoinGecko data...</p>
+    <div id="coinInfoDetails" style="display:none;">
+      <h3 style="margin:0 0 12px;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;color:var(--faint);letter-spacing:.08em;">Overview</h3>
+      <div id="coinInfoAbout" class="coininfo-about"></div>
+      <div class="plan-grid" id="coinInfoGrid"></div>
+      <div class="plan-section">
+        <h3>Website</h3>
+        <button type="button" class="coininfo-website" id="coinInfoWebsite">—</button>
+      </div>
+      <div class="plan-section">
+        <h3>CoinGecko</h3>
+        <button type="button" class="coininfo-website" id="coinInfoCoingecko">—</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const FAPI_HOSTS = [
+  "https://fapi.binance.com",
+  "https://fapi1.binance.com",
+  "https://fapi2.binance.com",
+  "https://fapi3.binance.com",
+  "https://fapi4.binance.com"
+];
+let activeHost = FAPI_HOSTS[0];
+let allResults = [];
+let currentFilter = 'breakout';
+let sortKey = null;
+let sortDir = 1;
+let activeTrade = null;
+let currentExchangeSymbol = null;
+// Caches the interval-correct setup row for whatever symbol/timeframe is
+// currently open in the analysis modal, so the Trade Plan button (and the
+// Daily<->4-Hour switch) use the setup actually shown on screen rather than
+// re-deriving it from allResults, which only reflects the main screener's
+// currently selected timeframe.
+let currentAnalysisRow = null;
+const PORTFOLIO_STORAGE_KEY = 'crypto-screener-portfolio-usdt';
+const TRADING_SETTINGS_KEY = 'crypto-screener-trading-settings';
+const DEFAULT_PORTFOLIO = 1000;
+const EXCHANGE_LINKS = {
+  CoinDCX: 'https://coindcx.com/futures/B-',
+  Binance: 'https://www.binance.com/en/futures/',
+  Bybit: 'https://www.bybit.com/en/trade/usdt/'
+};
+
+// Android package names, used so links open directly in the installed app
+// instead of falling through to the phone's default browser.
+//
+// NOTE: CoinDCX ships two separate apps - "CoinDCX: Bitcoin Crypto App"
+// (com.coindcx.btc, spot-focused) and "CoinDCX Pro" (com.coindcx, the
+// dedicated futures app). Since these links are all futures URLs
+// (coindcx.com/futures/...), we target the Pro app's package.
+const EXCHANGE_APP_PACKAGES = {
+  CoinDCX: 'com.coindcx',
+  Binance: 'com.binance.dev',
+  Bybit: 'com.bybit.app'
+};
+const TRADINGVIEW_APP_PACKAGE = 'com.tradingview.tradingviewapp';
+
+// Custom URI schemes, where known. These are more reliable than https
+// "App Links" targeting: App Links require Android to have verified the
+// app's ownership of that exact domain/path, and can silently fail to
+// match a specific deep page even when the correct app IS installed -
+// which is what was happening (falling through to the browser fallback
+// URL instead of opening the app). A custom scheme like "bnc://" is
+// registered unconditionally by the app itself, no domain verification
+// involved. The tradeoff: Binance's own developer forum confirms there's
+// no supported way to deep-link to one specific futures symbol via this
+// scheme, so it opens to the app's home/markets screen rather than the
+// exact coin page - still far better than getting stuck in a browser tab.
+const EXCHANGE_CUSTOM_SCHEMES = {
+  Binance: { scheme: 'bnc', hostAndPath: 'app.binance.com' }
+};
+
+// window.open()/target="_blank" gets handed off to the phone's default
+// browser by the WebView, which is why exchange and TradingView links were
+// opening in Chrome instead of the actual app. An Android "intent://" URL
+// explicitly names the target app's package, so Android launches that app
+// directly if it's installed, and only falls back to the browser (via
+// S.browser_fallback_url) if it isn't. Non-Android contexts (desktop
+// testing, iOS) just get a normal new-tab open since intent:// is an
+// Android-only scheme.
+//
+// IMPORTANT: this must go through window.open(), not window.location.href.
+// Every page (screener.html, etc.) runs inside an iframe within index.html's
+// shell - assigning location.href only navigates that iframe in place, which
+// never reaches Android's native intent resolver and instead either fails
+// to load the intent:// URL outright, or loads the fallback URL trapped
+// inside the app's own embedded iframe (where sites like Binance detect the
+// WebView and throw an endless bot-check wall). window.open() is what
+// actually escapes the iframe out to the OS, which is why the original
+// plain-URL version of this correctly reached the system browser - we just
+// need to hand it the intent:// URL instead of the plain https:// one.
+function openExternalLink(webUrl, androidPackage, customScheme){
+  const isAndroid = /Android/i.test(navigator.userAgent || '');
+  if(isAndroid && androidPackage){
+    const scheme = customScheme ? customScheme.scheme : 'https';
+    const hostAndPath = customScheme ? customScheme.hostAndPath : webUrl.replace(/^https?:\/\//, '');
+    const intentUrl = `intent://${hostAndPath}#Intent;scheme=${scheme};package=${androidPackage};S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+    window.open(intentUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  window.open(webUrl, '_blank', 'noopener,noreferrer');
+}
+
+function buildExchangeUrlForSymbol(symbol, exchange){
+  const selectedExchange = ['CoinDCX', 'Binance', 'Bybit'].includes(exchange) ? exchange : 'CoinDCX';
+  const coinSymbol = (symbol || '').toUpperCase();
+  if(!coinSymbol){
+    return EXCHANGE_LINKS[selectedExchange] || EXCHANGE_LINKS.CoinDCX;
+  }
+
+  if(selectedExchange === 'CoinDCX'){
+    const coinName = coinSymbol.replace(/USDT$/, '');
+    return `${EXCHANGE_LINKS.CoinDCX}${coinName}_USDT`;
+  }
+
+  if(selectedExchange === 'Binance'){
+    return `${EXCHANGE_LINKS.Binance}${coinSymbol}`;
+  }
+
+  return `${EXCHANGE_LINKS.Bybit}${coinSymbol}`;
+}
+
+function getStoredTradingSettings(){
+  try{
+    const raw = localStorage.getItem(TRADING_SETTINGS_KEY);
+    if(!raw) return { portfolioValue: DEFAULT_PORTFOLIO, tradingExchange: 'CoinDCX' };
+    const parsed = JSON.parse(raw);
+    return {
+      portfolioValue: Number.isFinite(parseFloat(parsed.portfolioValue)) ? parseFloat(parsed.portfolioValue) : DEFAULT_PORTFOLIO,
+      tradingExchange: ['CoinDCX','Binance','Bybit'].includes(parsed.tradingExchange) ? parsed.tradingExchange : 'CoinDCX'
+    };
+  }catch(error){
+    return { portfolioValue: DEFAULT_PORTFOLIO, tradingExchange: 'CoinDCX' };
+  }
+}
+
+function setStatus(msg){ document.getElementById('statusText').textContent = msg; }
+function showError(msg){
+  const box = document.getElementById('errorBox');
+  box.style.display = 'block';
+  box.innerHTML = msg;
+}
+function hideError(){ document.getElementById('errorBox').style.display = 'none'; }
+
+// ---------------- Math helpers ----------------
+function donchianMid(highs, lows, len, endIdx){
+  if(endIdx - len + 1 < 0) return NaN;
+  let hh=-Infinity, ll=Infinity;
+  for(let i=endIdx-len+1;i<=endIdx;i++){
+    if(highs[i]>hh) hh=highs[i];
+    if(lows[i]<ll) ll=lows[i];
+  }
+  return (hh+ll)/2;
+}
+
+// ---------------- Binance fetch helpers ----------------
+async function fetchWithTimeout(url, ms=10000){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), ms);
+  try{
+    const res = await fetch(url, { signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchJSON(path){
+  const order = [activeHost, ...FAPI_HOSTS.filter(h => h !== activeHost)];
+  let lastErr;
+  for(const host of order){
+    try{
+      const res = await fetchWithTimeout(host + path);
+      if(!res.ok) throw new Error(`HTTP ${res.status} on ${host}${path}`);
+      const data = await res.json();
+      activeHost = host;
+      return data;
+    }catch(e){
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
+
+// ---------------- Bybit USDT perpetual (fallback source, used only when a
+// symbol isn't found on Binance USDT-M futures) ----------------
+const BYBIT_HOST = 'https://api.bybit.com';
+const BYBIT_INTERVAL_MAP = { '1d': 'D', '1w': 'W', '4h': '240' };
+
+async function fetchBybitJSON(path){
+  const res = await fetchWithTimeout(BYBIT_HOST + path);
+  if(!res.ok) throw new Error(`HTTP ${res.status} on Bybit${path}`);
+  const data = await res.json();
+  if(data.retCode !== 0) throw new Error(data.retMsg || 'Bybit API error');
+  return data;
+}
+
+async function getBybitKlines(symbol, interval, limit){
+  const bybitInterval = BYBIT_INTERVAL_MAP[interval];
+  if(!bybitInterval) throw new Error(`unsupported interval for Bybit: ${interval}`);
+  const data = await fetchBybitJSON(`/v5/market/kline?category=linear&symbol=${symbol}&interval=${bybitInterval}&limit=${limit}`);
+  const list = data.result && data.result.list;
+  if(!list || !list.length) throw new Error('symbol not found on Bybit');
+  // Bybit returns most-recent-first; reverse to ascending chronological order like Binance's klines.
+  return list.slice().reverse().map(k => ({
+    openTime: Number(k[0]), open: parseFloat(k[1]), high: parseFloat(k[2]),
+    low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5]),
+    closeTime: Number(k[0]), quoteVolume: parseFloat(k[6])
+  }));
+}
+
+async function getBybitCurrentPrice(symbol){
+  const data = await fetchBybitJSON(`/v5/market/tickers?category=linear&symbol=${symbol}`);
+  const ticker = data.result && data.result.list && data.result.list[0];
+  const price = ticker ? parseFloat(ticker.lastPrice) : NaN;
+  if(!Number.isFinite(price)) throw new Error('symbol not found on Bybit');
+  return price;
+}
+
+// Perpetual funding rate + the next funding timestamp, for the "Funding: <rate> in
+// <time>" line on the analysis card's Levels section. Binance's premiumIndex and
+// Bybit's linear tickers both carry this directly - no extra endpoint needed.
+async function getFundingInfo(symbol, source){
+  if(source === 'Bybit'){
+    const data = await fetchBybitJSON(`/v5/market/tickers?category=linear&symbol=${symbol}`);
+    const ticker = data.result && data.result.list && data.result.list[0];
+    if(!ticker) throw new Error('funding not found on Bybit');
+    return { rate: parseFloat(ticker.fundingRate), nextFundingTime: Number(ticker.nextFundingTime) };
+  }
+  const data = await fetchJSON(`/fapi/v1/premiumIndex?symbol=${symbol}`);
+  return { rate: parseFloat(data.lastFundingRate), nextFundingTime: Number(data.nextFundingTime) };
+}
+
+// "3h 42m" / "45m" / "now" - compact countdown to the next funding timestamp.
+function formatFundingCountdown(targetMs){
+  if(!Number.isFinite(targetMs)) return null;
+  const diffMin = Math.round((targetMs - Date.now()) / 60000);
+  if(diffMin <= 0) return 'now';
+  const h = Math.floor(diffMin / 60), m = diffMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// Dispatches to whichever exchange a given screened row actually came from,
+// so the analysis modal (candles/RSI/MACD/EMA/higher-timeframe) keeps working
+// for a coin that was only ever found via the Bybit fallback.
+async function getKlinesAny(symbol, interval, limit, source){
+  return source === 'Bybit' ? getBybitKlines(symbol, interval, limit) : getKlines(symbol, interval, limit);
+}
+
+async function getUSDTPerpetualSymbols(){
+  const info = await fetchJSON(`/fapi/v1/exchangeInfo`);
+  return info.symbols
+    .filter(s => s.contractType === "PERPETUAL" && s.quoteAsset === "USDT" && s.status === "TRADING")
+    .map(s => s.symbol);
+}
+
+async function getKlines(symbol, interval, limit){
+  const path = `/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  const raw = await fetchJSON(path);
+  return raw.map(k => ({
+    openTime: k[0], open: parseFloat(k[1]), high: parseFloat(k[2]),
+    low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5]),
+    closeTime: k[6], quoteVolume: parseFloat(k[7])
+  }));
+}
+
+async function getCurrentPrices(){
+  const data = await fetchJSON('/fapi/v1/ticker/price');
+  return Object.fromEntries(data.map(item => [item.symbol, parseFloat(item.price)]));
+}
+
+// ---------------- Concurrency-limited queue ----------------
+async function runPool(items, worker, concurrency, onProgress){
+  let idx = 0, done = 0;
+  const results = new Array(items.length);
+  async function next(){
+    while(idx < items.length){
+      const my = idx++;
+      try{
+        results[my] = await worker(items[my]);
+      }catch(e){
+        results[my] = { error: e.message, symbol: items[my] };
+      }
+      done++;
+      onProgress(done, items.length);
+    }
+  }
+  const workers = Array.from({length: Math.min(concurrency, items.length)}, next);
+  await Promise.all(workers);
+  return results;
+}
+
+// ---------------- Ichimoku core ----------------
+// Rule confirmed with the user:
+//   - Chikou (the lagging span) is always compared against ITS OWN cloud —
+//     i.e. the cloud drawn at the same bar position the chikou line is plotted at
+//     (which is `kijunLen` bars back from where the close value came from).
+//   - Price is always compared against the CURRENT bar's cloud.
+//
+// Tenkan(i)      = donchianMid(tenkanLen, i)
+// Kijun(i)       = donchianMid(kijunLen, i)
+// SenkouA_raw(i) = avg(Tenkan(i), Kijun(i))   -> displayed on chart at bar (i + kijunLen)
+// SenkouB_raw(i) = donchianMid(senkouBLen, i) -> displayed on chart at bar (i + kijunLen)
+// Chikou(t)      = close(t), displayed on chart at bar (t - kijunLen)
+//
+// Cloud as displayed AT bar X = raw values computed at index (X - kijunLen).
+//   cloudAtBar(t)       -> the cloud actually sitting under/over price at bar t (current-bar-cloud)
+//   cloudAtChikouBar(t) -> the cloud sitting under/over the chikou plotted from bar t
+//                          (i.e. the cloud displayed at bar (t - kijunLen)), which is
+//                          computed from raw values at index (t - 2*kijunLen)
+function computeIchimokuSignal(symbol, daily, currentPrice, params){
+  const needed = 2 * params.kijunLen + params.senkouBLen + 10;
+  if(!Number.isFinite(currentPrice)) throw new Error("current price unavailable");
+  if(daily.length < needed) throw new Error("insufficient daily history");
+
+  const dHigh = daily.map(d=>d.high), dLow = daily.map(d=>d.low), dClose = daily.map(d=>d.close);
+
+  const senkouA_raw = i => {
+    const t = donchianMid(dHigh, dLow, params.tenkanLen, i);
+    const k = donchianMid(dHigh, dLow, params.kijunLen, i);
+    return (isNaN(t) || isNaN(k)) ? NaN : (t + k) / 2;
+  };
+  const senkouB_raw = i => donchianMid(dHigh, dLow, params.senkouBLen, i);
+
+  const cloudAtBar = t => {
+    const idx = t - params.kijunLen;
+    if(idx < 0) return {top: NaN, bottom: NaN};
+    const a = senkouA_raw(idx), b = senkouB_raw(idx);
+    return {top: Math.max(a,b), bottom: Math.min(a,b)};
+  };
+  const cloudAtChikouBar = t => {
+    const idx = t - 2 * params.kijunLen;
+    if(idx < 0) return {top: NaN, bottom: NaN};
+    const a = senkouA_raw(idx), b = senkouB_raw(idx);
+    return {top: Math.max(a,b), bottom: Math.min(a,b)};
+  };
+
+  const iToday = dClose.length - 1;
+  const iYest = iToday - 1;
+
+  function signalAt(index){
+    const previous = index - 1;
+    const price = dClose[index];
+    const pricePrevious = dClose[previous];
+    const cloud = cloudAtBar(index);
+    const cloudPrevious = cloudAtBar(previous);
+    const chikouCloud = cloudAtChikouBar(index);
+    const chikouCloudPrevious = cloudAtChikouBar(previous);
+    const tenkan = donchianMid(dHigh, dLow, params.tenkanLen, index);
+    const kijun = donchianMid(dHigh, dLow, params.kijunLen, index);
+    const futureA = senkouA_raw(index);
+    const futureB = senkouB_raw(index);
+    const volume = daily[index].quoteVolume;
+    const valid = [cloud.top, cloud.bottom, cloudPrevious.top, cloudPrevious.bottom,
+      chikouCloud.top, chikouCloud.bottom, chikouCloudPrevious.top,
+      chikouCloudPrevious.bottom, tenkan, kijun, futureA, futureB].every(v => !isNaN(v));
+    if(!valid) return null;
+
+    const volumeOk = volume > params.minVolume;
+    const longTrend = tenkan > kijun && futureA > futureB;
+    const shortTrend = tenkan < kijun && futureB > futureA;
+    const ckLong = pricePrevious < chikouCloudPrevious.top &&
+      price > chikouCloud.top && price > cloud.top && longTrend && volumeOk;
+    const pkLong = pricePrevious < cloudPrevious.top &&
+      price > cloud.top && price > chikouCloud.top && longTrend && volumeOk;
+    const ckShort = pricePrevious > chikouCloudPrevious.bottom &&
+      price < chikouCloud.bottom && price < cloud.bottom && shortTrend && volumeOk;
+    const pkShort = pricePrevious > cloudPrevious.bottom &&
+      price < cloud.bottom && price < chikouCloud.bottom && shortTrend && volumeOk;
+
+    return {
+      price, volume, cloud, chikouCloud, tenkan, kijun,
+      ckLong, pkLong, ckShort, pkShort,
+      long: ckLong || pkLong,
+      short: ckShort || pkShort
+    };
+  }
+
+  const today = signalAt(iToday);
+  const yesterday = signalAt(iYest);
+  if(!today || !yesterday){
+    throw new Error("insufficient history for ichimoku calc");
+  }
+
+  const confirmedLong = yesterday.long && today.price > today.cloud.top && today.price > today.chikouCloud.top;
+  const confirmedShort = yesterday.short && today.price < today.cloud.bottom && today.price < today.chikouCloud.bottom;
+  const confirmed = confirmedLong || confirmedShort;
+  const active = confirmed ? yesterday : today;
+  const isLong = confirmedLong || (!confirmed && today.long);
+  const isShort = confirmedShort || (!confirmed && today.short);
+  const ckLong = confirmed ? yesterday.ckLong : today.ckLong;
+  const pkLong = confirmed ? yesterday.pkLong : today.pkLong;
+  const ckShort = confirmed ? yesterday.ckShort : today.ckShort;
+  const pkShort = confirmed ? yesterday.pkShort : today.pkShort;
+  let breakout = '';
+  let setup = '';
+  if(isLong){
+    setup = 'Long';
+    breakout = (ckLong && pkLong) ? 'CK, PK' : (ckLong ? 'CK' : 'PK');
+  } else if(isShort){
+    setup = 'Short';
+    breakout = (ckShort && pkShort) ? 'CK, PK' : (ckShort ? 'CK' : 'PK');
+  }
+  const breakoutPrice = breakout === 'CK' ? active.chikouCloud[setup === 'Long' ? 'top' : 'bottom'] : active.cloud[setup === 'Long' ? 'top' : 'bottom'];
+  const priceToday = currentPrice;
+  const entryPrice = currentPrice;
+
+  return {
+    symbol, confirmed, priceToday, breakoutPrice, entryPrice,
+    cloudTop: today.cloud.top, cloudBottom: today.cloud.bottom,
+    tenkanNow: today.tenkan, kijunNow: today.kijun, volToday: today.volume,
+    ckLong, pkLong, ckShort, pkShort, breakout, setup,
+    interval: params.interval
+  };
+}
+
+async function screenSymbol(symbol, params, currentPrices){
+  const needed = 2 * params.kijunLen + params.senkouBLen + 10;
+  const daily = await getKlines(symbol, params.interval, Math.max(needed, 150));
+  const currentPrice = currentPrices[symbol];
+  return computeIchimokuSignal(symbol, daily, currentPrice, params);
+}
+
+// Same calculation, sourced from Bybit USDT perpetual instead - used only as
+// a fallback when a symbol isn't found on Binance USDT-M futures (see
+// searchAndAnalyze). Tags the returned row with source:'Bybit' so the
+// analysis modal knows to keep fetching candles/RSI/MACD/EMA from Bybit too.
+async function screenSymbolViaBybit(symbol, params){
+  const needed = 2 * params.kijunLen + params.senkouBLen + 10;
+  const [daily, currentPrice] = await Promise.all([
+    getBybitKlines(symbol, params.interval, Math.max(needed, 150)),
+    getBybitCurrentPrice(symbol)
+  ]);
+  const row = computeIchimokuSignal(symbol, daily, currentPrice, params);
+  row.source = 'Bybit';
+  return row;
+}
+
+function getParams(){
+  return {
+    tenkanLen: parseInt(document.getElementById('tenkanLen').value),
+    kijunLen: parseInt(document.getElementById('kijunLen').value),
+    senkouBLen: parseInt(document.getElementById('senkouBLen').value),
+    minVolume: parseFloat(document.getElementById('minVolume').value),
+    interval: document.getElementById('timeframe').value,
+  };
+}
+
+document.getElementById('timeframe').addEventListener('change', () => {
+  const timeframe = document.getElementById('timeframe').value;
+  document.getElementById('volumeLabel').textContent = `${timeframeLabel(timeframe)} Volume ($)`;
+  document.getElementById('minVolume').value = timeframe === '4h' ? '1000000' : '10000000';
+});
+
+// Timeframe toggle (4H / Daily / Weekly) drives the hidden <select id="timeframe">
+// so all existing logic keyed off that element's value keeps working unchanged.
+document.getElementById('timeframeToggle').addEventListener('click', (event) => {
+  const btn = event.target.closest('button[data-tf]');
+  if(!btn) return;
+  document.querySelectorAll('#timeframeToggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const timeframeSelect = document.getElementById('timeframe');
+  timeframeSelect.value = btn.dataset.tf;
+  timeframeSelect.dispatchEvent(new Event('change'));
+});
+
+// Coin search: always uppercase as typed, and normalize "ETH" / "ETHUSDT" /
+// "ETHUSDT.P" all down to the actual Binance USDT-M perpetual symbol "ETHUSDT".
+const coinSearchInput = document.getElementById('coinSearchInput');
+coinSearchInput.addEventListener('input', (event) => {
+  const cursor = event.target.selectionStart;
+  event.target.value = event.target.value.toUpperCase();
+  event.target.setSelectionRange(cursor, cursor);
+});
+coinSearchInput.addEventListener('keydown', (event) => {
+  if(event.key === 'Enter'){ event.preventDefault(); searchAndAnalyze(); }
+});
+
+function normalizeSearchSymbol(raw){
+  let symbol = (raw || '').trim().toUpperCase().replace(/\s+/g, '');
+  if(!symbol) return '';
+  symbol = symbol.replace(/\.P$/, ''); // "ETHUSDT.P" -> "ETHUSDT"
+  if(!symbol.endsWith('USDT')) symbol += 'USDT'; // "ETH" -> "ETHUSDT"
+  return symbol;
+}
+
+async function searchAndAnalyze(){
+  const symbol = normalizeSearchSymbol(coinSearchInput.value);
+  if(!symbol) return;
+  hideError();
+  const btn = document.getElementById('coinSearchBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try{
+    const params = getParams();
+    // Reuse a row from the last scan if this symbol is already in it (same
+    // timeframe), otherwise screen it fresh on demand - this is what makes
+    // search work for a coin that isn't currently on screen (e.g. filtered
+    // out by the min-volume threshold, or before any scan has been run).
+    let row = allResults.find(r => r.symbol === symbol && r.interval === params.interval);
+    if(!row){
+      let binanceErr = null;
+      try{
+        const currentPrices = await getCurrentPrices();
+        row = await screenSymbol(symbol, params, currentPrices);
+      }catch(err){
+        binanceErr = err;
+      }
+      if(!row){
+        // Not found (or failed) on Binance USDT-M futures - check Bybit USDT
+        // perpetual only now, as a fallback, not in parallel.
+        try{
+          row = await screenSymbolViaBybit(symbol, params);
+        }catch(bybitErr){
+          throw new Error(`not found on Binance (${binanceErr ? binanceErr.message : 'unknown error'}) or Bybit (${bybitErr.message})`);
+        }
+      }
+      allResults = allResults.filter(r => r.symbol !== symbol).concat([row]);
+    }
+    await openAnalysis(symbol);
+  }catch(error){
+    showError(`Couldn't analyze <b>${symbol}</b>: ${error.message}. Make sure it's a valid Binance USDT-M or Bybit USDT perpetual futures symbol (e.g. "ETH", "BTCUSDT").`);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+async function runScreener(){
+  hideError();
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('csvBtn').disabled = true;
+  document.getElementById('countBadge').style.display = 'none';
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = document.getElementById('progressFill');
+  progressBar.style.display = 'block';
+  progressFill.style.width = '0%';
+
+  const params = getParams();
+  const concurrency = Math.max(1, parseInt(document.getElementById('concurrency').value) || 8);
+
+  try{
+    setStatus('Fetching USDT-M perpetual futures symbol list…');
+    const symbols = await getUSDTPerpetualSymbols();
+    const currentPrices = await getCurrentPrices();
+    const tfLabel = timeframeLabel(params.interval).toLowerCase();
+    setStatus(`Scanning ${symbols.length} USDT-margined perpetual futures (${tfLabel})…`);
+
+    const raw = await runPool(symbols, s => screenSymbol(s, params, currentPrices), concurrency, (done,total)=>{
+      progressFill.style.width = `${(done/total*100).toFixed(1)}%`;
+      setStatus(`Scanning… ${done}/${total}`);
+    });
+
+    const scanned = raw.filter(r => r && !r.error);
+    const failedCount = raw.length - scanned.length;
+
+    allResults = scanned.filter(r => r.volToday > params.minVolume);
+    const belowVolCount = scanned.length - allResults.length;
+
+    setFilter('breakout');
+
+    const breakoutCount = allResults.filter(r => r.breakout !== '').length;
+    const longCount = allResults.filter(r => r.setup === 'Long').length;
+    const shortCount = allResults.filter(r => r.setup === 'Short').length;
+    document.getElementById('countBadge').style.display = 'inline-block';
+    document.getElementById('countBadge').textContent =
+      `${breakoutCount} breakouts (${longCount} long / ${shortCount} short) • ${allResults.length} listed (${tfLabel} vol > ${params.minVolume.toLocaleString()}) • ${belowVolCount} below volume • ${failedCount} skipped`;
+    setStatus('Done.');
+    document.getElementById('csvBtn').disabled = allResults.length === 0;
+  }catch(e){
+    showError(
+      `Error: <b>${e.message}</b><br><br>` +
+      `This usually means Binance's Futures API couldn't be reached — check your internet connection, or that Binance isn't blocked on your network/VPN.`
+    );
+    setStatus('Failed.');
+  }finally{
+    btn.disabled = false;
+    setTimeout(()=>{ progressBar.style.display = 'none'; }, 800);
+  }
+}
+
+function setFilter(f){
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+  sortAndRender();
+}
+
+function getFilteredResults(){
+  switch(currentFilter){
+    case 'breakout': return allResults.filter(r => r.breakout !== '');
+    case 'long': return allResults.filter(r => r.setup === 'Long');
+    case 'short': return allResults.filter(r => r.setup === 'Short');
+    default: return allResults;
+  }
+}
+
+function sortAndRender(){
+  let rows = getFilteredResults();
+  if(sortKey){
+    rows = [...rows].sort((a,b) => {
+      let av = a[sortKey], bv = b[sortKey];
+      if(typeof av === 'boolean'){ av = av?1:0; bv = bv?1:0; }
+      if(typeof av === 'string') return sortDir * av.localeCompare(bv);
+      return sortDir * ((av ?? -Infinity) - (bv ?? -Infinity));
+    });
+  } else {
+    // default: confirmed desc, then setup (has-setup first, asc among Long/Short), then volume desc
+    rows = [...rows].sort((a,b) => {
+      const aConf = a.confirmed ? 1 : 0;
+      const bConf = b.confirmed ? 1 : 0;
+      if(aConf !== bConf) return bConf - aConf;
+
+      const aSetup = a.setup || '';
+      const bSetup = b.setup || '';
+      const aHasSetup = aSetup !== '' ? 1 : 0;
+      const bHasSetup = bSetup !== '' ? 1 : 0;
+      if(aHasSetup !== bHasSetup) return bHasSetup - aHasSetup;
+      if(aSetup !== bSetup) return aSetup.localeCompare(bSetup);
+
+      return b.volToday - a.volToday;
+    });
+  }
+  renderTable(rows);
+}
+
+function fmt(n, d=4){ return (n===undefined||n===null||isNaN(n)) ? '—' : n.toFixed(d); }
+
+function breakoutPill(breakout){
+  if(!breakout) return '<span class="pill-none">—</span>';
+  const cls = breakout === 'CK, PK' ? 'pill-both' : (breakout === 'CK' ? 'pill-ck' : 'pill-pk');
+  return `<span class="pill ${cls}">${breakout}</span>`;
+}
+function setupPill(setup){
+  if(!setup) return '<span class="pill-none">—</span>';
+  return `<span class="pill ${setup === 'Long' ? 'pill-long' : 'pill-short'}">${setup}</span>`;
+}
+
+// ---------------- Add to watchlist ("+ WL" column) ----------------
+// Writes into the same localStorage key watchlist.html reads from, so a coin
+// added here shows up there as the last row - watchlist.html resolves the
+// CoinGecko id/name/logo for it (this page only knows the Binance symbol).
+const WATCHLIST_CUSTOM_KEY = 'crypto-watchlist-custom-coins';
+// Mirrors watchlist.html's own built-in defaults, so a coin that's already
+// there by default shows as already-added instead of offering a duplicate.
+const WATCHLIST_DEFAULT_SYMBOLS = new Set(['BTCUSDT', 'ETHUSDT']);
+const WATCHLIST_GRADIENT_PALETTE = [
+  'linear-gradient(135deg,#35e0c0,#1c8f79)',
+  'linear-gradient(135deg,#8ea9ff,#5b6fd6)',
+  'linear-gradient(135deg,#ff8a4c,#c2501a)',
+  'linear-gradient(135deg,#a78bfa,#6d28d9)',
+  'linear-gradient(135deg,#f5a623,#c07a12)',
+  'linear-gradient(135deg,#ff5470,#a3223a)',
+  'linear-gradient(135deg,#5b8cff,#2b4fb0)',
+  'linear-gradient(135deg,#f0c24b,#b8860b)',
+];
+function gradientForSymbol(symbol){
+  let hash = 0;
+  for(let i = 0; i < symbol.length; i++) hash = (hash * 31 + symbol.charCodeAt(i)) >>> 0;
+  return WATCHLIST_GRADIENT_PALETTE[hash % WATCHLIST_GRADIENT_PALETTE.length];
+}
+function loadWatchlistCustomCoins(){
+  try{
+    const raw = localStorage.getItem(WATCHLIST_CUSTOM_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  }catch(err){ return []; }
+}
+function isInWatchlist(binanceSymbol){
+  if(WATCHLIST_DEFAULT_SYMBOLS.has(binanceSymbol)) return true;
+  return loadWatchlistCustomCoins().some(c => c && c.binanceSymbol === binanceSymbol);
+}
+function watchlistButton(binanceSymbol){
+  const already = isInWatchlist(binanceSymbol);
+  return `<button class="wl-btn${already ? ' added' : ''}" type="button" ${already ? 'disabled' : ''} onclick="addToWatchlist('${binanceSymbol}', this)">${already ? '✓ WL' : '+ WL'}</button>`;
+}
+function addToWatchlist(binanceSymbol, btn){
+  if(isInWatchlist(binanceSymbol)) return; // already there - button should already be showing the added state
+  const symbol = binanceSymbol.replace(/USDT$/i, '');
+  const list = loadWatchlistCustomCoins();
+  list.push({
+    symbol,
+    binanceSymbol,
+    name: symbol,        // placeholder - watchlist.html resolves the real CoinGecko name/id/logo on its next load
+    coingeckoId: null,
+    gradient: gradientForSymbol(symbol),
+    addedAt: Date.now()
+  });
+  try{
+    localStorage.setItem(WATCHLIST_CUSTOM_KEY, JSON.stringify(list));
+  }catch(err){
+    console.warn('[watchlist] failed to save:', err && err.message);
+    return;
+  }
+  if(btn){
+    btn.textContent = '✓ WL';
+    btn.disabled = true;
+    btn.classList.add('added');
+  }
+}
+
+function renderTable(rows){
+  const container = document.getElementById('tableContainer');
+  if(rows.length === 0){
+    container.innerHTML = '<div class="empty">No results for this filter.</div>';
+    return;
+  }
+  const cols = [
+    {k:'confirmed', label:'CFM'},
+    {k:'setup', label:'Setup'},
+    {k:'symbol', label:'Coin'},
+    {k:'analysis', label:'Analysis'},
+    {k:'watchlist', label:'+ WL'},
+    {k:'breakout', label:'Breakout'},
+    {k:'priceToday', label:'Price'},
+    {k:'breakoutPrice', label:'Breakout Price'},
+    {k:'cloudTop', label:'Cloud Top'},
+    {k:'cloudBottom', label:'Cloud Bottom'},
+    {k:'tenkanNow', label:'Tenkan'},
+    {k:'kijunNow', label:'Kijun'},
+    {k:'volToday', label:'Volume (USDT)'},
+  ];
+  let html = '<table><thead><tr>';
+  cols.forEach(c => html += `<th${(c.k === 'analysis' || c.k === 'watchlist') ? '' : ` onclick="sortBy('${c.k}')"`}>${c.label}</th>`);
+  html += '</tr></thead><tbody>';
+  rows.forEach(r => {
+    html += '<tr>';
+    html += `<td>${r.confirmed ? '<span class="pill pill-both" title="Yesterday\'s breakout confirmed by today\'s candle">✓</span>' : '<span class="pill-none">—</span>'}</td>`;
+    html += `<td>${setupPill(r.setup)}</td>`;
+    const exchangeUrl = r.source === 'Bybit'
+      ? `https://www.bybit.com/trade/usdt/${r.symbol}`
+      : `https://www.binance.com/en/futures/${r.symbol}`;
+    html += `<td><a class="sym-link" target="_blank" href="${exchangeUrl}">${r.symbol}</a>${r.source === 'Bybit' ? '<span class="bybit-tag" title="Not found on Binance - found via Bybit fallback">BYBIT</span>' : ''}</td>`;
+    html += `<td><button class="plan-btn" type="button" onclick="openAnalysis('${r.symbol}')">Analysis</button></td>`;
+    html += `<td>${watchlistButton(r.symbol)}</td>`;
+    html += `<td>${breakoutPill(r.breakout)}</td>`;
+    html += `<td>${fmt(r.priceToday)}</td>`;
+    html += `<td>${fmt(r.breakoutPrice)}</td>`;
+    html += `<td>${fmt(r.cloudTop)}</td>`;
+    html += `<td>${fmt(r.cloudBottom)}</td>`;
+    html += `<td>${fmt(r.tenkanNow)}</td>`;
+    html += `<td>${fmt(r.kijunNow)}</td>`;
+    html += `<td>${r.volToday ? Math.round(r.volToday).toLocaleString() : '—'}</td>`;
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function ema(values, length){
+  const result = new Array(values.length).fill(null);
+  if(values.length < length) return result;
+  const multiplier = 2 / (length + 1);
+  let previous = values.slice(0,length).reduce((sum,value) => sum + value, 0) / length;
+  result[length - 1] = previous;
+  for(let index = length; index < values.length; index++){
+    previous = (values[index] - previous) * multiplier + previous;
+    result[index] = previous;
+  }
+  return result;
+}
+function rsi(values, length=14){
+  if(values.length <= length) return NaN;
+  let gains = 0, losses = 0;
+  for(let index = 1; index <= length; index++){
+    const change = values[index] - values[index - 1];
+    if(change >= 0) gains += change; else losses -= change;
+  }
+  let averageGain = gains / length, averageLoss = losses / length;
+  for(let index = length + 1; index < values.length; index++){
+    const change = values[index] - values[index - 1];
+    averageGain = (averageGain * (length - 1) + Math.max(0,change)) / length;
+    averageLoss = (averageLoss * (length - 1) + Math.max(0,-change)) / length;
+  }
+  return averageLoss === 0 ? 100 : 100 - (100 / (1 + averageGain / averageLoss));
+}
+function macd(values){
+  const fast = ema(values,12), slow = ema(values,26);
+  const line = values.map((_,index) => fast[index] !== null && slow[index] !== null ? fast[index] - slow[index] : null);
+  const valid = line.filter(value => value !== null);
+  const signalValues = ema(valid,9);
+  const signal = new Array(line.length).fill(null);
+  line.forEach((value,index) => { if(value !== null) signal[index] = signalValues[valid.indexOf(value)]; });
+  const last = line.length - 1;
+  return {line:line[last], signal:signal[last], histogram:line[last] !== null && signal[last] !== null ? line[last] - signal[last] : NaN};
+}
+// Average True Range (Wilder). Used to size the "how far is too far" pullback buffer in
+// price terms instead of a flat percentage, since a fixed % is too tight for a volatile
+// small-cap and too loose for BTC/ETH. This mirrors how ATR is commonly used for stops
+// and entry-zone sizing (e.g. Wilder's own approach, and Elder's "noise" concept).
+function atr(candles, length=14){
+  if(candles.length <= length) return NaN;
+  const tr = [];
+  for(let i=1;i<candles.length;i++){
+    const c = candles[i], p = candles[i-1];
+    tr.push(Math.max(c.high-c.low, Math.abs(c.high-p.close), Math.abs(c.low-p.close)));
+  }
+  let value = tr.slice(0,length).reduce((sum,v)=>sum+v,0)/length;
+  for(let i=length;i<tr.length;i++) value = (value*(length-1) + tr[i])/length;
+  return value;
+}
+// Commodity Channel Index. Returns the current bar's value and the prior
+// bar's value (for a simple rising/falling read) rather than a full series,
+// since the analysis cards only ever display the latest snapshot.
+function cci(candles, length=34){
+  if(candles.length < length + 1) return {value: NaN, prev: NaN};
+  const typicalPrices = candles.map(c => (c.high + c.low + c.close) / 3);
+  const valueAt = endExclusive => {
+    const window = typicalPrices.slice(endExclusive - length, endExclusive);
+    const smaTp = window.reduce((sum,v) => sum + v, 0) / length;
+    const meanDeviation = window.reduce((sum,v) => sum + Math.abs(v - smaTp), 0) / length;
+    const currentTp = typicalPrices[endExclusive - 1];
+    return meanDeviation === 0 ? 0 : (currentTp - smaTp) / (0.015 * meanDeviation);
+  };
+  return { value: valueAt(typicalPrices.length), prev: valueAt(typicalPrices.length - 1) };
+}
+// Every mainstream CCI reference (TradingView, StockCharts, Fidelity, AvaTrade,
+// Capital.com) agrees on the same two points: (1) CCI is unbounded by design,
+// and (2) the +-100/-100 "overbought/oversold" convention was calibrated on
+// less volatile instruments - more volatile ones commonly use +-150/200
+// instead, and CCI can run to +-300 or beyond on a strong volatile trend
+// without being unusual. None of them publish a fixed "crypto number" (there
+// isn't a citable backtested threshold for that), so these bands are that
+// same documented volatility-scaling principle applied to crypto, which is
+// meaningfully more volatile than the stocks/indices CCI is usually shown
+// against. Also worth remembering (StockCharts/TradingView both flag this):
+// an extreme reading is just as often the trend accelerating as it is
+// exhaustion - it's a "pay attention" flag, not an automatic reversal call.
+function cciZone(value){
+  if(!Number.isFinite(value)) return {tag:'—', side:null, extreme:false};
+  if(value >= 300) return {tag:'extreme overbought', side:1, extreme:true};
+  if(value >= 200) return {tag:'overbought', side:1, extreme:false};
+  if(value >= 100) return {tag:'bullish', side:1, extreme:false};
+  if(value >= 0) return {tag:'mildly bullish', side:1, extreme:false};
+  if(value > -100) return {tag:'mildly bearish', side:-1, extreme:false};
+  if(value > -200) return {tag:'bearish', side:-1, extreme:false};
+  if(value > -300) return {tag:'oversold', side:-1, extreme:false};
+  return {tag:'extreme oversold', side:-1, extreme:true};
+}
+// Latest bar's volume against its own trailing 20-bar average, plus whether
+// that bar closed up or down - a quick read on whether a move has real
+// participation behind it or is happening on thin/quiet volume.
+function volumeRead(candles){
+  if(candles.length < 21) return null;
+  const trailing = candles.slice(-21, -1);
+  const avgVol = trailing.reduce((sum,c) => sum + c.volume, 0) / trailing.length;
+  const last = candles[candles.length - 1];
+  const ratio = avgVol > 0 ? last.volume / avgVol : null;
+  return {avgVol, lastVol: last.volume, ratio, isUpBar: last.close >= last.open};
+}
+function findSwings(candles, radius=3){
+  const swings = [];
+  for(let index = radius; index < candles.length - radius; index++){
+    const high = candles[index].high >= Math.max(...candles.slice(index-radius,index+radius+1).map(candle => candle.high));
+    const low = candles[index].low <= Math.min(...candles.slice(index-radius,index+radius+1).map(candle => candle.low));
+    if(high || low) swings.push({index, type:high ? 'high' : 'low', price:high ? candles[index].high : candles[index].low});
+  }
+  return swings;
+}
+function marketStructureAnalysis(candles, swings){
+  const highs = swings.filter(swing => swing.type === 'high');
+  const lows = swings.filter(swing => swing.type === 'low');
+  const lastHigh = highs[highs.length - 1], previousHigh = highs[highs.length - 2];
+  const lastLow = lows[lows.length - 1], previousLow = lows[lows.length - 2];
+  const latestClose = candles[candles.length - 1].close;
+  if(!lastHigh || !previousHigh || !lastLow || !previousLow) return {state:'Insufficient structure', detail:'Not enough confirmed swing points to assess CHoCH or BOS.'};
+  const bullishTrend = lastHigh.price > previousHigh.price && lastLow.price > previousLow.price;
+  const bearishTrend = lastHigh.price < previousHigh.price && lastLow.price < previousLow.price;
+  if(bearishTrend && latestClose > lastHigh.price) return {state:'Bullish CHoCH', detail:`Price closed above the last Lower High at ${formatAnalysisValue(lastHigh.price)}, signaling a possible bearish-to-bullish shift. A later Higher High and Higher Low would confirm the new bullish structure.`};
+  if(bullishTrend && latestClose < lastLow.price) return {state:'Bearish CHoCH', detail:`Price closed below the last Higher Low at ${formatAnalysisValue(lastLow.price)}, signaling a possible bullish-to-bearish shift. A later Lower High and Lower Low would confirm the new bearish structure.`};
+  if(bullishTrend && latestClose > lastHigh.price) return {state:'Bullish BOS', detail:`Price closed above the latest swing high at ${formatAnalysisValue(lastHigh.price)} in the prevailing uptrend, confirming bullish continuation.`};
+  if(bearishTrend && latestClose < lastLow.price) return {state:'Bearish BOS', detail:`Price closed below the latest swing low at ${formatAnalysisValue(lastLow.price)} in the prevailing downtrend, confirming bearish continuation.`};
+  return {state:bullishTrend ? 'Bullish structure intact' : (bearishTrend ? 'Bearish structure intact' : 'Mixed structure'), detail:bullishTrend ? 'Higher highs and higher lows remain intact; no bearish CHoCH or bullish BOS has been confirmed.' : (bearishTrend ? 'Lower highs and lower lows remain intact; no bullish CHoCH or bearish BOS has been confirmed.' : 'The latest swing sequence is mixed, so there is no confirmed CHoCH or BOS.' )};
+}
+function latestSwingMove(swings){
+  let latestHigh = null, latestLow = null;
+  for(let index = swings.length - 1; index >= 0; index--){
+    if(!latestHigh && swings[index].type === 'high') latestHigh = swings[index];
+    if(!latestLow && swings[index].type === 'low') latestLow = swings[index];
+    if(latestHigh && latestLow) break;
+  }
+  if(!latestHigh || !latestLow) return null;
+  return {high:latestHigh.price, low:latestLow.price, midpoint:latestLow.price + (latestHigh.price - latestLow.price) * .5, direction:latestLow.index < latestHigh.index ? 'bullish' : 'bearish'};
+}
+function formatAnalysisValue(value, decimals){ return Number.isFinite(value) ? (decimals === undefined ? fmt(value) : fmt(value, decimals)) : '—'; }
+// Support / Resistance: nearest confirmed swing pivot above and below the current price.
+// This is the standard, most widely used definition (prior swing highs/lows act as S/R)
+// rather than anything volume- or order-book-based, which this app has no data for.
+function nearestLevels(swings, currentPrice){
+  const resistances = swings.filter(s => s.type === 'high' && s.price > currentPrice).sort((a,b) => a.price - b.price);
+  const supports = swings.filter(s => s.type === 'low' && s.price < currentPrice).sort((a,b) => b.price - a.price);
+  return {resistance: resistances[0] || null, support: supports[0] || null};
+}
+// Order blocks (Smart Money Concepts): the last opposite-colored candle immediately before
+// an impulsive candle that breaks a recent local high/low. This is the standard textbook
+// SMC/ICT definition — there's no single official rule, but this is the common one. A body
+// move of >0.8% is used as the "impulsive" filter to skip noise candles.
+function findOrderBlocks(candles){
+  const n = candles.length, lookback = Math.min(80, n - 20);
+  let bullishOB = null, bearishOB = null;
+  for(let i = n - 2; i >= n - lookback && i >= 20; i--){
+    const impulse = candles[i], window = candles.slice(Math.max(0,i-15), i);
+    if(!window.length) continue;
+    const priorHigh = Math.max(...window.map(c => c.high)), priorLow = Math.min(...window.map(c => c.low));
+    const bodyPct = Math.abs(impulse.close - impulse.open) / impulse.open * 100;
+    if(!bullishOB && impulse.close > impulse.open && impulse.close > priorHigh && bodyPct > .8){
+      for(let j = i - 1; j >= Math.max(0, i - 6); j--){ if(candles[j].close < candles[j].open){ bullishOB = {top:candles[j].high, bottom:candles[j].low}; break; } }
+    }
+    if(!bearishOB && impulse.close < impulse.open && impulse.close < priorLow && bodyPct > .8){
+      for(let j = i - 1; j >= Math.max(0, i - 6); j--){ if(candles[j].close > candles[j].open){ bearishOB = {top:candles[j].high, bottom:candles[j].low}; break; } }
+    }
+    if(bullishOB && bearishOB) break;
+  }
+  return {bullishOB, bearishOB};
+}
+// Multi-timeframe check: one step up only (4H->Daily, Daily->Weekly). Weekly has nothing
+// higher in this app, so it's skipped. This is deliberately a single trend confirmation,
+// not a second full indicator stack — the classic "trade your timeframe, glance one level up" rule.
+function higherTimeframe(interval){
+  return {'4h':'1d','1d':'1w'}[interval] || null;
+}
+async function higherTimeframeAnalysis(symbol, htfInterval, source){
+  const candles = await getKlinesAny(symbol, htfInterval, 260, source);
+  const closes = candles.map(c => c.close);
+  const e20 = ema(closes,20), e50 = ema(closes,50), e200 = ema(closes,200);
+  const price = closes[closes.length - 1];
+  const v20 = e20[e20.length-1], v50 = e50[e50.length-1], v200 = e200[e200.length-1];
+  const side = (price > v20 && v20 > v50 && v50 > v200) ? 1 : ((price < v20 && v20 < v50 && v50 < v200) ? -1 : 0);
+  const swings = findSwings(candles);
+  return {side, levels: nearestLevels(swings, price), ob: findOrderBlocks(candles), cci: cci(candles,34), vol: volumeRead(candles)};
+}
+function analysisInterval(){
+  return document.getElementById('timeframe').value;
+}
+function tradingViewInterval(tf){
+  return {'1d':'D','1w':'W','4h':'240'}[tf] || 'D';
+}
+function timeframeLabel(tf){
+  return tf === '1w' ? 'Weekly' : (tf === '4h' ? '4-Hour' : 'Daily');
+}
+function tradingViewChartUrl(symbol, tf, source){
+  const exchangePrefix = source === 'Bybit' ? 'BYBIT' : 'BINANCE';
+  const tvSymbol = `${exchangePrefix}:${symbol}.P`;
+  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}&interval=${encodeURIComponent(tradingViewInterval(tf))}`;
+}
+// Golden Cross = EMA50 crosses ABOVE EMA200 (bullish). Death Cross = EMA50 crosses BELOW EMA200 (bearish).
+// For a Long setup we only look for a recent Golden Cross; for a Short setup we only look for a recent
+// Death Cross, since those are the crosses that are actually directionally relevant to that trade idea.
+function recentEmaCross(ema50Values, ema200Values, currentPrice, hasSetup, isLong){
+  if(!hasSetup) return null;
+  const start = Math.max(1, ema50Values.length - 20);
+  for(let index = ema50Values.length - 1; index >= start; index--){
+    const prev50 = ema50Values[index - 1], prev200 = ema200Values[index - 1];
+    const cur50 = ema50Values[index], cur200 = ema200Values[index];
+    if(prev50 === null || prev200 === null || cur50 === null || cur200 === null) continue;
+    const bullishCross = prev50 <= prev200 && cur50 >= cur200;
+    const bearishCross = prev50 >= prev200 && cur50 <= cur200;
+    const crossed = isLong ? bullishCross : bearishCross;
+    const crossPrice = cur50;
+    if(crossed && Math.abs(currentPrice - crossPrice) / currentPrice <= .05){
+      return {barsAgo: ema50Values.length - 1 - index, price: crossPrice, type: isLong ? 'Golden Cross' : 'Death Cross'};
+    }
+  }
+  return null;
+}
+function drawAnalysisChart(candles, retracement, currentPrice, ema50Values, ema200Values){
+  const canvas = document.getElementById('analysisChart');
+  const rect = canvas.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = rect.width * ratio; canvas.height = rect.height * ratio;
+  const context = canvas.getContext('2d'); context.scale(ratio,ratio);
+  const width = rect.width, height = rect.height, pad = {left:52,right:18,top:18,bottom:28};
+  const prices = candles.flatMap(candle => [candle.high,candle.low,retracement,currentPrice]);
+  const min = Math.min(...prices), max = Math.max(...prices), range = max - min || 1;
+  const x = index => pad.left + index * (width - pad.left - pad.right) / Math.max(1,candles.length - 1);
+  const y = price => pad.top + (max - price) * (height - pad.top - pad.bottom) / range;
+  context.clearRect(0,0,width,height); context.strokeStyle='#232833'; context.fillStyle='#8b93a3'; context.font='10px JetBrains Mono, monospace';
+  for(let step=0; step<5; step++){ const price=min + range * step/4; context.beginPath(); context.moveTo(pad.left,y(price)); context.lineTo(width-pad.right,y(price)); context.stroke(); context.fillText(fmt(price),4,y(price)+3); }
+  const candleWidth = Math.max(2, (width-pad.left-pad.right)/candles.length*.7);
+  candles.forEach((candle,index)=>{ const rising=candle.close>=candle.open; context.strokeStyle=rising?'#35e0c0':'#ff5470'; context.fillStyle=context.strokeStyle; context.beginPath(); context.moveTo(x(index),y(candle.high)); context.lineTo(x(index),y(candle.low)); context.stroke(); context.fillRect(x(index)-candleWidth/2,y(Math.max(candle.open,candle.close)),candleWidth,Math.max(1,Math.abs(y(candle.open)-y(candle.close)))); });
+  [['#35e0c0',ema50Values],['#f5a623',ema200Values]].forEach(([color,values])=>{ context.strokeStyle=color; context.lineWidth=1.5; context.beginPath(); values.forEach((value,index)=>{ if(value===null)return; if(index===0 || values[index-1]===null) context.moveTo(x(index),y(value)); else context.lineTo(x(index),y(value)); }); context.stroke(); });
+  context.strokeStyle='#8b5cf6'; context.setLineDash([5,4]); context.beginPath(); context.moveTo(pad.left,y(retracement)); context.lineTo(width-pad.right,y(retracement)); context.stroke(); context.setLineDash([]); context.fillStyle='#8b5cf6'; context.fillText('50% '+fmt(retracement),width-145,y(retracement)-5);
+  context.strokeStyle='#ffffff'; context.setLineDash([2,3]); context.beginPath(); context.moveTo(pad.left,y(currentPrice)); context.lineTo(width-pad.right,y(currentPrice)); context.stroke(); context.setLineDash([]); context.fillStyle='#ffffff'; context.fillText('PRICE '+fmt(currentPrice),width-145,y(currentPrice)-5);
+  context.fillStyle='#35e0c0'; context.font='10px JetBrains Mono, monospace'; context.fillText('EMA 50',pad.left+8,pad.top+12); context.fillStyle='#f5a623'; context.fillText('EMA 200',pad.left+65,pad.top+12);
+}
+async function openAnalysis(symbol, intervalOverride){
+  currentExchangeSymbol = symbol;
+  const row = allResults.find(result => result.symbol === symbol);
+  if(!row) return;
+  const source = row.source === 'Bybit' ? 'Bybit' : 'Binance';
+  // Use the interval the row was actually screened on (not whatever the timeframe
+  // dropdown currently shows) so the Ichimoku setup label and the freshly-fetched
+  // RSI/MACD/EMA/candles below are always describing the same timeframe.
+  // intervalOverride lets the Daily<->4-Hour switch link on the Levels card
+  // reopen this same symbol on the other timeframe.
+  const interval = intervalOverride || row.interval || analysisInterval();
+  const symbolLink = document.getElementById('analysisSymbolLink');
+  symbolLink.textContent = symbol;
+  symbolLink.href = tradingViewChartUrl(symbol, interval, source);
+  symbolLink.removeAttribute('target');
+  symbolLink.rel = 'noopener';
+  symbolLink.onclick = (event) => {
+    event.preventDefault();
+    openExternalLink(tradingViewChartUrl(symbol, interval, source), TRADINGVIEW_APP_PACKAGE);
+  };
+  document.getElementById('analysisSubtitle').textContent = timeframeLabel(interval);
+  document.getElementById('analysisStatus').textContent = `Loading ${source} candles...`;
+  document.getElementById('analysisLTP').textContent = '—';
+  document.getElementById('analysisDetails').innerHTML = '';
+  const setupBox = document.getElementById('analysisSetupBox');
+  const tradePlanButton = document.getElementById('analysisTradePlan');
+  // row.setup/breakoutPrice/etc. describe whatever timeframe this symbol was
+  // originally screened on. If we're opening a *different* interval (via the
+  // Daily<->4-Hour switch link), that data doesn't apply here — show a neutral
+  // placeholder now and recompute the real interval-specific setup below.
+  const sameInterval = interval === row.interval;
+  setupBox.textContent = sameInterval ? (row.setup ? row.setup : 'None') : '…';
+  setupBox.className = 'analysis-setup ' + (sameInterval ? (row.setup === 'Long' ? 'setup-long' : row.setup === 'Short' ? 'setup-short' : 'setup-none') : 'setup-none');
+  document.getElementById('analysisCfmBox').style.display = sameInterval && row.setup && row.confirmed ? 'inline-block' : 'none';
+  document.getElementById('analysisWatchlistBtn').innerHTML = watchlistButton(symbol);
+  tradePlanButton.style.display = sameInterval && row.setup ? 'inline-block' : 'none';
+  tradePlanButton.onclick = () => openTradePlan(symbol, currentAnalysisRow);
+  document.getElementById('analysisModal').classList.add('open');
+  try{
+    const fundingPromise = getFundingInfo(symbol, source).catch(() => null);
+    const warmupCandles = await getKlinesAny(symbol, interval, 380, source);
+    const candles = warmupCandles.slice(-180);
+    if(candles.length < 30) throw new Error('Not enough candles available');
+    const closes = candles.map(candle => candle.close), warmupCloses = warmupCandles.map(candle => candle.close), swings = findSwings(candles), swingMove = latestSwingMove(swings);
+    const recentHigh = swingMove ? swingMove.high : Math.max(...candles.slice(Math.max(0,candles.length-80)).map(candle=>candle.high));
+    const recentLow = swingMove ? swingMove.low : Math.min(...candles.slice(Math.max(0,candles.length-80)).map(candle=>candle.low));
+    const retracement = swingMove ? swingMove.midpoint : recentLow + (recentHigh - recentLow) * .5;
+    const rsiValue = rsi(closes), macdValue = macd(closes), atrValue = atr(candles,14);
+    const ema20Values = ema(warmupCloses,20), ema50Warmup = ema(warmupCloses,50), ema200Warmup = ema(warmupCloses,200), ema50Values = ema50Warmup.slice(-180), ema200Values = ema200Warmup.slice(-180), ema20 = ema20Values[ema20Values.length - 1], ema50 = ema50Warmup[ema50Warmup.length - 1], ema200 = ema200Warmup[ema200Warmup.length - 1];
+    // If this is a different interval than the row was screened on, recompute
+    // the Ichimoku setup fresh from the candles we just fetched for THIS
+    // interval, instead of carrying over the setup/breakout price from
+    // whichever timeframe the row originally came from.
+    let effectiveRow = row;
+    if(!sameInterval){
+      try{
+        const recomputeParams = {
+          tenkanLen: parseInt(document.getElementById('tenkanLen').value),
+          kijunLen: parseInt(document.getElementById('kijunLen').value),
+          senkouBLen: parseInt(document.getElementById('senkouBLen').value),
+          minVolume: parseFloat(document.getElementById('minVolume').value) || 0,
+          interval
+        };
+        effectiveRow = computeIchimokuSignal(symbol, warmupCandles, candles[candles.length - 1].close, recomputeParams);
+      }catch(e){
+        // Not enough history on this timeframe, or no valid read — treat as
+        // "no setup" rather than showing a setup/breakout price that belongs
+        // to a different timeframe.
+        effectiveRow = { symbol, confirmed:false, priceToday:candles[candles.length-1].close, breakoutPrice:null, entryPrice:candles[candles.length-1].close, cloudTop:NaN, cloudBottom:NaN, tenkanNow:NaN, kijunNow:NaN, breakout:'', setup:'', interval };
+      }
+      currentAnalysisRow = effectiveRow.setup ? effectiveRow : null;
+      setupBox.textContent = effectiveRow.setup ? effectiveRow.setup : 'None';
+      setupBox.className = 'analysis-setup ' + (effectiveRow.setup === 'Long' ? 'setup-long' : effectiveRow.setup === 'Short' ? 'setup-short' : 'setup-none');
+      document.getElementById('analysisCfmBox').style.display = effectiveRow.setup && effectiveRow.confirmed ? 'inline-block' : 'none';
+      tradePlanButton.style.display = effectiveRow.setup ? 'inline-block' : 'none';
+      tradePlanButton.onclick = () => openTradePlan(symbol, currentAnalysisRow);
+    } else {
+      currentAnalysisRow = row.setup ? row : null;
+    }
+    const hasSetup = effectiveRow.setup === 'Long' || effectiveRow.setup === 'Short', isLong = effectiveRow.setup === 'Long', currentPrice = Number.isFinite(effectiveRow.priceToday) ? effectiveRow.priceToday : closes[closes.length - 1];
+    document.getElementById('analysisLTP').textContent = fmt(currentPrice);
+    const dir = hasSetup ? (isLong ? 1 : -1) : null;
+
+    // ---- Per-factor bullish/bearish reads (used for both a formal setup AND a no-setup bias read) ----
+    const rsiSide = !Number.isFinite(rsiValue) ? null : (rsiValue >= 50 ? 1 : -1);
+    const macdSide = !Number.isFinite(macdValue.histogram) ? null : (macdValue.histogram > 0 ? 1 : -1);
+    const marketStructure = marketStructureAnalysis(candles,swings);
+    const structureSide = /Bullish/.test(marketStructure.state) ? 1 : (/Bearish/.test(marketStructure.state) ? -1 : null);
+    const emaSide = (ema20 > ema50 && ema50 > ema200) ? 1 : ((ema20 < ema50 && ema50 < ema200) ? -1 : null);
+    const cloudSide = Number.isFinite(effectiveRow.cloudTop) && Number.isFinite(effectiveRow.cloudBottom) ? (currentPrice > effectiveRow.cloudTop ? 1 : (currentPrice < effectiveRow.cloudBottom ? -1 : null)) : null;
+    const votes = [rsiSide, macdSide, structureSide, emaSide, cloudSide];
+    const bullVotes = votes.filter(v => v === 1).length, bearVotes = votes.filter(v => v === -1).length, totalVotes = votes.filter(v => v !== null).length;
+    const biasDir = bullVotes === bearVotes ? 0 : (bullVotes > bearVotes ? 1 : -1);
+    const biasLabel = biasDir === 1 ? 'Bullish' : (biasDir === -1 ? 'Bearish' : 'Mixed');
+
+    // ---- ATR-based pullback buffer instead of a flat 3% ----
+    const pullbackAtrMultiple = 1;
+    const pullbackBuffer = Number.isFinite(atrValue) ? atrValue * pullbackAtrMultiple : null;
+    const breakoutDistPrice = hasSetup && effectiveRow.breakoutPrice ? Math.abs(currentPrice - effectiveRow.breakoutPrice) : null;
+    const retraceDistPrice = Math.abs(currentPrice - retracement);
+    const breakoutDistPct = breakoutDistPrice !== null ? breakoutDistPrice / effectiveRow.breakoutPrice * 100 : null;
+    const retraceDistPct = retracement ? retraceDistPrice / retracement * 100 : null;
+    const breakoutAtrX = pullbackBuffer && breakoutDistPrice !== null ? breakoutDistPrice / pullbackBuffer : null;
+    const retraceAtrX = pullbackBuffer ? retraceDistPrice / pullbackBuffer : null;
+    const needsPullback = hasSetup && pullbackBuffer !== null && ((breakoutDistPrice !== null && breakoutDistPrice >= pullbackBuffer) || retraceDistPrice >= pullbackBuffer);
+    const retraceGood = hasSetup ? (isLong ? currentPrice >= retracement && currentPrice <= recentHigh : currentPrice <= retracement && currentPrice >= recentLow) : false;
+
+    const entry = hasSetup ? (effectiveRow.entryPrice || effectiveRow.priceToday) : null, stop = hasSetup ? (isLong ? effectiveRow.cloudBottom : effectiveRow.cloudTop) : null;
+    const target = hasSetup ? targetFor(entry,stop,isLong,2) : null;
+
+    const emaCross = recentEmaCross(ema50Values,ema200Values,currentPrice,hasSetup,isLong);
+
+    // Multi-timeframe: one glance at the next timeframe up — trend, nearest S/R, order blocks.
+    const htfInterval = higherTimeframe(interval);
+    let htf = null;
+    if(htfInterval){
+      try{ htf = await higherTimeframeAnalysis(symbol, htfInterval, source); }catch(e){ htf = null; }
+    }
+    const htfSide = htf ? htf.side : null;
+    const htfLabel = htfInterval ? timeframeLabel(htfInterval) : null;
+
+    // Support/Resistance + Order Blocks on the current timeframe (see function comments for method).
+    const keyLevels = nearestLevels(swings, currentPrice);
+    const orderBlocks = findOrderBlocks(candles);
+
+    // ---- Extra Ichimoku components for the card copy: Chikou-vs-its-own-cloud,
+    // the Tenkan/Kijun cross, and the future (leading) Kumo — computed fresh
+    // from the same candles used everywhere else on this screen, using the
+    // same tenkan/kijun/senkouB lengths as the screener.
+    const tenkanLen = parseInt(document.getElementById('tenkanLen').value);
+    const kijunLen = parseInt(document.getElementById('kijunLen').value);
+    const senkouBLen = parseInt(document.getElementById('senkouBLen').value);
+    const ichHighs = candles.map(c => c.high), ichLows = candles.map(c => c.low);
+    const ichLastIdx = candles.length - 1;
+    const ichSenkouA = i => { const t = donchianMid(ichHighs, ichLows, tenkanLen, i), k = donchianMid(ichHighs, ichLows, kijunLen, i); return (isNaN(t) || isNaN(k)) ? NaN : (t + k) / 2; };
+    const ichSenkouB = i => donchianMid(ichHighs, ichLows, senkouBLen, i);
+    const futureA = ichSenkouA(ichLastIdx), futureB = ichSenkouB(ichLastIdx);
+    const futureSide = (Number.isFinite(futureA) && Number.isFinite(futureB)) ? (futureA > futureB ? 1 : (futureA < futureB ? -1 : 0)) : null;
+    const chikouBarIdx = ichLastIdx - 2 * kijunLen;
+    const chikouCloudTop = chikouBarIdx >= 0 ? Math.max(ichSenkouA(chikouBarIdx), ichSenkouB(chikouBarIdx)) : NaN;
+    const chikouCloudBottom = chikouBarIdx >= 0 ? Math.min(ichSenkouA(chikouBarIdx), ichSenkouB(chikouBarIdx)) : NaN;
+    const chikouSide = Number.isFinite(chikouCloudTop) ? (currentPrice > chikouCloudTop ? 1 : (currentPrice < chikouCloudBottom ? -1 : 0)) : null;
+    const tkWindow = 20;
+    const tenkanArr = [], kijunArr = [];
+    for(let i = Math.max(0, ichLastIdx - tkWindow); i <= ichLastIdx; i++){
+      tenkanArr.push(donchianMid(ichHighs, ichLows, tenkanLen, i));
+      kijunArr.push(donchianMid(ichHighs, ichLows, kijunLen, i));
+    }
+    const tenkanLive = tenkanArr[tenkanArr.length - 1], kijunLive = kijunArr[kijunArr.length - 1];
+    const tkSide = (Number.isFinite(tenkanLive) && Number.isFinite(kijunLive)) ? (tenkanLive > kijunLive ? 1 : (tenkanLive < kijunLive ? -1 : 0)) : null;
+    let tkCross = null;
+    for(let i = tenkanArr.length - 1; i >= 1; i--){
+      const pt = tenkanArr[i-1], pk = kijunArr[i-1], ct = tenkanArr[i], ck = kijunArr[i];
+      if(![pt,pk,ct,ck].every(Number.isFinite)) continue;
+      const bullishCross = pt <= pk && ct > ck;
+      const bearishCross = pt >= pk && ct < ck;
+      if(bullishCross || bearishCross){ tkCross = {barsAgo: tenkanArr.length - 1 - i, type: bullishCross ? 'Bullish' : 'Bearish'}; break; }
+    }
+
+    drawAnalysisChart(candles,retracement,currentPrice,ema50Values,ema200Values);
+    document.getElementById('analysisStatus').textContent = '';
+
+    // ================= Card copy (crisp, terminal-style) =================
+
+    // Ichimoku
+    const dirWord = isLong ? 'above' : 'below';
+    const ichimokuHeadline = effectiveRow.breakout ? `${effectiveRow.setup} — ${effectiveRow.breakout} trigger` : (cloudSide === 1 ? 'Above Kumo, no trigger' : (cloudSide === -1 ? 'Below Kumo, no trigger' : 'Inside Kumo — no edge'));
+    let ichimokuLine;
+    if(hasSetup){
+      // CK and PK both require price AND Chikou to already agree with the direction —
+      // the only difference is which of the two legs is the one flipping today.
+      if(effectiveRow.breakout === 'CK, PK'){
+        ichimokuLine = `Price broke ${dirWord} the Kumo and Chikou cleared ${dirWord} its own cloud on the same candle — full, simultaneous confirmation, the strongest version of this breakout.`;
+      } else if(effectiveRow.breakout === 'CK'){
+        ichimokuLine = `Price had already broken ${dirWord} the Kumo on an earlier candle; today it's the Chikou span crossing ${dirWord} its own cloud — the lagging leg catching up to confirm a move that was already underway, not a fresh price trigger.`;
+      } else if(effectiveRow.breakout === 'PK'){
+        ichimokuLine = `Chikou was already sitting ${dirWord} its own cloud from an earlier candle; today it's price breaking ${dirWord} the current Kumo — the fresh, leading leg of the move, with lagging confirmation already in place.`;
+      } else {
+        ichimokuLine = `${effectiveRow.setup} setup active.`;
+      }
+      // Post-breakout price action: how far has price run since the trigger, and is
+      // it worth chasing now or better to wait for a pullback (ATR-based, see the
+      // Pullback Zone card below for the numbers behind this call).
+      if(needsPullback){
+        ichimokuLine += ` Since triggering, price has run ${breakoutAtrX !== null ? breakoutAtrX.toFixed(1) : retraceAtrX.toFixed(1)}x ATR beyond the trigger/midpoint — extended. Chasing here is poor risk/reward; wait for a pullback toward the breakout zone before entering.`;
+      } else if(retraceGood){
+        ichimokuLine += ` Price is still within a reasonable distance of the trigger (inside 1x ATR) — acceptable to engage without waiting for a deeper pullback.`;
+      } else {
+        ichimokuLine += ` Price has slipped back through the swing midpoint against the ${effectiveRow.setup.toLowerCase()} idea — follow-through has been weak, so treat this as unconfirmed until it reclaims that zone.`;
+      }
+    } else {
+      // No CK/PK trigger — give a full textbook read of where every Ichimoku
+      // component currently sits, since there's no single headline number to lean on.
+      const sideWord = (side, up='bullish', down='bearish', flat='flat') => side === 1 ? up : (side === -1 ? down : flat);
+      const cloudPhrase = cloudSide === 1 ? 'Price is above the Kumo (bullish)' : (cloudSide === -1 ? 'Price is below the Kumo (bearish)' : 'Price is inside the Kumo (no directional edge)');
+      const chikouPhrase = chikouSide === null ? 'Chikou can\'t be placed yet (not enough history)' : `Chikou is ${chikouSide === 1 ? 'above' : (chikouSide === -1 ? 'below' : 'inside')} its own cloud (${sideWord(chikouSide)})`;
+      const tkPhrase = tkSide === null ? 'Tenkan/Kijun unavailable' : `Tenkan is ${tkSide === 1 ? 'above' : (tkSide === -1 ? 'below' : 'equal to')} Kijun (${sideWord(tkSide)})${tkCross ? `, a ${tkCross.type.toLowerCase()} cross ${tkCross.barsAgo === 0 ? 'just printed' : `${tkCross.barsAgo} bars ago`}` : ', no recent cross'}`;
+      const futurePhrase = futureSide === null ? 'the future cloud is unavailable' : `the future Kumo is ${sideWord(futureSide)} (Senkou A ${futureSide === 1 ? 'above' : (futureSide === -1 ? 'below' : 'equal to')} Senkou B)`;
+      const ichSides = [cloudSide, chikouSide, tkSide, futureSide].filter(v => v !== null);
+      const ichBull = ichSides.filter(v => v === 1).length, ichBear = ichSides.filter(v => v === -1).length;
+      let alignmentNote;
+      if(ichBull > 0 && ichBear === 0) alignmentNote = 'Every available Ichimoku component leans bullish, but no fresh CK/PK trigger has fired yet — a bullish backdrop worth watching, not a signal to act on.';
+      else if(ichBear > 0 && ichBull === 0) alignmentNote = 'Every available Ichimoku component leans bearish, but no fresh CK/PK trigger has fired yet — a bearish backdrop worth watching, not a signal to act on.';
+      else alignmentNote = 'Price/Cloud, Chikou, Tenkan/Kijun and the future cloud aren\'t all pointing the same way right now — this reads as chop. Wait for the components to align with a confirmed CK/PK breakout before treating it as tradeable.';
+      ichimokuLine = `${cloudPhrase}. ${chikouPhrase}. ${tkPhrase}. Looking ahead, ${futurePhrase}. ${alignmentNote}`;
+    }
+
+    // Momentum (RSI + MACD merged)
+    const rsiTag = !Number.isFinite(rsiValue) ? '—' : rsiValue >= 70 ? 'overbought' : (rsiValue <= 30 ? 'oversold' : (rsiValue >= 50 ? 'bullish' : 'bearish'));
+    const macdTag = macdSide === 1 ? 'rising' : 'falling';
+    const momentumHeadline = `RSI ${formatAnalysisValue(rsiValue)} (${rsiTag}) | MACD ${macdTag}`;
+    const momentumAgree = rsiSide !== null && rsiSide === macdSide;
+    let momentumLine = momentumAgree ? `RSI and MACD agree — momentum is ${rsiSide === 1 ? 'bullish' : 'bearish'}.` : 'RSI and MACD disagree — momentum is indecisive.';
+    if((rsiTag === 'overbought' || rsiTag === 'oversold')) momentumLine += ` RSI is stretched, so a cooldown before the next leg wouldn't be unusual.`;
+    if(hasSetup){ const aligned = rsiSide === dir && macdSide === dir; momentumLine += ` ${aligned ? 'Aligned with' : 'Not fully aligned with'} the ${effectiveRow.setup} idea.`; }
+
+    // Trend & Structure (EMA + BOS/CHoCH merged)
+    const trendHeadline = `${emaSide === 1 ? 'Bullish' : emaSide === -1 ? 'Bearish' : 'Mixed'} EMA stack | ${marketStructure.state}`;
+    const emaTriplet = `${formatAnalysisValue(ema20)}/${formatAnalysisValue(ema50)}/${formatAnalysisValue(ema200)}`;
+    let trendLine = emaSide === 1 ? `EMAs (${emaTriplet}) are stacked bullish (20>50>200) — trend is up.` : emaSide === -1 ? `EMAs (${emaTriplet}) are stacked bearish (20<50<200) — trend is down.` : `EMAs (${emaTriplet}) are tangled — no clean trend.`;
+    trendLine += ` ${marketStructure.detail.split('.')[0]}.`;
+    if(emaCross) trendLine += ` ${emaCross.type} ${emaCross.barsAgo === 0 ? 'just printed' : `${emaCross.barsAgo} bars ago`} near price — reinforces the move.`;
+    if(hasSetup && structureSide !== null && structureSide !== dir) trendLine += ` Note: structure disagrees with the ${effectiveRow.setup} idea.`;
+
+    // Pullback zone (swing range + ATR distance)
+    const pullbackHeadline = `Range ${formatAnalysisValue(recentLow)}–${formatAnalysisValue(recentHigh)} | mid ${formatAnalysisValue(retracement)} | ATR14 ${formatAnalysisValue(atrValue)}`;
+    let pullbackLine;
+    if(!hasSetup){
+      pullbackLine = `Price is ${retraceAtrX !== null ? retraceAtrX.toFixed(1) : '—'}× ATR from the swing midpoint — for reference if a trigger fires.`;
+    } else if(needsPullback){
+      pullbackLine = `Price is ${breakoutAtrX !== null ? breakoutAtrX.toFixed(1) : retraceAtrX.toFixed(1)}× ATR (${(breakoutDistPct ?? retraceDistPct).toFixed(1)}%) from the trigger/midpoint — extended. Better entries usually come on a pullback into this zone rather than chasing.`;
+    } else if(retraceGood){
+      pullbackLine = `Holding inside the pullback zone (within 1× ATR of the swing midpoint) — a reasonable entry area, not chasing.`;
+    } else {
+      pullbackLine = `Price is on the wrong side of the swing midpoint — the pullback so far looks deeper than healthy for this ${hasSetup ? effectiveRow.setup.toLowerCase() : ''} idea.`;
+    }
+
+    // Support/Resistance & Order Blocks (current TF + one glance at higher TF)
+    const relevantOB = hasSetup ? (isLong ? orderBlocks.bullishOB : orderBlocks.bearishOB) : (biasDir === 1 ? orderBlocks.bullishOB : (biasDir === -1 ? orderBlocks.bearishOB : (orderBlocks.bullishOB || orderBlocks.bearishOB)));
+    const obInZone = relevantOB ? (currentPrice >= relevantOB.bottom && currentPrice <= relevantOB.top) : false;
+    const srHeadline = `Support ${keyLevels.support ? formatAnalysisValue(keyLevels.support.price) : '—'} | Resistance ${keyLevels.resistance ? formatAnalysisValue(keyLevels.resistance.price) : '—'}`;
+    let srLine = `${timeframeLabel(interval)}: support ${keyLevels.support ? formatAnalysisValue(keyLevels.support.price) : 'none nearby'}, resistance ${keyLevels.resistance ? formatAnalysisValue(keyLevels.resistance.price) : 'none nearby'}.`;
+    srLine += relevantOB ? ` ${(isLong || (!hasSetup && biasDir===1)) ? 'Bullish' : 'Bearish'} OB ${formatAnalysisValue(relevantOB.bottom)}–${formatAnalysisValue(relevantOB.top)}${obInZone ? ' — price is inside it now, a common re-test entry zone.' : '.'}` : ' No fresh OB nearby.';
+    if(htf){
+      const htfOB = hasSetup ? (isLong ? htf.ob.bullishOB : htf.ob.bearishOB) : (biasDir === 1 ? htf.ob.bullishOB : (biasDir === -1 ? htf.ob.bearishOB : null));
+      srLine += `<br>${htfLabel}: support ${htf.levels.support ? formatAnalysisValue(htf.levels.support.price) : 'none nearby'}, resistance ${htf.levels.resistance ? formatAnalysisValue(htf.levels.resistance.price) : 'none nearby'}.`;
+      if(htfOB) srLine += ` ${htfLabel} OB ${formatAnalysisValue(htfOB.bottom)}–${formatAnalysisValue(htfOB.top)}.`;
+    }
+
+    // Levels
+    const funding = await fundingPromise;
+    const fundingRate = funding && Number.isFinite(funding.rate) ? funding.rate : null;
+    const fundingCountdown = funding ? formatFundingCountdown(funding.nextFundingTime) : null;
+    const fundingClass = fundingRate === null ? '' : (fundingRate > 0 ? 'funding-pos' : (fundingRate < 0 ? 'funding-neg' : ''));
+    const fundingRateText = fundingRate === null ? '—' : `${fundingRate >= 0 ? '+' : ''}${(fundingRate * 100).toFixed(4)}%`;
+    const fundingLine = `<div class="funding-row">Funding: <span class="${fundingClass}">${fundingRateText}</span>${fundingCountdown ? ` in ${fundingCountdown}` : ''}</div>`;
+    const breakoutLine = hasSetup ? `<div class="funding-row">Breakout Price: <span>${formatAnalysisValue(effectiveRow.breakoutPrice)}</span></div>` : '';
+    const switchTargetInterval = interval === '1d' ? '4h' : (interval === '4h' ? '1d' : null);
+    const switchLine = switchTargetInterval ? `<div class="funding-row tf-switch-row"><a href="javascript:void(0)" class="tf-switch-link" onclick="switchAnalysisTimeframe('${symbol}','${switchTargetInterval}')">Switch to ${timeframeLabel(switchTargetInterval)} analysis →</a></div>` : '';
+    const levels = hasSetup ? `<div class="analysis-levels"><div class="analysis-level entry"><b>Entry</b><span>${formatAnalysisValue(entry)}</span></div><div class="analysis-level stop"><b>Invalidation</b><span>${formatAnalysisValue(stop)}</span></div><div class="analysis-level target"><b>Target 2R</b><span>${formatAnalysisValue(target)}</span></div></div>` : '';
+    const levelsHeadline = hasSetup ? `Entry ${formatAnalysisValue(entry)} | Stop ${formatAnalysisValue(stop)} | Target ${formatAnalysisValue(target)}` : `Watch: Cloud ${formatAnalysisValue(effectiveRow.cloudBottom)}–${formatAnalysisValue(effectiveRow.cloudTop)} | EMA50 ${formatAnalysisValue(ema50)}`;
+    const levelsLine = hasSetup ? 'Stop sits at the cloud boundary; target is a 2R (2x risk) objective. Check liquidity and exchange order rules before sizing.' : 'No active trigger — these are the levels that would need to break for a Long/Short signal to fire.';
+
+    // Overall
+    const htfHeadline = htfSide === 1 ? 'Bullish' : (htfSide === -1 ? 'Bearish' : (htfSide === 0 ? 'Mixed' : 'Unavailable'));
+    let htfLine = '';
+    if(htfInterval){
+      if(htfSide === null) htfLine = `${htfLabel} trend couldn't be loaded — treat as unknown.`;
+      else if(htfSide === 0) htfLine = `${htfLabel} trend is mixed — no strong bigger-picture bias either way.`;
+      else if(!hasSetup) htfLine = `${htfLabel} trend is ${htfHeadline.toLowerCase()} — favors ${htfHeadline.toLowerCase()} setups here.`;
+      else htfLine = htfSide === dir ? `Aligns with the bigger ${htfLabel} trend — trading with the tide.` : `Conflicts with the ${htfLabel} trend — trading against the bigger picture. Size down or wait for it to turn.`;
+    }
+    const htfConflict = hasSetup && htfSide !== null && htfSide !== 0 && htfSide !== dir;
+    const localAligned = rsiSide===dir && macdSide===dir && structureSide===dir && emaSide===dir;
+    const fullyAligned = localAligned && !htfConflict;
+    const decisionTag = needsPullback ? 'Wait for pullback' : (!hasSetup ? `${biasLabel} bias, no trigger` : (fullyAligned ? 'Aligned — proceed with plan' : (htfConflict ? 'Local OK, HTF conflict' : 'Mixed — confirmation weak')));
+    const decisionClass = needsPullback ? 'wait' : (!hasSetup ? '' : (fullyAligned ? '' : 'conflict'));
+    const decisionTitle = needsPullback ? 'Extended — wait for a pullback' : (!hasSetup ? `No trigger yet — ${biasLabel.toLowerCase()} lean (${bullVotes}/${totalVotes} factors)` : (fullyAligned ? 'Setup has multi-factor support' : (htfConflict ? 'Local signal fights the bigger trend' : 'Confirmation is mixed')));
+    let decisionDetail;
+    if(needsPullback){
+      decisionDetail = `${effectiveRow.setup} trigger is valid but price is stretched from the trigger/midpoint. Wait for a pullback toward the zone above before entering.${htfInterval ? ` ${htfLine}` : ''}`;
+    } else if(!hasSetup){
+      decisionDetail = `${bullVotes}/${totalVotes} indicators bullish, ${bearVotes}/${totalVotes} bearish. No Ichimoku CK/PK trigger is active, so this is a watchlist read, not a trade — wait for a confirmed breakout in the ${biasLabel !== 'Mixed' ? biasLabel.toLowerCase() : 'leading'} direction.${htfInterval ? ` ${htfLine}` : ''}`;
+    } else {
+      decisionDetail = `${effectiveRow.setup} ${effectiveRow.breakout || 'Ichimoku'} setup, ${effectiveRow.confirmed ? 'confirmed' : 'unconfirmed'}. ${momentumAgree ? 'Momentum agrees' : 'Momentum is mixed'}, trend/structure is ${structureSide === dir ? 'aligned' : 'not aligned'}. ${retraceGood ? 'Price location is favorable.' : 'Price location is not ideal.'}${htfInterval ? ` ${htfLine}` : ''}`;
+    }
+
+    if(hasSetup && obInZone) decisionDetail += ' Price is also sitting inside a matching order block — a common re-test entry area.';
+
+    // CCI(34) — current timeframe + higher timeframe side by side, with
+    // bands scaled up for crypto's volatility rather than the textbook +-100
+    // (see cciZone comment for the reasoning/sourcing).
+    const cciNow = cci(candles,34);
+    const cciZoneNow = cciZone(cciNow.value);
+    const cciDirNow = Number.isFinite(cciNow.value) && Number.isFinite(cciNow.prev) ? (cciNow.value > cciNow.prev ? 'rising' : (cciNow.value < cciNow.prev ? 'falling' : 'flat')) : null;
+    const cciHtf = htf ? htf.cci : null;
+    const cciZoneHtf = cciHtf ? cciZone(cciHtf.value) : null;
+    const cciHeadline = `CCI ${formatAnalysisValue(cciNow.value,1)} (${cciZoneNow.tag})${htfLabel ? ` | ${htfLabel} ${formatAnalysisValue(cciHtf ? cciHtf.value : NaN,1)} (${cciZoneHtf ? cciZoneHtf.tag : '—'})` : ''}`;
+    let cciLine = !Number.isFinite(cciNow.value) ? 'Not enough bars yet for a CCI(34) reading.' : `Current TF CCI is ${formatAnalysisValue(cciNow.value,1)} and ${cciDirNow || 'holding'} — ${cciZoneNow.tag}.`;
+    if(cciZoneNow.extreme){
+      cciLine += ` Past ±300 is a genuine outlier even for crypto — could mean the move is exhausting, or the trend is simply accelerating hard. ${cciDirNow === (cciZoneNow.side === 1 ? 'falling' : 'rising') ? 'It\'s already turning back toward zero, which leans toward exhaustion.' : 'It\'s still pushing further out, which leans toward acceleration rather than a reversal yet.'}`;
+    } else if(cciZoneNow.tag === 'overbought' || cciZoneNow.tag === 'oversold'){
+      cciLine += ` Past ±200 — crypto runs hotter than stocks, so this on its own isn't unusual, but it's worth tightening up if you're ${cciZoneNow.side === 1 ? 'chasing longs' : 'chasing shorts'} here.`;
+    }
+    if(htfLabel){
+      cciLine += cciHtf && Number.isFinite(cciHtf.value)
+        ? ` ${htfLabel} CCI is ${formatAnalysisValue(cciHtf.value,1)} (${cciZoneHtf.tag}) — ${cciZoneHtf.side !== null && cciZoneHtf.side === cciZoneNow.side ? 'agrees with' : 'diverges from'} the current TF read.`
+        : ` ${htfLabel} CCI unavailable.`;
+    }
+
+    // Volume — current TF latest bar vs its own trailing 20-bar average, folded
+    // into the Higher TF Trend card alongside the same read on the HTF candles,
+    // rather than a standalone card.
+    const volInfo = volumeRead(candles);
+    const volHtf = htf ? htf.vol : null;
+    function volSentence(label, info){
+      if(!info || info.ratio === null) return `${label}: not enough history for a volume read.`;
+      const participationTag = info.ratio >= 1.5 ? 'well above average — strong participation' : (info.ratio <= 0.6 ? 'well below average — light participation' : 'near average');
+      return `${label} volume is ${participationTag} (${info.ratio.toFixed(2)}x the 20-bar mean) on a ${info.isUpBar ? 'green' : 'red'} bar.`;
+    }
+    if(htfInterval){
+      htfLine += ` ${volSentence('Current TF', volInfo)} ${volSentence(htfLabel, volHtf)}`;
+      if(hasSetup && volInfo && volInfo.ratio !== null){
+        const volSupportsMove = volInfo.ratio >= 1.2 && (volInfo.isUpBar === isLong);
+        htfLine += volInfo.ratio >= 1.2 ? (volSupportsMove ? ` Volume backs the ${effectiveRow.setup.toLowerCase()} idea.` : ` That volume came on the wrong-color bar for the ${effectiveRow.setup.toLowerCase()} idea though — worth a second look.`) : '';
+      }
+    }
+
+    const cardHtml = ([label,value,detail]) => `<div class="analysis-card${label === 'Levels' ? ' execution' : ''}"><strong>${label}</strong><span class="analysis-value"><em>${value}</em></span>${label === 'Levels' ? detail : `<p>${detail}</p>`}</div>`;
+    const mainCards = [
+      ['Ichimoku (9/26/52)', ichimokuHeadline, ichimokuLine],
+      ...(htfInterval ? [[`Higher TF Trend (${htfLabel})`, htfHeadline, htfLine]] : []),
+      ['Momentum — RSI(14) / MACD(12,26,9)', momentumHeadline, momentumLine],
+      ['Trend & Structure — EMA(20/50/200) / BOS-CHoCH', trendHeadline, trendLine],
+      ['Support/Resistance & Order Blocks', srHeadline, srLine],
+      ['Pullback Zone — Swing Range / ATR(14)', pullbackHeadline, pullbackLine],
+      ['CCI(34)', cciHeadline, cciLine],
+      ['Levels', levelsHeadline, `${levels}${breakoutLine}${fundingLine}${switchLine}${levelsLine}`]
+    ];
+    document.getElementById('analysisDetails').innerHTML =
+      `<div class="analysis-decision ${decisionClass}"><div><strong>${decisionTitle}</strong><p>${decisionDetail}</p></div><span class="decision-tag">${decisionTag}</span></div>` +
+      `<div class="analysis-grid">${mainCards.map(cardHtml).join('')}</div>`;
+  }catch(error){
+    document.getElementById('analysisStatus').textContent = `Analysis unavailable: ${error.message}`;
+  }
+}
+function closeAnalysis(event){
+  if(event && event.target !== document.getElementById('analysisModal')) return;
+  document.getElementById('analysisModal').classList.remove('open');
+}
+
+// Levels-card link: closes the Daily analysis window and reopens the same
+// symbol on 4-Hour, or vice versa, without touching the timeframe dropdown
+// that drives the main screener table.
+function switchAnalysisTimeframe(symbol, targetInterval){
+  closeAnalysis();
+  openAnalysis(symbol, targetInterval);
+}
+
+// Opens X/Twitter search for the coin's cashtag (e.g. BTCUSDT -> $BTC).
+// Uses the plain x.com web URL, which the X app intercepts via universal
+// links on iOS/Android if installed, otherwise falls back to the browser.
+function openTwitterSearch(symbol){
+  if(!symbol) return;
+  const coin = symbol.replace(/USDT$/i, '');
+  const query = encodeURIComponent(`$${coin}`);
+  window.open(`https://x.com/search?q=${query}&src=typed_query`, '_blank', 'noopener');
+}
+
+async function openCoinInfo(symbol){
+  const modal = document.getElementById('coinInfoModal');
+  const statusEl = document.getElementById('coinInfoStatus');
+  const detailsEl = document.getElementById('coinInfoDetails');
+  const titleEl = document.getElementById('coinInfoTitle');
+  const subtitleEl = document.getElementById('coinInfoSubtitle');
+  const gridEl = document.getElementById('coinInfoGrid');
+  const websiteEl = document.getElementById('coinInfoWebsite');
+  const aboutEl = document.getElementById('coinInfoAbout');
+
+  titleEl.textContent = symbol;
+  subtitleEl.textContent = '';
+  statusEl.textContent = 'Loading CoinGecko data...';
+  statusEl.style.display = 'block';
+  detailsEl.style.display = 'none';
+  gridEl.innerHTML = '';
+  aboutEl.textContent = '';
+  websiteEl.textContent = '—';
+  websiteEl.onclick = null;
+  document.getElementById('coinInfoCoingecko').textContent = '—';
+  document.getElementById('coinInfoCoingecko').onclick = null;
+  modal.classList.add('open');
+
+  try {
+    const base = symbol.replace(/USDT$/i, '');
+    const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(base)}`);
+    if(!searchRes.ok) throw new Error('search request failed');
+    const searchData = await searchRes.json();
+    const coins = searchData.coins || [];
+    let match = coins.find(c => (c.symbol || '').toLowerCase() === base.toLowerCase());
+    if(!match) match = coins[0];
+    if(!match) throw new Error('no matching coin found on CoinGecko');
+
+    const detailRes = await fetch(`https://api.coingecko.com/api/v3/coins/${match.id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`);
+    if(!detailRes.ok) throw new Error('coin lookup failed');
+    const coin = await detailRes.json();
+
+    const md = coin.market_data || {};
+    const fmtUsd = (n) => (n === undefined || n === null) ? '—' : '$' + Number(n).toLocaleString('en-US', {maximumFractionDigits:0});
+    const fmtNum = (n) => (n === undefined || n === null) ? '—' : Number(n).toLocaleString('en-US', {maximumFractionDigits:0});
+
+    const rankText = coin.market_cap_rank ? ` #${coin.market_cap_rank}` : '';
+    subtitleEl.textContent = coin.name ? `${coin.name} (${(coin.symbol || '').toUpperCase()})${rankText}` : '';
+
+    const rawAbout = (coin.description && coin.description.en) || '';
+    aboutEl.innerHTML = formatAboutHtml(rawAbout);
+
+    const fields = [
+      {label:'Market Cap', value: fmtUsd(md.market_cap && md.market_cap.usd)},
+      {label:'Fully Diluted Valuation', value: fmtUsd(md.fully_diluted_valuation && md.fully_diluted_valuation.usd)},
+      {label:'24 Hour Trading Vol', value: fmtUsd(md.total_volume && md.total_volume.usd)},
+      {label:'Circulating Supply', value: fmtNum(md.circulating_supply)},
+      {label:'Total Supply', value: fmtNum(md.total_supply)},
+      {label:'Max Supply', value: fmtNum(md.max_supply)},
+    ];
+    gridEl.innerHTML = fields.map(f => `<div class="plan-card"><span class="label">${f.label}</span><span class="value">${f.value}</span></div>`).join('');
+
+    const homepage = ((coin.links && coin.links.homepage) || []).find(h => h);
+    if(homepage){
+      websiteEl.textContent = homepage;
+      websiteEl.onclick = () => openExternalLink(homepage);
+    } else {
+      websiteEl.textContent = 'Not available';
+      websiteEl.onclick = null;
+    }
+
+    const coingeckoEl = document.getElementById('coinInfoCoingecko');
+    const coingeckoUrl = `https://www.coingecko.com/en/coins/${match.id}`;
+    coingeckoEl.textContent = coingeckoUrl;
+    coingeckoEl.onclick = () => openExternalLink(coingeckoUrl);
+
+    statusEl.style.display = 'none';
+    detailsEl.style.display = 'block';
+  } catch(err){
+    statusEl.textContent = `Could not load coin info from CoinGecko (${err.message}).`;
+  }
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function stripInlineMarkdown(s){
+  return s.replace(/\*\*(.*?)\*\*/g, '$1').replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1$2').replace(/\[(.*?)\]\(.*?\)/g, '$1');
+}
+
+// Renders the About text returned by CoinGecko. Modern descriptions are markdown
+// with "## Heading" sections; we keep everything through the end of the FIRST
+// section (its heading, intro paragraph, and any bullet list) and stop before the
+// next "## Heading". Older/legacy descriptions have no markdown headings, so we
+// fall back to the first couple of paragraphs. Raw HTML (very old format) is
+// stripped down to plain text.
+function formatAboutHtml(raw){
+  if(!raw) return '<p>No description available.</p>';
+  let text = raw.replace(/\r\n/g, '\n').trim();
+  if(!text) return '<p>No description available.</p>';
+
+  if(/<[a-z][\s\S]*>/i.test(text)){
+    const firstPara = text.split(/\n{2,}/)[0] || text;
+    const plain = firstPara.replace(/<[^>]*>/g, '').trim();
+    return plain ? `<p>${escapeHtml(plain)}</p>` : '<p>No description available.</p>';
+  }
+
+  const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  const isHeading = (b) => /^#{1,6}\s+/.test(b);
+  const headingIdxs = [];
+  blocks.forEach((b, i) => { if(isHeading(b)) headingIdxs.push(i); });
+
+  let sectionBlocks;
+  if(headingIdxs.length === 0){
+    sectionBlocks = blocks.slice(0, Math.min(blocks.length, 3));
+  } else if(headingIdxs[0] > 0){
+    // Un-headed intro content before the first heading IS the first section (e.g. a bold
+    // tagline followed by a few paragraphs, before the first "## ..." heading appears).
+    sectionBlocks = blocks.slice(0, headingIdxs[0]);
+  } else {
+    // First block itself is a heading; take through the end of that section (next heading, if any).
+    const nextHeadingIdx = headingIdxs.length >= 2 ? headingIdxs[1] : blocks.length;
+    sectionBlocks = blocks.slice(0, nextHeadingIdx);
+  }
+
+  let html = '';
+  sectionBlocks.forEach(block => {
+    if(isHeading(block)){
+      const headingText = block.replace(/^#{1,6}\s+/, '');
+      html += `<p class="about-heading">${escapeHtml(stripInlineMarkdown(headingText))}</p>`;
+    } else if(/^[-*]\s+/m.test(block)){
+      const items = block.split(/\n/).map(l => l.replace(/^[-*]\s+/, '').trim()).filter(Boolean);
+      html += '<ul>' + items.map(it => `<li>${escapeHtml(stripInlineMarkdown(it))}</li>`).join('') + '</ul>';
+    } else {
+      html += `<p>${escapeHtml(stripInlineMarkdown(block))}</p>`;
+    }
+  });
+  return html || '<p>No description available.</p>';
+}
+
+function closeCoinInfo(event){
+  if(event && event.target !== document.getElementById('coinInfoModal')) return;
+  document.getElementById('coinInfoModal').classList.remove('open');
+}
+
+
+function openSelectedTradingExchange(){
+  const settings = getStoredTradingSettings();
+  const selectedExchange = settings.tradingExchange || 'CoinDCX';
+  const symbol = currentExchangeSymbol || activeTrade?.symbol || null;
+  const href = symbol ? buildExchangeUrlForSymbol(symbol, selectedExchange) : (EXCHANGE_LINKS[selectedExchange] || EXCHANGE_LINKS.CoinDCX);
+  openExternalLink(href, EXCHANGE_APP_PACKAGES[selectedExchange], EXCHANGE_CUSTOM_SCHEMES[selectedExchange]);
+}
+
+function openTradePlan(symbol, rowOverride){
+  currentExchangeSymbol = symbol;
+  activeTrade = rowOverride || allResults.find(r => r.symbol === symbol && r.setup);
+  if(!activeTrade) return;
+  const isLong = activeTrade.setup === 'Long';
+  const entry = activeTrade.entryPrice;
+  const kijun = activeTrade.kijunNow;
+  const baseStop = (isLong ? kijun < entry : kijun > entry) ? kijun : null;
+  const conservativeStop = isLong ? activeTrade.cloudBottom : activeTrade.cloudTop;
+  activeTrade.plan = {entry, baseStop, conservativeStop, isLong};
+  document.getElementById('tradeTitle').textContent = `${symbol} trade plan`;
+  document.getElementById('tradeSubtitle').textContent = `${activeTrade.setup} · ${activeTrade.breakout} · ${activeTrade.confirmed ? 'confirmed' : 'setup'}`;
+  const portfolio = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
+  const settings = getStoredTradingSettings();
+  const savedPortfolio = portfolio || settings.portfolioValue || DEFAULT_PORTFOLIO;
+  document.getElementById('planPortfolio').value = savedPortfolio;
+  const levels = [
+    ['Entry', fmt(entry)],
+    ['Conservative stop (cloud)', fmt(conservativeStop)],
+    ['TP1 (cloud stop, 2R)', fmt(targetFor(entry, conservativeStop, isLong, 2))],
+    ['TP2 (cloud stop, 3R)', fmt(targetFor(entry, conservativeStop, isLong, 3))]
+  ];
+  if(baseStop !== null){
+    levels.splice(1, 0, ['Base stop (Kijun)', fmt(baseStop)]);
+  }
+  document.getElementById('tradeLevels').innerHTML = levels.map(([label, value]) => `<div class="plan-card"><span class="label">${label}</span><span class="value">${value}</span></div>`).join('');
+  renderTradeSizing();
+  closeAnalysis();
+  document.getElementById('tradeModal').classList.add('open');
+}
+
+function targetFor(entry, stop, isLong, multiple){
+  if(stop === null || !Number.isFinite(stop)) return NaN;
+  const risk = Math.abs(entry - stop);
+  return isLong ? entry + multiple * risk : entry - multiple * risk;
+}
+
+function formatUSDT(n){
+  if(n === null || n === undefined || isNaN(n) || !isFinite(n)) return '—';
+  const abs = Math.abs(n);
+  let maxFrac = 2;
+  if(abs > 0 && abs < 1) maxFrac = 6;
+  else if(abs < 100) maxFrac = 4;
+  return n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:maxFrac}) + ' USDT';
+}
+
+function formatQty(n){
+  if(n === null || n === undefined || isNaN(n) || !isFinite(n)) return '—';
+  const abs = Math.abs(n);
+  let frac = 4;
+  if(abs >= 1000) frac = 2;
+  else if(abs < 1) frac = 6;
+  return n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:frac});
+}
+
+function ticketMetric(label, value, hero, isShort, warn){
+  const cls = hero ? 'metric hero' : 'metric';
+  const valCls = 'm-val' + (isShort ? ' short' : '') + (warn ? ' warn' : '');
+  return `<div class="${cls}"><span class="m-label">${label}</span><span class="${valCls}">${value}</span></div>`;
+}
+
+function ticketMetricDual(label, tagA, valueA, tagB, valueB, hero, isShort, warn){
+  const cls = hero ? 'metric hero' : 'metric';
+  const valCls = 'm-val' + (isShort ? ' short' : '') + (warn ? ' warn' : '');
+  return `<div class="${cls}"><span class="m-label">${label}</span><span class="m-dual">` +
+    `<span class="m-dual-item"><span class="m-dual-tag">${tagA}</span><span class="${valCls}">${valueA}</span></span>` +
+    `<span class="m-dual-item"><span class="m-dual-tag">${tagB}</span><span class="${valCls}">${valueB}</span></span>` +
+    `</span></div>`;
+}
+
+function buildTicket(symbol, subtitle, entry, baseStop, conservativeStop, riskAmount, portfolio, isLong){
+  const isShort = !isLong;
+  const hasBase = baseStop !== null && Number.isFinite(baseStop);
+  const baseDiff = hasBase ? Math.abs(entry - baseStop) : NaN;
+  const consDiff = Math.abs(entry - conservativeStop);
+  const validInputs = portfolio > 0 && riskAmount > 0 && consDiff > 0 && (!hasBase || baseDiff > 0);
+
+  let body = '';
+  let flag = '';
+
+  if(!validInputs){
+    const missing = [];
+    if(!(portfolio > 0)) missing.push('portfolio value');
+    if(!(riskAmount > 0)) missing.push('risk %');
+    if(!(consDiff > 0) || (hasBase && !(baseDiff > 0))) missing.push('a valid stop');
+    body = `<div class="empty-note">Still need: ${missing.join(', ')}.</div>`;
+  } else {
+    body += ticketMetric('Risk Amount', formatUSDT(riskAmount));
+
+    if(hasBase){
+      const baseSD = (baseDiff / entry) * 100;
+      const consSD = (consDiff / entry) * 100;
+      const baseQty = riskAmount / baseDiff;
+      const consQty = riskAmount / consDiff;
+      const basePos = baseQty * entry;
+      const consPos = consQty * entry;
+      const basePct = (basePos / portfolio) * 100;
+      const consPct = (consPos / portfolio) * 100;
+      const baseLev = basePos / portfolio;
+      const consLev = consPos / portfolio;
+
+      body += ticketMetricDual('Stop Distance', 'SD1', baseSD.toFixed(2) + '%', 'SD2', consSD.toFixed(2) + '%');
+      body += ticketMetricDual('Quantity', 'Q1', formatQty(baseQty) + ' ' + symbol, 'Q2', formatQty(consQty) + ' ' + symbol, true, isShort);
+      body += ticketMetricDual('Position Size', 'P1', formatUSDT(basePos), 'P2', formatUSDT(consPos), true, isShort);
+      body += ticketMetricDual('% of Portfolio', 'P1', basePct.toFixed(1) + '%', 'P2', consPct.toFixed(1) + '%', false, false, basePct > 100 || consPct > 100);
+
+      const flagLines = [];
+      if(baseLev > 1.02) flagLines.push(`Stop 1 (Kijun) needs about ${baseLev.toFixed(2)}× leverage/margin.`);
+      if(consLev > 1.02) flagLines.push(`Stop 2 (Cloud) needs about ${consLev.toFixed(2)}× leverage/margin.`);
+      if(flagLines.length){
+        flag = `<div class="lev-flag">${flagLines.join(' ')}</div>`;
+      }
+    } else {
+      const consSD = (consDiff / entry) * 100;
+      const consQty = riskAmount / consDiff;
+      const consPos = consQty * entry;
+      const consPct = (consPos / portfolio) * 100;
+      const consLev = consPos / portfolio;
+
+      body += ticketMetric('Stop Distance', consSD.toFixed(2) + '%');
+      body += ticketMetric('Quantity', formatQty(consQty) + ' ' + symbol, true, isShort);
+      body += ticketMetric('Position Size', formatUSDT(consPos), true, isShort);
+      body += ticketMetric('% of Portfolio', consPct.toFixed(1) + '%', false, false, consPct > 100);
+
+      if(consLev > 1.02){
+        flag = `<div class="lev-flag">This position is ${consLev.toFixed(2)}× your portfolio value — you'd need margin/leverage of about ${consLev.toFixed(2)}× to take it as sized.</div>`;
+      }
+    }
+  }
+
+  return `<div class="ticket">
+    <div class="ticket-top">
+      <div class="ticket-label">Trade Ticket</div>
+      <div class="ticket-coin">${symbol} <span class="sym">&middot; ${subtitle}</span></div>
+    </div>
+    <div class="perf"></div>
+    <div class="ticket-bottom">${body}</div>
+    ${flag}
+  </div>`;
+}
+
+function renderTradeSizing(){
+  if(!activeTrade || !activeTrade.plan) return;
+  const portfolio = parseFloat(document.getElementById('planPortfolio').value);
+  const riskPct = parseFloat(document.getElementById('planRisk').value);
+  const {entry, baseStop, conservativeStop, isLong} = activeTrade.plan;
+  const symbol = activeTrade.symbol;
+  const riskAmount = portfolio * riskPct / 100;
+  const subtitle = baseStop !== null ? 'SD1 = Kijun · SD2 = Cloud' : (activeTrade.confirmed ? 'confirmed' : 'setup');
+
+  document.getElementById('tradeSizing').innerHTML =
+    buildTicket(symbol, subtitle, entry, baseStop, conservativeStop, riskAmount, portfolio, isLong);
+}
+
+function persistPortfolioValue(){
+  const value = parseFloat(document.getElementById('planPortfolio').value);
+  if(!Number.isFinite(value) || value <= 0) return;
+  const settings = getStoredTradingSettings();
+  localStorage.setItem(PORTFOLIO_STORAGE_KEY, String(value));
+  localStorage.setItem(TRADING_SETTINGS_KEY, JSON.stringify({
+    portfolioValue: value,
+    tradingExchange: settings.tradingExchange || 'CoinDCX'
+  }));
+}
+
+function closeTradePlan(event){
+  if(event && event.target !== document.getElementById('tradeModal')) return;
+  document.getElementById('tradeModal').classList.remove('open');
+  activeTrade = null;
+}
+
+document.addEventListener('keydown', event => {
+  if(event.key === 'Escape') closeTradePlan();
+});
+
+function sortBy(key){
+  if(sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+  sortAndRender();
+}
+
+function downloadCSV(){
+  if(allResults.length === 0) return;
+  const headers = ['confirmed','symbol','breakout','setup','priceToday','breakoutPrice','cloudTop','cloudBottom','tenkanNow','kijunNow','volToday',
+                    'ckLong','pkLong','ckShort','pkShort'];
+  const lines = [headers.join(',')];
+  getFilteredResults().forEach(r => {
+    lines.push(headers.map(h => r[h]).join(','));
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const timeframeValue = document.getElementById('timeframe').value;
+  const timeframe = timeframeValue === '1w' ? 'weekly' : (timeframeValue === '4h' ? '4hour' : 'daily');
+  a.download = `ichimoku_breakout_screener_${timeframe}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// Lets other pages (e.g. watchlist.html's "Analysis" button) deep-link
+// straight into a coin's analysis via screener.html?symbol=BTCUSDT, without
+// needing a scan to have been run first - searchAndAnalyze() already screens
+// the symbol fresh on demand if it isn't in allResults yet.
+(function initFromQueryParams(){
+  const qp = new URLSearchParams(window.location.search);
+  const symbolParam = qp.get('symbol') || qp.get('analyze');
+  if(!symbolParam) return;
+  coinSearchInput.value = symbolParam.trim().toUpperCase();
+  searchAndAnalyze();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fear &amp; Greed Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(255,84,112,0.06), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(53,224,192,0.07), transparent 35%);
+  }
+  .wrap{max-width:720px;margin:0 auto;}
+
+  /* ---- Top header ---- */
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--violet);box-shadow:0 0 8px var(--violet);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .refresh-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--violet);color:var(--violet);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 16px;max-width:640px;}
+
+
+  /* ---- Gauge card ---- */
+  .gauge-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:16px;
+    padding:24px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:6px;
+    margin-bottom:16px;
+  }
+  .gauge-svg{width:100%;max-width:320px;height:auto;}
+  .gauge-value{font:800 44px var(--font-display);letter-spacing:-.02em;margin-top:-8px;}
+  .gauge-label{
+    font:700 13px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;
+    padding:4px 14px;border-radius:20px;margin-bottom:4px;
+  }
+  .gauge-source{font:10.5px var(--font-mono);color:var(--faint);margin-top:2px;}
+
+  /* ---- Comparison chips ---- */
+  .compare-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .compare-chip{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:12px 10px;text-align:center;display:flex;flex-direction:column;gap:4px;
+  }
+  .compare-chip-label{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;}
+  .compare-chip-value{font:700 18px var(--font-mono);}
+  .compare-chip-class{font:10.5px var(--font-mono);color:var(--muted);}
+
+  /* ---- History chart card ---- */
+  .history-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:16px 18px;margin-bottom:14px;
+  }
+  .history-title{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+  .history-chart{width:100%;height:90px;display:block;}
+  .history-axis{display:flex;justify-content:space-between;font:10.5px var(--font-mono);color:var(--faint);margin-top:4px;}
+
+  /* ---- Zone legend ---- */
+  .zone-legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+  .zone-pill{display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--muted);}
+  .zone-pill .dot{width:7px;height:7px;border-radius:50%;}
+
+  /* ---- Disclaimer / about panel ---- */
+  .notice{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin:22px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);
+  }
+  .notice b{color:var(--text);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{
+    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 13px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, color .15s, border-color .15s;
+  }
+  .notice-toggle:hover{border-color:var(--violet);color:var(--violet);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{
+    display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
+  }
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--violet);}
+
+  .page-skeleton{display:flex;flex-direction:column;gap:14px;}
+  .skel-card{border-radius:14px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 37%,var(--panel) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  .error-state{
+    padding:34px 20px;text-align:center;color:#ffb3c1;font:12.5px var(--font-mono);
+    border:1px dashed rgba(255,84,112,.3);border-radius:12px;line-height:1.7;
+  }
+  .retry-btn{
+    margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:8px 16px;border-radius:8px;font:600 12px var(--font-mono);cursor:pointer;
+  }
+  .retry-btn:hover{border-color:var(--violet);color:var(--violet);}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Fear &amp; Greed Index</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="sub">Low = fear (capitulation), high = greed (overheating).</p>
+
+  <div id="content"></div>
+
+  <div class="zone-legend">
+    <span class="zone-pill"><span class="dot" style="background:#FF5470"></span>0–24 Extreme Fear</span>
+    <span class="zone-pill"><span class="dot" style="background:#FF8A4C"></span>25–44 Fear</span>
+    <span class="zone-pill"><span class="dot" style="background:#F5A623"></span>45–55 Neutral</span>
+    <span class="zone-pill"><span class="dot" style="background:#8ee6b0"></span>56–75 Greed</span>
+    <span class="zone-pill"><span class="dot" style="background:#35E0C0"></span>76–100 Extreme Greed</span>
+  </div>
+
+  <div class="notice">
+    <div class="notice-summary">
+      <b>Reference data only, not a trading venue.</b>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+    </div>
+    <div class="notice-details" id="noticeDetails" hidden>
+      The Fear &amp; Greed Index is a sentiment snapshot, not a price signal - historically both extremes have preceded moves in either direction. This page doesn't place trades or hold positions. Not financial advice.
+      <div class="src-tags">
+        <span class="src-tag"><span class="dot"></span>Source · Alternative.me (the same feed CoinGecko surfaces)</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------------- Config ----------------
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // refresh on open + every 15 minutes
+const PROXY_TIMEOUT_MS = 8000;
+const CACHE_KEY = 'crypto-fear-greed-cache-v1';
+const HISTORY_DAYS = 30;
+
+// Same personal Cloudflare Worker used by the other pages in this app, as a
+// CORS passthrough fallback. Alternative.me is normally directly fetchable
+// (CORS-open), so this chain mainly covers the case where a direct fetch
+// is blocked by the network Claude/the browser is running on.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+async function fetchJSONDirect(url){
+  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+async function fetchJSONViaProxyChain(url){
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker HTTP ' + res.status);
+      return await res.json();
+    }catch(err){
+      console.warn('[proxy] worker failed:', err && err.message);
+    }
+  }
+  return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
+    const res = await fetchWithTimeout(buildProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('proxy HTTP ' + res.status);
+    return await res.json();
+  })()));
+}
+async function fetchJSON(url){
+  try{
+    return await fetchJSONDirect(url);
+  }catch(err){
+    return await fetchJSONViaProxyChain(url);
+  }
+}
+
+// ---------------- Sentiment helpers ----------------
+function classify(value){
+  if(value <= 24) return 'Extreme Fear';
+  if(value <= 44) return 'Fear';
+  if(value <= 55) return 'Neutral';
+  if(value <= 75) return 'Greed';
+  return 'Extreme Greed';
+}
+function zoneColor(value){
+  if(value <= 24) return '#FF5470';
+  if(value <= 44) return '#FF8A4C';
+  if(value <= 55) return '#F5A623';
+  if(value <= 75) return '#8ee6b0';
+  return '#35E0C0';
+}
+
+// ---------------- Data fetch: Alternative.me (single source) ----------------
+// The long-standing free, keyless, CORS-open crypto Fear & Greed feed - it's
+// the same underlying data CoinGecko itself links to/displays, since
+// CoinGecko doesn't compute its own version of this index.
+async function fetchAltMe(limit){
+  const data = await fetchJSON(`https://api.alternative.me/fng/?limit=${limit}&format=json`);
+  const rows = data && Array.isArray(data.data) ? data.data : null;
+  if(!rows || !rows.length) throw new Error('Unexpected Alternative.me response shape');
+  return rows.map(row => ({
+    value: parseInt(row.value, 10),
+    classification: row.value_classification,
+    timestamp: row.timestamp ? new Date(parseInt(row.timestamp, 10) * 1000) : null
+  })); // already newest-first
+}
+
+// ---------------- Unified load ----------------
+async function loadFearGreedData(){
+  const history = await fetchAltMe(HISTORY_DAYS); // throws if unreachable - caller handles
+  return { source: 'Alternative.me', latest: history[0], history };
+}
+
+// ---------------- Rendering ----------------
+function buildGaugeSVG(value){
+  const cx = 150, cy = 150, r = 118;
+  const angleForValue = v => 180 - (v/100*180);
+  const pointAt = (deg, radius) => {
+    const rad = deg * Math.PI / 180;
+    return { x: cx + radius*Math.cos(rad), y: cy - radius*Math.sin(rad) };
+  };
+  const segBounds = [0,20,40,60,80,100];
+  const segColors = ['#FF5470','#FF8A4C','#F5A623','#8ee6b0','#35E0C0'];
+  let arcs = '';
+  for(let i=0;i<5;i++){
+    const a1 = angleForValue(segBounds[i]);
+    const a2 = angleForValue(segBounds[i+1]);
+    const p1 = pointAt(a1, r);
+    const p2 = pointAt(a2, r);
+    arcs += `<path d="M${p1.x.toFixed(1)},${p1.y.toFixed(1)} A${r},${r} 0 0,1 ${p2.x.toFixed(1)},${p2.y.toFixed(1)}" fill="none" stroke="${segColors[i]}" stroke-width="20" stroke-linecap="butt"/>`;
+  }
+  const needleAngle = angleForValue(Math.max(0, Math.min(100, value)));
+  const tip = pointAt(needleAngle, r - 30);
+  const tail = pointAt(needleAngle + 180, 14);
+
+  return `<svg class="gauge-svg" viewBox="0 30 300 145" aria-hidden="true">
+    ${arcs}
+    <line x1="${tail.x.toFixed(1)}" y1="${tail.y.toFixed(1)}" x2="${tip.x.toFixed(1)}" y2="${tip.y.toFixed(1)}" stroke="#E6E9EF" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="9" fill="#E6E9EF"/>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="${zoneColor(value)}"/>
+  </svg>`;
+}
+
+function buildHistoryChart(history){
+  // history is newest-first; chart reads left(old) to right(new)
+  const points = [...history].reverse().map(h => h.value).filter(v => isFinite(v));
+  if(points.length < 2) return '';
+  const w = 600, h = 90, padY = 8;
+  const stepX = w / (points.length - 1);
+  const pts = points.map((v,i) => {
+    const x = i*stepX;
+    const y = padY + (1 - v/100) * (h - 2*padY);
+    return [x.toFixed(1), y.toFixed(1)];
+  });
+  const lineD = 'M' + pts.map(p => p.join(',')).join(' L');
+  const areaD = lineD + ` L${w},${h} L0,${h} Z`;
+  const last = points[points.length - 1];
+  const stroke = zoneColor(last);
+  return `<svg class="history-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="histArea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${stroke}" stop-opacity=".3"/>
+      <stop offset="100%" stop-color="${stroke}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${areaD}" fill="url(#histArea)"/>
+    <path d="${lineD}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+function findByOffset(history, daysAgo){
+  // history is newest-first, index 0 = today (roughly)
+  return history[daysAgo] || null;
+}
+
+function renderAll(result){
+  const { source, latest, history } = result;
+  const value = Math.round(latest.value);
+  const label = latest.classification || classify(value);
+  const color = zoneColor(value);
+
+  const yesterday = findByOffset(history, 1);
+  const lastWeek = findByOffset(history, 7);
+  const lastMonth = findByOffset(history, 29);
+
+  const compareChip = (label, point) => `
+    <div class="compare-chip">
+      <span class="compare-chip-label">${label}</span>
+      <span class="compare-chip-value" style="color:${point ? zoneColor(Math.round(point.value)) : 'var(--faint)'}">${point ? Math.round(point.value) : '—'}</span>
+      <span class="compare-chip-class">${point ? (point.classification || classify(Math.round(point.value))) : 'No data'}</span>
+    </div>`;
+
+  const historyChart = buildHistoryChart(history);
+  const oldestLabel = history.length ? (history[history.length-1].timestamp ? history[history.length-1].timestamp.toLocaleDateString(undefined,{month:'short',day:'numeric'}) : `${history.length}d ago`) : '';
+  const newestLabel = history.length && history[0].timestamp ? history[0].timestamp.toLocaleDateString(undefined,{month:'short',day:'numeric'}) : 'Today';
+
+  document.getElementById('content').innerHTML = `
+    <div class="gauge-card">
+      ${buildGaugeSVG(value)}
+      <div class="gauge-value" style="color:${color}">${value}</div>
+      <div class="gauge-label" style="color:${color};background:${color}22;border:1px solid ${color}55">${label}</div>
+      <div class="gauge-source">Source: ${source}${latest.timestamp ? ' · ' + latest.timestamp.toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : ''}</div>
+    </div>
+
+    <div class="compare-row">
+      ${compareChip('Yesterday', yesterday)}
+      ${compareChip('Last week', lastWeek)}
+      ${compareChip('Last month', lastMonth)}
+    </div>
+
+    ${historyChart ? `
+    <div class="history-card">
+      <div class="history-title">${history.length}-day trend</div>
+      ${historyChart}
+      <div class="history-axis"><span>${oldestLabel}</span><span>${newestLabel}</span></div>
+    </div>` : ''}`;
+}
+
+function renderSkeleton(){
+  document.getElementById('content').innerHTML = `
+    <div class="page-skeleton">
+      <div class="skel-card" style="height:280px;"></div>
+      <div class="skel-card" style="height:80px;"></div>
+      <div class="skel-card" style="height:130px;"></div>
+    </div>`;
+}
+
+function updateLastUpdatedLabel(failed){
+  const el = document.getElementById('updatedLabel');
+  el.classList.toggle('label-error', !!failed);
+  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed - see console' : ''; return; }
+  const mins = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 60000));
+  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  el.textContent = (failed ? 'Refresh failed, showing cached · ' : 'Updated ') + ago;
+}
+
+// ---------------- Cache (stale-while-revalidate, same pattern as the other pages) ----------------
+let lastResult = null;
+let lastUpdated = null;
+
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ lastUpdated: lastUpdated ? lastUpdated.toISOString() : null, result: lastResult }));
+  }catch(err){ /* storage unavailable - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.result) return false;
+    // revive Date fields lost to JSON
+    cached.result.latest.timestamp = cached.result.latest.timestamp ? new Date(cached.result.latest.timestamp) : null;
+    cached.result.history = (cached.result.history || []).map(h => ({ ...h, timestamp: h.timestamp ? new Date(h.timestamp) : null }));
+    lastResult = cached.result;
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+
+// ---------------- Main load ----------------
+async function loadAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  if(lastResult){
+    renderAll(lastResult);
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  try{
+    const result = await loadFearGreedData();
+    lastResult = result;
+    lastUpdated = new Date();
+    saveCache();
+    renderAll(result);
+    updateLastUpdatedLabel(false);
+  }catch(err){
+    console.warn('[fear-greed] Alternative.me failed:', err && err.message);
+    updateLastUpdatedLabel(true);
+    if(!lastResult){
+      document.getElementById('content').innerHTML = `
+        <div class="error-state">
+          Couldn't load the Fear &amp; Greed Index right now (api.alternative.me was unreachable).<br>
+          If you have a Cloudflare Worker configured for this app, make sure api.alternative.me
+          is allowed through it. Check the console for details.
+          <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+        </div>`;
+      document.getElementById('retryBtn').addEventListener('click', loadAll);
+    }
+  }
+
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+document.getElementById('noticeToggle').addEventListener('click', () => {
+  const btn = document.getElementById('noticeToggle');
+  const details = document.getElementById('noticeDetails');
+  const willOpen = details.hidden;
+  details.hidden = !willOpen;
+  btn.classList.toggle('open', willOpen);
+  btn.setAttribute('aria-expanded', String(willOpen));
+});
+
+loadCache();
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL_MS);
+setInterval(() => updateLastUpdatedLabel(false), 60000);
+</script>
+</body>
+</html>

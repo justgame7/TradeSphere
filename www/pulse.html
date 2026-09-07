@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whale & Social Pulse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(53,224,192,0.07), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(167,139,250,0.06), transparent 35%),
+      radial-gradient(circle at 50% 100%, rgba(91,140,255,0.05), transparent 45%);
+  }
+  .wrap{max-width:900px;margin:0 auto;}
+  a{color:inherit;}
+
+  /* ---- Top header (shared pattern) ---- */
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .icon-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    height:32px;padding:0 10px;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;
+    font:600 10.5px var(--font-mono);
+  }
+  .icon-btn.square{width:32px;padding:0;}
+  .icon-btn:hover{border-color:var(--blue);color:var(--blue);}
+  .icon-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .icon-btn.spinning svg{transform:rotate(360deg);}
+  .icon-btn.flipped svg{transform:rotate(180deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 14px;max-width:760px;text-align:center;margin-left:auto;margin-right:auto;}
+  .page-footer{margin-top:4px;}
+
+  /* ---- Section shell (collapsible groups) ---- */
+  .section{margin-bottom:20px;border-radius:16px;background:var(--panel);border:1px solid var(--border);overflow:hidden;}
+  .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;cursor:pointer;user-select:none;}
+  .section-title{font-size:14.5px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px;min-width:0;}
+  .section-title .si{width:30px;height:30px;border-radius:9px;flex-shrink:0;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.28);}
+  .section-title .st-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
+  .section-title .st-text b{font-size:14px;}
+  .section-title .st-text small{font:500 10.5px var(--font-mono);color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .section-toggle-btn{background:transparent;border:none;color:var(--muted);padding:0;margin:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:6px;cursor:pointer;}
+  .section-toggle-btn:hover{color:var(--text);background:var(--panel2);}
+  .section-toggle-btn svg{width:15px;height:15px;transition:transform .2s ease;}
+  .section.collapsed .section-toggle-btn svg{transform:rotate(-90deg);}
+  .section-body{padding:0 16px 16px;}
+  .section.collapsed .section-body{display:none;}
+  .section-note-inline{font-size:11px;color:var(--faint);padding:0 2px 10px;line-height:1.55;}
+
+  /* ---- Compact expandable info row (in-section) ---- */
+  .inline-info{margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft);}
+  .inline-info-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;font:600 11px var(--font-mono);color:var(--muted);}
+  .inline-info-details{margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6;}
+  .inline-info-details[hidden]{display:none;}
+
+  .skel-block{border-radius:13px;height:64px;background:linear-gradient(90deg,var(--panel2) 25%,var(--panel) 37%,var(--panel2) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;margin-bottom:8px;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  /* ---- Status pill ---- */
+  .status-pill{display:inline-flex;align-items:center;gap:6px;font:600 10px var(--font-mono);padding:3px 9px;border-radius:20px;margin:0 0 10px;}
+  .status-pill.live{color:var(--accent);background:rgba(53,224,192,.08);}
+  .status-pill.offline{color:var(--faint);background:rgba(139,147,163,.07);}
+  .status-pill.warn{color:var(--amber);background:rgba(245,166,35,.08);}
+  .status-pill .dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+  /* ---- Chain selector chips ---- */
+  .chain-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .chain-chip{display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);cursor:pointer;user-select:none;transition:border-color .15s,color .15s,background .15s;}
+  .chain-chip .sw{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5;}
+  .chain-chip.active{color:var(--text);border-color:var(--accent-dim);background:rgba(53,224,192,.08);}
+  .chain-chip.active .sw{background:var(--accent);opacity:1;box-shadow:0 0 6px var(--accent);}
+  .chain-chip:hover{border-color:var(--blue);}
+
+  /* ---- Non-EVM custom address panel (BTC / SOL) ---- */
+  .addr-panel{padding:12px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;}
+  .addr-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+  .addr-panel-title{font:700 11px var(--font-mono);color:var(--text);text-transform:uppercase;letter-spacing:.04em;}
+  .addr-panel-note{font-size:11px;color:var(--muted);line-height:1.55;margin-bottom:8px;}
+  .addr-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
+  .addr-row{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;}
+  .addr-row .addr-label{font:600 10.5px var(--font-mono);color:var(--text);flex-shrink:0;min-width:64px;}
+  .addr-row .addr-val{font:10.5px var(--font-mono);color:var(--faint);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .addr-row .addr-remove{background:transparent;border:none;color:var(--faint);cursor:pointer;font:700 13px var(--font-mono);padding:0 4px;flex-shrink:0;}
+  .addr-row .addr-remove:hover{color:var(--red);}
+  .addr-add-row{display:flex;gap:6px;flex-wrap:wrap;}
+  .addr-add-row input{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 9px;font:11.5px var(--font-mono);}
+  .addr-add-row input.addr-label-input{width:90px;flex-shrink:0;}
+  .addr-add-row input.addr-val-input{flex:1;min-width:160px;}
+  .addr-add-row input:focus{outline:none;border-color:var(--accent);}
+  .addr-add-row button{background:var(--accent);color:#06110E;border:none;border-radius:8px;padding:7px 12px;font:700 10.5px var(--font-display);cursor:pointer;}
+  .addr-add-row button:hover{filter:brightness(1.08);}
+  .addr-empty{font:10.5px var(--font-mono);color:var(--faint);padding:2px 0 6px;}
+
+  /* ---- Key setup (Etherscan) ---- */
+  .key-setup{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;}
+  .key-setup input{flex:1;min-width:170px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font:12px var(--font-mono);}
+  .key-setup input:focus{outline:none;border-color:var(--accent);}
+  .key-setup button{background:var(--accent);color:#06110E;border:none;border-radius:8px;padding:8px 14px;font:700 11px var(--font-display);cursor:pointer;white-space:nowrap;}
+  .key-setup button:hover{filter:brightness(1.08);}
+  .key-setup .key-clear{background:transparent;border:1px solid var(--border);color:var(--muted);}
+  .key-setup .key-note{width:100%;font-size:11px;color:var(--muted);line-height:1.55;}
+  .key-setup .key-note a{color:var(--blue);text-decoration:none;}
+  .key-setup .key-note a:hover{text-decoration:underline;}
+
+  /* ---- Feed list (whale transfers) ---- */
+  .feed-list{padding:2px 0;}
+  .feed-row{display:flex;gap:11px;align-items:flex-start;padding:11px 2px;border-bottom:1px solid var(--border-soft);}
+  .feed-row:last-child{border-bottom:none;}
+  .feed-icon{width:32px;height:32px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.28);}
+  .feed-main{flex:1;min-width:0;}
+  .feed-top-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
+  .flow-badge{font:700 9.5px var(--font-mono);letter-spacing:.03em;padding:2px 7px;border-radius:5px;white-space:nowrap;}
+  .flow-badge.in{color:var(--red);background:rgba(255,84,112,.1);}
+  .flow-badge.out{color:var(--accent);background:rgba(53,224,192,.1);}
+  .flow-badge.x2x{color:var(--amber);background:rgba(245,166,35,.1);}
+  .feed-amount{font-size:13.5px;font-weight:700;}
+  .feed-usd{font:600 11px var(--font-mono);color:var(--muted);}
+  .feed-meta{font:10px var(--font-mono);color:var(--faint);display:flex;gap:9px;flex-wrap:wrap;margin-top:4px;}
+  .feed-meta a{color:var(--faint);text-decoration:none;}
+  .feed-meta a:hover{color:var(--blue);}
+  .feed-empty,.feed-error{font:11.5px var(--font-mono);color:var(--faint);padding:14px 2px;text-align:center;}
+  .feed-chain-tag{font:600 9px var(--font-mono);color:var(--faint);padding:2px 6px;border:1px solid var(--border);border-radius:5px;text-transform:uppercase;letter-spacing:.03em;}
+
+  /* ---- Social accounts (fallback grid) ---- */
+  .social-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  @media(min-width:600px){ .social-grid{grid-template-columns:repeat(3,1fr);} }
+  .social-chip{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:9px 10px;text-decoration:none;color:inherit;transition:border-color .15s, transform .15s;min-width:0;}
+  .social-chip:hover{border-color:var(--blue);transform:translateY(-1px);}
+  .social-avatar{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;}
+  .social-name-wrap{min-width:0;}
+  .social-name{font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .social-handle{font:9.5px var(--font-mono);color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .social-role{font:8px var(--font-mono);color:var(--violet);text-transform:uppercase;letter-spacing:.04em;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* ---- Social post list (live mode) ---- */
+  .post-row{padding:10px 2px;border-bottom:1px solid var(--border-soft);}
+  .post-row:last-child{border-bottom:none;}
+  .post-author-row{display:flex;align-items:center;gap:7px;margin-bottom:3px;flex-wrap:wrap;}
+  .post-author{font-size:12.5px;font-weight:700;}
+  .post-handle{font:10px var(--font-mono);color:var(--faint);}
+  .post-text{font-size:12.5px;color:var(--text);line-height:1.5;word-break:break-word;}
+  .post-time{font:9.5px var(--font-mono);color:var(--faint);margin-top:4px;}
+  .post-row a.post-link{text-decoration:none;color:inherit;}
+
+  /* ---- Disclaimer / about panel ---- */
+  .notice{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:22px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);}
+  .notice b{color:var(--text);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);font:700 13px var(--font-mono);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s, color .15s, border-color .15s;}
+  .notice-toggle:hover{border-color:var(--blue);color:var(--blue);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);}
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--blue);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Whale & Social Pulse</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="icon-btn square" id="toggleAllBtn" type="button" aria-label="Collapse all" title="Collapse all">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 8 12 3 17 8"/><polyline points="7 21 12 16 17 21"/></svg>
+      </button>
+      <button class="icon-btn square" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="sub">Large exchange flows and key crypto accounts to watch — one glance at what the market is doing and saying right now.</p>
+
+  <!-- 1. Whale transfers -->
+  <div class="section" id="sec-whale">
+    <div class="section-head" data-toggle="sec-whale">
+      <div class="section-title">
+        <span class="si" style="background:linear-gradient(135deg,#5B8CFF,#2b4fb0)">🐋</span>
+        <span class="st-text"><b>Whale Transfers</b><small id="whaleSubtitle">Large exchange inflow / outflow · Multi-chain</small></span>
+      </div>
+      <button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+    </div>
+    <div class="section-body">
+      <div class="chain-chip-row" id="chainChipRow"></div>
+      <div id="whaleKeySetup"></div>
+      <div id="nonEvmAddrPanel"></div>
+      <div class="feed-list" id="whaleFeed"></div>
+      <div class="inline-info">
+        <div class="inline-info-summary">
+          <span>How this works</span>
+          <button class="notice-toggle" id="whaleInfoToggle" type="button" aria-expanded="false" aria-controls="whaleInfoDetails" aria-label="Show more details">+</button>
+        </div>
+        <div class="inline-info-details" id="whaleInfoDetails" hidden>Tracks large native / stablecoin moves in or out of a curated set of known exchange wallets per chain (threshold ≈ $250K). Inflow to an exchange is often a sell signal; outflow to cold storage is often accumulation. Wallet lists are a small, best-effort sample — not exhaustive, and easy to get subtly wrong, especially for Bitcoin & Solana. Verify any address you rely on and add your own via the panel above.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. X / Twitter crypto pulse -->
+  <div class="section" id="sec-social">
+    <div class="section-head" data-toggle="sec-social">
+      <div class="section-title">
+        <span class="si" style="background:linear-gradient(135deg,#A78BFA,#6d28d9)">🐦</span>
+        <span class="st-text"><b>Crypto X Pulse</b><small>Whales, exchange founders & VCs to watch</small></span>
+      </div>
+      <button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+    </div>
+    <div class="section-body">
+      <div id="socialStatus"></div>
+      <div id="socialFeed"></div>
+    </div>
+  </div>
+
+  <div class="notice">
+    <div class="notice-summary">
+      <b>Public feeds, best-effort reliability — not a trading venue.</b>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+    </div>
+    <div class="notice-details" id="noticeDetails" hidden>
+      Whale transfers come from three places depending on the chain: Etherscan V2 for Ethereum, BNB Chain, Polygon, Arbitrum & Base (requires your own free Etherscan API key — one key covers all of these); mempool.space for Bitcoin (no key); and Solana's public RPC for Solana (no key). The EOA exchange wallet list is reused across all EVM chains since those addresses aren't chain-specific; Bitcoin and Solana each have their own small, editable, best-effort address list — not comprehensive, and worth double-checking yourself before relying on it. The X/Twitter feed no longer uses Nitter-style mirrors — those were shut down for good after a cease-and-desist from X Corp in August 2026 (the project's own repository was archived days later). It now pulls from X's own public syndication/embed feed instead, the free JSON endpoint that normally powers "Embedded Timelines" on other websites. That feed isn't officially documented for this kind of use and X throttles or empties it for unauthenticated requests on and off, so treat it as best-effort — when it comes back empty, this section falls back to direct profile links instead of failing silently. This page doesn't place trades or hold positions. Nothing here is financial advice.
+      <div class="src-tags">
+        <span class="src-tag"><span class="dot"></span>Etherscan V2 API (EVM chains)</span>
+        <span class="src-tag"><span class="dot"></span>mempool.space (Bitcoin)</span>
+        <span class="src-tag"><span class="dot"></span>Solana public RPC</span>
+        <span class="src-tag"><span class="dot"></span>X syndication feed (best-effort)</span>
+        <span class="src-tag"><span class="dot"></span>CoinGecko (USD pricing)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer"></div>
+
+</div>
+
+<script>
+// ================= Config =================
+const REFRESH_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
+const PROXY_TIMEOUT_MS = 8000;
+const CACHE_KEY = 'tradesphere-pulse-cache-v1';
+const ETHERSCAN_KEY_STORAGE = 'ts-etherscan-key';
+const WHALE_USD_THRESHOLD = 250000;
+
+// Same personal Cloudflare Worker used across the other TradeSphere pages,
+// for CORS passthrough + a small edge cache.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){ return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`; }
+async function fetchWithTimeout(url, ms, opts){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, Object.assign({ cache: 'no-store', signal: controller.signal }, opts||{}));
+  }finally{
+    clearTimeout(timer);
+  }
+}
+async function fetchJSONDirect(url, ms){
+  const res = await fetchWithTimeout(url, ms || PROXY_TIMEOUT_MS);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+async function fetchCoinGeckoPrices(ids){
+  const idsParam = (ids && ids.length ? ids : ['ethereum', 'bitcoin']).join(',');
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${idsParam}&vs_currencies=usd`;
+  try{
+    const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('worker responded ' + res.status);
+    return res.json();
+  }catch(err){
+    return fetchJSONDirect(url);
+  }
+}
+
+// ================= Helpers =================
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtNum(n, decimals){
+  if(n == null || isNaN(n)) return '—';
+  return Number(n).toLocaleString(undefined, { maximumFractionDigits: decimals != null ? decimals : 2 });
+}
+function fmtCompactUsd(n){
+  if(n == null || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  if(abs >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if(abs >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  if(abs >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+  return '$' + n.toFixed(0);
+}
+function agoFromSeconds(unixSeconds){
+  const secs = Math.max(0, Math.round(Date.now()/1000 - unixSeconds));
+  if(secs < 60) return secs + 's ago';
+  const mins = Math.round(secs/60);
+  if(mins < 60) return mins + 'm ago';
+  const hrs = Math.round(mins/60);
+  if(hrs < 24) return hrs + 'h ago';
+  const days = Math.round(hrs/24);
+  return days + 'd ago';
+}
+function shortAddr(a){ return a ? (a.slice(0,6) + '…' + a.slice(-4)) : '—'; }
+
+// ================= State =================
+let whaleEvents = [];
+let socialPosts = [];
+let socialMode = 'unknown'; // 'live' | 'offline'
+let lastUpdated = null;
+let whaleStatus = 'idle'; // idle | nokey | loading | ok | error
+
+// ================= Whale transfers (multi-chain) =================
+const CHAIN_SELECTION_STORAGE = 'ts-whale-chains';
+const BTC_ADDR_STORAGE = 'ts-whale-btc-addrs';
+const SOL_ADDR_STORAGE = 'ts-whale-sol-addrs';
+const MEMPOOL_API = 'https://mempool.space/api';
+const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
+
+// EOA hot/deposit wallets. These are plain externally-owned accounts, so the
+// SAME address is valid on every EVM chain (it's derived from a private key,
+// not deployed per-chain like a contract) — one list covers Ethereum, BSC,
+// Polygon, Arbitrum, Base, etc.
+const EXCHANGE_WALLETS = [
+  { label: 'Binance', addr: '0xf977814e90da44bfa03b6295a0616a897441acec' },
+  { label: 'Binance', addr: '0x3f5ce5fbfe3e9af3971dd833d26ba9b5c936f0be' },
+  { label: 'Binance', addr: '0xa180fe01b906a1be37be6c534a3300785b20d947' },
+  { label: 'Coinbase', addr: '0x71660c4005ba85c37ccec55d0c4493e66fe775d3' },
+  { label: 'Kraken', addr: '0xe9f7ecae3a53d2a67105292894676b00d1fab785' },
+];
+const EXCHANGE_MAP = {};
+EXCHANGE_WALLETS.forEach(w => { EXCHANGE_MAP[w.addr.toLowerCase()] = w.label; });
+
+// Etherscan V2 unifies all EVM chains behind one API key via `chainid`.
+// Token contract addresses are NOT shared across chains (those are real
+// per-chain deployments), so each chain gets its own small token map.
+const EVM_CHAINS = [
+  {
+    id: 'eth', chainId: 1, label: 'Ethereum', nativeSymbol: 'ETH', priceId: 'ethereum',
+    explorer: 'https://etherscan.io/tx/',
+    tokens: {
+      '0xdac17f958d2ee523a2206206994597c13d831ec7': { symbol: 'USDT', stable: true },
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': { symbol: 'USDC', stable: true },
+      '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599': { symbol: 'WBTC', stable: false, priceRef: 'bitcoin' },
+    },
+  },
+  {
+    id: 'bsc', chainId: 56, label: 'BNB Chain', nativeSymbol: 'BNB', priceId: 'binancecoin',
+    explorer: 'https://bscscan.com/tx/',
+    tokens: {
+      '0x55d398326f99059ff775485246999027b3197955': { symbol: 'USDT', stable: true },
+      '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d': { symbol: 'USDC', stable: true },
+    },
+  },
+  {
+    id: 'polygon', chainId: 137, label: 'Polygon', nativeSymbol: 'POL', priceId: 'matic-network',
+    explorer: 'https://polygonscan.com/tx/',
+    tokens: {
+      '0xc2132d05d31c914a87c6611c10748aeb04b58e8d': { symbol: 'USDT', stable: true },
+      '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359': { symbol: 'USDC', stable: true },
+    },
+  },
+  {
+    id: 'arbitrum', chainId: 42161, label: 'Arbitrum', nativeSymbol: 'ETH', priceId: 'ethereum',
+    explorer: 'https://arbiscan.io/tx/',
+    tokens: {
+      '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': { symbol: 'USDT', stable: true },
+      '0xaf88d065e77c8cc2239327c5edb3a432268e5831': { symbol: 'USDC', stable: true },
+    },
+  },
+  {
+    id: 'base', chainId: 8453, label: 'Base', nativeSymbol: 'ETH', priceId: 'ethereum',
+    explorer: 'https://basescan.org/tx/',
+    tokens: {
+      '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': { symbol: 'USDC', stable: true },
+    },
+  },
+];
+const EVM_CHAINS_BY_ID = {};
+EVM_CHAINS.forEach(c => { EVM_CHAINS_BY_ID[c.id] = c; });
+
+const NON_EVM_CHAINS = [
+  { id: 'btc', label: 'Bitcoin' },
+  { id: 'sol', label: 'Solana' },
+];
+const ALL_CHIPS = [...EVM_CHAINS.map(c => ({ id: c.id, label: c.label })), ...NON_EVM_CHAINS];
+const DEFAULT_CHAIN_SELECTION = ['eth', 'bsc', 'polygon', 'arbitrum', 'base'];
+
+function getEtherscanKey(){ return (localStorage.getItem(ETHERSCAN_KEY_STORAGE) || '').trim(); }
+
+function getChainSelection(){
+  try{
+    const raw = localStorage.getItem(CHAIN_SELECTION_STORAGE);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ /* fall through to default */ }
+  return DEFAULT_CHAIN_SELECTION.slice();
+}
+function saveChainSelection(list){
+  try{ localStorage.setItem(CHAIN_SELECTION_STORAGE, JSON.stringify(list)); }catch(e){ /* storage unavailable */ }
+}
+
+// ---- Curated, editable, non-EVM address books (BTC has no account model
+// shared with EVM, and Solana wallets are a different curve entirely, so
+// both need their own address lists — kept editable in-page since these are
+// easy to get subtly wrong and go stale). ----
+function getBtcAddresses(){
+  try{
+    const raw = localStorage.getItem(BTC_ADDR_STORAGE);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ /* fall through to default */ }
+  return [
+    { label: 'Binance', addr: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo' },
+    { label: 'Bitfinex', addr: '3JZq4atUahhuA9rLhXLMhhTo133J9rF97j' },
+  ];
+}
+function saveBtcAddresses(list){
+  try{ localStorage.setItem(BTC_ADDR_STORAGE, JSON.stringify(list)); }catch(e){ /* storage unavailable */ }
+}
+function getSolAddresses(){
+  try{
+    const raw = localStorage.getItem(SOL_ADDR_STORAGE);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ /* fall through to default */ }
+  return [];
+}
+function saveSolAddresses(list){
+  try{ localStorage.setItem(SOL_ADDR_STORAGE, JSON.stringify(list)); }catch(e){ /* storage unavailable */ }
+}
+
+// ================= EVM (Etherscan V2, one key / all chains) =================
+async function fetchEtherscanList(address, action, key, chainId){
+  const offset = action === 'txlist' ? 20 : 40;
+  const url = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=${action}&address=${address}&page=1&offset=${offset}&sort=desc&apikey=${encodeURIComponent(key)}`;
+  const json = await fetchJSONDirect(url, PROXY_TIMEOUT_MS);
+  if(json.status === '0' && json.message && json.message !== 'No transactions found') {
+    throw new Error(json.result || json.message);
+  }
+  return Array.isArray(json.result) ? json.result : [];
+}
+
+function buildFlowEvent(tx, kind, chainCfg, prices){
+  const from = (tx.from || '').toLowerCase();
+  const to = (tx.to || '').toLowerCase();
+  const fromLabel = EXCHANGE_MAP[from];
+  const toLabel = EXCHANGE_MAP[to];
+  if(!fromLabel && !toLabel) return null;
+
+  let amount, symbol, usd;
+  if(kind === 'native'){
+    amount = Number(tx.value) / 1e18;
+    symbol = chainCfg.nativeSymbol;
+    usd = amount * (prices[chainCfg.priceId] || 0);
+  }else{
+    const info = chainCfg.tokens[(tx.contractAddress || '').toLowerCase()];
+    if(!info) return null;
+    const decimals = Number(tx.tokenDecimal) || 18;
+    amount = Number(tx.value) / Math.pow(10, decimals);
+    symbol = info.symbol;
+    usd = info.stable ? amount : amount * (prices[info.priceRef] || 0);
+  }
+  if(!usd || usd < WHALE_USD_THRESHOLD) return null;
+
+  let flow, flowLabelHtml;
+  if(fromLabel && toLabel){
+    flow = 'x2x';
+    flowLabelHtml = `${escapeHtml(fromLabel)} ⇄ ${escapeHtml(toLabel)}`;
+  }else if(toLabel){
+    flow = 'in';
+    flowLabelHtml = `${shortAddr(tx.from)} → ${escapeHtml(toLabel)}`;
+  }else{
+    flow = 'out';
+    flowLabelHtml = `${escapeHtml(fromLabel)} → ${shortAddr(tx.to)}`;
+  }
+
+  return {
+    chain: chainCfg.id, chainLabel: chainCfg.label,
+    hash: tx.hash, txUrl: chainCfg.explorer + tx.hash,
+    flow, flowLabelHtml,
+    amount, symbol, usd,
+    timeStamp: Number(tx.timeStamp) || 0,
+  };
+}
+
+async function loadEvmChain(chainCfg, key, prices){
+  const out = [];
+  const seen = new Set();
+  // Small batches to stay within Etherscan's free-tier rate limit — this
+  // runs once per selected chain, sequentially, since all chains share the
+  // same key's quota under Etherscan V2.
+  const batchSize = 2;
+  for(let i = 0; i < EXCHANGE_WALLETS.length; i += batchSize){
+    const batch = EXCHANGE_WALLETS.slice(i, i + batchSize);
+    const results = await Promise.allSettled(batch.map(async w => {
+      const [native, tokens] = await Promise.all([
+        fetchEtherscanList(w.addr, 'txlist', key, chainCfg.chainId).catch(() => []),
+        fetchEtherscanList(w.addr, 'tokentx', key, chainCfg.chainId).catch(() => []),
+      ]);
+      return { native, tokens };
+    }));
+    results.forEach(r => {
+      if(r.status !== 'fulfilled') return;
+      r.value.native.forEach(tx => {
+        const ev = buildFlowEvent(tx, 'native', chainCfg, prices);
+        if(ev && !seen.has(ev.hash)){ seen.add(ev.hash); out.push(ev); }
+      });
+      r.value.tokens.forEach(tx => {
+        const ev = buildFlowEvent(tx, 'token', chainCfg, prices);
+        if(ev && !seen.has(ev.hash + ev.symbol)){ seen.add(ev.hash + ev.symbol); out.push(ev); }
+      });
+    });
+    if(i + batchSize < EXCHANGE_WALLETS.length) await new Promise(r => setTimeout(r, 450));
+  }
+  return out;
+}
+
+// ================= Bitcoin (mempool.space, keyless) =================
+async function fetchBtcAddressTxs(addr){
+  const url = `${MEMPOOL_API}/address/${addr}/txs`;
+  try{
+    return await fetchJSONDirect(url, PROXY_TIMEOUT_MS);
+  }catch(directErr){
+    const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('worker HTTP ' + res.status);
+    return res.json();
+  }
+}
+
+function buildBtcEvent(tx, addrMap, btcPrice){
+  // UTXO model: a tx can have many inputs/outputs, so sum only the value
+  // that actually touches a tracked address, then check which side(s) it's on.
+  let inFromTracked = 0, outToTracked = 0, trackedInLabel = null, trackedOutLabel = null;
+  (tx.vin || []).forEach(v => {
+    const a = v.prevout && v.prevout.scriptpubkey_address;
+    if(a && addrMap[a]){ inFromTracked += (v.prevout.value || 0); trackedInLabel = addrMap[a]; }
+  });
+  (tx.vout || []).forEach(v => {
+    const a = v.scriptpubkey_address;
+    if(a && addrMap[a]){ outToTracked += (v.value || 0); trackedOutLabel = addrMap[a]; }
+  });
+  if(!trackedInLabel && !trackedOutLabel) return null;
+
+  const satoshis = trackedInLabel ? inFromTracked : outToTracked;
+  const amount = satoshis / 1e8;
+  const usd = amount * (btcPrice || 0);
+  if(!usd || usd < WHALE_USD_THRESHOLD) return null;
+
+  let flow, flowLabelHtml;
+  if(trackedInLabel && trackedOutLabel){
+    flow = 'x2x';
+    flowLabelHtml = `${escapeHtml(trackedInLabel)} ⇄ ${escapeHtml(trackedOutLabel)}`;
+  }else if(trackedOutLabel){
+    flow = 'in';
+    flowLabelHtml = `Unknown → ${escapeHtml(trackedOutLabel)}`;
+  }else{
+    flow = 'out';
+    flowLabelHtml = `${escapeHtml(trackedInLabel)} → Unknown`;
+  }
+
+  const ts = (tx.status && tx.status.confirmed) ? tx.status.block_time : Math.floor(Date.now() / 1000);
+  return {
+    chain: 'btc', chainLabel: 'Bitcoin',
+    hash: tx.txid, txUrl: `https://mempool.space/tx/${tx.txid}`,
+    flow, flowLabelHtml, amount, symbol: 'BTC', usd, timeStamp: ts,
+  };
+}
+
+async function loadBtcChain(btcPrice){
+  const addresses = getBtcAddresses();
+  if(!addresses.length) return [];
+  const addrMap = {};
+  addresses.forEach(a => { addrMap[a.addr] = a.label; });
+  const out = [];
+  const results = await Promise.allSettled(addresses.map(a => fetchBtcAddressTxs(a.addr)));
+  results.forEach(r => {
+    if(r.status !== 'fulfilled' || !Array.isArray(r.value)) return;
+    r.value.forEach(tx => {
+      const ev = buildBtcEvent(tx, addrMap, btcPrice);
+      if(ev) out.push(ev);
+    });
+  });
+  return out;
+}
+
+// ================= Solana (public RPC, keyless) =================
+async function solanaRpc(method, params){
+  const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params });
+  try{
+    const res = await fetchWithTimeout(SOLANA_RPC, PROXY_TIMEOUT_MS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if(json.error) throw new Error(json.error.message || 'rpc error');
+    return json.result;
+  }catch(directErr){
+    const res = await fetchWithTimeout(buildWorkerProxyUrl(SOLANA_RPC), PROXY_TIMEOUT_MS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    if(!res.ok) throw new Error('worker HTTP ' + res.status);
+    const json = await res.json();
+    if(json.error) throw new Error(json.error.message || 'rpc error');
+    return json.result;
+  }
+}
+
+async function loadSolAddress(entry, solPrice){
+  const out = [];
+  const sigs = await solanaRpc('getSignaturesForAddress', [entry.addr, { limit: 8 }]).catch(() => []);
+  if(!Array.isArray(sigs) || !sigs.length) return out;
+  // Sequential on purpose — gentle on the free public RPC, which is
+  // aggressively rate-limited for anonymous callers.
+  for(const s of sigs){
+    if(s.err) continue;
+    const tx = await solanaRpc('getTransaction', [s.signature, { maxSupportedTransactionVersion: 0 }]).catch(() => null);
+    if(!tx || !tx.meta || !tx.transaction) continue;
+    const keys = (tx.transaction.message.accountKeys || []).map(k => typeof k === 'string' ? k : k.pubkey);
+    const idx = keys.indexOf(entry.addr);
+    if(idx === -1) continue;
+    const pre = tx.meta.preBalances[idx], post = tx.meta.postBalances[idx];
+    const deltaLamports = post - pre;
+    const amount = Math.abs(deltaLamports) / 1e9;
+    const usd = amount * (solPrice || 0);
+    if(!usd || usd < WHALE_USD_THRESHOLD) continue;
+    const flow = deltaLamports > 0 ? 'in' : 'out';
+    const flowLabelHtml = flow === 'in'
+      ? `Unknown → ${escapeHtml(entry.label)}`
+      : `${escapeHtml(entry.label)} → Unknown`;
+    out.push({
+      chain: 'sol', chainLabel: 'Solana',
+      hash: s.signature, txUrl: `https://solscan.io/tx/${s.signature}`,
+      flow, flowLabelHtml, amount, symbol: 'SOL', usd,
+      timeStamp: s.blockTime || Math.floor(Date.now() / 1000),
+    });
+  }
+  return out;
+}
+
+async function loadSolChain(solPrice){
+  const addresses = getSolAddresses();
+  if(!addresses.length) return [];
+  const out = [];
+  for(const a of addresses){
+    const evs = await loadSolAddress(a, solPrice).catch(() => []);
+    out.push(...evs);
+  }
+  return out;
+}
+
+// ================= Orchestration =================
+async function loadWhale(){
+  const key = getEtherscanKey();
+  const chains = getChainSelection();
+  renderWhaleKeySetup(key);
+  renderNonEvmAddrPanel(chains);
+
+  if(!chains.length){
+    whaleStatus = 'noselect';
+    renderWhale();
+    return;
+  }
+
+  const evmChains = EVM_CHAINS.filter(c => chains.includes(c.id));
+  const wantsBtc = chains.includes('btc');
+  const wantsSol = chains.includes('sol');
+
+  if(evmChains.length && !key && !wantsBtc && !wantsSol){
+    whaleStatus = 'nokey';
+    renderWhale();
+    return;
+  }
+
+  whaleStatus = 'loading';
+  if(!whaleEvents.length) renderWhale();
+
+  let anyFailure = false;
+  const collected = [];
+  try{
+    const priceIds = ['ethereum', 'bitcoin', 'solana', 'binancecoin', 'matic-network'];
+    const priceData = await fetchCoinGeckoPrices(priceIds).catch(() => null);
+    const prices = {};
+    priceIds.forEach(id => { prices[id] = (priceData && priceData[id]) ? priceData[id].usd : null; });
+
+    // EVM chains run sequentially — they share one Etherscan key's rate limit.
+    if(key && evmChains.length){
+      for(const c of evmChains){
+        try{
+          collected.push(...(await loadEvmChain(c, key, prices)));
+        }catch(err){
+          anyFailure = true;
+          console.warn('[whale] ' + c.label + ' load failed:', err && err.message);
+        }
+      }
+    }
+
+    // BTC / Solana use separate free providers, so they can run in parallel.
+    const otherJobs = [];
+    if(wantsBtc) otherJobs.push(loadBtcChain(prices.bitcoin));
+    if(wantsSol) otherJobs.push(loadSolChain(prices.solana));
+    if(otherJobs.length){
+      const otherSettled = await Promise.allSettled(otherJobs);
+      otherSettled.forEach(r => {
+        if(r.status === 'fulfilled') collected.push(...r.value);
+        else anyFailure = true;
+      });
+    }
+
+    const seen = new Set();
+    const deduped = collected.filter(ev => {
+      const k = ev.chain + ev.hash + ev.symbol;
+      if(seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+    deduped.sort((a, b) => b.timeStamp - a.timeStamp);
+    whaleEvents = deduped.slice(0, 25);
+    whaleStatus = whaleEvents.length ? 'ok' : (anyFailure ? 'error' : 'ok');
+  }catch(err){
+    console.warn('[whale] load failed:', err && err.message);
+    whaleStatus = whaleEvents.length ? 'ok' : 'error';
+  }
+  renderWhale();
+}
+
+function renderWhaleKeySetup(key){
+  const el = document.getElementById('whaleKeySetup');
+  if(key){
+    el.innerHTML = `
+      <div class="key-setup">
+        <span class="status-pill live"><span class="dot"></span>Etherscan key active (covers all EVM chains above)</span>
+        <button class="key-clear" id="whaleKeyClear" type="button">Remove key</button>
+      </div>`;
+    document.getElementById('whaleKeyClear').addEventListener('click', () => {
+      localStorage.removeItem(ETHERSCAN_KEY_STORAGE);
+      whaleEvents = [];
+      loadWhale();
+    });
+  }else{
+    el.innerHTML = `
+      <div class="key-setup">
+        <input type="text" id="whaleKeyInput" placeholder="Paste your free Etherscan API key…" autocomplete="off" spellcheck="false">
+        <button id="whaleKeySave" type="button">Enable</button>
+        <div class="key-note">Free, takes ~1 minute: create an account at <a href="https://etherscan.io/register" target="_blank" rel="noopener">etherscan.io/register</a>, then generate a key under <a href="https://etherscan.io/myapikey" target="_blank" rel="noopener">My API Keys</a>. One key now covers every EVM chain above (Etherscan V2) — Bitcoin and Solana below don't need it. Stored only in this browser's local storage and sent straight to Etherscan, never through any proxy.</div>
+      </div>`;
+    const save = () => {
+      const val = document.getElementById('whaleKeyInput').value.trim();
+      if(!val) return;
+      localStorage.setItem(ETHERSCAN_KEY_STORAGE, val);
+      loadWhale();
+    };
+    document.getElementById('whaleKeySave').addEventListener('click', save);
+    document.getElementById('whaleKeyInput').addEventListener('keydown', e => { if(e.key === 'Enter') save(); });
+  }
+}
+
+function renderChainChips(){
+  const el = document.getElementById('chainChipRow');
+  const selected = getChainSelection();
+  el.innerHTML = ALL_CHIPS.map(c => `<span class="chain-chip ${selected.includes(c.id) ? 'active' : ''}" data-chain="${c.id}"><span class="sw"></span>${escapeHtml(c.label)}</span>`).join('');
+  el.querySelectorAll('.chain-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const id = chip.dataset.chain;
+      let sel = getChainSelection();
+      sel = sel.includes(id) ? sel.filter(x => x !== id) : sel.concat([id]);
+      saveChainSelection(sel);
+      renderChainChips();
+      whaleEvents = whaleEvents.filter(ev => sel.includes(ev.chain));
+      loadWhale();
+    });
+  });
+}
+
+function buildAddrPanelHtml(kind, title, list, placeholder){
+  const rows = list.length
+    ? list.map((a, i) => `
+      <div class="addr-row">
+        <span class="addr-label">${escapeHtml(a.label)}</span>
+        <span class="addr-val">${escapeHtml(a.addr)}</span>
+        <button class="addr-remove" data-kind="${kind}" data-idx="${i}" type="button" aria-label="Remove">×</button>
+      </div>`).join('')
+    : `<div class="addr-empty">No addresses yet${kind === 'sol' ? ' — Solana exchange wallets aren\u2019t hardcoded here since they\u2019re easy to get wrong. Paste verified ones (e.g. from Solscan\u2019s labelled accounts or Arkham) below' : ''}.</div>`;
+  return `
+    <div class="addr-panel" data-panel="${kind}">
+      <div class="addr-panel-head"><span class="addr-panel-title">${escapeHtml(title)}</span></div>
+      <div class="addr-panel-note">Curated locally in this browser — add or remove exchange wallets to track. Verify any address before relying on it.</div>
+      <div class="addr-list">${rows}</div>
+      <div class="addr-add-row">
+        <input type="text" class="addr-label-input" data-kind="${kind}" placeholder="Label (e.g. Binance)">
+        <input type="text" class="addr-val-input" data-kind="${kind}" placeholder="${escapeHtml(placeholder)}">
+        <button class="addr-add-btn" data-kind="${kind}" type="button">Add</button>
+      </div>
+    </div>`;
+}
+
+function wireAddrPanel(kind, getFn, saveFn){
+  document.querySelectorAll(`.addr-remove[data-kind="${kind}"]`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const list = getFn();
+      list.splice(Number(btn.dataset.idx), 1);
+      saveFn(list);
+      whaleEvents = whaleEvents.filter(ev => ev.chain !== kind);
+      loadWhale();
+    });
+  });
+  const addBtn = document.querySelector(`.addr-add-btn[data-kind="${kind}"]`);
+  if(!addBtn) return;
+  addBtn.addEventListener('click', () => {
+    const labelInput = document.querySelector(`.addr-label-input[data-kind="${kind}"]`);
+    const valInput = document.querySelector(`.addr-val-input[data-kind="${kind}"]`);
+    const label = labelInput.value.trim() || 'Custom';
+    const addr = valInput.value.trim();
+    if(!addr) return;
+    const list = getFn();
+    list.push({ label, addr });
+    saveFn(list);
+    labelInput.value = ''; valInput.value = '';
+    loadWhale();
+  });
+}
+
+function renderNonEvmAddrPanel(chains){
+  const el = document.getElementById('nonEvmAddrPanel');
+  const panels = [];
+  if(chains.includes('btc')) panels.push(buildAddrPanelHtml('btc', 'Bitcoin addresses', getBtcAddresses(), 'Bitcoin address (bc1… / 3… / 1…)'));
+  if(chains.includes('sol')) panels.push(buildAddrPanelHtml('sol', 'Solana addresses', getSolAddresses(), 'Solana address (base58)'));
+  el.innerHTML = panels.join('');
+  if(chains.includes('btc')) wireAddrPanel('btc', getBtcAddresses, saveBtcAddresses);
+  if(chains.includes('sol')) wireAddrPanel('sol', getSolAddresses, saveSolAddresses);
+}
+
+function renderWhale(){
+  const el = document.getElementById('whaleFeed');
+  if(whaleStatus === 'noselect'){
+    el.innerHTML = `<div class="feed-empty">Select at least one chain above to track whale transfers.</div>`;
+    return;
+  }
+  if(whaleStatus === 'nokey'){
+    el.innerHTML = `<div class="feed-empty">Add a free Etherscan API key above to turn on tracking for the selected EVM chain(s). Bitcoin and Solana don't need a key — just addresses.</div>`;
+    return;
+  }
+  if(whaleStatus === 'loading' && !whaleEvents.length){
+    el.innerHTML = '<div class="skel-block"></div>'.repeat(3);
+    return;
+  }
+  if(whaleStatus === 'error' && !whaleEvents.length){
+    el.innerHTML = `<div class="feed-error">Couldn't load whale transfers this refresh — check your API key/addresses or try again shortly.</div>`;
+    return;
+  }
+  if(!whaleEvents.length){
+    el.innerHTML = `<div class="feed-empty">No transfers above ${fmtCompactUsd(WHALE_USD_THRESHOLD)} across tracked wallets in the latest window.</div>`;
+    return;
+  }
+  el.innerHTML = whaleEvents.map(ev => {
+    const badgeClass = ev.flow === 'in' ? 'in' : ev.flow === 'out' ? 'out' : 'x2x';
+    const badgeText = ev.flow === 'in' ? 'INFLOW' : ev.flow === 'out' ? 'OUTFLOW' : 'EX ⇄ EX';
+    const icon = ev.symbol === 'BTC' ? '₿' : ev.symbol === 'SOL' ? '◎' : ev.symbol === 'ETH' ? 'Ξ' : ev.symbol === 'WBTC' ? '₿' : ev.symbol === 'BNB' ? 'B' : ev.symbol === 'POL' ? 'P' : '$';
+    return `
+    <div class="feed-row">
+      <span class="feed-icon" style="background:linear-gradient(135deg,#5B8CFF,#2b4fb0)">${icon}</span>
+      <div class="feed-main">
+        <div class="feed-top-row">
+          <span class="flow-badge ${badgeClass}">${badgeText}</span>
+          <span class="feed-amount">${fmtNum(ev.amount, ev.amount >= 1000 ? 0 : 3)} ${escapeHtml(ev.symbol)}</span>
+          <span class="feed-usd">≈ ${fmtCompactUsd(ev.usd)}</span>
+          <span class="feed-chain-tag">${escapeHtml(ev.chainLabel)}</span>
+        </div>
+        <div class="feed-meta">
+          <span>${ev.flowLabelHtml}</span>
+          <span class="feed-time">${agoFromSeconds(ev.timeStamp)}</span>
+          <a href="${ev.txUrl}" target="_blank" rel="noopener">View tx ↗</a>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+// ================= X / Twitter crypto pulse =================
+const ACCOUNTS = [
+  { handle: 'whale_alert', name: 'Whale Alert', role: 'Tracker' },
+  { handle: 'cz_binance', name: 'CZ', role: 'Exchange Founder' },
+  { handle: 'VitalikButerin', name: 'Vitalik Buterin', role: 'Ethereum' },
+  { handle: 'saylor', name: 'Michael Saylor', role: 'Strategy (MSTR)' },
+  { handle: 'APompliano', name: 'Anthony Pompliano', role: 'Investor' },
+  { handle: 'CryptoHayes', name: 'Arthur Hayes', role: 'BitMEX Founder' },
+  { handle: 'cobie', name: 'Cobie', role: 'Commentator' },
+  { handle: 'balajis', name: 'Balaji Srinivasan', role: 'VC / Angel' },
+  { handle: 'coinbase', name: 'Coinbase', role: 'Exchange' },
+  { handle: 'lookonchain', name: 'Lookonchain', role: 'On-chain Analyst' },
+  { handle: 'ArkhamIntel', name: 'Arkham Intelligence', role: 'On-chain Intel' },
+  { handle: 'novogratz', name: 'Mike Novogratz', role: 'Galaxy Digital' },
+];
+const AVATAR_COLORS = ['#5B8CFF', '#A78BFA', '#35E0C0', '#F5A623', '#FF8A4C', '#FF5470'];
+function avatarColor(i){ return AVATAR_COLORS[i % AVATAR_COLORS.length]; }
+const ACCOUNTS_BY_HANDLE = {};
+ACCOUNTS.forEach(a => { ACCOUNTS_BY_HANDLE[a.handle] = a; });
+
+// Nitter mirrors are gone for good — every public instance got a
+// cease-and-desist from X Corp in August 2026 and the project itself
+// archived its repo days later, so there's no "temporarily down" mirror to
+// wait out anymore (see the disclaimer below). This pulls instead from
+// X's own public syndication/embed CDN — the same free, keyless JSON feed
+// that powers "Embedded Timelines" on any website. It's legitimate (X's own
+// feature, not a workaround) but X has throttled or emptied it for
+// unauthenticated callers on and off since 2024, and its response shape
+// isn't officially documented, so this is still best-effort: several known
+// response shapes are tried, and a miss falls back to a direct profile link
+// exactly like the old mirror path did.
+const SYNDICATION_TIMEOUT_MS = 6500;
+const SYNDICATION_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+function buildSyndicationUrl(handle, count){
+  return `https://cdn.syndication.twimg.com/timeline/profile?screen_name=${encodeURIComponent(handle)}&count=${count}&dnt=true`;
+}
+// Extracts { text, link, ts } posts from whatever shape the syndication CDN
+// hands back today. Tries, in order: a plain {tweets:{id:{...}}} map, a bare
+// array of tweet objects, an inline __INITIAL_STATE__ JS blob inside an HTML
+// envelope, and finally raw rendered tweet markup inside that HTML. Returns
+// [] instead of throwing if none match — a format change should degrade to
+// the "couldn't load" fallback, not break the page.
+function parseSyndicationResponse(data, handle){
+  const out = [];
+  const pushTweet = (t) => {
+    const text = t && (t.full_text || t.text);
+    const id = t && (t.id_str || t.id);
+    if(!text || !id) return;
+    out.push({ text, link: `https://x.com/${handle}/status/${id}`, ts: t.created_at ? new Date(t.created_at).getTime() : 0 });
+  };
+  try{
+    if(data && typeof data === 'object' && data.tweets && typeof data.tweets === 'object' && !Array.isArray(data.tweets)){
+      Object.values(data.tweets).forEach(pushTweet);
+    }
+    if(!out.length && Array.isArray(data)){
+      data.forEach(pushTweet);
+    }
+    if(!out.length && data && typeof data.body === 'string'){
+      const stateMatch = data.body.match(/__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});/);
+      if(stateMatch){
+        try{
+          const state = JSON.parse(stateMatch[1]);
+          const tweetMap = (state && (state.tweets || (state.entities && state.entities.tweets))) || {};
+          Object.values(tweetMap).forEach(pushTweet);
+        }catch(e){ /* try HTML fallback below */ }
+      }
+      if(!out.length){
+        const doc = new DOMParser().parseFromString(data.body, 'text/html');
+        doc.querySelectorAll('[data-testid="tweetText"], .timeline-Tweet-text').forEach(node => {
+          const text = node.textContent.trim();
+          if(!text) return;
+          const article = node.closest('article, .timeline-Tweet');
+          const timeEl = article ? article.querySelector('time[datetime]') : null;
+          const linkEl = article ? article.querySelector('a[href*="/status/"]') : null;
+          out.push({
+            text,
+            link: linkEl ? new URL(linkEl.getAttribute('href'), 'https://x.com').href : `https://x.com/${handle}`,
+            ts: timeEl ? new Date(timeEl.getAttribute('datetime')).getTime() : 0,
+          });
+        });
+      }
+    }
+  }catch(err){ /* fall through to whatever was collected, possibly none */ }
+  out.sort((a, b) => b.ts - a.ts);
+  return out;
+}
+async function fetchSyndicationTimeline(handle, count){
+  const url = buildSyndicationUrl(handle, count);
+  let data;
+  try{
+    const res = await fetchWithTimeout(buildWorkerProxyUrl(url), SYNDICATION_TIMEOUT_MS);
+    if(!res.ok) throw new Error('worker HTTP ' + res.status);
+    data = await res.json();
+  }catch(workerErr){
+    const res = await Promise.any(SYNDICATION_PROXIES.map(build => (async () => {
+      const r = await fetchWithTimeout(build(url), SYNDICATION_TIMEOUT_MS);
+      if(!r.ok) throw new Error('proxy HTTP ' + r.status);
+      return r;
+    })()));
+    data = await res.json();
+  }
+  const posts = parseSyndicationResponse(data, handle);
+  if(!posts.length) throw new Error('no posts parsed from syndication response');
+  return posts;
+}
+
+async function loadSocial(){
+  const statusEl = document.getElementById('socialStatus');
+  statusEl.innerHTML = `<span class="status-pill warn"><span class="dot"></span>Checking X's public timeline feed…</span>`;
+
+  try{
+    const settled = await Promise.allSettled(ACCOUNTS.map(acc =>
+      fetchSyndicationTimeline(acc.handle, 2).then(posts => posts.map(p => Object.assign({ account: acc }, p)))
+    ));
+    const posts = [];
+    settled.forEach(r => { if(r.status === 'fulfilled') posts.push(...r.value); });
+    posts.sort((a, b) => b.ts - a.ts);
+    if(posts.length){
+      socialPosts = posts.slice(0, 15);
+      socialMode = 'live';
+    }else{
+      socialMode = 'offline';
+    }
+  }catch(err){
+    socialMode = 'offline';
+  }
+  renderSocial();
+}
+
+function renderSocial(){
+  const statusEl = document.getElementById('socialStatus');
+  const feedEl = document.getElementById('socialFeed');
+
+  if(socialMode === 'live'){
+    statusEl.innerHTML = `<span class="status-pill live"><span class="dot"></span>Live via X's syndication feed</span>`;
+    feedEl.innerHTML = socialPosts.map(p => `
+      <div class="post-row">
+        <a class="post-link" href="${escapeHtml(p.link)}" target="_blank" rel="noopener">
+          <div class="post-author-row">
+            <span class="post-author">${escapeHtml(p.account.name)}</span>
+            <span class="post-handle">@${escapeHtml(p.account.handle)}</span>
+          </div>
+          <div class="post-text">${escapeHtml(p.text)}</div>
+          <div class="post-time">${p.ts ? agoFromSeconds(p.ts/1000) : ''}</div>
+        </a>
+      </div>`).join('');
+    return;
+  }
+
+  statusEl.innerHTML = '';
+  feedEl.innerHTML = `
+    <div class="social-grid">
+      ${ACCOUNTS.map((a, i) => `
+        <a class="social-chip" href="https://x.com/${escapeHtml(a.handle)}" target="_blank" rel="noopener">
+          <span class="social-avatar" style="background:${avatarColor(i)}">${escapeHtml(a.name.slice(0,1))}</span>
+          <div class="social-name-wrap">
+            <div class="social-name">${escapeHtml(a.name)}</div>
+            <div class="social-handle">@${escapeHtml(a.handle)}</div>
+            <div class="social-role">${escapeHtml(a.role)}</div>
+          </div>
+        </a>`).join('')}
+    </div>`;
+}
+
+// ================= Cache (stale-while-revalidate) =================
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
+      whaleEvents,
+    }));
+  }catch(err){ /* storage unavailable - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    whaleEvents = cached.whaleEvents || [];
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+
+function updateLastUpdatedLabel(failed){
+  const el = document.getElementById('updatedLabel');
+  el.classList.toggle('label-error', !!failed);
+  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed - see console' : ''; return; }
+  const mins = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 60000));
+  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  el.textContent = (failed ? 'Refresh failed, showing cached · ' : 'Updated ') + ago;
+}
+
+// ================= Main load =================
+async function loadAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  if(whaleEvents.length){
+    renderWhale();
+    updateLastUpdatedLabel();
+  }
+
+  const results = await Promise.allSettled([loadWhale(), loadSocial()]);
+  const anyFailed = results.some(r => r.status === 'rejected');
+
+  lastUpdated = new Date();
+  saveCache();
+  updateLastUpdatedLabel(anyFailed);
+
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+function wireInfoToggle(toggleId, detailsId){
+  const btn = document.getElementById(toggleId);
+  const details = document.getElementById(detailsId);
+  if(!btn || !details) return;
+  btn.addEventListener('click', () => {
+    const willOpen = details.hidden;
+    details.hidden = !willOpen;
+    btn.classList.toggle('open', willOpen);
+    btn.setAttribute('aria-expanded', String(willOpen));
+  });
+}
+wireInfoToggle('noticeToggle', 'noticeDetails');
+wireInfoToggle('whaleInfoToggle', 'whaleInfoDetails');
+
+// ---- Collapsible sections ----
+function setSectionCollapsed(sectionEl, collapsed){
+  sectionEl.classList.toggle('collapsed', collapsed);
+  const btn = sectionEl.querySelector('.section-toggle-btn');
+  if(btn) btn.setAttribute('aria-expanded', String(!collapsed));
+}
+document.querySelectorAll('.section-head').forEach(head => {
+  head.addEventListener('click', () => {
+    const sectionEl = document.getElementById(head.dataset.toggle);
+    if(!sectionEl) return;
+    setSectionCollapsed(sectionEl, !sectionEl.classList.contains('collapsed'));
+    updateToggleAllLabel();
+  });
+});
+const toggleAllBtn = document.getElementById('toggleAllBtn');
+function updateToggleAllLabel(){
+  const sections = document.querySelectorAll('.section');
+  const anyExpanded = Array.from(sections).some(s => !s.classList.contains('collapsed'));
+  const label = anyExpanded ? 'Collapse all' : 'Expand all';
+  toggleAllBtn.setAttribute('aria-label', label);
+  toggleAllBtn.setAttribute('title', label);
+  toggleAllBtn.classList.toggle('flipped', !anyExpanded);
+}
+toggleAllBtn.addEventListener('click', () => {
+  const sections = document.querySelectorAll('.section');
+  const anyExpanded = Array.from(sections).some(s => !s.classList.contains('collapsed'));
+  sections.forEach(s => setSectionCollapsed(s, anyExpanded));
+  updateToggleAllLabel();
+});
+updateToggleAllLabel();
+
+loadCache();
+renderChainChips();
+renderWhaleKeySetup(getEtherscanKey());
+renderNonEvmAddrPanel(getChainSelection());
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL_MS);
+setInterval(updateLastUpdatedLabel, 60000);
+</script>
+</body>
+</html>

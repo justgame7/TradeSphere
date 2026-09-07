@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel-2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --text-dim:#8B93A3;
+    --text-faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --purple:#8b5cf6;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-display);}
+  body{
+    min-height:100vh;
+    padding:32px 20px 60px;
+    display:flex;
+    justify-content:center;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(53,224,192,0.06), transparent 40%),
+      radial-gradient(circle at 90% 20%, rgba(139,92,246,0.06), transparent 35%);
+  }
+  .wrap{width:100%;max-width:720px;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:24px;
+  }
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.18em;
+    color:var(--accent);
+    text-transform:uppercase;
+    margin-bottom:10px;
+  }
+  h1{font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em;}
+  .sub{color:var(--text-dim);font-size:14px;line-height:1.5;margin:0 0 24px;}
+  .field{margin-bottom:18px;}
+  label{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin-bottom:8px;
+  }
+  input, select{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:15px;
+    padding:12px 14px;
+    border-radius:10px;
+    outline:none;
+  }
+  input:focus, select:focus{ border-color:var(--accent); }
+  select{
+    appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%238B93A3' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    padding-right:34px;
+  }
+  .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  button{
+    border:none;border-radius:10px;padding:11px 16px;cursor:pointer;
+    font-family:var(--font-mono);font-size:12px;font-weight:600;
+  }
+  .primary{background:var(--accent);color:#06110d;}
+  .secondary{background:transparent;color:var(--text);border:1px solid var(--border);}
+  .status{display:block;min-height:18px;margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);}
+  .status.success{color:var(--accent);}
+  .status.error{color:#ff9aad;}
+
+  .divider{height:1px;background:var(--border-soft);margin:26px 0 22px;}
+  .hint{color:var(--text-dim);font-size:12.5px;line-height:1.5;margin:0 0 16px;}
+  .channel-add-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .channel-add-row input{flex:1 1 160px;}
+  .channel-add-row input#channelId{flex:1 1 220px;}
+  .add-btn{
+    background:var(--accent-dim);color:#eafff9;border:none;border-radius:10px;
+    padding:0 16px;cursor:pointer;font-family:var(--font-mono);font-size:12px;font-weight:600;
+    flex:0 0 auto;
+  }
+  .add-btn:hover{background:var(--accent);color:#06110d;}
+  .channel-list{display:flex;flex-direction:column;gap:8px;margin-bottom:4px;}
+  .channel-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:10px;
+    padding:10px 12px;
+  }
+  .channel-info{min-width:0;}
+  .channel-name{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .channel-id{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .remove-btn{
+    background:transparent;border:1px solid var(--border);color:var(--text-dim);
+    width:28px;height:28px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1;padding:0;
+  }
+  .remove-btn:hover{border-color:#ff9aad;color:#ff9aad;}
+  .empty-channels{
+    font-family:var(--font-mono);font-size:11.5px;color:var(--text-faint);
+    padding:14px;text-align:center;border:1px dashed var(--border);border-radius:10px;
+  }
+  .checkbox-field{display:flex;align-items:center;gap:10px;}
+  .checkbox-field input[type="checkbox"]{
+    width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;
+  }
+  .checkbox-field label{
+    margin:0;font-family:var(--font-display);font-size:13.5px;font-weight:600;
+    text-transform:none;letter-spacing:normal;color:var(--text);cursor:pointer;
+  }
+  .subfield{
+    margin-top:14px;transition:opacity .15s ease;
+  }
+  .subfield.disabled{opacity:.45;pointer-events:none;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <div class="eyebrow">Trading Preferences</div>
+      <h1>Trading Settings</h1>
+      <p class="sub">Store the default portfolio and exchange so the app can reuse them in the sizing and planning flows.</p>
+
+      <div class="field">
+        <label for="portfolioValue">Portfolio Value (USDT)</label>
+        <input id="portfolioValue" type="number" min="0" step="any" placeholder="15000" />
+      </div>
+
+      <div class="field">
+        <label for="tradingExchange">Trading Exchange</label>
+        <select id="tradingExchange">
+          <option value="CoinDCX">CoinDCX</option>
+          <option value="Binance">Binance</option>
+          <option value="Bybit">Bybit</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="displayTimezone">Timezone</label>
+        <select id="displayTimezone"></select>
+        <p class="hint" style="margin:8px 0 0;">Used to group and label dates in other apps that need it — e.g. the Calendar decides what counts as "today" based on this.</p>
+      </div>
+
+      <div class="field">
+        <div class="checkbox-field">
+          <input type="checkbox" id="moversEnabled" checked />
+          <label for="moversEnabled">Show Top Movers on Home screen</label>
+        </div>
+        <p class="hint" style="margin:8px 0 0;">Turn off to remove the rolling gainers/losers strip from Home entirely.</p>
+
+        <div class="subfield" id="moversCountField">
+          <label for="moversCount">Number of coins to show</label>
+          <select id="moversCount">
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+          </select>
+          <p class="hint" style="margin:8px 0 0;">How many top gainers and top losers to show in the rolling strip.</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="secondary" type="button" id="resetBtn">Reset</button>
+        <button class="primary" type="button" id="saveBtn">Save</button>
+      </div>
+      <span id="status" class="status" aria-live="polite"></span>
+
+      <div class="divider"></div>
+
+      <div class="eyebrow">YouTube Feed</div>
+      <h1 style="font-size:20px;">Channels to Follow</h1>
+      <p class="hint">Paste a link to one of the channel's videos — from the Share button in the YouTube app, or copied from the address bar — that's the reliable way to add a channel right now. A direct <code>/channel/UC...</code> link also works instantly. Plain <code>@handle</code> channel links aren't resolving yet, so use a video link from that channel instead. We'll figure out the channel ID automatically; the display name is optional and we'll try to grab that too.</p>
+
+      <div class="channel-add-row">
+        <input id="channelLink" type="text" placeholder="Paste a video link (most reliable)" />
+        <input id="channelName" type="text" placeholder="Display name (optional)" />
+        <button class="add-btn" type="button" id="addChannelBtn">Add</button>
+      </div>
+
+      <div class="channel-list" id="channelList"></div>
+      <span id="channelStatus" class="status" aria-live="polite"></span>
+    </div>
+  </div>
+
+<script>
+  const STORAGE_KEY = 'crypto-screener-trading-settings';
+  const PORTFOLIO_STORAGE_KEY = 'crypto-screener-portfolio-usdt';
+  // Shared across apps (e.g. calendar-sub.html reads this directly) so any
+  // app that needs to group or label things by day agrees on the same
+  // timezone, rather than each guessing from wherever it happens to run.
+  const TIMEZONE_STORAGE_KEY = 'crypto-screener-display-timezone';
+  // Shared across apps too (index.html's Home-screen Top Movers strip reads
+  // this directly) so the choices made here take effect without needing
+  // this settings page's own STORAGE_KEY blob to be parsed elsewhere.
+  const MOVERS_COUNT_STORAGE_KEY = 'crypto-screener-movers-count';
+  const MOVERS_ENABLED_STORAGE_KEY = 'crypto-screener-movers-enabled';
+  const DEFAULT_TIMEZONE = 'Asia/Kolkata';
+  const DEFAULT_PORTFOLIO = 1000;
+  const DEFAULT_MOVERS_COUNT = 5;
+  const MOVERS_COUNT_MIN = 3;
+  const MOVERS_COUNT_MAX = 8;
+  const EXCHANGE_LINKS = {
+    CoinDCX: 'https://coindcx.com/futures/B-',
+    Binance: 'https://www.binance.com/en/futures/',
+    Bybit: 'https://www.bybit.com/en/trade/usdt/'
+  };
+  const portfolioValueInput = document.getElementById('portfolioValue');
+  const tradingExchangeSelect = document.getElementById('tradingExchange');
+  const displayTimezoneSelect = document.getElementById('displayTimezone');
+  const moversCountInput = document.getElementById('moversCount');
+  const moversEnabledInput = document.getElementById('moversEnabled');
+  const moversCountField = document.getElementById('moversCountField');
+  const saveBtn = document.getElementById('saveBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const statusEl = document.getElementById('status');
+
+  function clampMoversCount(n){
+    n = Math.round(n);
+    if(!Number.isFinite(n)) return DEFAULT_MOVERS_COUNT;
+    return Math.min(MOVERS_COUNT_MAX, Math.max(MOVERS_COUNT_MIN, n));
+  }
+  function updateMoversCountFieldState(){
+    moversCountField.classList.toggle('disabled', !moversEnabledInput.checked);
+  }
+  moversEnabledInput.addEventListener('change', updateMoversCountFieldState);
+
+  function setStatus(message, type=''){
+    statusEl.textContent = message;
+    statusEl.className = 'status' + (type ? ` ${type}` : '');
+  }
+
+  // A reasonably complete fallback list (every UTC offset, one representative
+  // city each, plus the other major regional zones) for browsers old enough
+  // not to support Intl.supportedValuesOf - which covers every current
+  // evergreen browser, so this path is rarely hit in practice.
+  const FALLBACK_TIMEZONES = [
+    'UTC','Pacific/Midway','Pacific/Honolulu','America/Anchorage','America/Los_Angeles',
+    'America/Tijuana','America/Denver','America/Phoenix','America/Chicago','America/Mexico_City',
+    'America/New_York','America/Toronto','America/Bogota','America/Lima','America/Caracas',
+    'America/Halifax','America/Santiago','America/Sao_Paulo','America/Argentina/Buenos_Aires',
+    'Atlantic/Azores','Europe/London','Europe/Dublin','Europe/Lisbon','Europe/Madrid',
+    'Europe/Paris','Europe/Berlin','Europe/Rome','Europe/Amsterdam','Europe/Brussels',
+    'Europe/Zurich','Europe/Vienna','Europe/Warsaw','Europe/Prague','Europe/Budapest',
+    'Europe/Athens','Europe/Bucharest','Europe/Helsinki','Europe/Kyiv','Europe/Istanbul',
+    'Europe/Moscow','Africa/Cairo','Africa/Johannesburg','Africa/Lagos','Africa/Nairobi',
+    'Asia/Jerusalem','Asia/Beirut','Asia/Dubai','Asia/Baghdad','Asia/Tehran',
+    'Asia/Karachi','Asia/Kolkata','Asia/Colombo','Asia/Kathmandu','Asia/Dhaka',
+    'Asia/Yangon','Asia/Bangkok','Asia/Jakarta','Asia/Ho_Chi_Minh','Asia/Shanghai',
+    'Asia/Hong_Kong','Asia/Singapore','Asia/Taipei','Asia/Manila','Asia/Kuala_Lumpur',
+    'Asia/Seoul','Asia/Tokyo','Australia/Perth','Australia/Adelaide','Australia/Darwin',
+    'Australia/Brisbane','Australia/Sydney','Australia/Melbourne','Pacific/Guam',
+    'Pacific/Noumea','Pacific/Auckland','Pacific/Fiji','Pacific/Chatham','Pacific/Tongatapu'
+  ];
+
+  // Some browsers/OSes ship an older ICU/CLDR build whose idea of the
+  // "canonical" IANA name hasn't caught up with later tzdata renames, so
+  // Intl.supportedValuesOf('timeZone') can still hand back a legacy name
+  // (e.g. "Asia/Calcutta") even though the IANA database itself renamed it
+  // to "Asia/Kolkata" back in 2005. Both names keep working identically as
+  // far as offsets/DST go (the old one is kept as a backward-compat link),
+  // so this doesn't change behavior - it just relabels/re-values anything
+  // outdated to the modern name before it reaches the dropdown or storage.
+  const TIMEZONE_RENAME_MAP = {
+    'Asia/Calcutta': 'Asia/Kolkata',
+    'Asia/Rangoon': 'Asia/Yangon',
+    'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+    'Asia/Dacca': 'Asia/Dhaka',
+    'Asia/Ashkhabad': 'Asia/Ashgabat',
+    'Asia/Thimbu': 'Asia/Thimphu',
+    'Asia/Ulan_Bator': 'Asia/Ulaanbaatar',
+    'Asia/Katmandu': 'Asia/Kathmandu',
+    'Asia/Chungking': 'Asia/Shanghai',
+    'Asia/Macao': 'Asia/Macau',
+    'Asia/Tel_Aviv': 'Asia/Jerusalem',
+    'Europe/Kiev': 'Europe/Kyiv',
+    'Europe/Nicosia': 'Asia/Nicosia',
+    'Africa/Asmera': 'Africa/Asmara',
+    'Africa/Timbuktu': 'Africa/Bamako',
+    'America/Godthab': 'America/Nuuk',
+    'America/Montreal': 'America/Toronto',
+    'America/Shiprock': 'America/Denver',
+    'America/Indianapolis': 'America/Indiana/Indianapolis',
+    'America/Louisville': 'America/Kentucky/Louisville',
+    'America/Fort_Wayne': 'America/Indiana/Indianapolis',
+    'America/Knox_IN': 'America/Indiana/Knox',
+    'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+    'America/Catamarca': 'America/Argentina/Catamarca',
+    'America/Cordoba': 'America/Argentina/Cordoba',
+    'America/Jujuy': 'America/Argentina/Jujuy',
+    'America/Mendoza': 'America/Argentina/Mendoza',
+    'Pacific/Truk': 'Pacific/Chuuk',
+    'Pacific/Yap': 'Pacific/Chuuk',
+    'Pacific/Ponape': 'Pacific/Pohnpei',
+    'Pacific/Enderbury': 'Pacific/Kanton',
+    'Pacific/Samoa': 'Pacific/Pago_Pago',
+    'Antarctica/South_Pole': 'Antarctica/McMurdo',
+    'US/Pacific': 'America/Los_Angeles',
+    'US/Eastern': 'America/New_York',
+    'US/Central': 'America/Chicago',
+    'US/Mountain': 'America/Denver'
+  };
+
+  function normalizeTimezone(tz){
+    return TIMEZONE_RENAME_MAP[tz] || tz;
+  }
+
+  function getAllTimezones(){
+    let zones;
+    try{
+      if(typeof Intl.supportedValuesOf === 'function'){
+        const values = Intl.supportedValuesOf('timeZone');
+        if(Array.isArray(values) && values.length) zones = values;
+      }
+    }catch(e){ /* fall through to the static list below */ }
+    if(!zones) zones = FALLBACK_TIMEZONES;
+    // Relabel any legacy names the browser handed back, then dedupe in case
+    // both the old and new name ended up in the list.
+    return Array.from(new Set(zones.map(normalizeTimezone)));
+  }
+
+  function isValidTimezone(tz){
+    try{ new Intl.DateTimeFormat(undefined, {timeZone: tz}); return true; }
+    catch(e){ return false; }
+  }
+
+  // Appends the current UTC offset so the dropdown is skimmable without
+  // having to already know what "Asia/Kolkata" means, e.g. "Asia/Kolkata (GMT+5:30)".
+  function formatTimezoneLabel(tz){
+    try{
+      const parts = new Intl.DateTimeFormat('en-US', {timeZone: tz, timeZoneName: 'shortOffset'}).formatToParts(new Date());
+      const offset = parts.find(p => p.type === 'timeZoneName');
+      return offset ? `${tz} (${offset.value.replace('GMT','UTC')})` : tz;
+    }catch(e){
+      return tz;
+    }
+  }
+
+  function populateTimezoneOptions(){
+    const zones = getAllTimezones().slice().sort();
+    displayTimezoneSelect.innerHTML = zones
+      .map(tz => `<option value="${tz}">${formatTimezoneLabel(tz)}</option>`)
+      .join('');
+  }
+
+  function loadSettings(){
+    populateTimezoneOptions();
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) {
+        portfolioValueInput.value = String(DEFAULT_PORTFOLIO);
+        tradingExchangeSelect.value = 'CoinDCX';
+      } else {
+        const settings = JSON.parse(raw);
+        if(typeof settings.portfolioValue === 'number' && Number.isFinite(settings.portfolioValue) && settings.portfolioValue > 0){
+          portfolioValueInput.value = String(settings.portfolioValue);
+        } else {
+          portfolioValueInput.value = String(DEFAULT_PORTFOLIO);
+        }
+        if(settings.tradingExchange && ['CoinDCX','Binance','Bybit'].includes(settings.tradingExchange)){
+          tradingExchangeSelect.value = settings.tradingExchange;
+        } else {
+          tradingExchangeSelect.value = 'CoinDCX';
+        }
+      }
+    } catch (error) {
+      portfolioValueInput.value = String(DEFAULT_PORTFOLIO);
+      tradingExchangeSelect.value = 'CoinDCX';
+      console.warn('Unable to load trading settings', error);
+    }
+
+    // Timezone lives under its own key (see TIMEZONE_STORAGE_KEY) so other
+    // apps can read just this value without parsing the full settings blob.
+    try{
+      const savedTz = localStorage.getItem(TIMEZONE_STORAGE_KEY);
+      const normalizedTz = savedTz ? normalizeTimezone(savedTz) : null;
+      displayTimezoneSelect.value = (normalizedTz && isValidTimezone(normalizedTz)) ? normalizedTz : DEFAULT_TIMEZONE;
+      // If the stored value was an outdated name, write the normalized one
+      // straight back to localStorage so other apps reading this same key
+      // (e.g. calendar-sub.html) pick up the current name immediately,
+      // rather than waiting for the user to hit Save here.
+      if(savedTz && normalizedTz && normalizedTz !== savedTz && isValidTimezone(normalizedTz)){
+        localStorage.setItem(TIMEZONE_STORAGE_KEY, normalizedTz);
+      }
+    }catch(error){
+      displayTimezoneSelect.value = DEFAULT_TIMEZONE;
+      console.warn('Unable to load display timezone', error);
+    }
+
+    // Top Movers count/visibility also live under their own keys (see
+    // MOVERS_COUNT_STORAGE_KEY / MOVERS_ENABLED_STORAGE_KEY) so index.html
+    // can read them directly, same pattern as timezone.
+    try{
+      const savedCount = parseInt(localStorage.getItem(MOVERS_COUNT_STORAGE_KEY), 10);
+      moversCountInput.value = String(Number.isFinite(savedCount) ? clampMoversCount(savedCount) : DEFAULT_MOVERS_COUNT);
+    }catch(error){
+      moversCountInput.value = String(DEFAULT_MOVERS_COUNT);
+      console.warn('Unable to load top movers count', error);
+    }
+    try{
+      const savedEnabled = localStorage.getItem(MOVERS_ENABLED_STORAGE_KEY);
+      moversEnabledInput.checked = savedEnabled === null ? true : savedEnabled === 'true';
+    }catch(error){
+      moversEnabledInput.checked = true;
+      console.warn('Unable to load top movers enabled flag', error);
+    }
+    updateMoversCountFieldState();
+  }
+
+  function saveSettings(){
+    const portfolioValue = parseFloat(portfolioValueInput.value);
+    const tradingExchange = tradingExchangeSelect.value;
+    const displayTimezone = displayTimezoneSelect.value;
+    const moversEnabled = moversEnabledInput.checked;
+    const moversCount = clampMoversCount(parseInt(moversCountInput.value, 10));
+
+    if(!Number.isFinite(portfolioValue) || portfolioValue <= 0){
+      setStatus('Enter a valid portfolio value above 0.', 'error');
+      return;
+    }
+
+    const settings = {
+      portfolioValue,
+      tradingExchange
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    localStorage.setItem(PORTFOLIO_STORAGE_KEY, String(portfolioValue));
+    localStorage.setItem(TIMEZONE_STORAGE_KEY, displayTimezone);
+    localStorage.setItem(MOVERS_COUNT_STORAGE_KEY, String(moversCount));
+    localStorage.setItem(MOVERS_ENABLED_STORAGE_KEY, String(moversEnabled));
+    setStatus('Saved locally.', 'success');
+  }
+
+  function resetSettings(){
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PORTFOLIO_STORAGE_KEY);
+    localStorage.removeItem(TIMEZONE_STORAGE_KEY);
+    localStorage.removeItem(MOVERS_COUNT_STORAGE_KEY);
+    localStorage.removeItem(MOVERS_ENABLED_STORAGE_KEY);
+    portfolioValueInput.value = String(DEFAULT_PORTFOLIO);
+    tradingExchangeSelect.value = 'CoinDCX';
+    displayTimezoneSelect.value = DEFAULT_TIMEZONE;
+    moversCountInput.value = String(DEFAULT_MOVERS_COUNT);
+    moversEnabledInput.checked = true;
+    updateMoversCountFieldState();
+    setStatus('Settings cleared.', 'success');
+  }
+
+  saveBtn.addEventListener('click', saveSettings);
+  resetBtn.addEventListener('click', resetSettings);
+  loadSettings();
+
+  // ---- YouTube channels ----
+  // Shared with the YouTube feed page via this same localStorage key. Each
+  // entry is { id, name }. On a fresh install (nothing saved yet) we seed a
+  // default set of channels here so the list — and the YouTube feed — isn't
+  // empty out of the box. The user can remove any of them, and once they've
+  // saved a list (even an empty one) that choice sticks; defaults only ever
+  // apply before anything has been saved.
+  const CHANNELS_KEY = 'crypto-screener-youtube-channels';
+  // Separate marker for "have we ever seeded the defaults", kept apart from
+  // the channels list itself so an already-empty list (e.g. from before this
+  // feature existed) doesn't get mistaken for a deliberate removal.
+  const CHANNELS_SEEDED_KEY = 'crypto-screener-youtube-channels-seeded';
+  const DEFAULT_CHANNELS = [
+    { id: 'UCJuvMjmY4-KFrBJXx-5aRKQ', name: '100X Club' },
+    { id: 'UCJQY1CkwtFNfJfIzROc8KiA', name: 'Conor Kenny' },
+    { id: 'UCi7RBPfTtRkVchV6qO8PUzg', name: 'Crypto Casey' },
+  ];
+  const channelLinkInput = document.getElementById('channelLink');
+  const channelNameInput = document.getElementById('channelName');
+  const addChannelBtn = document.getElementById('addChannelBtn');
+  const channelListEl = document.getElementById('channelList');
+  const channelStatusEl = document.getElementById('channelStatus');
+
+  function setChannelStatus(message, type=''){
+    channelStatusEl.textContent = message;
+    channelStatusEl.className = 'status' + (type ? ` ${type}` : '');
+  }
+
+  function loadChannels(){
+    try{
+      if(localStorage.getItem(CHANNELS_SEEDED_KEY) !== 'true'){
+        // Never seeded before (fresh install, or an existing save from
+        // before this feature existed) — seed the defaults so the list
+        // isn't empty, then mark it seeded so future removals stick.
+        saveChannels(DEFAULT_CHANNELS);
+        localStorage.setItem(CHANNELS_SEEDED_KEY, 'true');
+        return DEFAULT_CHANNELS.slice();
+      }
+      const raw = localStorage.getItem(CHANNELS_KEY);
+      if(raw === null) return [];
+      const list = JSON.parse(raw);
+      return Array.isArray(list) ? list.filter(c => c && typeof c.id === 'string' && c.id.trim()) : [];
+    }catch(err){
+      console.warn('Unable to load channels', err);
+      return [];
+    }
+  }
+
+  function saveChannels(list){
+    localStorage.setItem(CHANNELS_KEY, JSON.stringify(list));
+  }
+
+  function escapeHtml(s){
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderChannels(){
+    const channels = loadChannels();
+    if(!channels.length){
+      channelListEl.innerHTML = '<div class="empty-channels">No channels in your list. Add one above to see it in your YouTube feed.</div>';
+      return;
+    }
+    channelListEl.innerHTML = channels.map((c, i) => `
+      <div class="channel-row" data-index="${i}">
+        <div class="channel-info">
+          <div class="channel-name">${escapeHtml(c.name && c.name.trim() ? c.name.trim() : c.id)}</div>
+          <div class="channel-id">${escapeHtml(c.id)}</div>
+        </div>
+        <button class="remove-btn" type="button" aria-label="Remove channel" data-index="${i}">×</button>
+      </div>`).join('');
+    channelListEl.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.index, 10);
+        const list = loadChannels();
+        const removed = list.splice(idx, 1)[0];
+        saveChannels(list);
+        renderChannels();
+        setChannelStatus(`Removed ${removed && removed.name ? removed.name : (removed ? removed.id : 'channel')}.`, 'success');
+      });
+    });
+  }
+
+  // Resolving a channel ID from a pasted link. Handles a few input shapes:
+  //  - a bare channel ID typed directly (old habit / still supported, no network needed)
+  //  - a /channel/UC... URL (ID is right there in the URL, no network needed)
+  //  - a /@handle, /c/CustomName, /user/LegacyName URL, or a plain video/shorts
+  //    link - these need an actual page fetch, since the raw channel ID isn't
+  //    present in the URL itself. Every YouTube page (channel or video) embeds
+  //    its owning channel's ID somewhere in the page HTML, so we fetch the page
+  //    through the same CORS proxies used elsewhere in this app and pull it out.
+  // Same Cloudflare Worker already deployed for news.html/youtube.html/
+  // trump-truth.html (see cloudflare-worker.js) - a generic `?url=` CORS
+  // proxy under your own account that fetches with a real browser-like
+  // User-Agent server-side. This is the PRIMARY fetch path: unlike a plain
+  // browser fetch() (which can't override its User-Agent at all - that's a
+  // forbidden header - and is stuck with public CORS proxies that YouTube
+  // may rate-limit or block as automated traffic), the Worker talks to
+  // youtube.com the same way a normal browser request would.
+  // www.youtube.com is already in the Worker's ALLOWED_HOSTS list, which
+  // covers both channel/video pages AND the oEmbed endpoint below (the
+  // allowlist only checks hostname, not path).
+  const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+  function buildWorkerProxyUrl(u){
+    return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+  }
+  // Public CORS proxies - tried in parallel, first success wins. Used only
+  // as a fallback if the Worker itself is unreachable.
+  const CORS_PROXIES = [
+    { label: 'codetabs', build: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` },
+    { label: 'corsfix', build: (u) => `https://proxy.corsfix.com/?${u}` },
+    { label: 'allorigins', build: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+  ];
+
+  async function fetchWithTimeout(url, ms=9000){
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try{
+      return await fetch(url, {cache:'no-store', signal: controller.signal});
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  // Runs every attempt in PARALLEL (not one-at-a-time) and returns whichever
+  // finishes first successfully. This matters a lot here: doing these
+  // sequentially meant a slow/dead proxy fully used up its own timeout before
+  // the next one even started, so a run of bad luck could take a minute-plus
+  // before you saw any result. Running them together means total wait time is
+  // roughly however long the FASTEST source takes, not the sum of all of them.
+  // If everything fails, the real per-source reasons are collected into one
+  // error message instead of a generic "timed out".
+  async function firstSuccessful(attempts){
+    const settled = await Promise.allSettled(attempts.map(a => a.run()));
+    for(const result of settled){
+      if(result.status === 'fulfilled' && result.value != null) return result.value;
+    }
+    const reasons = settled.map((result, i) => {
+      if(result.status === 'fulfilled') return `${attempts[i].label}: empty/invalid response`;
+      const err = result.reason;
+      const msg = err && err.name === 'AbortError' ? 'timed out' : (err && err.message) || String(err);
+      return `${attempts[i].label}: ${msg}`;
+    });
+    throw new Error(reasons.join(' · '));
+  }
+
+  // 1) Worker first (own infrastructure, real User-Agent, most reliable).
+  // 2) Only if that fails, race the public CORS proxies as a fallback.
+  async function fetchViaWorkerThenProxies(url, { timeout, parse }){
+    let workerErrorMsg = null;
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), timeout);
+      if(!res.ok) throw new Error('worker responded ' + res.status);
+      const value = await parse(res);
+      if(value != null) return value;
+      throw new Error('worker returned empty/invalid response');
+    }catch(err){
+      workerErrorMsg = err && err.name === 'AbortError' ? 'timed out' : err.message;
+      console.warn('[channel resolve] worker failed, falling back to public proxies:', workerErrorMsg);
+    }
+    try{
+      return await firstSuccessful(CORS_PROXIES.map(proxy => ({
+        label: proxy.label,
+        run: async () => {
+          const res = await fetchWithTimeout(proxy.build(url), timeout);
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+          return parse(res);
+        }
+      })));
+    }catch(err){
+      throw new Error(`worker: ${workerErrorMsg} · ${err.message}`);
+    }
+  }
+
+  // Full channel/video pages are multi-megabyte HTML dumps (YouTube embeds a
+  // huge JSON blob in every page) - give this a generous timeout since it's
+  // only used as a fallback, not the primary path for video links.
+  async function fetchPageHtml(url){
+    return fetchViaWorkerThenProxies(url, {
+      timeout: 18000,
+      parse: async (res) => {
+        const text = await res.text();
+        return (text && text.length >= 200) ? text : null;
+      }
+    });
+  }
+
+  function decodeHtmlEntities(s){
+    return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+  }
+
+  function extractChannelId(html){
+    const m = html.match(/"channelId":"(UC[A-Za-z0-9_-]{20,})"/) ||
+      html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[A-Za-z0-9_-]{20,})"/) ||
+      html.match(/<meta itemprop="channelId" content="(UC[A-Za-z0-9_-]{20,})"/);
+    return m ? m[1] : null;
+  }
+
+  function extractTitle(html){
+    const ogTitleMatch = html.match(/<meta property="og:title" content="([^"]*)"/);
+    const titleMatch = html.match(/<title>([^<]*)<\/title>/);
+    const rawName = ogTitleMatch ? ogTitleMatch[1] : (titleMatch ? titleMatch[1].replace(/\s*-\s*YouTube\s*$/i, '') : '');
+    return rawName ? decodeHtmlEntities(rawName).trim() : '';
+  }
+
+  // YouTube's oEmbed endpoint returns a small JSON response (title/author_name/
+  // author_url) instead of the full page - much smaller and faster to fetch.
+  async function fetchOEmbedAuthor(videoUrl){
+    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(videoUrl)}&format=json`;
+    try{
+      const data = await fetchViaWorkerThenProxies(oembedUrl, {
+        timeout: 8000,
+        parse: async (res) => {
+          try{ return await res.json(); }catch(e){ return null; }
+        }
+      });
+      if(data && data.author_url) return { authorUrl: data.author_url, authorName: data.author_name || '' };
+      return null;
+    }catch(err){
+      console.warn('[channel resolve] oEmbed lookup failed:', err.message);
+      return null;
+    }
+  }
+
+  async function resolveChannel(rawInput){
+    let url = rawInput.trim();
+    if(!url) throw new Error('paste a channel link, @handle, or video link');
+
+    // Old habit / still supported: a bare channel ID pasted directly.
+    if(/^UC[A-Za-z0-9_-]{20,}$/.test(url)) return { id: url, name: '' };
+
+    if(url.startsWith('@')) url = `https://www.youtube.com/${url}`;
+    else if(!/^https?:\/\//i.test(url)) url = `https://www.youtube.com/${url.replace(/^\/+/, '')}`;
+
+    // Fast path: /channel/UC... URLs already contain the ID - no network needed.
+    const directMatch = url.match(/\/channel\/(UC[A-Za-z0-9_-]{20,})/);
+    if(directMatch) return { id: directMatch[1], name: '' };
+
+    // Video/shorts/live/youtu.be links: try the lightweight oEmbed lookup
+    // first instead of fetching the (huge) watch page directly.
+    const isLikelyVideo = /youtu\.be\/|\/(watch\?v=|shorts\/|live\/|embed\/)/i.test(url);
+    if(isLikelyVideo){
+      const oembed = await fetchOEmbedAuthor(url);
+      if(oembed && oembed.authorUrl){
+        const idFromAuthor = oembed.authorUrl.match(/\/channel\/(UC[A-Za-z0-9_-]{20,})/);
+        if(idFromAuthor) return { id: idFromAuthor[1], name: oembed.authorName };
+        // author_url is a handle/custom/legacy URL, not a raw ID - resolve
+        // THAT (a much lighter channel page) instead of the heavy video page.
+        try{
+          const html = await fetchPageHtml(oembed.authorUrl);
+          const id = extractChannelId(html);
+          if(id) return { id, name: oembed.authorName || extractTitle(html) };
+        }catch(err){
+          console.warn('[channel resolve] author page fetch failed:', err.message);
+        }
+      }
+    }
+
+    try{
+      const html = await fetchPageHtml(url);
+      const id = extractChannelId(html);
+      if(!id){
+        throw new Error("couldn't find a channel on that page - try pasting the channel's own link, or double-check the URL");
+      }
+      return { id, name: extractTitle(html) };
+    }catch(err){
+      // This is the final, user-facing failure - include the real per-proxy
+      // reasons (from firstSuccessful's combined message) rather than a bare
+      // "timed out", so a repeat failure is actually diagnosable.
+      throw new Error(`all sources failed (${err.message})`);
+    }
+  }
+
+  async function addChannel(){
+    const linkRaw = channelLinkInput.value.trim();
+    const nameRaw = channelNameInput.value.trim();
+
+    if(!linkRaw){
+      setChannelStatus('Paste a channel link (or @handle).', 'error');
+      return;
+    }
+
+    addChannelBtn.disabled = true;
+    const originalLabel = addChannelBtn.textContent;
+    addChannelBtn.textContent = '…';
+    setChannelStatus('Resolving channel…');
+
+    try{
+      const resolved = await resolveChannel(linkRaw);
+      const list = loadChannels();
+      if(list.some(c => c.id === resolved.id)){
+        setChannelStatus('That channel is already in your list.', 'error');
+        return;
+      }
+      const finalName = nameRaw || resolved.name || '';
+      list.push({ id: resolved.id, name: finalName });
+      saveChannels(list);
+      channelLinkInput.value = '';
+      channelNameInput.value = '';
+      renderChannels();
+      setChannelStatus(`Added${finalName ? ' ' + finalName : ''}. Refresh the YouTube feed page to see it.`, 'success');
+    }catch(err){
+      setChannelStatus(`Couldn't resolve that link: ${err.message}`, 'error');
+    }finally{
+      addChannelBtn.disabled = false;
+      addChannelBtn.textContent = originalLabel;
+    }
+  }
+
+  addChannelBtn.addEventListener('click', addChannel);
+  channelLinkInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') addChannel(); });
+  channelNameInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') addChannel(); });
+
+  renderChannels();
+</script>
+</body>
+</html>

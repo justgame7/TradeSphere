@@ -1,0 +1,63 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(160 128) rotate(39.2) scale(400 376)">
+      <stop offset="0" stop-color="#F4FAFF"/>
+      <stop offset="0.15" stop-color="#DCEBFF"/>
+      <stop offset="0.38" stop-color="#A8C5FF"/>
+      <stop offset="0.68" stop-color="#5F66D9"/>
+      <stop offset="1" stop-color="#0C0F22"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(224 170) rotate(66) scale(308 298)">
+      <stop offset="0" stop-color="#F5F7FF"/>
+      <stop offset="0.18" stop-color="#E4E9FF"/>
+      <stop offset="0.38" stop-color="#8EC2FF"/>
+      <stop offset="0.66" stop-color="#4A5DE7"/>
+      <stop offset="1" stop-color="#1A1A4B"/>
+    </radialGradient>
+    <linearGradient id="blueBand" x1="118" y1="138" x2="412" y2="348" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2B7CFF"/>
+      <stop offset="0.24" stop-color="#2E5EE8"/>
+      <stop offset="0.52" stop-color="#2E4AE8"/>
+      <stop offset="0.82" stop-color="#2E2BAF"/>
+      <stop offset="1" stop-color="#1A1B77"/>
+    </linearGradient>
+    <linearGradient id="purpleBand" x1="116" y1="282" x2="422" y2="164" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F3D7FF"/>
+      <stop offset="0.22" stop-color="#C7B9FF"/>
+      <stop offset="0.5" stop-color="#9A88F0"/>
+      <stop offset="0.8" stop-color="#5648D8"/>
+      <stop offset="1" stop-color="#2A2E9C"/>
+    </linearGradient>
+    <linearGradient id="deepBlue" x1="124" y1="100" x2="396" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1C2E9A"/>
+      <stop offset="0.3" stop-color="#1A2AB0"/>
+      <stop offset="0.7" stop-color="#111A57"/>
+      <stop offset="1" stop-color="#0A0F2E"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#030814" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softShadow)">
+    <circle cx="256" cy="256" r="220" fill="url(#bgGlow)"/>
+    <circle cx="256" cy="256" r="216" fill="url(#orb)"/>
+
+    <path d="M120 298C155 254 214 101 322 111C394 117 445 169 432 236C419 305 347 341 291 341C234 341 173 314 120 298Z" fill="url(#purpleBand)" opacity="0.92"/>
+    <path d="M86 234C118 150 188 90 291 93C353 95 431 135 460 197C465 208 470 219 472 232C453 208 433 193 410 181C364 160 319 170 274 183C222 198 173 219 117 240C101 246 92 242 86 234Z" fill="url(#blueBand)" opacity="0.98"/>
+
+    <path d="M116 245C167 216 214 181 280 184C347 188 410 225 448 280C454 290 457 299 455 310C423 271 387 250 348 240C311 230 276 230 225 251C185 267 126 286 79 299C82 283 92 262 116 245Z" fill="url(#purpleBand)" opacity="0.9"/>
+
+    <path d="M72 304C147 284 220 301 292 330C358 356 415 401 447 459C434 468 418 474 402 474C355 474 312 449 278 426C230 394 148 370 72 304Z" fill="url(#deepBlue)" opacity="0.95"/>
+
+    <path d="M105 123C148 100 190 117 230 142C266 164 313 204 343 246C358 267 372 286 399 298C384 332 338 362 289 374C238 386 177 380 136 353C98 327 71 282 61 232C52 191 69 147 105 123Z" fill="url(#blueBand)" opacity="0.9"/>
+
+    <path d="M90 283C149 260 205 253 250 267C296 281 351 314 390 356C408 374 424 392 444 406C421 417 397 423 373 425C263 434 181 427 118 382C90 360 72 325 90 283Z" fill="url(#purpleBand)" opacity="0.94"/>
+
+    <path d="M139 255C178 215 234 188 299 196C365 205 414 245 434 287C366 302 281 314 221 332C179 345 140 338 110 319C116 298 123 274 139 255Z" fill="url(#deepBlue)" opacity="0.68"/>
+
+    <path d="M116 140C170 110 230 103 293 120C352 136 405 176 426 222C387 197 347 180 299 176C254 172 208 184 168 209C143 224 121 244 102 266C82 232 83 176 116 140Z" fill="url(#purpleBand)" opacity="0.7"/>
+
+    <path d="M256 72C194 72 129 101 90 154C135 123 186 111 242 111C293 111 346 126 391 161C373 111 321 72 256 72Z" fill="#F7F9FF" opacity="0.2"/>
+  </g>
+</svg>

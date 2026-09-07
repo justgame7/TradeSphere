@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETF Flows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(245,166,35,0.07), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  /* ---- Top header ---- */
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .refresh-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 18px;max-width:720px;}
+
+  .degraded-banner{
+    background:rgba(255,84,112,.08);border:1px solid rgba(255,84,112,.25);color:#ffb3c1;
+    border-radius:10px;padding:10px 14px;font:12px var(--font-mono);margin-bottom:18px;
+    display:none;
+  }
+  .degraded-banner.show{display:block;}
+
+  /* ---- Asset tabs ---- */
+  .asset-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+  .asset-tab{
+    background:var(--panel);border:1px solid var(--border);color:var(--muted);
+    font:700 12.5px var(--font-mono);padding:9px 16px;border-radius:10px;cursor:pointer;
+    display:flex;align-items:center;gap:8px;transition:border-color .15s, color .15s, background .15s;
+  }
+  .asset-tab .tab-icon{font-size:14px;line-height:1;}
+  .asset-tab:hover{border-color:var(--border-soft);color:var(--text);}
+  .asset-tab.active{color:#08090C;background:var(--tab-color,var(--accent));border-color:var(--tab-color,var(--accent));}
+
+  /* ---- Summary cards ---- */
+  .summary-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px;}
+  @media(min-width:700px){ .summary-grid{grid-template-columns:repeat(3,1fr);} }
+  .summary-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:18px 20px;display:flex;flex-direction:column;gap:6px;
+    transition:border-color .15s, transform .15s;
+  }
+  .summary-card:hover{border-color:var(--border-soft);transform:translateY(-2px);}
+  .summary-label{font:10.5px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.07em;}
+  .summary-value{font-size:26px;font-weight:700;letter-spacing:-.01em;}
+  .summary-value.up{color:var(--accent);}
+  .summary-value.down{color:var(--red);}
+  .summary-sub{font:11.5px var(--font-mono);color:var(--muted);}
+
+  /* ---- Chart card ---- */
+  .chart-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px;}
+  .chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+  .chart-title{font:700 11px var(--font-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+  .chart-legend{display:flex;gap:14px;font:11px var(--font-mono);color:var(--faint);}
+  .legend-dot{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:5px;}
+  .flow-chart{width:100%;height:180px;display:block;}
+
+  /* ---- Period tabs (Daily / Weekly / Monthly) ---- */
+  .period-tabs{display:flex;gap:6px;margin-bottom:12px;}
+  .period-tab{
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:600 11px var(--font-mono);padding:6px 12px;border-radius:20px;cursor:pointer;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .period-tab.active{background:rgba(245,166,35,.14);border-color:var(--amber);color:var(--amber);}
+  .period-tab:hover:not(.active){border-color:var(--faint);}
+
+  /* ---- Period breakdown table ---- */
+  .period-table-wrap{margin-top:14px;padding-top:2px;border-top:1px solid var(--border-soft);}
+  table.period-table{width:100%;border-collapse:collapse;font:12.5px var(--font-mono);}
+  .period-table th{text-align:right;padding:9px 6px;color:var(--faint);font:10px var(--font-mono);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border-soft);}
+  .period-table th:first-child, .period-table td:first-child{text-align:left;}
+  .period-table td{padding:9px 6px;text-align:right;border-bottom:1px solid var(--border-soft);white-space:nowrap;}
+  .period-table tr:last-child td{border-bottom:none;}
+  .period-table tbody tr:hover td{background:var(--panel2);}
+  .period-live-badge{
+    font:700 9px var(--font-mono);color:var(--amber);background:rgba(245,166,35,.12);
+    border-radius:8px;padding:2px 6px;margin-left:6px;letter-spacing:.03em;
+  }
+  .period-note{font:10.5px var(--font-mono);color:var(--faint);margin-top:8px;}
+
+  /* ---- Fund table card ---- */
+  .table-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:6px 0 4px;margin-bottom:14px;overflow-x:auto;}
+  table.fund-table{width:100%;border-collapse:collapse;font:12.5px var(--font-mono);min-width:520px;}
+  .fund-table th{text-align:right;padding:12px 16px;color:var(--faint);font:10px var(--font-mono);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border-soft);white-space:nowrap;}
+  .fund-table th:first-child, .fund-table td:first-child{text-align:left;}
+  .fund-table td{padding:11px 16px;text-align:right;border-bottom:1px solid var(--border-soft);white-space:nowrap;}
+  .fund-table tr:last-child td{border-bottom:none;}
+  .fund-table tbody tr:hover td{background:var(--panel2);}
+  .fund-table th:first-child, .fund-table td:first-child{
+    position:sticky;left:0;z-index:2;background:var(--panel);
+    box-shadow:4px 0 8px -4px rgba(0,0,0,.35);
+  }
+  .fund-table th:first-child{z-index:3;}
+  .fund-table tbody tr:hover td:first-child{background:var(--panel2);}
+  .fund-name-cell{display:flex;flex-direction:column;gap:1px;}
+  .fund-issuer{font-weight:600;color:var(--text);font-family:var(--font-display);font-size:13px;}
+  .fund-ticker{font-size:10.5px;color:var(--faint);}
+  .flow-pos{color:var(--accent);}
+  .flow-neg{color:var(--red);}
+  .flow-zero{color:var(--faint);}
+
+  .source-link-row{margin:0 0 20px;}
+  .oil-link{
+    font:600 11px var(--font-mono);color:var(--amber);text-decoration:none;
+    display:inline-flex;align-items:center;gap:4px;
+  }
+  .oil-link:hover{text-decoration:underline;}
+
+  /* ---- Disclaimer / about panel ---- */
+  .notice{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin:6px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);
+  }
+  .notice b{color:var(--text);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{
+    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 13px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, color .15s, border-color .15s;
+  }
+  .notice-toggle:hover{border-color:var(--amber);color:var(--amber);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{
+    display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
+  }
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);}
+
+  .page-skeleton{display:flex;flex-direction:column;gap:14px;}
+  .skel-card{border-radius:14px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 37%,var(--panel) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  .error-state{
+    padding:34px 20px;text-align:center;color:#ffb3c1;font:12.5px var(--font-mono);
+    border:1px dashed rgba(255,84,112,.3);border-radius:12px;line-height:1.7;
+  }
+  .retry-btn{
+    margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:8px 16px;border-radius:8px;font:600 12px var(--font-mono);cursor:pointer;
+  }
+  .retry-btn:hover{border-color:var(--amber);color:var(--amber);}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>ETF Flows</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="sub">Daily net creations and redemptions across every approved US spot crypto ETF — Bitcoin, Ethereum, Solana and Hyperliquid — sourced from public fund-issuer flow disclosures.</p>
+
+  <div class="degraded-banner" id="degradedBanner"></div>
+
+  <div class="asset-tabs" id="assetTabs"></div>
+
+  <div id="content"></div>
+
+  <div class="notice">
+    <div class="notice-summary">
+      <b>Reference data only, not investment advice.</b>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+    </div>
+    <div class="notice-details" id="noticeDetails" hidden>
+      Flow figures are in US$ millions and are aggregated from public fund-issuer disclosures. They typically post once daily in the evening/night (US time) and are not real-time — today's column can read "—" until the day's flows are reported. A fund not yet listed by an issuer, or with no ETF approved for that asset, simply won't appear. "Total" is the cumulative net flow since each ETF's launch date, not a market-cap figure. Not financial advice.
+      <div class="src-tags">
+        <span class="src-tag"><span class="dot"></span>Source: Farside Investors</span>
+        <span class="src-tag"><span class="dot"></span>Updates ~daily</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------------- Config ----------------
+const ASSETS = [
+  { id:'btc', label:'Bitcoin',     symbol:'BTC',  icon:'₿', color:'#F5A623', url:'https://farside.co.uk/btc/' },
+  { id:'eth', label:'Ethereum',    symbol:'ETH',  icon:'Ξ', color:'#5B8CFF', url:'https://farside.co.uk/eth/' },
+  { id:'sol', label:'Solana',      symbol:'SOL',  icon:'◎', color:'#A78BFA', url:'https://farside.co.uk/sol/' },
+  { id:'hyp', label:'Hyperliquid', symbol:'HYPE', icon:'H', color:'#35E0C0', url:'https://farside.co.uk/hyp/' },
+];
+
+let activeAsset = 'btc';
+let activeFlowPeriod = 'daily'; // 'daily' | 'week' | 'month'
+const parsedData = {}; // assetId -> { funds, days, totals } | null on failure
+
+const REFRESH_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes - flows post once/day, no need to poll tighter
+const PROXY_TIMEOUT_MS = 10000;
+const CACHE_KEY = 'crypto-etf-flows-cache-v1';
+
+// Same personal Cloudflare Worker used across the rest of this app for CORS
+// passthrough (news.html, youtube.html, prediction-markets.html, oil.html).
+// IMPORTANT: farside.co.uk is a plain WordPress site (not CORS-open), so this
+// page relies on the Worker (or the public fallback proxy chain) for every
+// request. Add farside.co.uk to the Worker's allowed target-domain list.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function fetchTextViaProxyChain(url){
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker HTTP ' + res.status);
+      return await res.text();
+    }catch(err){
+      console.warn('[proxy] worker failed:', err && err.message);
+    }
+  }
+  return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
+    const res = await fetchWithTimeout(buildProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('proxy HTTP ' + res.status);
+    return await res.text();
+  })()));
+}
+
+// ---------------- Parsing ----------------
+// Farside publishes plain HTML <table>s with no JSON endpoint. This parser is
+// deliberately structure-driven (date-pattern row detection, <img alt="">
+// issuer names) rather than tied to specific class names, since those aren't
+// documented and could change.
+function parseNum(t){
+  if(t == null) return null;
+  t = String(t).trim();
+  if(t === '' || t === '-' || t === '—') return null;
+  let neg = false;
+  if(t.startsWith('(') && t.endsWith(')')){ neg = true; t = t.slice(1, -1); }
+  t = t.replace(/[,$\s]/g, '');
+  if(t === '') return null;
+  const n = parseFloat(t);
+  return isNaN(n) ? null : (neg ? -n : n);
+}
+
+const DATE_ROW_RE = /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/;
+const TICKER_RE = /^[A-Z0-9]{2,6}$/;
+
+function parseFarsideTable(html){
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const tables = Array.from(doc.querySelectorAll('table'));
+  let best = null, bestScore = 0;
+  for(const t of tables){
+    let score = 0;
+    for(const r of t.querySelectorAll('tr')){
+      const first = r.querySelector('th,td');
+      if(first && DATE_ROW_RE.test(first.textContent.trim())) score++;
+    }
+    if(score > bestScore){ bestScore = score; best = t; }
+  }
+  if(!best) throw new Error('Could not locate a flow table on the page');
+
+  let issuerRow = null, tickerRow = null, totalsRow = null;
+  const dataRows = [];
+
+  for(const r of best.querySelectorAll('tr')){
+    const cells = Array.from(r.querySelectorAll('th,td'));
+    if(cells.length === 0) continue;
+    const texts = cells.map(c => c.textContent.replace(/\s+/g, ' ').trim());
+    const hasImg = cells.some(c => c.querySelector('img'));
+
+    if(hasImg && !issuerRow){
+      issuerRow = cells.map(c => {
+        const img = c.querySelector('img');
+        return img ? (img.getAttribute('alt') || '').trim() : null;
+      });
+      continue;
+    }
+    if(!tickerRow && texts[0] === '' && texts.slice(1).filter(t => TICKER_RE.test(t)).length >= 2){
+      tickerRow = texts;
+      continue;
+    }
+    if(DATE_ROW_RE.test(texts[0])){
+      dataRows.push(texts);
+      continue;
+    }
+    if(texts[0] === 'Total' && !totalsRow){
+      totalsRow = texts;
+      continue;
+    }
+    // Fee / Staking fee / Seed / Average / Maximum / Minimum / blank spacer rows - skip
+  }
+
+  if(!tickerRow || dataRows.length === 0) throw new Error('Unexpected table format');
+
+  const tickerCells = tickerRow.slice(1);
+  const issuerCells = issuerRow ? issuerRow.slice(1) : [];
+  let numFunds = tickerCells.length;
+  while(numFunds > 0 && tickerCells[numFunds - 1] === '') numFunds--;
+
+  const funds = [];
+  for(let i = 0; i < numFunds; i++){
+    funds.push({ ticker: tickerCells[i], issuer: issuerCells[i] || tickerCells[i] });
+  }
+
+  const days = dataRows.map(texts => {
+    const dateStr = texts[0];
+    const values = funds.map((f, i) => parseNum(texts[1 + i]));
+    const totalRaw = parseNum(texts[1 + numFunds]);
+    const total = totalRaw != null ? totalRaw
+      : (values.some(v => v != null) ? values.reduce((a, b) => a + (b || 0), 0) : null);
+    return { dateStr, values, total };
+  });
+
+  const totals = totalsRow ? {
+    values: funds.map((f, i) => parseNum(totalsRow[1 + i])),
+    total: parseNum(totalsRow[1 + numFunds])
+  } : null;
+
+  return { funds, days, totals };
+}
+
+async function fetchAsset(asset){
+  const html = await fetchTextViaProxyChain(asset.url);
+  return parseFarsideTable(html);
+}
+
+// ---------------- Metrics ----------------
+function computeMetrics(parsed){
+  const { funds, days, totals } = parsed;
+  const daysWithData = days.filter(d => d.values.some(v => v != null));
+  const latest = daysWithData.length ? daysWithData[daysWithData.length - 1] : null;
+  const last7 = daysWithData.slice(-7);
+  const sum7 = last7.reduce((s, d) => s + (d.total || 0), 0);
+  const lifetimeTotal = totals && totals.total != null
+    ? totals.total
+    : daysWithData.reduce((s, d) => s + (d.total || 0), 0);
+
+  const fundStats = funds.map((f, i) => {
+    const today = latest ? latest.values[i] : null;
+    const sevenDay = last7.reduce((s, d) => s + (d.values[i] || 0), 0);
+    const total = totals && totals.values[i] != null
+      ? totals.values[i]
+      : daysWithData.reduce((s, d) => s + (d.values[i] || 0), 0);
+    return { ticker: f.ticker, issuer: f.issuer, today, sevenDay, total };
+  }).sort((a, b) => (b.total || 0) - (a.total || 0));
+
+  const weekly = aggregateByPeriod(daysWithData, 'week');
+  const monthly = aggregateByPeriod(daysWithData, 'month');
+
+  return { latest, sum7, lifetimeTotal, fundStats, daysWithData, weekly, monthly };
+}
+
+// ---------------- Weekly / monthly aggregation ----------------
+// Same idea as btc-returns.html's period bucketing: walk the daily flows
+// chronologically into ISO-week / calendar-month buckets. Because the input
+// only ever contains data up through the latest reported day, the *last*
+// bucket in sorted order is naturally still-open ("isCurrent") - as soon as
+// a new day rolls into the next week/month, that finalizes the previous
+// bucket's total and a new live one takes its place. No special "period
+// complete" logic needed; it falls out of the walk itself.
+function pad2(n){ return String(n).padStart(2, '0'); }
+
+function getISOWeekInfo(date){
+  // ISO week number (Mon-start), plus that week's Monday/Sunday date range.
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = (d.getUTCDay() + 6) % 7; // Mon=0 .. Sun=6
+  d.setUTCDate(d.getUTCDate() - dayNum + 3); // nearest Thursday
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const fdNum = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - fdNum + 3);
+  const week = 1 + Math.round((d - firstThursday) / (7 * 24 * 3600 * 1000));
+
+  const monday = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const origDayNum = (monday.getUTCDay() + 6) % 7;
+  monday.setUTCDate(monday.getUTCDate() - origDayNum);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(sunday.getUTCDate() + 6);
+
+  return { isoYear: d.getUTCFullYear(), week, weekStart: monday, weekEnd: sunday };
+}
+
+function aggregateByPeriod(daysWithData, granularity){
+  const map = new Map();
+  for(const d of daysWithData){
+    const date = new Date(d.dateStr);
+    if(isNaN(date)) continue;
+    let key, label, start, end;
+    if(granularity === 'week'){
+      const info = getISOWeekInfo(date);
+      key = `${info.isoYear}-W${pad2(info.week)}`;
+      start = info.weekStart;
+      end = info.weekEnd;
+      label = `${start.toLocaleDateString(undefined,{month:'short',day:'numeric'})}\u2013${end.toLocaleDateString(undefined,{month:'short',day:'numeric'})}`;
+    }else{
+      const y = date.getFullYear(), m = date.getMonth();
+      key = `${y}-${pad2(m + 1)}`;
+      start = new Date(y, m, 1);
+      end = new Date(y, m + 1, 0);
+      label = start.toLocaleDateString(undefined,{month:'short',year:'numeric'});
+    }
+    if(!map.has(key)) map.set(key, { key, label, sum: 0, dayCount: 0, start, end });
+    const bucket = map.get(key);
+    bucket.sum += (d.total || 0);
+    bucket.dayCount++;
+  }
+  const keys = [...map.keys()].sort();
+  return keys.map((k, i) => ({ ...map.get(k), isCurrent: i === keys.length - 1 }));
+}
+
+// ---------------- Rendering ----------------
+function escapeHtml(s){
+  return (s == null ? '' : String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fmtBig(v){
+  if(v == null) return '—';
+  const abs = Math.abs(v);
+  const sign = v > 0.05 ? '+' : v < -0.05 ? '−' : '';
+  const mag = abs >= 1000 ? '$' + (abs / 1000).toFixed(2) + 'B' : '$' + abs.toFixed(1) + 'M';
+  return sign + mag;
+}
+
+function fmtFlowCell(v){
+  if(v == null) return `<span class="flow-zero">—</span>`;
+  const cls = v > 0.05 ? 'flow-pos' : v < -0.05 ? 'flow-neg' : 'flow-zero';
+  return `<span class="${cls}">${fmtBig(v)}</span>`;
+}
+
+function renderTabs(){
+  const el = document.getElementById('assetTabs');
+  el.innerHTML = ASSETS.map(a => `
+    <button class="asset-tab${a.id === activeAsset ? ' active' : ''}" type="button" data-asset="${a.id}" style="--tab-color:${a.color}">
+      <span class="tab-icon">${a.icon}</span>${a.label}
+    </button>`).join('');
+  el.querySelectorAll('.asset-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeAsset = btn.getAttribute('data-asset');
+      renderTabs();
+      renderActive();
+    });
+  });
+}
+
+function buildFlowChart(days, emptyMsg){
+  const w = 700, h = 180;
+  const vals = days.map(d => d.total != null ? d.total : (d.sum || 0));
+  if(vals.length === 0){
+    return `<div class="summary-sub">${emptyMsg || 'No daily flow history available yet.'}</div>`;
+  }
+  const maxAbs = Math.max(1, ...vals.map(v => Math.abs(v)));
+  const zeroY = h / 2;
+  const slot = w / vals.length;
+  const barW = Math.max(2, slot * 0.6);
+  const bars = vals.map((v, i) => {
+    const x = slot * i + (slot - barW) / 2;
+    const barH = Math.max(1, (Math.abs(v) / maxAbs) * (h / 2 - 10));
+    const y = v >= 0 ? zeroY - barH : zeroY;
+    const d = days[i];
+    const color = v >= 0 ? 'var(--accent)' : 'var(--red)';
+    const opacity = d.isCurrent ? ' fill-opacity="0.55" stroke="' + color + '" stroke-width="1.5" stroke-dasharray="2,2"' : '';
+    const label = d.label || d.dateStr;
+    const title = `${label}${d.isCurrent ? ' (in progress)' : ''}: ${v >= 0 ? '+' : ''}${v.toFixed(1)}M`;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${color}" rx="2"${opacity}><title>${escapeHtml(title)}</title></rect>`;
+  }).join('');
+  return `<svg class="flow-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <line x1="0" y1="${zeroY}" x2="${w}" y2="${zeroY}" stroke="var(--border-soft)" stroke-width="1"/>
+    ${bars}
+  </svg>`;
+}
+
+function renderPeriodTable(periods, unitLabel){
+  if(!periods.length) return '';
+  const rows = periods.slice(-14).slice().reverse().map(p => {
+    const cls = p.sum > 0.05 ? 'flow-pos' : p.sum < -0.05 ? 'flow-neg' : 'flow-zero';
+    return `<tr>
+      <td>${escapeHtml(p.label)}${p.isCurrent ? '<span class="period-live-badge">LIVE</span>' : ''}</td>
+      <td>${p.dayCount}</td>
+      <td class="${cls}">${fmtBig(p.sum)}</td>
+    </tr>`;
+  }).join('');
+  return `
+  <div class="period-table-wrap">
+    <table class="period-table">
+      <thead><tr><th>${unitLabel}</th><th>Days</th><th>Net Flow</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="period-note">LIVE = period still in progress; total will keep updating until it closes.</div>
+  </div>`;
+}
+
+function renderSummary(metrics, asset){
+  const latestVal = metrics.latest ? metrics.latest.total : null;
+  const latestDateLabel = metrics.latest
+    ? new Date(metrics.latest.dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : '—';
+  const cls = v => v > 0.05 ? 'up' : v < -0.05 ? 'down' : '';
+  return `
+  <div class="summary-grid">
+    <div class="summary-card">
+      <span class="summary-label">Latest Net Flow</span>
+      <span class="summary-value ${cls(latestVal)}">${fmtBig(latestVal)}</span>
+      <span class="summary-sub">${latestDateLabel} · ${asset.symbol} spot ETFs</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">7-Day Net Flow</span>
+      <span class="summary-value ${cls(metrics.sum7)}">${fmtBig(metrics.sum7)}</span>
+      <span class="summary-sub">Sum of last 7 reporting days</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Cumulative Net Flow</span>
+      <span class="summary-value ${cls(metrics.lifetimeTotal)}">${fmtBig(metrics.lifetimeTotal)}</span>
+      <span class="summary-sub">Since ${asset.symbol} ETF inception</span>
+    </div>
+  </div>`;
+}
+
+function renderFundTable(fundStats){
+  const rows = fundStats.map(f => `
+    <tr>
+      <td><div class="fund-name-cell"><span class="fund-issuer">${escapeHtml(f.issuer)}</span><span class="fund-ticker">${escapeHtml(f.ticker)}</span></div></td>
+      <td>${fmtFlowCell(f.today)}</td>
+      <td>${fmtFlowCell(f.sevenDay)}</td>
+      <td>${fmtFlowCell(f.total)}</td>
+    </tr>`).join('');
+  return `
+  <div class="table-card">
+    <table class="fund-table">
+      <thead><tr><th>Fund</th><th>Today</th><th>7-Day</th><th>Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderActive(){
+  const asset = ASSETS.find(a => a.id === activeAsset);
+  const parsed = parsedData[activeAsset];
+  const content = document.getElementById('content');
+
+  if(!parsed){
+    content.innerHTML = `
+      <div class="error-state">
+        Couldn't load ${asset.label} ETF flow data this refresh.<br>
+        If you have a Cloudflare Worker configured for this app, make sure
+        farside.co.uk is allowed through it. Check the console for details.
+        <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+      </div>`;
+    document.getElementById('retryBtn').addEventListener('click', loadAll);
+    return;
+  }
+
+  const metrics = computeMetrics(parsed);
+
+  const periodTabs = [
+    { id: 'daily', label: 'Daily' },
+    { id: 'week', label: 'Weekly' },
+    { id: 'month', label: 'Monthly' },
+  ];
+  const periodTabsHtml = `<div class="period-tabs">${periodTabs.map(t =>
+    `<button class="period-tab${t.id===activeFlowPeriod?' active':''}" data-period="${t.id}" type="button">${t.label}</button>`
+  ).join('')}</div>`;
+
+  let chartTitle, chartBody, periodTableHtml = '';
+  if(activeFlowPeriod === 'week'){
+    chartTitle = 'Weekly Net Flow';
+    chartBody = buildFlowChart(metrics.weekly.slice(-20), 'Not enough history yet to show weekly totals.');
+    periodTableHtml = renderPeriodTable(metrics.weekly, 'Week');
+  }else if(activeFlowPeriod === 'month'){
+    chartTitle = 'Monthly Net Flow';
+    chartBody = buildFlowChart(metrics.monthly.slice(-20), 'Not enough history yet to show monthly totals.');
+    periodTableHtml = renderPeriodTable(metrics.monthly, 'Month');
+  }else{
+    chartTitle = 'Daily Net Flow';
+    chartBody = buildFlowChart(metrics.daysWithData.slice(-20));
+  }
+
+  content.innerHTML = `
+    ${renderSummary(metrics, asset)}
+    <div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">${chartTitle} — ${escapeHtml(asset.label)}</span>
+        <span class="chart-legend">
+          <span><span class="legend-dot" style="background:var(--accent)"></span>Inflow</span>
+          <span><span class="legend-dot" style="background:var(--red)"></span>Outflow</span>
+        </span>
+      </div>
+      ${periodTabsHtml}
+      ${chartBody}
+      ${periodTableHtml}
+    </div>
+    ${renderFundTable(metrics.fundStats)}
+    <div class="source-link-row">
+      <a class="oil-link" href="${asset.url}" target="_blank" rel="noopener">View full history on Farside ↗</a>
+    </div>`;
+
+  content.querySelectorAll('.period-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeFlowPeriod = btn.getAttribute('data-period');
+      renderActive();
+    });
+  });
+}
+
+function renderSkeleton(){
+  document.getElementById('content').innerHTML = `
+    <div class="page-skeleton">
+      <div class="skel-card" style="height:96px;"></div>
+      <div class="skel-card" style="height:230px;"></div>
+      <div class="skel-card" style="height:260px;"></div>
+    </div>`;
+}
+
+function updateLastUpdatedLabel(failed){
+  const el = document.getElementById('updatedLabel');
+  el.classList.toggle('label-error', !!failed);
+  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed - see console' : ''; return; }
+  const mins = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 60000));
+  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  el.textContent = (failed ? 'Refresh failed, showing cached · ' : 'Updated ') + ago;
+}
+
+function showDegradedBanner(text){
+  const el = document.getElementById('degradedBanner');
+  if(!text){ el.classList.remove('show'); el.textContent = ''; return; }
+  el.textContent = text;
+  el.classList.add('show');
+}
+
+// ---------------- Cache (stale-while-revalidate, same pattern as the other pages) ----------------
+let lastUpdated = null;
+
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
+      parsedData
+    }));
+  }catch(err){ /* storage unavailable - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.parsedData) return false;
+    Object.assign(parsedData, cached.parsedData);
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+
+// ---------------- Main load ----------------
+async function loadAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  const haveAny = ASSETS.some(a => parsedData[a.id]);
+  if(haveAny){
+    renderActive();
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  const settled = await Promise.allSettled(ASSETS.map(a => fetchAsset(a)));
+  let successCount = 0;
+  const failedLabels = [];
+  settled.forEach((result, i) => {
+    const asset = ASSETS[i];
+    if(result.status === 'fulfilled'){
+      parsedData[asset.id] = result.value;
+      successCount++;
+    }else{
+      console.warn(`[${asset.label}] failed:`, result.reason && result.reason.message);
+      if(!parsedData[asset.id]) parsedData[asset.id] = null;
+      failedLabels.push(asset.label);
+    }
+  });
+
+  const failed = successCount === 0;
+
+  if(successCount > 0){
+    lastUpdated = new Date();
+    saveCache();
+  }
+
+  renderActive();
+
+  if(failedLabels.length && successCount > 0){
+    showDegradedBanner(`${failedLabels.join(', ')} data unavailable this refresh (common if your proxy Worker needs farside.co.uk allow-listed) - showing cached/other assets only.`);
+  }else if(failed){
+    showDegradedBanner(null);
+  }else{
+    showDegradedBanner(null);
+  }
+
+  updateLastUpdatedLabel(failed);
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+document.getElementById('noticeToggle').addEventListener('click', () => {
+  const btn = document.getElementById('noticeToggle');
+  const details = document.getElementById('noticeDetails');
+  const willOpen = details.hidden;
+  details.hidden = !willOpen;
+  btn.classList.toggle('open', willOpen);
+  btn.setAttribute('aria-expanded', String(willOpen));
+});
+
+renderTabs();
+loadCache();
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL_MS);
+setInterval(updateLastUpdatedLabel, 60000);
+</script>
+</body>
+</html>

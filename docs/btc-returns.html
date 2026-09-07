@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bitcoin Returns</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --btc:#F7931A;
+    --eth:#627EEA;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(247,147,26,0.07), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(53,224,192,0.07), transparent 35%);
+  }
+  .wrap{max-width:820px;margin:0 auto;}
+
+  /* ---- Top header ---- */
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--btc);box-shadow:0 0 8px var(--btc);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .refresh-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--btc);color:var(--btc);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 18px;max-width:640px;}
+
+  /* ---- Price banner ---- */
+  .price-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:16px;
+    padding:18px 20px;display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;gap:12px;flex-wrap:wrap;
+  }
+  .price-left{display:flex;align-items:center;gap:12px;}
+  .price-icon{
+    width:42px;height:42px;border-radius:12px;flex-shrink:0;
+    background:linear-gradient(135deg,#f7931a,#c9761a);
+    display:flex;align-items:center;justify-content:center;font-size:20px;
+    box-shadow:0 6px 16px rgba(247,147,26,.28);
+  }
+  .price-value{font:800 26px var(--font-display);letter-spacing:-.02em;}
+  .price-sub{font:10.5px var(--font-mono);color:var(--faint);margin-top:2px;text-transform:uppercase;letter-spacing:.05em;}
+  .price-chip{
+    font:700 13px var(--font-mono);padding:5px 12px;border-radius:20px;
+    display:flex;align-items:center;gap:5px;
+  }
+
+  /* ---- Stat grid ---- */
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+  .stat-chip{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:12px 10px;text-align:center;display:flex;flex-direction:column;gap:4px;
+  }
+  .stat-chip-label{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;}
+  .stat-chip-value{font:700 17px var(--font-mono);}
+  .stat-chip-sub{font:10.5px var(--font-mono);color:var(--muted);}
+
+  /* ---- Best/worst row ---- */
+  .compare-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px;}
+  .compare-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:12px 14px;display:flex;flex-direction:column;gap:3px;
+  }
+  .compare-title{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px;}
+  .compare-val{font:700 15px var(--font-mono);}
+  .compare-period{font:10.5px var(--font-mono);color:var(--muted);}
+
+  /* ---- Tabs ---- */
+  .tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab-btn{
+    flex-shrink:0;background:var(--panel);border:1px solid var(--border);color:var(--muted);
+    font:600 12px var(--font-mono);padding:8px 14px;border-radius:20px;cursor:pointer;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .tab-btn.active{background:rgba(247,147,26,.14);border-color:var(--btc);color:var(--btc);}
+  .tab-btn:hover:not(.active){border-color:var(--faint);}
+
+  /* ---- Heatmap card ---- */
+  .heatmap-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:16px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  }
+  .heatmap-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px;}
+  .heatmap-title{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;}
+  .cell-detail{
+    font:600 11.5px var(--font-mono);color:var(--text);background:var(--panel2);
+    border:1px solid var(--border);border-radius:8px;padding:4px 10px;min-height:15px;
+  }
+  table.heatmap{border-collapse:separate;border-spacing:3px;width:auto;margin:0;}
+  table.heatmap[data-unit="month"]{width:100%;min-width:640px;}
+  table.heatmap th{
+    font:600 10px var(--font-mono);color:var(--faint);text-transform:uppercase;
+    letter-spacing:.03em;padding:4px 2px;text-align:center;font-weight:600;
+  }
+  table.heatmap th.year-hdr{
+    text-align:left;padding-left:6px;
+    position:sticky;left:0;z-index:3;background:var(--panel);
+    box-shadow:4px 0 8px -4px rgba(0,0,0,.35);
+  }
+  table.heatmap td{
+    text-align:center;font:600 11.5px var(--font-mono);border-radius:7px;
+    padding:9px 4px;cursor:pointer;color:var(--text);white-space:nowrap;
+    transition:transform .1s, outline .1s;
+    border:1px solid rgba(255,255,255,.03);
+    width:44px;
+  }
+  table.heatmap[data-unit="month"] td{width:auto;}
+  table.heatmap[data-unit="quarter"] td:not(.year-label),
+  table.heatmap[data-unit="half"] td:not(.year-label){width:64px;padding:9px 8px;}
+  table.heatmap td.empty{color:var(--faint);cursor:default;background:var(--panel2)!important;opacity:.4;}
+  table.heatmap td.year-label{
+    text-align:left;color:var(--muted);font-weight:700;background:var(--panel)!important;
+    cursor:default;padding-left:6px;padding-right:10px;border:none;
+    width:auto;position:sticky;left:0;z-index:2;
+    box-shadow:4px 0 8px -4px rgba(0,0,0,.35);
+  }
+  table.heatmap td.year-col{font-weight:700;border-left:2px solid var(--border-soft);}
+  table.heatmap td:active:not(.empty):not(.year-label){transform:scale(.94);}
+  table.heatmap tr.avg-row td{
+    background:var(--panel2)!important;color:var(--violet);border-top:1px solid var(--border);
+    font-weight:700;
+  }
+  table.heatmap tr.avg-row td.year-label{color:var(--violet);}
+
+  /* ---- Yearly bar list ---- */
+  .year-bars{display:flex;flex-direction:column;gap:8px;}
+  .year-bar-row{display:flex;align-items:center;gap:10px;}
+  .year-bar-label{width:46px;flex-shrink:0;font:700 12px var(--font-mono);color:var(--muted);}
+  .year-bar-track{flex:1;height:22px;background:var(--panel2);border-radius:6px;position:relative;overflow:hidden;}
+  .year-bar-fill{
+    position:absolute;top:0;bottom:0;border-radius:6px;
+    transition:width .3s ease;
+  }
+  .year-bar-fill.pos{left:50%;background:linear-gradient(90deg,var(--accent-dim),var(--accent));}
+  .year-bar-fill.neg{right:50%;background:linear-gradient(90deg,var(--red),var(--red-dim));}
+  .year-bar-mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border);}
+  .year-bar-val{width:78px;flex-shrink:0;text-align:right;font:700 12px var(--font-mono);}
+
+  /* ---- Seasonality chart ---- */
+  .season-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:16px 18px;margin-bottom:14px;
+  }
+  .season-title{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+  .season-desc{font:11.5px var(--font-mono);color:var(--muted);margin-bottom:14px;line-height:1.5;}
+  .season-chart{display:flex;align-items:flex-end;gap:4px;height:100px;margin-bottom:6px;}
+  .season-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;}
+  .season-bar{width:100%;border-radius:4px 4px 0 0;min-height:2px;position:relative;}
+  .season-bar.neg{border-radius:0 0 4px 4px;}
+  .season-labels{display:flex;gap:4px;}
+  .season-lbl{flex:1;text-align:center;font:9.5px var(--font-mono);color:var(--faint);}
+  .season-callout{
+    display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;
+  }
+  .season-pill{
+    flex:1;min-width:140px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;
+    padding:10px 12px;font:11px var(--font-mono);color:var(--muted);
+  }
+  .season-pill b{color:var(--text);display:block;font-size:12.5px;margin-bottom:2px;}
+
+  /* ---- Legend ---- */
+  .zone-legend{display:flex;align-items:center;gap:10px;margin-bottom:20px;font:10.5px var(--font-mono);color:var(--faint);flex-wrap:wrap;}
+  .legend-scale{display:flex;align-items:center;height:10px;border-radius:5px;overflow:hidden;width:120px;}
+  .legend-scale span{flex:1;height:100%;}
+
+  /* ---- Notice ---- */
+  .notice{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin:6px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);
+  }
+  .notice b{color:var(--text);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{
+    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 13px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, color .15s, border-color .15s;
+  }
+  .notice-toggle:hover{border-color:var(--btc);color:var(--btc);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{
+    display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
+  }
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--btc);}
+
+  .page-skeleton{display:flex;flex-direction:column;gap:14px;}
+  .skel-card{border-radius:14px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 37%,var(--panel) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  .error-state{
+    padding:34px 20px;text-align:center;color:#ffb3c1;font:12.5px var(--font-mono);
+    border:1px dashed rgba(255,84,112,.3);border-radius:12px;line-height:1.7;
+  }
+  .retry-btn{
+    margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:8px 16px;border-radius:8px;font:600 12px var(--font-mono);cursor:pointer;
+  }
+  .retry-btn:hover{border-color:var(--btc);color:var(--btc);}
+
+  /* ---- ETH mode: swap the shared accent color, everything else identical ---- */
+  body.asset-eth{--btc:var(--eth);}
+  body.asset-eth .price-icon{background:linear-gradient(135deg,#627EEA,#3C4FA1);box-shadow:0 6px 16px rgba(98,126,234,.28);}
+
+  /* ---- Asset toggle ---- */
+  .asset-toggle-row{display:flex;justify-content:center;margin-bottom:14px;}
+  .asset-toggle{
+    display:inline-flex;align-items:center;background:var(--panel);border:1px solid var(--border);
+    border-radius:20px;padding:2px;gap:2px;flex-shrink:0;
+  }
+  .asset-toggle-btn{
+    border:none;background:transparent;color:var(--muted);font:700 11px var(--font-mono);
+    padding:5px 12px;border-radius:18px;cursor:pointer;transition:background .15s,color .15s;
+  }
+  .asset-toggle-btn.active{background:rgba(247,147,26,.14);color:var(--btc);}
+  body.asset-eth .asset-toggle-btn.active{background:rgba(98,126,234,.16);}
+  .asset-toggle-btn:hover:not(.active){color:var(--text);}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span><span id="pageTitle">Bitcoin Returns</span></div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="asset-toggle-row">
+    <div class="asset-toggle" id="assetToggle">
+      <button class="asset-toggle-btn active" data-asset="BTC" type="button">BTC</button>
+      <button class="asset-toggle-btn" data-asset="ETH" type="button">ETH</button>
+    </div>
+  </div>
+
+  <div id="content"></div>
+
+  <div class="zone-legend">
+    <span>Weak</span>
+    <span class="legend-scale">
+      <span style="background:rgba(255,84,112,.8)"></span>
+      <span style="background:rgba(255,84,112,.4)"></span>
+      <span style="background:#171B22"></span>
+      <span style="background:rgba(53,224,192,.4)"></span>
+      <span style="background:rgba(53,224,192,.8)"></span>
+    </span>
+    <span>Strong</span>
+  </div>
+
+  <div class="notice">
+    <div class="notice-summary">
+      <b id="noticeHeadline">Historical performance, not a prediction.</b>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+    </div>
+    <div class="notice-details" id="noticeDetails" hidden>
+      All returns are computed from <span id="noticePair">BTC/USD</span> close-price history, primarily Yahoo Finance's monthly candles (CoinGecko's daily history is used as an automatic fallback if Yahoo is unreachable). Periods still in progress (the current month/quarter/half/year) show a live, not-yet-final return and are marked "live". Past performance does not indicate future results — not financial advice.
+      <div class="src-tags">
+        <span class="src-tag"><span class="dot"></span><span id="srcTagText">Source · Yahoo Finance (BTC-USD), CoinGecko fallback</span></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ================= Config =================
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+const PROXY_TIMEOUT_MS = 10000;
+
+// Per-asset config - BTC and ETH run through the exact same fetch/compute/
+// render pipeline, just parameterized by symbol/id/cache key.
+const ASSETS = {
+  BTC: {
+    label: 'BTC', name: 'Bitcoin', icon: '₿',
+    yahooSymbol: 'BTC-USD', geckoId: 'bitcoin',
+    cacheKey: 'crypto-btc-returns-cache-v2', // v2: switched primary source to Yahoo Finance
+  },
+  ETH: {
+    label: 'ETH', name: 'Ethereum',
+    icon: '<svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M11.944 17.97 4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0 4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z" fill="#fff"/></svg>',
+    yahooSymbol: 'ETH-USD', geckoId: 'ethereum',
+    cacheKey: 'crypto-eth-returns-cache-v1',
+  },
+};
+
+// Same personal Cloudflare Worker used across the other pages in this app.
+// query1.finance.yahoo.com and api.coingecko.com are both already in the
+// Worker's ALLOWED_HOSTS list.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+async function fetchJSONDirect(url){
+  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+async function fetchJSONViaProxyChain(url){
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker HTTP ' + res.status);
+      return await res.json();
+    }catch(err){
+      console.warn('[proxy] worker failed:', err && err.message);
+    }
+  }
+  return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
+    const res = await fetchWithTimeout(buildProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('proxy HTTP ' + res.status);
+    return await res.json();
+  })()));
+}
+async function fetchCoinGeckoFirst(url, ms){
+  // CoinGecko is normally directly fetchable; try the Worker first purely
+  // for its edge cache, then fall back to a direct fetch, then the public
+  // CORS proxy chain as a last resort. (CoinGecko's free API has recently
+  // started returning 401/429 on this endpoint without a paid/demo API
+  // key, which is why it's now only a fallback behind Yahoo Finance below.)
+  try{
+    const res = await fetchWithTimeout(buildWorkerProxyUrl(url), ms);
+    if(!res.ok) throw new Error('worker responded ' + res.status);
+    return res.json();
+  }catch(err){
+    try{
+      return await fetchJSONDirect(url);
+    }catch(err2){
+      return await fetchJSONViaProxyChain(url);
+    }
+  }
+}
+
+// ================= Fetch: Yahoo Finance (primary source) =================
+// Keyless, CORS-friendly, and already used successfully elsewhere in this
+// app (macro.html) via the same Worker/proxy chain. Monthly candles give us
+// exactly the granularity this page needs directly, with no resampling.
+// symbol is e.g. 'BTC-USD' or 'ETH-USD'.
+async function fetchYahooChart(symbol, range, interval){
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}`;
+  let data;
+  try{
+    data = await fetchJSONDirect(url);
+  }catch(err){
+    data = await fetchJSONViaProxyChain(url);
+  }
+  const result = data && data.chart && Array.isArray(data.chart.result) && data.chart.result[0];
+  if(!result || !result.meta) throw new Error('Unexpected Yahoo Finance response shape');
+  const closes = (result.indicators && result.indicators.quote && result.indicators.quote[0] && result.indicators.quote[0].close) || [];
+  const timestamps = result.timestamp || [];
+  return timestamps
+    .map((t, i) => ({ t: t * 1000, date: new Date(t * 1000), price: closes[i] }))
+    .filter(p => typeof p.price === 'number' && isFinite(p.price));
+}
+async function fetchMonthlyHistoryYahoo(symbol){
+  const series = await fetchYahooChart(symbol, 'max', '1mo');
+  if(series.length < 6) throw new Error(`Yahoo Finance returned too few ${symbol} monthly bars`);
+  return series;
+}
+async function fetchLatestPriceYahoo(symbol){
+  const series = await fetchYahooChart(symbol, '5d', '1d');
+  if(!series.length) throw new Error(`Yahoo Finance returned no recent ${symbol} daily bars`);
+  return series[series.length - 1].price;
+}
+
+// ================= Fetch: CoinGecko full daily history (fallback source) =================
+// geckoId is e.g. 'bitcoin' or 'ethereum'.
+async function fetchDailyHistoryCoinGecko(geckoId){
+  const url = `https://api.coingecko.com/api/v3/coins/${geckoId}/market_chart?vs_currency=usd&days=max`;
+  const data = await fetchCoinGeckoFirst(url, PROXY_TIMEOUT_MS);
+  const prices = data && Array.isArray(data.prices) ? data.prices : null;
+  if(!prices || prices.length < 30) throw new Error('Unexpected CoinGecko market_chart response shape');
+  return prices.map(p => ({ t: p[0], date: new Date(p[0]), price: p[1] })).filter(p => isFinite(p.price));
+}
+
+// ================= Unified price history fetch =================
+// Yahoo Finance first (keyless, reliable in this app suite already); if
+// that's ever unreachable, fall back to CoinGecko's daily history.
+async function fetchPriceHistory(asset){
+  try{
+    return await fetchMonthlyHistoryYahoo(asset.yahooSymbol);
+  }catch(errYahoo){
+    console.warn(`[crypto-returns] Yahoo Finance monthly history failed for ${asset.label}, falling back to CoinGecko:`, errYahoo && errYahoo.message);
+    return await fetchDailyHistoryCoinGecko(asset.geckoId);
+  }
+}
+
+// ================= Period bucketing =================
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+function buildPeriodCloses(daily){
+  // Walk chronologically, overwriting each bucket's close with the latest
+  // price seen in that bucket - the final overwrite for a finished period
+  // is naturally its true close; for the still-open period it's simply the
+  // latest live price ("in progress").
+  const monthCloses = new Map();   // 'YYYY-MM'  -> {price, date}
+  const quarterCloses = new Map(); // 'YYYY-Q#'  -> {price, date}
+  const halfCloses = new Map();    // 'YYYY-H#'  -> {price, date}
+  const yearCloses = new Map();    // 'YYYY'     -> {price, date}
+
+  for(const p of daily){
+    const y = p.date.getUTCFullYear();
+    const m = p.date.getUTCMonth() + 1; // 1-12
+    const q = Math.ceil(m / 3);
+    const h = m <= 6 ? 1 : 2;
+    monthCloses.set(`${y}-${pad2(m)}`, { price: p.price, date: p.date });
+    quarterCloses.set(`${y}-Q${q}`, { price: p.price, date: p.date });
+    halfCloses.set(`${y}-H${h}`, { price: p.price, date: p.date });
+    yearCloses.set(`${y}`, { price: p.price, date: p.date });
+  }
+  return { monthCloses, quarterCloses, halfCloses, yearCloses };
+}
+
+function computeReturns(closesMap){
+  const keys = [...closesMap.keys()].sort();
+  const out = [];
+  for(let i = 1; i < keys.length; i++){
+    const prev = closesMap.get(keys[i-1]);
+    const cur = closesMap.get(keys[i]);
+    const ret = (cur.price / prev.price - 1) * 100;
+    out.push({ key: keys[i], ret, date: cur.date, isCurrent: i === keys.length - 1 });
+  }
+  return out; // ascending, oldest first
+}
+
+// ================= Rendering helpers =================
+function fmtPct(v, withSign){
+  if(v == null || !isFinite(v)) return '—';
+  const s = v.toFixed(v >= 100 || v <= -100 ? 0 : 1) + '%';
+  return (withSign !== false && v > 0 ? '+' : '') + s;
+}
+function fmtUsd(v){
+  if(v >= 1000) return '$' + v.toLocaleString(undefined,{maximumFractionDigits:0});
+  return '$' + v.toFixed(2);
+}
+function heatColor(v, cap){
+  if(v == null || !isFinite(v)) return null;
+  const t = Math.max(-1, Math.min(1, v / cap));
+  if(t >= 0) return `rgba(53,224,192,${(0.14 + 0.62*t).toFixed(2)})`;
+  return `rgba(255,84,112,${(0.14 + 0.62*(-t)).toFixed(2)})`;
+}
+function textColorFor(v){
+  return (v != null && isFinite(v)) ? '#0A0C10' : 'var(--text)';
+}
+
+// ================= State =================
+let currentAsset = 'BTC'; // 'BTC' | 'ETH' - which asset is currently displayed
+let dailyHistory = null;
+let periodData = null;   // { monthCloses, quarterCloses, halfCloses, yearCloses }
+let returnsData = null;  // { monthly, quarterly, halfYearly, yearly } - each ascending
+let lastUpdated = null;
+let activeTab = 'monthly';
+let currentPrice = null;
+
+// Snapshot of each asset's loaded data, so switching BTC<->ETH after both
+// have loaded once is instant (no refetch needed).
+const assetStore = {
+  BTC: { dailyHistory: null, periodData: null, returnsData: null, lastUpdated: null, currentPrice: null },
+  ETH: { dailyHistory: null, periodData: null, returnsData: null, lastUpdated: null, currentPrice: null },
+};
+function snapshotActiveIntoStore(){
+  assetStore[currentAsset] = { dailyHistory, periodData, returnsData, lastUpdated, currentPrice };
+}
+function restoreActiveFromStore(asset){
+  const s = assetStore[asset];
+  dailyHistory = s.dailyHistory;
+  periodData = s.periodData;
+  returnsData = s.returnsData;
+  lastUpdated = s.lastUpdated;
+  currentPrice = s.currentPrice;
+}
+
+// ================= Build derived stats =================
+function buildStats(){
+  const monthly = returnsData.monthly;
+  const quarterly = returnsData.quarterly;
+  const halfYearly = returnsData.halfYearly;
+  const yearly = returnsData.yearly;
+
+  const lastMonth = monthly[monthly.length - 1];
+  const lastQuarter = quarterly[quarterly.length - 1];
+  const lastYear = yearly[yearly.length - 1];
+
+  const finishedMonthly = monthly.filter(m => !m.isCurrent);
+  const bestMonth = finishedMonthly.reduce((a,b) => (!a || b.ret > a.ret) ? b : a, null);
+  const worstMonth = finishedMonthly.reduce((a,b) => (!a || b.ret < a.ret) ? b : a, null);
+
+  const finishedYearly = yearly.filter(y => !y.isCurrent);
+  const bestYear = finishedYearly.reduce((a,b) => (!a || b.ret > a.ret) ? b : a, null);
+  const worstYear = finishedYearly.reduce((a,b) => (!a || b.ret < a.ret) ? b : a, null);
+
+  const positiveMonths = finishedMonthly.filter(m => m.ret > 0).length;
+  const winRate = finishedMonthly.length ? (positiveMonths / finishedMonthly.length * 100) : null;
+
+  // Seasonality: average return per calendar month (1-12), excluding the
+  // still-open current month so it doesn't skew the historical average.
+  const seasonBuckets = {};
+  for(let m = 1; m <= 12; m++) seasonBuckets[m] = [];
+  finishedMonthly.forEach(m => {
+    const mm = parseInt(m.key.split('-')[1], 10);
+    seasonBuckets[mm].push(m.ret);
+  });
+  const seasonAvg = {};
+  for(let m = 1; m <= 12; m++){
+    const arr = seasonBuckets[m];
+    seasonAvg[m] = arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+  }
+  const seasonEntries = Object.entries(seasonAvg).filter(([,v]) => v != null);
+  const bestSeasonMonth = seasonEntries.reduce((a,b) => (!a || b[1] > a[1]) ? b : a, null);
+  const worstSeasonMonth = seasonEntries.reduce((a,b) => (!a || b[1] < a[1]) ? b : a, null);
+
+  const startYear = dailyHistory && dailyHistory.length ? dailyHistory[0].date.getUTCFullYear() : null;
+
+  return {
+    lastMonth, lastQuarter, lastYear,
+    bestMonth, worstMonth, bestYear, worstYear,
+    winRate, positiveMonths, totalMonths: finishedMonthly.length,
+    seasonAvg, bestSeasonMonth, worstSeasonMonth, startYear
+  };
+}
+
+// ================= Render: header cards =================
+function renderTop(stats){
+  const price = currentPrice;
+  const asset = ASSETS[currentAsset];
+  const priceChip = (label, ret) => {
+    const color = ret == null ? 'var(--faint)' : (ret >= 0 ? 'var(--accent)' : 'var(--red)');
+    return `<div class="stat-chip">
+      <span class="stat-chip-label">${label}</span>
+      <span class="stat-chip-value" style="color:${color}">${fmtPct(ret)}</span>
+      <span class="stat-chip-sub">${ret == null ? 'no data' : 'live'}</span>
+    </div>`;
+  };
+
+  const compareCard = (icon, title, entry, unit) => {
+    if(!entry) return `<div class="compare-card"><div class="compare-title">${icon} ${title}</div><div class="compare-val" style="color:var(--faint)">—</div></div>`;
+    const color = entry.ret >= 0 ? 'var(--accent)' : 'var(--red)';
+    return `<div class="compare-card">
+      <div class="compare-title">${icon} ${title}</div>
+      <div class="compare-val" style="color:${color}">${fmtPct(entry.ret)}</div>
+      <div class="compare-period">${formatPeriodLabel(entry.key, unit)}</div>
+    </div>`;
+  };
+
+  return `
+    <div class="price-card">
+      <div class="price-left">
+        <div class="price-icon">${asset.icon}</div>
+        <div>
+          <div class="price-value">${price != null ? fmtUsd(price) : '—'}</div>
+          <div class="price-sub">${asset.label} / USD · live</div>
+        </div>
+      </div>
+      <div class="price-chip" style="background:${(stats.lastYear && stats.lastYear.ret>=0)?'rgba(53,224,192,.14)':'rgba(255,84,112,.14)'};color:${(stats.lastYear && stats.lastYear.ret>=0)?'var(--accent)':'var(--red)'}">
+        ${stats.lastYear ? fmtPct(stats.lastYear.ret) + ' YTD' : '—'}
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      ${priceChip('This Month', stats.lastMonth ? stats.lastMonth.ret : null)}
+      ${priceChip('This Quarter', stats.lastQuarter ? stats.lastQuarter.ret : null)}
+      ${priceChip('This Year', stats.lastYear ? stats.lastYear.ret : null)}
+    </div>
+
+    <div class="compare-row">
+      ${compareCard('🏆','Best Month', stats.bestMonth, 'month')}
+      ${compareCard('📉','Worst Month', stats.worstMonth, 'month')}
+      ${compareCard('🚀','Best Year', stats.bestYear, 'year')}
+      ${compareCard('🩸','Worst Year', stats.worstYear, 'year')}
+    </div>`;
+}
+
+function formatPeriodLabel(key, unit){
+  if(unit === 'month'){
+    const [y,m] = key.split('-');
+    return `${MONTH_NAMES[parseInt(m,10)-1]} ${y}`;
+  }
+  if(unit === 'quarter') return key.replace('-', ' ');
+  if(unit === 'half') return key.replace('-', ' ');
+  return key; // year
+}
+
+// ================= Render: tabs =================
+function renderTabs(){
+  const tabs = [
+    { id: 'monthly', label: 'Monthly' },
+    { id: 'quarterly', label: 'Quarterly' },
+    { id: 'halfyearly', label: 'Half-Yearly' },
+    { id: 'yearly', label: 'Yearly' },
+  ];
+  return `<div class="tabs">${tabs.map(t => `<button class="tab-btn${t.id===activeTab?' active':''}" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}</div>`;
+}
+
+// ================= Render: monthly / quarterly / half-yearly heatmap =================
+function buildYearRows(returns, periodsPerYear, capReturn, yearlyReturns){
+  // Group ascending returns by year into a map year -> {periodIndex: entry}
+  const byYear = new Map();
+  returns.forEach(r => {
+    const y = r.key.split('-')[0];
+    if(!byYear.has(y)) byYear.set(y, {});
+    let idx;
+    if(periodsPerYear === 12) idx = parseInt(r.key.split('-')[1],10); // 1-12
+    else if(periodsPerYear === 4) idx = parseInt(r.key.split('Q')[1],10); // 1-4
+    else idx = parseInt(r.key.split('H')[1],10); // 1-2
+    byYear.get(y)[idx] = r;
+  });
+  const yearlyByYear = new Map();
+  yearlyReturns.forEach(y => yearlyByYear.set(y.key, y));
+
+  // 2014 only has ~3 months of BTC-USD history (data starts mid-Sept 2014),
+  // so it's mostly empty cells and never has a "full year" return - drop it
+  // rather than show a mostly-blank row.
+  const years = [...byYear.keys()].filter(y => y !== '2014').sort();
+  return years.map(y => ({ year: y, cells: byYear.get(y), yearEntry: yearlyByYear.get(y) }));
+}
+
+function renderGridHeatmap(returns, yearlyReturns, periodsPerYear, cap, colLabels, unitName){
+  const rows = buildYearRows(returns, periodsPerYear, cap, yearlyReturns);
+
+  const headerCols = colLabels.map(l => `<th>${l}</th>`).join('');
+  const bodyRows = rows.map(row => {
+    const cells = [];
+    for(let i = 1; i <= periodsPerYear; i++){
+      const entry = row.cells[i];
+      if(!entry){
+        cells.push(`<td class="empty">·</td>`);
+        continue;
+      }
+      const color = heatColor(entry.ret, cap);
+      const label = entry.isCurrent ? fmtPct(entry.ret) + '*' : fmtPct(entry.ret);
+      cells.push(`<td style="background:${color};color:${textColorFor(entry.ret)}" data-ret="${entry.ret.toFixed(2)}" data-period="${row.year} ${colLabels[i-1]}${entry.isCurrent ? ' (live)' : ''}">${label}</td>`);
+    }
+    const ye = row.yearEntry;
+    const yCell = ye
+      ? `<td class="year-col" style="background:${heatColor(ye.ret, 200)};color:${textColorFor(ye.ret)}" data-ret="${ye.ret.toFixed(2)}" data-period="${row.year} full year${ye.isCurrent?' (live)':''}">${ye.isCurrent ? fmtPct(ye.ret)+'*' : fmtPct(ye.ret)}</td>`
+      : `<td class="empty year-col">·</td>`;
+    return `<tr><td class="year-label">${row.year}</td>${cells.join('')}${yCell}</tr>`;
+  }).join('');
+
+  // Seasonality-style average row only makes sense for the monthly view;
+  // for quarterly/half-yearly we skip it to avoid a busy, less meaningful row.
+  let avgRow = '';
+  if(unitName === 'month'){
+    const seasonBuckets = {};
+    for(let i=1;i<=12;i++) seasonBuckets[i] = [];
+    returns.filter(r => !r.isCurrent).forEach(r => {
+      const idx = parseInt(r.key.split('-')[1],10);
+      seasonBuckets[idx].push(r.ret);
+    });
+    const avgCells = [];
+    for(let i=1;i<=12;i++){
+      const arr = seasonBuckets[i];
+      const avg = arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+      avgCells.push(avg == null
+        ? `<td class="empty">·</td>`
+        : `<td data-ret="${avg.toFixed(2)}" data-period="Avg ${colLabels[i-1]}" style="background:transparent">${fmtPct(avg)}</td>`);
+    }
+    avgRow = `<tr class="avg-row"><td class="year-label">Avg</td>${avgCells.join('')}<td class="empty">·</td></tr>`;
+  }
+
+  return `
+    <table class="heatmap" data-unit="${unitName}">
+      <thead><tr><th class="year-hdr">Year</th>${headerCols}<th>Year</th></tr></thead>
+      <tbody>${bodyRows}${avgRow}</tbody>
+    </table>`;
+}
+
+function renderYearlyBars(yearlyReturns){
+  const finite = yearlyReturns.filter(y => isFinite(y.ret));
+  const maxAbs = Math.max(20, ...finite.map(y => Math.abs(y.ret)));
+  const cap = Math.min(maxAbs, 400); // clip insane early-BTC % for bar width sanity
+  const rows = finite.map(y => {
+    const pct = Math.min(100, Math.abs(y.ret) / cap * 50);
+    const isPos = y.ret >= 0;
+    return `<div class="year-bar-row">
+      <div class="year-bar-label">${y.key}</div>
+      <div class="year-bar-track">
+        <div class="year-bar-mid"></div>
+        <div class="year-bar-fill ${isPos?'pos':'neg'}" style="width:${pct.toFixed(1)}%"></div>
+      </div>
+      <div class="year-bar-val" style="color:${isPos?'var(--accent)':'var(--red)'}">${fmtPct(y.ret)}${y.isCurrent?'*':''}</div>
+    </div>`;
+  }).reverse(); // newest year on top
+  return `<div class="year-bars">${rows.join('')}</div>${finite.some(y=>y.isCurrent) ? '<div style="margin-top:10px;font:10.5px var(--font-mono);color:var(--faint)">* current year in progress (live)</div>' : ''}`;
+}
+
+// ================= Render: seasonality card =================
+function renderSeasonality(stats){
+  const vals = MONTH_NAMES.map((_, i) => stats.seasonAvg[i+1]);
+  const maxAbs = Math.max(1, ...vals.filter(v => v != null).map(v => Math.abs(v)));
+  const bars = vals.map((v, i) => {
+    if(v == null) return `<div class="season-bar-wrap"><div class="season-bar" style="height:2px;background:var(--border)"></div></div>`;
+    const h = Math.max(3, Math.abs(v) / maxAbs * 90);
+    const color = v >= 0 ? 'var(--accent)' : 'var(--red)';
+    return `<div class="season-bar-wrap" title="${MONTH_NAMES[i]}: ${fmtPct(v)}">
+      <span style="font:9.5px var(--font-mono);color:${color}">${v>=0?'+':''}${v.toFixed(0)}%</span>
+      <div class="season-bar${v<0?' neg':''}" style="height:${h.toFixed(0)}px;background:${color}"></div>
+    </div>`;
+  }).join('');
+  const labels = MONTH_NAMES.map(m => `<span class="season-lbl">${m}</span>`).join('');
+
+  const best = stats.bestSeasonMonth;
+  const worst = stats.worstSeasonMonth;
+
+  return `
+    <div class="season-card">
+      <div class="season-title">Seasonality — avg return by calendar month</div>
+      <div class="season-desc">Average of every historical monthly return for each calendar month, ${stats.totalMonths} completed months${stats.startYear ? ' since ' + stats.startYear : ''}.</div>
+      <div class="season-chart">${bars}</div>
+      <div class="season-labels">${labels}</div>
+      <div class="season-callout">
+        <div class="season-pill"><b style="color:var(--accent)">${best ? MONTH_NAMES[parseInt(best[0],10)-1] : '—'}</b>Historically strongest month, avg ${best ? fmtPct(best[1]) : '—'}</div>
+        <div class="season-pill"><b style="color:var(--red)">${worst ? MONTH_NAMES[parseInt(worst[0],10)-1] : '—'}</b>Historically weakest month, avg ${worst ? fmtPct(worst[1]) : '—'}</div>
+        <div class="season-pill"><b>${stats.winRate != null ? stats.winRate.toFixed(0)+'%' : '—'}</b>Of all months closed green (${stats.positiveMonths}/${stats.totalMonths})</div>
+      </div>
+    </div>`;
+}
+
+// ================= Master render =================
+function renderAll(){
+  const stats = buildStats();
+
+  let tabBody = '';
+  if(activeTab === 'monthly'){
+    tabBody = `
+      <div class="heatmap-card">
+        <div class="heatmap-title-row">
+          <span class="heatmap-title">Monthly returns</span>
+          <span class="cell-detail" id="cellDetail">Tap a cell for details</span>
+        </div>
+        ${renderGridHeatmap(returnsData.monthly, returnsData.yearly, 12, 30, MONTH_NAMES, 'month')}
+      </div>`;
+  } else if(activeTab === 'quarterly'){
+    tabBody = `
+      <div class="heatmap-card">
+        <div class="heatmap-title-row">
+          <span class="heatmap-title">Quarterly returns</span>
+          <span class="cell-detail" id="cellDetail">Tap a cell for details</span>
+        </div>
+        ${renderGridHeatmap(returnsData.quarterly, returnsData.yearly, 4, 60, ['Q1','Q2','Q3','Q4'], 'quarter')}
+      </div>`;
+  } else if(activeTab === 'halfyearly'){
+    tabBody = `
+      <div class="heatmap-card">
+        <div class="heatmap-title-row">
+          <span class="heatmap-title">Half-yearly returns</span>
+          <span class="cell-detail" id="cellDetail">Tap a cell for details</span>
+        </div>
+        ${renderGridHeatmap(returnsData.halfYearly, returnsData.yearly, 2, 100, ['H1','H2'], 'half')}
+      </div>`;
+  } else {
+    tabBody = `
+      <div class="heatmap-card">
+        <div class="heatmap-title-row">
+          <span class="heatmap-title">Yearly returns</span>
+        </div>
+        ${renderYearlyBars(returnsData.yearly)}
+      </div>`;
+  }
+
+  document.getElementById('content').innerHTML = `
+    ${renderTop(stats)}
+    ${renderSeasonality(stats)}
+    ${renderTabs()}
+    ${tabBody}`;
+
+  // wire up tab buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      renderAll();
+    });
+  });
+
+  // wire up cell tap-for-detail
+  const detailEl = document.getElementById('cellDetail');
+  if(detailEl){
+    document.querySelectorAll('table.heatmap td[data-period]').forEach(td => {
+      td.addEventListener('click', () => {
+        detailEl.textContent = `${td.dataset.period}: ${fmtPct(parseFloat(td.dataset.ret))}`;
+      });
+    });
+  }
+}
+
+function renderSkeleton(){
+  document.getElementById('content').innerHTML = `
+    <div class="page-skeleton">
+      <div class="skel-card" style="height:90px;"></div>
+      <div class="skel-card" style="height:100px;"></div>
+      <div class="skel-card" style="height:180px;"></div>
+      <div class="skel-card" style="height:260px;"></div>
+    </div>`;
+}
+
+function updateLastUpdatedLabel(failed){
+  const el = document.getElementById('updatedLabel');
+  el.classList.toggle('label-error', !!failed);
+  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed - see console' : ''; return; }
+  const mins = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 60000));
+  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  el.textContent = (failed ? 'Refresh failed, showing cached · ' : 'Updated ') + ago;
+}
+
+// ---------------- Cache (stale-while-revalidate, same pattern as the other pages) ----------------
+function saveCache(){
+  try{
+    localStorage.setItem(ASSETS[currentAsset].cacheKey, JSON.stringify({
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
+      currentPrice,
+      daily: dailyHistory.map(p => [p.t, p.price]) // compact form
+    }));
+  }catch(err){ /* storage unavailable or quota exceeded - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(ASSETS[currentAsset].cacheKey);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.daily || !cached.daily.length) return false;
+    dailyHistory = cached.daily.map(p => ({ t: p[0], date: new Date(p[0]), price: p[1] }));
+    currentPrice = cached.currentPrice || dailyHistory[dailyHistory.length-1].price;
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    processHistory();
+    return true;
+  }catch(err){ return false; }
+}
+
+function processHistory(){
+  periodData = buildPeriodCloses(dailyHistory);
+  returnsData = {
+    monthly: computeReturns(periodData.monthCloses),
+    quarterly: computeReturns(periodData.quarterCloses),
+    halfYearly: computeReturns(periodData.halfCloses),
+    yearly: computeReturns(periodData.yearCloses),
+  };
+}
+
+// ---------------- Main load ----------------
+async function loadAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  if(returnsData){
+    renderAll();
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  const asset = ASSETS[currentAsset];
+  try{
+    const history = await fetchPriceHistory(asset);
+    dailyHistory = history;
+    processHistory();
+    try{
+      currentPrice = await fetchLatestPriceYahoo(asset.yahooSymbol);
+    }catch(errPrice){
+      // Fine to fall back to the latest bar in the history we already have -
+      // it's only a little less fresh than a dedicated live-price call.
+      currentPrice = history[history.length - 1].price;
+    }
+    lastUpdated = new Date();
+    saveCache();
+    snapshotActiveIntoStore();
+    renderAll();
+    updateLastUpdatedLabel(false);
+  }catch(err){
+    console.warn(`[crypto-returns] Price history load failed for ${asset.label} (Yahoo Finance + CoinGecko both unreachable):`, err && err.message);
+    updateLastUpdatedLabel(true);
+    if(!returnsData){
+      document.getElementById('content').innerHTML = `
+        <div class="error-state">
+          Couldn't load ${asset.name}'s price history right now (query1.finance.yahoo.com and
+          api.coingecko.com were both unreachable).<br>
+          If you have a Cloudflare Worker configured for this app, make sure
+          query1.finance.yahoo.com is allowed through it. Check the console for details.
+          <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+        </div>`;
+      document.getElementById('retryBtn').addEventListener('click', loadAll);
+    }
+  }
+
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+// ---------------- Asset toggle (BTC / ETH) ----------------
+function applyAssetChrome(){
+  const asset = ASSETS[currentAsset];
+  document.body.classList.toggle('asset-eth', currentAsset === 'ETH');
+  document.querySelectorAll('.asset-toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.asset === currentAsset);
+  });
+  const pageTitle = document.getElementById('pageTitle');
+  if(pageTitle) pageTitle.textContent = `${asset.name} Returns`;
+  document.title = `${asset.name} Returns`;
+  const noticeHeadline = document.getElementById('noticeHeadline');
+  if(noticeHeadline) noticeHeadline.textContent = `${asset.name} historical performance, not a prediction.`;
+  const noticePair = document.getElementById('noticePair');
+  if(noticePair) noticePair.textContent = `${asset.label}/USD`;
+  const srcTagText = document.getElementById('srcTagText');
+  if(srcTagText) srcTagText.textContent = `Source · Yahoo Finance (${asset.yahooSymbol}), CoinGecko fallback`;
+}
+
+function switchAsset(next){
+  if(next === currentAsset) return;
+  snapshotActiveIntoStore();
+  currentAsset = next;
+  applyAssetChrome();
+
+  if(assetStore[next].dailyHistory){
+    // Already loaded once this session - switch instantly, then refresh quietly.
+    restoreActiveFromStore(next);
+    renderAll();
+    updateLastUpdatedLabel(false);
+    loadAll();
+  }else if(loadCache()){
+    // Nothing in-memory yet, but a previous session cached this asset.
+    renderAll();
+    updateLastUpdatedLabel(false);
+    loadAll();
+  }else{
+    dailyHistory = null; periodData = null; returnsData = null; lastUpdated = null; currentPrice = null;
+    renderSkeleton();
+    loadAll();
+  }
+}
+
+document.getElementById('assetToggle').addEventListener('click', (e) => {
+  const btn = e.target.closest('.asset-toggle-btn');
+  if(!btn) return;
+  switchAsset(btn.dataset.asset);
+});
+
+document.getElementById('noticeToggle').addEventListener('click', () => {
+  const btn = document.getElementById('noticeToggle');
+  const details = document.getElementById('noticeDetails');
+  const willOpen = details.hidden;
+  details.hidden = !willOpen;
+  btn.classList.toggle('open', willOpen);
+  btn.setAttribute('aria-expanded', String(willOpen));
+});
+
+applyAssetChrome();
+loadCache();
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL_MS);
+setInterval(() => updateLastUpdatedLabel(false), 60000);
+</script>
+</body>
+</html>

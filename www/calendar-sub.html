@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto Craft Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --amber:#F5A623;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;min-height:100%;}
+  body{padding:18px 12px 40px;background:var(--bg);background-image:radial-gradient(circle at 12% 0%,rgba(53,224,192,.06),transparent 40%),radial-gradient(circle at 92% 15%,rgba(255,84,112,.05),transparent 35%);color:var(--text);font-family:var(--font-display);}
+  .wrap{max-width:640px;margin:0 auto;}
+  .eyebrow{font:10px var(--font-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  h1{font-size:20px;margin:0 0 4px;font-weight:700;}
+  .status{color:var(--muted);font:11px var(--font-mono);margin:8px 0 14px;}
+  .status a{color:var(--accent);text-decoration:none;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  table{width:100%;border-collapse:collapse;table-layout:fixed;}
+  thead th{background:var(--panel2);color:var(--muted);text-align:left;font:600 9px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;padding:8px 6px;border:1px solid var(--border);}
+  thead th.col-impact{width:34px;text-align:center;}
+  thead th.col-date{width:64px;}
+  tbody td{padding:8px 6px;border:1px solid var(--border);font-size:12.5px;color:var(--text);vertical-align:top;line-height:1.35;}
+  .impact-cell{text-align:center;font-size:14px;}
+  .date-group{white-space:nowrap;font-weight:700;color:var(--accent);font-size:11.5px;font-family:var(--font-mono);text-align:left;vertical-align:top;}
+  .date-group.today{color:var(--amber);}
+  .event-cell{word-break:break-word;}
+  .muted{color:var(--muted);}
+  .empty{padding:22px 14px;color:var(--faint);font:11.5px var(--font-mono);text-align:center;border:1px dashed var(--border);border-radius:10px;}
+  .error{color:#ffb3c1;border-color:rgba(255,84,112,.35);}
+  .note{color:var(--muted);font-size:11px;line-height:1.5;margin-top:12px;}
+  .note a{color:var(--accent);text-decoration:none;}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font:10.5px var(--font-mono);margin:8px 2px 0;}
+  .legend span{white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">MACRO · CALENDAR</div>
+  <h1>Crypto Craft Calendar</h1>
+  <div class="status" id="status">Loading economic calendar...</div>
+  <div class="panel">
+    <div id="calendarRoot"><div class="empty">Fetching the latest macro events...</div></div>
+  </div>
+  <div class="legend">
+    <span>🔴 High</span>
+    <span>🟠 Medium</span>
+    <span>🟢 Low</span>
+  </div>
+  <p class="note" id="footerNote"></p>
+</div>
+<script>
+// CryptoCraft's JSON export only ever returns the CURRENT Sun-Sat week (no
+// query params respected, no lastweek/nextweek files exist - confirmed).
+// Next week's data is fetched separately through our own Worker, which
+// scrapes the live calendar page for that week since there's no official
+// JSON export for arbitrary weeks.
+const SOURCE_URLS = [
+  'https://nfs.faireconomy.media/cc_calendar_thisweek.json'
+];
+const SOURCE_LINK = 'https://www.cryptocraft.com/calendar';
+const DAYS_FORWARD = 7; // today + next 7 days
+const REFRESH_MS = 15 * 60 * 1000; // every 15 minutes
+const FETCH_TIMEOUT_MS = 6000;
+
+// Your deployed Cloudflare Worker (calendar-worker.js). Handles both the
+// CORS-proxying of the JSON feed and the next-week HTML scrape.
+const WORKER_PROXY_URL = 'https://calendar-proxy.justfagame9.workers.dev';
+
+const root = document.getElementById('calendarRoot');
+const status = document.getElementById('status');
+const footerNote = document.getElementById('footerNote');
+let refreshTimer = null;
+
+// footerNote text is set further below, once DISPLAY_TIMEZONE is available.
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+// IMPORTANT: day-grouping must NOT depend on whatever system timezone this
+// script happens to execute in (browser, webview, or a server-side
+// preview can all differ). An event at 22:00 US-Eastern is already the
+// next calendar day in India time, so "today"/"Sep 2" boundaries are
+// computed against an explicit timezone instead of the runtime's implicit
+// local clock - otherwise events landing near midnight can get bucketed a
+// day earlier or later than the CryptoCraft site itself shows.
+//
+// The timezone itself is read from Trading Settings (trading-settings.html)
+// so every app that cares about "today" agrees on the same zone - change
+// it there, not here.
+const TIMEZONE_STORAGE_KEY = 'crypto-screener-display-timezone';
+const DEFAULT_TIMEZONE = 'Asia/Kolkata';
+const SETTINGS_PAGE = 'trading-settings.html';
+
+// Kept in sync with the same map in trading-settings.html. Some browsers/
+// OSes ship an older ICU/CLDR build whose "canonical" IANA name hasn't
+// caught up with later tzdata renames, and a value saved before that fix
+// existed could also still be sitting in localStorage as the old name -
+// either way, normalize it here too rather than assuming the settings page
+// already cleaned it up.
+const TIMEZONE_RENAME_MAP = {
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Asia/Dacca': 'Asia/Dhaka',
+  'Asia/Ashkhabad': 'Asia/Ashgabat',
+  'Asia/Thimbu': 'Asia/Thimphu',
+  'Asia/Ulan_Bator': 'Asia/Ulaanbaatar',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Chungking': 'Asia/Shanghai',
+  'Asia/Macao': 'Asia/Macau',
+  'Asia/Tel_Aviv': 'Asia/Jerusalem',
+  'Europe/Kiev': 'Europe/Kyiv',
+  'Europe/Nicosia': 'Asia/Nicosia',
+  'Africa/Asmera': 'Africa/Asmara',
+  'Africa/Timbuktu': 'Africa/Bamako',
+  'America/Godthab': 'America/Nuuk',
+  'America/Montreal': 'America/Toronto',
+  'America/Shiprock': 'America/Denver',
+  'America/Indianapolis': 'America/Indiana/Indianapolis',
+  'America/Louisville': 'America/Kentucky/Louisville',
+  'America/Fort_Wayne': 'America/Indiana/Indianapolis',
+  'America/Knox_IN': 'America/Indiana/Knox',
+  'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+  'America/Catamarca': 'America/Argentina/Catamarca',
+  'America/Cordoba': 'America/Argentina/Cordoba',
+  'America/Jujuy': 'America/Argentina/Jujuy',
+  'America/Mendoza': 'America/Argentina/Mendoza',
+  'Pacific/Truk': 'Pacific/Chuuk',
+  'Pacific/Yap': 'Pacific/Chuuk',
+  'Pacific/Ponape': 'Pacific/Pohnpei',
+  'Pacific/Enderbury': 'Pacific/Kanton',
+  'Pacific/Samoa': 'Pacific/Pago_Pago',
+  'Antarctica/South_Pole': 'Antarctica/McMurdo',
+  'US/Pacific': 'America/Los_Angeles',
+  'US/Eastern': 'America/New_York',
+  'US/Central': 'America/Chicago',
+  'US/Mountain': 'America/Denver'
+};
+function normalizeTimezone(tz){
+  return TIMEZONE_RENAME_MAP[tz] || tz;
+}
+
+function isValidTimezone(tz){
+  try{ new Intl.DateTimeFormat(undefined, {timeZone: tz}); return true; }
+  catch(e){ return false; }
+}
+function getDisplayTimezone(){
+  try{
+    const saved = localStorage.getItem(TIMEZONE_STORAGE_KEY);
+    const normalized = saved ? normalizeTimezone(saved) : null;
+    if(normalized && isValidTimezone(normalized)) return normalized;
+  }catch(e){ /* localStorage unavailable - fall through to default */ }
+  return DEFAULT_TIMEZONE;
+}
+const DISPLAY_TIMEZONE = getDisplayTimezone();
+
+footerNote.innerHTML = 'Times, Actual/Forecast/Previous values, and full event detail aren\'t shown here to keep this compact \u2014 check <a href="' + SOURCE_LINK + '" target="_blank" rel="noopener noreferrer">Crypto Craft</a> directly for exact release time and live data on any event.<br>Days are grouped using <strong>' + escapeHtml(DISPLAY_TIMEZONE) + '</strong> \u2014 change this in Settings.';
+
+function ymdInDisplayTz(date){
+  const parts = new Intl.DateTimeFormat('en-CA', {timeZone: DISPLAY_TIMEZONE, year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(date);
+  const map = {};
+  parts.forEach(p => { if(p.type !== 'literal') map[p.type] = p.value; });
+  return `${map.year}-${map.month}-${map.day}`;
+}
+function localDayKey(date){
+  return ymdInDisplayTz(date);
+}
+// Arbitrary IANA zones (unlike fixed-offset Kolkata) can have non-round
+// offsets and DST transitions, so the offset has to be measured at the
+// actual instant in question rather than assumed as a constant string.
+function tzOffsetMinutes(instant, timeZone){
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone, hourCycle: 'h23',
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  }).formatToParts(instant).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+  const asIfUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+  return (asIfUtc - instant.getTime()) / 60000;
+}
+function startOfDayInDisplayTz(ymd){
+  const naiveUtc = new Date(`${ymd}T00:00:00Z`);
+  const offsetMinutes = tzOffsetMinutes(naiveUtc, DISPLAY_TIMEZONE);
+  return new Date(naiveUtc.getTime() - offsetMinutes * 60000);
+}
+function formatDate(date){
+  return new Intl.DateTimeFormat('en-US', {month:'short', day:'numeric', timeZone: DISPLAY_TIMEZONE}).format(date);
+}
+function impactSymbol(impact){
+  const normalized = String(impact ?? '').toLowerCase();
+  if(/high|important|red/.test(normalized)) return '🔴';
+  if(/medium|med|yellow|ora/.test(normalized)) return '🟠';
+  if(/low|green/.test(normalized)) return '🟢';
+  return '⚪';
+}
+function impactRank(impact){
+  const normalized = String(impact ?? '').toLowerCase();
+  if(/high|important|red/.test(normalized)) return 0;
+  if(/medium|med|yellow|ora/.test(normalized)) return 1;
+  if(/low|green/.test(normalized)) return 2;
+  return 3; // unrated/holiday-style entries sort last within the day
+}
+function isInDateRange(date){
+  const now = new Date();
+  const rangeStart = startOfDayInDisplayTz(ymdInDisplayTz(now));
+  // DAYS_FORWARD full days after today, inclusive, all in DISPLAY_TIMEZONE.
+  const rangeEnd = new Date(rangeStart.getTime() + (DAYS_FORWARD + 1) * 86400000 - 1);
+  return date >= rangeStart && date <= rangeEnd;
+}
+
+const MONTH_ABBR = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+function weekToken(sundayDate){
+  return MONTH_ABBR[sundayDate.getMonth()] + sundayDate.getDate() + '.' + sundayDate.getFullYear();
+}
+function thisWeekSunday(){
+  const today = new Date();
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - today.getDay());
+  return sunday;
+}
+// CryptoCraft's own thisweek.json export can lag behind the actual current
+// week (observed: still returning last week's data on the first day of a
+// new week). We check for that specifically (see fetchAllWeeks) and only
+// scrape the current week as a fallback when it actually happens - scraping
+// it unconditionally on every load was creating a second, differently-keyed
+// copy of every event for the day (see extractScrapedCountry above) and is
+// the most likely source of the duplicate/missing-row reports. Next week
+// always needs scraping regardless, since there's no JSON export for it.
+function thisWeekToken(){
+  return weekToken(thisWeekSunday());
+}
+function nextWeekToken(){
+  const nextSunday = new Date(thisWeekSunday());
+  nextSunday.setDate(nextSunday.getDate() + 7);
+  return weekToken(nextSunday);
+}
+
+// The JSON feed reports standard currency codes (USD, EUR, CNY...). The
+// live CryptoCraft page (and therefore the Worker's HTML scrape) instead
+// uses its OWN house abbreviations, confirmed directly from the site's
+// "Central Bank Rates" panel and calendar table - and they are NOT ISO
+// codes: US, UK, EZ, GE (Germany specifically, distinct from EZ), JN
+// (Japan), SZ (Switzerland), CH (China - not Switzerland!), CA, AU, NZ.
+// This map collapses all known variants (from either source) to the
+// currency code the JSON feed uses, so both sources line up and dedupe
+// correctly instead of showing the same release twice.
+const COUNTRY_ALIASES = {
+  'USD':'USD','US':'USD','USA':'USD','UNITED STATES':'USD','UNITED STATES OF AMERICA':'USD',
+  'EUR':'EUR','EU':'EUR','EZ':'EUR','GE':'EUR','EUROZONE':'EUR','EURO ZONE':'EUR','EUROPEAN UNION':'EUR','GERMANY':'EUR',
+  'GBP':'GBP','GB':'GBP','UK':'GBP','UNITED KINGDOM':'GBP','BRITAIN':'GBP','GREAT BRITAIN':'GBP',
+  'JPY':'JPY','JP':'JPY','JN':'JPY','JAPAN':'JPY',
+  'CHF':'CHF','SZ':'CHF','SWITZERLAND':'CHF',
+  'CAD':'CAD','CA':'CAD','CANADA':'CAD',
+  'AUD':'AUD','AU':'AUD','AUSTRALIA':'AUD',
+  'NZD':'NZD','NZ':'NZD','NEW ZEALAND':'NZD',
+  'CNY':'CNY','CN':'CNY','CH':'CNY','CHINA':'CNY','RMB':'CNY',
+  'ALL':'All'
+};
+function normalizeCountry(country){
+  if(!country) return '';
+  const cleaned = String(country).replace(/[^a-zA-Z ]/g, '').trim().toUpperCase();
+  if(!cleaned) return String(country).trim();
+  if(COUNTRY_ALIASES[cleaned]) return COUNTRY_ALIASES[cleaned];
+  // Unknown but already a short code (e.g. an unlisted 3-letter currency) - keep as-is uppercased.
+  return cleaned.length <= 3 ? cleaned : String(country).trim();
+}
+function normalizeTitleKey(title){
+  return String(title || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+// Confirmed by fetching the Worker's scraped output directly: it never
+// fills in a real `country` field (every row comes back as "All") and
+// instead bakes the site's house abbreviation into the FRONT of the
+// title itself, e.g. {"title":"EZ Core CPI Flash Estimate y/y","country":"All"}.
+// Left alone, this makes every scraped row's title+country completely
+// different from the JSON feed's equivalent row (which has a clean title
+// and a real country field), so the dedup step never recognizes them as
+// the same event - they either show as visually-different duplicates, or
+// interact unpredictably with the JSON feed's own row for that event
+// depending on merge order. Strip the prefix and use it as the real
+// country so scraped rows normalize to the exact same key as their JSON
+// counterpart.
+const SCRAPE_COUNTRY_PREFIX = /^(US|UK|EZ|GE|JN|SZ|CH|CA|AU|NZ)\s+(?=\S)/i;
+function extractScrapedCountry(item){
+  if(!item) return item;
+  const rawCountry = String(item.country ?? '').trim().toUpperCase();
+  if(rawCountry && rawCountry !== 'ALL') return item; // already has a real country, leave it
+  const match = String(item.title || '').match(SCRAPE_COUNTRY_PREFIX);
+  if(!match) return item; // e.g. "G20 Meetings" - genuinely has no country
+  return Object.assign({}, item, {
+    title: item.title.slice(match[0].length),
+    country: match[1]
+  });
+}
+
+function candidateUrls(url){
+  // NOTE: the Worker is deliberately NOT included here. It's confirmed to
+  // support the HTML-scrape mode via ?week=, but its behavior for an
+  // arbitrary ?url= passthrough is unverified - if it doesn't actually
+  // proxy the given URL (e.g. falls back to its own scrape regardless of
+  // the param), this candidate would silently feed scraped, title-prefixed
+  // data into what's supposed to be the clean JSON feed. Direct fetch plus
+  // public CORS proxies is the reliable path for the plain JSON export.
+  const encoded = encodeURIComponent(url);
+  const candidates = [];
+  candidates.push(url);
+  candidates.push('https://api.allorigins.win/raw?url=' + encoded);
+  candidates.push('https://corsproxy.io/?url=' + encoded);
+  return candidates;
+}
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, {cache:'no-store', signal: controller.signal});
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchOne(url){
+  for(const candidate of candidateUrls(url)){
+    try{
+      const res = await fetchWithTimeout(candidate, FETCH_TIMEOUT_MS);
+      if(!res.ok) continue;
+      const data = await res.json();
+      if(Array.isArray(data)) return data;
+    }catch(error){
+      // this candidate failed or timed out - try the next one
+    }
+  }
+  return [];
+}
+
+async function fetchWeekViaWorker(token){
+  if(!WORKER_PROXY_URL) return [];
+  const url = WORKER_PROXY_URL.replace(/\/$/, '') + '?week=' + encodeURIComponent(token);
+  try{
+    const res = await fetchWithTimeout(url, FETCH_TIMEOUT_MS * 2);
+    if(!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }catch(error){
+    return [];
+  }
+}
+
+function jsonFeedCoversToday(items){
+  const todayKey = localDayKey(new Date());
+  return items.some(item => {
+    if(!item || !item.date) return false;
+    const d = new Date(item.date);
+    return !Number.isNaN(d.getTime()) && localDayKey(d) === todayKey;
+  });
+}
+
+async function fetchAllWeeks(){
+  const jsonFeedResults = (await Promise.all(SOURCE_URLS.map(fetchOne))).flat();
+
+  // Next week always needs scraping (no JSON export for it). Only scrape
+  // the current week too if the JSON feed turns out not to actually
+  // contain today - the lag case described above - rather than doing it
+  // unconditionally every load.
+  const scrapeJobs = [fetchWeekViaWorker(nextWeekToken())];
+  if(!jsonFeedCoversToday(jsonFeedResults)){
+    scrapeJobs.push(fetchWeekViaWorker(thisWeekToken()));
+  }
+  const scrapedResults = (await Promise.all(scrapeJobs)).flat().map(extractScrapedCountry);
+
+  const merged = jsonFeedResults.concat(scrapedResults);
+  const seen = new Set();
+  const deduped = [];
+  merged.forEach(item => {
+    if(!item || !item.date || !item.title) return;
+    const normalizedCountry = normalizeCountry(item.country);
+    const dateObj = new Date(item.date);
+    // Bucket to the nearest 5 minutes so the same release reported with a
+    // slightly different timestamp by the JSON feed vs. the HTML scrape
+    // still collapses into a single row, instead of appearing twice.
+    const dateBucket = Number.isNaN(dateObj.getTime()) ? item.date : Math.round(dateObj.getTime() / 300000);
+    const key = normalizeTitleKey(item.title) + '__' + dateBucket + '__' + normalizedCountry;
+    if(seen.has(key)) return;
+    seen.add(key);
+    deduped.push(Object.assign({}, item, {country: normalizedCountry, title: item.title}));
+  });
+  return deduped;
+}
+
+function normalizeCalendarRows(items){
+  const rows = [];
+  items.forEach(item => {
+    const dateObj = new Date(item.date);
+    if(Number.isNaN(dateObj.getTime())) return;
+    if(!isInDateRange(dateObj)) return;
+    rows.push({
+      dateObj,
+      dayKey: localDayKey(dateObj),
+      impact: item.impact || '',
+      impactRank: impactRank(item.impact),
+      event: item.country && item.country !== 'All' ? item.country + ' ' + item.title : (item.title || '')
+    });
+  });
+  return rows;
+}
+
+function renderRows(rows){
+  const todayKey = localDayKey(new Date());
+
+  // Group by day, High -> Medium -> Low (unrated last) within each day.
+  const dayCounts = {};
+  rows.forEach(r => { dayCounts[r.dayKey] = (dayCounts[r.dayKey] || 0) + 1; });
+
+  let lastDayKey = '';
+  let html = '';
+
+  rows.forEach(row => {
+    const isNewDay = row.dayKey !== lastDayKey;
+    lastDayKey = row.dayKey;
+    const impactCell = `<td class="impact-cell">${impactSymbol(row.impact)}</td>`;
+    const eventCell = `<td class="event-cell">${escapeHtml(row.event)}</td>`;
+
+    let dateCell = '';
+    if(isNewDay){
+      const isToday = row.dayKey === todayKey;
+      const dateLabel = isToday ? 'Today' : formatDate(row.dateObj);
+      dateCell = `<td class="date-group${isToday ? ' today' : ''}" rowspan="${dayCounts[row.dayKey]}">${escapeHtml(dateLabel)}</td>`;
+    }
+
+    html += `<tr>${impactCell}${dateCell}${eventCell}</tr>`;
+  });
+
+  return html;
+}
+
+function scheduleRefresh(){
+  if(refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(loadCalendar, REFRESH_MS);
+}
+
+async function loadCalendar(){
+  status.textContent = 'Fetching the latest events...';
+  try{
+    const raw = await fetchAllWeeks();
+    if(!raw.length) throw new Error('No data returned from source');
+
+    const rows = normalizeCalendarRows(raw).sort((a, b) => {
+      if(a.dayKey !== b.dayKey) return a.dayKey < b.dayKey ? -1 : 1;
+      return a.impactRank - b.impactRank;
+    });
+    if(!rows.length) throw new Error('No events in the selected date range');
+
+    const tableRows = renderRows(rows);
+    root.innerHTML = `
+      <table>
+        <thead>
+          <tr><th class="col-impact">!</th><th class="col-date">Date</th><th>Event</th></tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    `;
+
+    const stamp = new Intl.DateTimeFormat('en-US', {hour:'2-digit', minute:'2-digit', hour12:true}).format(new Date());
+    status.innerHTML = `${rows.length} events · updated ${escapeHtml(stamp)} · <a href="${SOURCE_LINK}" target="_blank" rel="noopener noreferrer">Crypto Craft</a>`;
+  }catch(error){
+    console.error('Calendar load failed:', error);
+    root.innerHTML = '<div class="empty error">Live calendar data could not be loaded right now. It will retry automatically, or open the source directly below.</div>';
+    status.innerHTML = `Unable to load calendar · <a href="${SOURCE_LINK}" target="_blank" rel="noopener noreferrer">Open Crypto Craft</a>`;
+  } finally {
+    scheduleRefresh();
+  }
+}
+
+loadCalendar();
+</script>
+</body>
+</html>

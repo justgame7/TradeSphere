@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Season Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(53,224,192,0.06), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(139,92,246,0.06), transparent 35%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  .topheader{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;}
+  .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;color:var(--accent);text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.warn{color:var(--red);}
+
+  .refresh-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+
+  h1{font-size:23px;font-weight:700;margin:2px 0 6px;letter-spacing:-0.01em;}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 22px;max-width:640px;}
+
+  /* ---- Gauge card ---- */
+  .gauge-card{
+    background:linear-gradient(135deg, rgba(53,224,192,.06), rgba(139,92,246,.05));
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:26px 22px 20px;
+    margin-bottom:16px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .gauge-svg{width:100%;max-width:320px;height:auto;margin:0 auto;display:block;}
+  .gauge-score{font-family:var(--font-display);font-size:52px;font-weight:800;letter-spacing:-.02em;line-height:1;margin-top:-58px;}
+  .gauge-score .of100{font-size:18px;font-weight:600;color:var(--faint);margin-left:2px;}
+  .gauge-zone{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-top:6px;}
+  .gauge-zone.btc-season{color:var(--red);}
+  .gauge-zone.neutral{color:var(--amber);}
+  .gauge-zone.alt-season{color:var(--accent);}
+  .gauge-caption{color:var(--muted);font-size:12.5px;margin-top:10px;}
+  .gauge-caption b{color:var(--text);font-weight:700;}
+  .gauge-loading{color:var(--faint);font-family:var(--font-mono);font-size:12.5px;padding:40px 0;}
+  .gauge-error{color:#ffb3c1;font-family:var(--font-mono);font-size:12.5px;padding:20px 0;line-height:1.6;}
+
+  /* ---- Toggle chips ---- */
+  .toggle-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .toggle-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-right:2px;}
+  .chip-btn{background:var(--panel2);border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);padding:6px 12px;font-size:11.5px;font-weight:600;border-radius:20px;cursor:pointer;}
+  .chip-btn.active{background:rgba(53,224,192,.12);border-color:var(--accent);color:var(--accent);}
+
+  /* ---- Stat cards ---- */
+  .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px;}
+  .stat-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:13px 14px;}
+  .stat-label{font-family:var(--font-mono);font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+  .stat-value{font-size:19px;font-weight:700;}
+  .stat-value.pos{color:var(--accent);}
+  .stat-value.neg{color:var(--red);}
+  .stat-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  /* ---- History sparkline ---- */
+  .history-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 16px 12px;margin-bottom:22px;}
+  .history-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .history-title{font-size:13px;font-weight:700;}
+  .history-note{font-family:var(--font-mono);font-size:10px;color:var(--faint);}
+  .history-svg{width:100%;height:60px;display:block;}
+  .history-empty{color:var(--faint);font-size:12px;font-family:var(--font-mono);padding:14px 0;text-align:center;}
+
+  /* ---- Coin leaderboard ---- */
+  .section-title{font-size:14px;font-weight:700;margin:4px 0 4px;}
+  .section-sub{color:var(--muted);font-size:12px;margin-bottom:14px;}
+  .coin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px;}
+  .coin-card{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 11px;}
+  .coin-card img{width:26px;height:26px;border-radius:50%;flex-shrink:0;background:var(--panel2);}
+  .coin-card .coin-info{min-width:0;flex:1;}
+  .coin-card .coin-sym{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .coin-card .coin-pct{font-family:var(--font-mono);font-size:11px;font-weight:600;margin-top:1px;}
+  .coin-card .coin-pct.pos{color:var(--accent);}
+  .coin-card .coin-pct.neg{color:var(--red);}
+  .coin-card{cursor:pointer;transition:border-color .15s ease, background .15s ease;}
+  .coin-card:hover{border-color:var(--accent);background:var(--panel2);}
+  .coin-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .coin-dot.pos{background:var(--accent);}
+  .coin-dot.neg{background:var(--red-dim);}
+
+  .expand-toggle{
+    width:100%;text-align:center;background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font-family:var(--font-mono);font-size:11.5px;padding:9px;border-radius:10px;cursor:pointer;margin-bottom:22px;
+  }
+  .expand-toggle:hover{border-color:var(--accent);color:var(--accent);}
+  .coin-grid.collapsed .coin-card:nth-child(n+13){display:none;}
+
+  .page-footer{
+    color:var(--faint);
+    font-size:12px;
+    line-height:1.6;
+    margin-top:12px;
+    padding-top:18px;
+    border-top:1px solid var(--border-soft);
+    max-width:680px;
+  }
+  .page-footer a{color:var(--blue);text-decoration:none;}
+  .page-footer a:hover{text-decoration:underline;}
+
+  /* ---- Coin info modal (ported from screener.html's "i" info window) ---- */
+  .coininfo-modal{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;}
+  .coininfo-modal.open{display:flex;}
+  .coininfo-dialog{width:min(560px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:0 22px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .coininfo-dialog .trade-head{position:sticky;top:0;z-index:5;background:var(--panel);padding:22px 0 14px;margin-bottom:0;border-bottom:1px solid var(--border-soft);display:flex;align-items:start;justify-content:space-between;gap:16px;}
+  .coininfo-dialog .trade-head h2{font-size:19px;margin:0 0 4px;font-weight:700;}
+  .coininfo-dialog .trade-head p{color:var(--faint);font-family:var(--font-mono);font-size:11.5px;margin:0;text-transform:uppercase;letter-spacing:.04em;}
+  .coininfo-close{background:transparent;border:1px solid var(--border);color:var(--text);padding:5px 9px;font-size:16px;line-height:1;border-radius:6px;cursor:pointer;flex-shrink:0;}
+  .coininfo-close:hover{border-color:var(--accent);color:var(--accent);}
+  .coininfo-status{color:var(--muted);font:11px var(--font-mono);margin:14px 0;}
+  .coininfo-about{color:var(--muted);font:12px/1.6 var(--font-mono);margin:14px 0;}
+  .coininfo-about p{margin:0 0 10px;}
+  .coininfo-about p:last-child{margin-bottom:0;}
+  .coininfo-about .about-heading{font-weight:700;color:var(--text);margin:0 0 6px;}
+  .coininfo-about ul{margin:0 0 10px;padding-left:18px;}
+  .coininfo-section-title{margin:0 0 12px;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;color:var(--faint);letter-spacing:.08em;}
+  .coininfo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px;}
+  .coininfo-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px;}
+  .coininfo-card .label{display:block;color:var(--faint);font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+  .coininfo-card .value{font-family:var(--font-mono);font-size:15px;font-weight:600;}
+  .coininfo-link-section{margin-bottom:14px;}
+  .coininfo-link-section h3{margin:0 0 6px;font-size:12.5px;font-weight:700;}
+  .coininfo-website{display:inline-block;color:var(--accent);font-family:var(--font-mono);font-size:12.5px;word-break:break-all;background:transparent;border:none;padding:0;cursor:pointer;text-decoration:underline;}
+  @media(max-width:520px){.coininfo-grid{grid-template-columns:1fr;}}
+
+  @media(max-width:480px){
+    .gauge-score{font-size:44px;margin-top:-48px;}
+    h1{font-size:20px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Market Rotation</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <h1>Bitcoin / Altcoin Season Index</h1>
+  <p class="sub">What share of the top coins by market cap (stablecoins and wrapped/staked derivatives excluded) are beating Bitcoin's price change over the selected window.</p>
+
+  <div class="gauge-card" id="gaugeCard">
+    <div class="gauge-loading">Loading market data…</div>
+  </div>
+
+  <div class="toggle-row">
+    <span class="toggle-label">Window</span>
+    <button class="chip-btn" data-window="7d">7D</button>
+    <button class="chip-btn active" data-window="30d">30D</button>
+    <button class="chip-btn" data-window="200d">200D</button>
+  </div>
+  <div class="toggle-row">
+    <span class="toggle-label">Pool</span>
+    <button class="chip-btn active" data-pool="50">Top 50</button>
+    <button class="chip-btn" data-pool="100">Top 100</button>
+  </div>
+
+  <div class="stat-row" id="statRow"></div>
+
+  <div class="history-card">
+    <div class="history-head">
+      <div class="history-title">Your reading history</div>
+      <div class="history-note" id="historyNote">recorded on this device</div>
+    </div>
+    <div id="historyBody"><div class="history-empty">Come back another day to start building a trend line.</div></div>
+  </div>
+
+  <div class="section-title" id="leaderboardTitle">Top 50, ranked by market cap</div>
+  <div class="section-sub" id="leaderboardSub"></div>
+  <div class="coin-grid collapsed" id="coinGrid"></div>
+  <button class="expand-toggle" id="expandToggle" style="display:none;">Show full list</button>
+
+  <div class="page-footer" id="pageFooter"></div>
+
+</div>
+
+<div class="coininfo-modal" id="coinInfoModal" onclick="closeCoinInfo(event)">
+  <div class="coininfo-dialog" role="dialog" aria-modal="true" aria-labelledby="coinInfoTitle" onclick="event.stopPropagation()">
+    <div class="trade-head">
+      <div><h2 id="coinInfoTitle">Coin info</h2><p id="coinInfoSubtitle"></p></div>
+      <button class="coininfo-close" type="button" aria-label="Close" onclick="closeCoinInfo()">×</button>
+    </div>
+    <p class="coininfo-status" id="coinInfoStatus">Loading CoinGecko data...</p>
+    <div id="coinInfoDetails" style="display:none;">
+      <h3 class="coininfo-section-title">Overview</h3>
+      <div id="coinInfoAbout" class="coininfo-about"></div>
+      <div class="coininfo-grid" id="coinInfoGrid"></div>
+      <div class="coininfo-link-section">
+        <h3>Website</h3>
+        <button type="button" class="coininfo-website" id="coinInfoWebsite">—</button>
+      </div>
+      <div class="coininfo-link-section">
+        <h3>CoinGecko</h3>
+        <button type="button" class="coininfo-website" id="coinInfoCoingecko">—</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CACHE_KEY = 'crypto-season-index-cache-v1';
+const HISTORY_KEY = 'crypto-season-index-history-v1';
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
+const FETCH_TIMEOUT_MS = 12000;
+
+// Stablecoins and wrapped/liquid-staked derivatives are excluded, matching
+// the methodology this index is modeled on (blockchaincenter.net's Altcoin
+// Season Index) - they represent an underlying asset or a pegged value
+// rather than independent market performance, so including them would
+// understate genuine "altcoin" rotation. Matched by symbol since CoinGecko's
+// internal ids can vary; the USD prefix/suffix regex below is a safety net
+// for stablecoins this curated list doesn't happen to name.
+const EXCLUDED_SYMBOLS = new Set([
+  'USDT','USDC','DAI','BUSD','TUSD','FDUSD','USDS','PYUSD','USDE','USDD','GUSD','USDP',
+  'FRAX','SUSDS','SUSDE','USDX','USDL','PAXG','XAUT','BUIDL','USD1','USDF','USDY',
+  'WBTC','CBBTC','WETH','WSTETH','STETH','WEETH','WBETH','CBETH','RETH','SFRXETH','FRXETH',
+  'JITOSOL','MSOL','JSOL','BNSOL','STSOL','RENBTC','HBTC','BTCB','WEETHS'
+]);
+function isExcludedCoin(coin){
+  const sym = (coin.symbol || '').toUpperCase();
+  if(coin.id === 'bitcoin') return true; // BTC is the benchmark, not part of the pool
+  if(EXCLUDED_SYMBOLS.has(sym)) return true;
+  if(/^USD/.test(sym) || /USD$/.test(sym)) return true;
+  return false;
+}
+
+const WINDOW_META = {
+  '7d':   { key: 'price_change_percentage_7d_in_currency',   label: '7-day' },
+  '30d':  { key: 'price_change_percentage_30d_in_currency',  label: '30-day' },
+  '200d': { key: 'price_change_percentage_200d_in_currency', label: '200-day' },
+};
+
+let rawMarketData = null;
+let globalData = null;
+let lastUpdated = null;
+let lastRefreshFailed = false;
+let currentWindow = '30d';
+let currentPool = 50;
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+// Same Cloudflare Worker already deployed for news.html/youtube.html/
+// trump-truth.html/trading-settings.html (see cloudflare-worker.js) - a
+// generic `?url=` proxy under your own account. CoinGecko's public API is
+// already directly browser-fetchable (no CORS issue to work around here),
+// so the Worker isn't required the way it is for YouTube/Truth Social - it's
+// used FIRST purely for its small edge cache (so a burst of people/devices
+// hitting the same endpoint within ~2 minutes only costs one real CoinGecko
+// request), falling straight back to a direct fetch if the Worker is ever
+// unreachable.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+async function fetchCoinGecko(targetUrl, ms){
+  try{
+    const res = await fetchWithTimeout(buildWorkerProxyUrl(targetUrl), ms);
+    if(!res.ok) throw new Error('worker responded ' + res.status);
+    return res;
+  }catch(err){
+    console.warn('[coingecko] worker failed, falling back to direct fetch:', err.message);
+    return fetchWithTimeout(targetUrl, ms);
+  }
+}
+
+// One single bulk request covers all 3 windows and up to 200 coins - no
+// per-coin calls needed.
+async function fetchMarketData(){
+  const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=200&page=1&price_change_percentage=7d,30d,200d&sparkline=false&_=' + Date.now();
+  const res = await fetchCoinGecko(url, FETCH_TIMEOUT_MS);
+  if(!res.ok) throw new Error('CoinGecko market data responded ' + res.status);
+  const data = await res.json();
+  if(!Array.isArray(data) || !data.length) throw new Error('CoinGecko returned no market data');
+  return data;
+}
+async function fetchGlobalData(){
+  try{
+    const res = await fetchCoinGecko('https://api.coingecko.com/api/v3/global?_=' + Date.now(), FETCH_TIMEOUT_MS);
+    if(!res.ok) return null;
+    const data = await res.json();
+    return data && data.data ? data.data : null;
+  }catch(err){
+    return null; // BTC dominance is a bonus stat, not worth failing the page over
+  }
+}
+
+function median(values){
+  if(!values.length) return null;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function computeSeasonIndex(list, windowKey, poolSize){
+  const btc = list.find(c => c.id === 'bitcoin');
+  if(!btc) throw new Error('bitcoin missing from market data');
+  const btcChange = btc[windowKey];
+  if(!Number.isFinite(btcChange)) throw new Error('BTC change unavailable for this window yet');
+
+  const pool = list
+    .filter(c => !isExcludedCoin(c) && Number.isFinite(c[windowKey]))
+    .slice(0, poolSize);
+
+  const beating = pool.filter(c => c[windowKey] > btcChange);
+  const score = pool.length ? Math.round((beating.length / pool.length) * 100) : null;
+  // Median (not mean) so one or two outlier pumps in the pool don't distort
+  // what a "typical" altcoin actually did over the window.
+  const altMedianChange = median(pool.map(c => c[windowKey]));
+
+  return { score, btcChange, altMedianChange, pool, beatingIds: new Set(beating.map(c => c.id)) };
+}
+
+function zoneFor(score){
+  if(score === null) return { label: '—', cls: 'neutral' };
+  if(score >= 75) return { label: 'Altcoin Season', cls: 'alt-season' };
+  if(score <= 25) return { label: 'Bitcoin Season', cls: 'btc-season' };
+  return { label: 'Neutral / Mixed', cls: 'neutral' };
+}
+function gaugeColorFor(score){
+  if(score === null) return 'var(--faint)';
+  if(score >= 75) return 'var(--accent)';
+  if(score <= 25) return 'var(--red)';
+  return 'var(--amber)';
+}
+
+function formatPct(v){
+  if(!Number.isFinite(v)) return '—';
+  const sign = v > 0 ? '+' : '';
+  return sign + v.toFixed(1) + '%';
+}
+function timeAgo(date){
+  if(!date) return '';
+  const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+  if(mins < 1) return 'just now';
+  if(mins < 60) return mins + 'm ago';
+  const hours = Math.floor(mins / 60);
+  if(hours < 24) return hours + 'h ago';
+  return Math.floor(hours / 24) + 'd ago';
+}
+
+// ---- Gauge (SVG semicircle arc) ----
+const GAUGE_RADIUS = 80;
+const GAUGE_ARC_LENGTH = Math.PI * GAUGE_RADIUS; // half-circle arc length
+
+function renderGauge(score){
+  const zone = zoneFor(score);
+  const color = gaugeColorFor(score);
+  const frac = score === null ? 0 : Math.max(0, Math.min(100, score)) / 100;
+  const offset = GAUGE_ARC_LENGTH * (1 - frac);
+
+  document.getElementById('gaugeCard').innerHTML = `
+    <svg class="gauge-svg" viewBox="0 0 200 118" aria-hidden="true">
+      <defs>
+        <linearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="var(--red)"/>
+          <stop offset="50%" stop-color="var(--amber)"/>
+          <stop offset="100%" stop-color="var(--accent)"/>
+        </linearGradient>
+      </defs>
+      <path d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="var(--border)" stroke-width="14" stroke-linecap="round"/>
+      <path d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round"
+            stroke-dasharray="${GAUGE_ARC_LENGTH.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"/>
+    </svg>
+    <div class="gauge-score" style="color:${color}">${score === null ? '—' : score}<span class="of100">/100</span></div>
+    <div class="gauge-zone ${zone.cls}">${zone.label}</div>
+    <div class="gauge-caption" id="gaugeCaption"></div>
+  `;
+}
+
+function renderStats(result, windowMeta){
+  const btcDomText = globalData && globalData.market_cap_percentage && Number.isFinite(globalData.market_cap_percentage.btc)
+    ? globalData.market_cap_percentage.btc.toFixed(1) + '%' : '—';
+  const beatingCount = result.beatingIds.size;
+  const poolCount = result.pool.length;
+  document.getElementById('statRow').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">BTC ${windowMeta.label} change</div>
+      <div class="stat-value ${result.btcChange >= 0 ? 'pos' : 'neg'}">${formatPct(result.btcChange)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Median alt ${windowMeta.label} change</div>
+      <div class="stat-value ${result.altMedianChange >= 0 ? 'pos' : 'neg'}">${formatPct(result.altMedianChange)}</div>
+      <div class="stat-sub">of ${result.pool.length} coins in pool</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Beating BTC</div>
+      <div class="stat-value">${beatingCount} <span style="color:var(--faint);font-size:13px;">/ ${poolCount}</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">BTC Dominance</div>
+      <div class="stat-value">${btcDomText}</div>
+    </div>
+  `;
+}
+
+function renderCoinGrid(result, windowKey){
+  const sorted = result.pool.slice().sort((a,b) => (b[windowKey] - result.btcChange) - (a[windowKey] - result.btcChange));
+  const grid = document.getElementById('coinGrid');
+  grid.innerHTML = sorted.map(c => {
+    const change = c[windowKey];
+    const beating = change > result.btcChange;
+    return `
+      <div class="coin-card" role="button" tabindex="0" onclick="openCoinInfo('${c.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCoinInfo('${c.id}');}">
+        <img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'">
+        <div class="coin-info">
+          <div class="coin-sym">${(c.symbol || '').toUpperCase()}</div>
+          <div class="coin-pct ${beating ? 'pos' : 'neg'}">${formatPct(change)}</div>
+        </div>
+        <span class="coin-dot ${beating ? 'pos' : 'neg'}"></span>
+      </div>`;
+  }).join('');
+
+  const expandBtn = document.getElementById('expandToggle');
+  if(sorted.length > 12){
+    expandBtn.style.display = 'block';
+    grid.classList.add('collapsed');
+    expandBtn.textContent = `Show full list (${sorted.length} coins)`;
+  }else{
+    expandBtn.style.display = 'none';
+    grid.classList.remove('collapsed');
+  }
+
+  document.getElementById('leaderboardTitle').textContent = `Top ${currentPool}, ranked by outperformance vs BTC`;
+  document.getElementById('leaderboardSub').textContent = `Sorted by how far each coin's ${WINDOW_META[currentWindow].label} change is ahead of or behind Bitcoin's.`;
+}
+
+// ---- Per-device reading history (localStorage) ----
+// This is NOT a historical index feed - there's no practical way to
+// recompute this score for past dates without a backend. Instead, each time
+// this page successfully loads, today's reading is logged locally, so a
+// trend builds up the more this device actually opens the app. Cleared if
+// the browser/app storage is cleared.
+function recordHistory(score, windowKey){
+  try{
+    const raw = localStorage.getItem(HISTORY_KEY);
+    const history = raw ? JSON.parse(raw) : [];
+    const today = new Date().toISOString().slice(0, 10);
+    const idx = history.findIndex(h => h.date === today && h.window === windowKey);
+    const entry = { date: today, window: windowKey, score };
+    if(idx >= 0) history[idx] = entry; else history.push(entry);
+    const trimmed = history.slice(-90);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+    return trimmed;
+  }catch(err){ return []; }
+}
+function renderHistory(windowKey){
+  let history = [];
+  try{
+    const raw = localStorage.getItem(HISTORY_KEY);
+    history = raw ? JSON.parse(raw).filter(h => h.window === windowKey) : [];
+  }catch(err){ /* ignore */ }
+
+  const body = document.getElementById('historyBody');
+  if(history.length < 2){
+    body.innerHTML = '<div class="history-empty">Come back another day to start building a trend line.</div>';
+    document.getElementById('historyNote').textContent = history.length ? '1 reading recorded' : 'recorded on this device';
+    return;
+  }
+  document.getElementById('historyNote').textContent = `${history.length} readings recorded`;
+
+  const w = 600, h = 60, pad = 4;
+  const scores = history.map(h => h.score).filter(s => Number.isFinite(s));
+  const min = Math.min(...scores, 0), max = Math.max(...scores, 100);
+  const range = (max - min) || 1;
+  const step = (w - pad * 2) / (history.length - 1);
+  const points = history.map((h, i) => {
+    const x = pad + i * step;
+    const y = h2y(h.score);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  function h2y(score){
+    if(!Number.isFinite(score)) return h / 2;
+    return h - pad - ((score - min) / range) * (h - pad * 2);
+  }
+  const last = history[history.length - 1];
+  const lastColor = gaugeColorFor(last.score);
+
+  body.innerHTML = `
+    <svg class="history-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points="${points}" fill="none" stroke="${lastColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+}
+
+// ---- Cache (stale-while-revalidate) ----
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      rawMarketData, globalData, lastUpdated: lastUpdated ? lastUpdated.toISOString() : null
+    }));
+  }catch(err){ /* storage full/unavailable - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.rawMarketData) return false;
+    rawMarketData = cached.rawMarketData;
+    globalData = cached.globalData || null;
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+
+function updateLabel(){
+  const el = document.getElementById('updatedLabel');
+  if(!lastUpdated){ el.textContent = ''; el.classList.remove('warn'); return; }
+  if(lastRefreshFailed){
+    el.textContent = `Refresh failed · showing data from ${timeAgo(lastUpdated)}`;
+    el.classList.add('warn');
+  }else{
+    el.textContent = 'Updated ' + timeAgo(lastUpdated);
+    el.classList.remove('warn');
+  }
+}
+
+function render(){
+  if(!rawMarketData) return;
+  const windowMeta = WINDOW_META[currentWindow];
+  let result;
+  try{
+    result = computeSeasonIndex(rawMarketData, windowMeta.key, currentPool);
+  }catch(err){
+    document.getElementById('gaugeCard').innerHTML = `<div class="gauge-error">Couldn't compute the index: ${err.message}</div>`;
+    return;
+  }
+  renderGauge(result.score);
+  const caption = document.getElementById('gaugeCaption');
+  if(caption){
+    caption.innerHTML = `<b>${result.beatingIds.size}</b> of the top <b>${result.pool.length}</b> coins (ex. stablecoins &amp; wrapped assets) beat Bitcoin's ${windowMeta.label} change of <b>${formatPct(result.btcChange)}</b>`;
+  }
+  renderStats(result, windowMeta);
+  renderCoinGrid(result, windowMeta.key);
+  renderHistory(currentWindow);
+  updateLabel();
+}
+
+async function loadAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  if(rawMarketData) render(); // show cached/previous data immediately while fresh data loads
+
+  try{
+    const [market, global] = await Promise.all([fetchMarketData(), fetchGlobalData()]);
+    rawMarketData = market;
+    globalData = global;
+    lastUpdated = new Date();
+    lastRefreshFailed = false;
+    saveCache();
+    const windowMeta = WINDOW_META[currentWindow];
+    const result = computeSeasonIndex(rawMarketData, windowMeta.key, currentPool);
+    recordHistory(result.score, currentWindow);
+    render();
+  }catch(err){
+    console.warn('[season-index] refresh failed:', err.message);
+    lastRefreshFailed = true;
+    if(!rawMarketData){
+      document.getElementById('gaugeCard').innerHTML = `<div class="gauge-error">Couldn't load market data (${err.message}). Tap refresh to try again.</div>`;
+      updateLabel();
+    }else{
+      render();
+    }
+  }finally{
+    setTimeout(() => btn.classList.remove('spinning'), 400);
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+document.querySelectorAll('.chip-btn[data-window]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentWindow = btn.dataset.window;
+    document.querySelectorAll('.chip-btn[data-window]').forEach(b => b.classList.toggle('active', b === btn));
+    render();
+  });
+});
+document.querySelectorAll('.chip-btn[data-pool]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentPool = parseInt(btn.dataset.pool, 10);
+    document.querySelectorAll('.chip-btn[data-pool]').forEach(b => b.classList.toggle('active', b === btn));
+    render();
+  });
+});
+document.getElementById('expandToggle').addEventListener('click', (e) => {
+  const grid = document.getElementById('coinGrid');
+  const collapsed = grid.classList.toggle('collapsed');
+  e.target.textContent = collapsed
+    ? `Show full list (${grid.children.length} coins)`
+    : 'Show less';
+});
+
+document.getElementById('pageFooter').innerHTML = `
+  This index is computed the same way blockchaincenter.net's original Altcoin Season Index is defined
+  (percentage of the top coins by market cap that outperformed Bitcoin over a trailing window, excluding
+  stablecoins and wrapped/staked derivatives) — but computed live here from CoinGecko's public market data
+  rather than scraped from a third-party chart, since that source renders its number client-side with no
+  public API to read from reliably. CoinGecko's bulk endpoint doesn't offer an exact 90-day window, so 30-day
+  is used as the default (closest available, and the standard "medium-term" read) with 7-day and 200-day
+  offered alongside for shorter/longer context. A reading of 75+ is generally read as Altcoin Season, 25 or
+  below as Bitcoin Season. For the original 90-day methodology and its long-run chart, see
+  <a href="https://www.blockchaincenter.net/en/altcoin-season-index/" target="_blank" rel="noopener">blockchaincenter.net</a>.
+`;
+
+// ---- Coin info modal (ported from screener.html's "i" info window) ----
+// Simpler than screener.html's version: that one starts from a Binance/Bybit
+// ticker symbol and has to /search CoinGecko to guess a matching coin id
+// first. Here every coin card already IS a CoinGecko market object with its
+// real id attached, so this goes straight to the detail endpoint - no
+// search/guessing step, and no risk of matching the wrong coin.
+function openExternalLink(webUrl){
+  window.open(webUrl, '_blank', 'noopener,noreferrer');
+}
+
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function stripInlineMarkdown(s){
+  return s.replace(/\*\*(.*?)\*\*/g, '$1').replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1$2').replace(/\[(.*?)\]\(.*?\)/g, '$1');
+}
+
+// Renders the About text returned by CoinGecko. Modern descriptions are markdown
+// with "## Heading" sections; we keep everything through the end of the FIRST
+// section (its heading, intro paragraph, and any bullet list) and stop before the
+// next "## Heading". Older/legacy descriptions have no markdown headings, so we
+// fall back to the first couple of paragraphs. Raw HTML (very old format) is
+// stripped down to plain text.
+function formatAboutHtml(raw){
+  if(!raw) return '<p>No description available.</p>';
+  let text = raw.replace(/\r\n/g, '\n').trim();
+  if(!text) return '<p>No description available.</p>';
+
+  if(/<[a-z][\s\S]*>/i.test(text)){
+    const firstPara = text.split(/\n{2,}/)[0] || text;
+    const plain = firstPara.replace(/<[^>]*>/g, '').trim();
+    return plain ? `<p>${escapeHtml(plain)}</p>` : '<p>No description available.</p>';
+  }
+
+  const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  const isHeading = (b) => /^#{1,6}\s+/.test(b);
+  const headingIdxs = [];
+  blocks.forEach((b, i) => { if(isHeading(b)) headingIdxs.push(i); });
+
+  let sectionBlocks;
+  if(headingIdxs.length === 0){
+    sectionBlocks = blocks.slice(0, Math.min(blocks.length, 3));
+  } else if(headingIdxs[0] > 0){
+    sectionBlocks = blocks.slice(0, headingIdxs[0]);
+  } else {
+    const nextHeadingIdx = headingIdxs.length >= 2 ? headingIdxs[1] : blocks.length;
+    sectionBlocks = blocks.slice(0, nextHeadingIdx);
+  }
+
+  let html = '';
+  sectionBlocks.forEach(block => {
+    if(isHeading(block)){
+      const headingText = block.replace(/^#{1,6}\s+/, '');
+      html += `<p class="about-heading">${escapeHtml(stripInlineMarkdown(headingText))}</p>`;
+    } else if(/^[-*]\s+/m.test(block)){
+      const items = block.split(/\n/).map(l => l.replace(/^[-*]\s+/, '').trim()).filter(Boolean);
+      html += '<ul>' + items.map(it => `<li>${escapeHtml(stripInlineMarkdown(it))}</li>`).join('') + '</ul>';
+    } else {
+      html += `<p>${escapeHtml(stripInlineMarkdown(block))}</p>`;
+    }
+  });
+  return html || '<p>No description available.</p>';
+}
+
+async function openCoinInfo(coinId){
+  const modal = document.getElementById('coinInfoModal');
+  const statusEl = document.getElementById('coinInfoStatus');
+  const detailsEl = document.getElementById('coinInfoDetails');
+  const titleEl = document.getElementById('coinInfoTitle');
+  const subtitleEl = document.getElementById('coinInfoSubtitle');
+  const gridEl = document.getElementById('coinInfoGrid');
+  const websiteEl = document.getElementById('coinInfoWebsite');
+  const coingeckoEl = document.getElementById('coinInfoCoingecko');
+  const aboutEl = document.getElementById('coinInfoAbout');
+
+  const cached = rawMarketData && rawMarketData.find(c => c.id === coinId);
+  titleEl.textContent = cached ? (cached.symbol || '').toUpperCase() : coinId;
+  subtitleEl.textContent = '';
+  statusEl.textContent = 'Loading CoinGecko data...';
+  statusEl.style.display = 'block';
+  detailsEl.style.display = 'none';
+  gridEl.innerHTML = '';
+  aboutEl.textContent = '';
+  websiteEl.textContent = '—';
+  websiteEl.onclick = null;
+  coingeckoEl.textContent = '—';
+  coingeckoEl.onclick = null;
+  modal.classList.add('open');
+
+  try{
+    const res = await fetchCoinGecko(
+      `https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`,
+      FETCH_TIMEOUT_MS
+    );
+    if(!res.ok) throw new Error('coin lookup failed (' + res.status + ')');
+    const coin = await res.json();
+
+    const md = coin.market_data || {};
+    const fmtUsd = (n) => (n === undefined || n === null) ? '—' : '$' + Number(n).toLocaleString('en-US', {maximumFractionDigits:0});
+    const fmtNum = (n) => (n === undefined || n === null) ? '—' : Number(n).toLocaleString('en-US', {maximumFractionDigits:0});
+
+    const rankText = coin.market_cap_rank ? ` #${coin.market_cap_rank}` : '';
+    subtitleEl.textContent = coin.name ? `${coin.name} (${(coin.symbol || '').toUpperCase()})${rankText}` : '';
+
+    const rawAbout = (coin.description && coin.description.en) || '';
+    aboutEl.innerHTML = formatAboutHtml(rawAbout);
+
+    const fields = [
+      {label:'Market Cap', value: fmtUsd(md.market_cap && md.market_cap.usd)},
+      {label:'Fully Diluted Valuation', value: fmtUsd(md.fully_diluted_valuation && md.fully_diluted_valuation.usd)},
+      {label:'24 Hour Trading Vol', value: fmtUsd(md.total_volume && md.total_volume.usd)},
+      {label:'Circulating Supply', value: fmtNum(md.circulating_supply)},
+      {label:'Total Supply', value: fmtNum(md.total_supply)},
+      {label:'Max Supply', value: fmtNum(md.max_supply)},
+    ];
+    gridEl.innerHTML = fields.map(f => `<div class="coininfo-card"><span class="label">${f.label}</span><span class="value">${f.value}</span></div>`).join('');
+
+    const homepage = ((coin.links && coin.links.homepage) || []).find(h => h);
+    if(homepage){
+      websiteEl.textContent = homepage;
+      websiteEl.onclick = () => openExternalLink(homepage);
+    }else{
+      websiteEl.textContent = 'Not available';
+    }
+
+    const coingeckoUrl = `https://www.coingecko.com/en/coins/${coinId}`;
+    coingeckoEl.textContent = coingeckoUrl;
+    coingeckoEl.onclick = () => openExternalLink(coingeckoUrl);
+
+    statusEl.style.display = 'none';
+    detailsEl.style.display = 'block';
+  }catch(err){
+    statusEl.textContent = `Could not load coin info from CoinGecko (${err.message}).`;
+  }
+}
+
+function closeCoinInfo(event){
+  if(event && event.target !== document.getElementById('coinInfoModal')) return;
+  document.getElementById('coinInfoModal').classList.remove('open');
+}
+window.addEventListener('keydown', (event) => {
+  if(event.key === 'Escape') closeCoinInfo();
+});
+
+loadCache();
+render();
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL_MS);
+</script>
+</body>
+</html>

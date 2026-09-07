@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oil & Energy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(255,138,76,0.07), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  /* ---- Top header ---- */
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--orange);box-shadow:0 0 8px var(--orange);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .refresh-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--orange);color:var(--orange);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 18px;max-width:720px;}
+
+  .degraded-banner{
+    background:rgba(255,84,112,.08);border:1px solid rgba(255,84,112,.25);color:#ffb3c1;
+    border-radius:10px;padding:10px 14px;font:12px var(--font-mono);margin-bottom:18px;
+    display:none;
+  }
+  .degraded-banner.show{display:block;}
+
+  /* ---- Oil quote cards ---- */
+  .oil-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px;}
+  @media(min-width:760px){ .oil-grid{grid-template-columns:1fr 1fr;} }
+
+  .oil-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:18px 20px;display:flex;flex-direction:column;gap:14px;
+    transition:border-color .15s, transform .15s;
+  }
+  .oil-card:hover{border-color:var(--border-soft);transform:translateY(-2px);}
+  .oil-card.error{align-items:flex-start;}
+
+  .oil-card-head{display:flex;align-items:center;gap:12px;}
+  .oil-icon{
+    width:40px;height:40px;border-radius:11px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:19px;
+    box-shadow:0 6px 16px rgba(0,0,0,.28);
+  }
+  .oil-name-wrap{min-width:0;flex:1;}
+  .oil-name{font-size:16px;font-weight:700;line-height:1.25;}
+  .oil-sub{font-size:11px;color:var(--faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .market-state{
+    font:700 9.5px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;
+    color:var(--faint);border:1px solid var(--border);border-radius:20px;padding:3px 9px;flex-shrink:0;
+  }
+  .market-state.live{color:var(--accent);border-color:var(--accent-dim);}
+
+  .oil-price-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .oil-price{font-size:30px;font-weight:700;letter-spacing:-.01em;}
+  .oil-change{font:600 13px var(--font-mono);}
+  .oil-change.up{color:var(--accent);}
+  .oil-change.down{color:var(--red);}
+
+  .sparkline{width:100%;height:56px;display:block;}
+
+  .oil-stats{display:flex;gap:22px;flex-wrap:wrap;}
+  .stat{display:flex;flex-direction:column;gap:2px;}
+  .stat-label{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;}
+  .stat-val{font:600 13px var(--font-mono);color:var(--text);}
+
+  .range-block{display:flex;flex-direction:column;gap:6px;}
+  .range-title{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;}
+  .range-track{position:relative;height:5px;border-radius:4px;background:var(--border-soft);}
+  .range-marker{
+    position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+    background:var(--orange);border:2px solid var(--bg);transform:translate(-50%,-50%);
+    box-shadow:0 0 0 1px var(--orange);
+  }
+  .range-labels{display:flex;justify-content:space-between;font:11px var(--font-mono);color:var(--muted);}
+
+  .oil-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px;padding-top:12px;border-top:1px solid var(--border-soft);}
+  .oil-asof{font:10.5px var(--font-mono);color:var(--faint);}
+  .oil-link{
+    font:600 11px var(--font-mono);color:var(--orange);text-decoration:none;
+    display:inline-flex;align-items:center;gap:4px;
+  }
+  .oil-link:hover{text-decoration:underline;}
+  .oil-error-msg{color:var(--faint);font:12px var(--font-mono);}
+
+  /* ---- Spread card ---- */
+  .spread-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:16px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:22px;
+  }
+  .spread-title{font:700 11px var(--font-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap;}
+  .spread-value{font-size:22px;font-weight:700;color:var(--text);white-space:nowrap;}
+  .spread-note{color:var(--faint);font-size:11.5px;line-height:1.5;flex:1;min-width:220px;}
+
+  /* ---- Disclaimer / about panel ---- */
+  .notice{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin:22px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);
+  }
+  .notice b{color:var(--text);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{
+    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 13px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, color .15s, border-color .15s;
+  }
+  .notice-toggle:hover{border-color:var(--orange);color:var(--orange);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{
+    display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
+  }
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--orange);}
+
+  .page-skeleton{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media(min-width:760px){ .page-skeleton{grid-template-columns:1fr 1fr;} }
+  .skel-card{height:280px;border-radius:14px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 37%,var(--panel) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  .error-state{
+    padding:34px 20px;text-align:center;color:#ffb3c1;font:12.5px var(--font-mono);
+    border:1px dashed rgba(255,84,112,.3);border-radius:12px;line-height:1.7;
+  }
+  .retry-btn{
+    margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:8px 16px;border-radius:8px;font:600 12px var(--font-mono);cursor:pointer;
+  }
+  .retry-btn:hover{border-color:var(--orange);color:var(--orange);}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Oil & Energy</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="sub">Live Brent and WTI crude oil futures prices, day and 52-week ranges, and the Brent–WTI spread — the benchmarks that set the tone for energy costs and, indirectly, broader risk appetite.</p>
+
+  <div class="degraded-banner" id="degradedBanner"></div>
+
+  <div id="content"></div>
+
+  <div class="notice">
+    <div class="notice-summary">
+      <b>Reference data only, not a trading venue.</b>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+    </div>
+    <div class="notice-details" id="noticeDetails" hidden>
+      Prices are pulled from public futures-market data feeds and may be delayed 15–20 minutes depending on the exchange; this page doesn't place trades or hold positions. Futures prices reflect the front-month (nearest expiring) contract and can differ from spot/physical oil prices. Not financial advice.
+      <div class="src-tags">
+        <span class="src-tag"><span class="dot"></span>WTI · NYMEX CL=F</span>
+        <span class="src-tag"><span class="dot"></span>Brent · ICE BZ=F</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------------- Config ----------------
+const SYMBOLS = {
+  wti:   { id: 'wti',   symbol: 'CL=F', name: 'WTI Crude',   contract: 'NYMEX Light Sweet Crude Oil Futures', gradient: 'linear-gradient(135deg,#ff8a4c,#c2501a)' },
+  brent: { id: 'brent', symbol: 'BZ=F', name: 'Brent Crude', contract: 'ICE Brent Crude Oil Futures',          gradient: 'linear-gradient(135deg,#5b8cff,#2b4fb0)' },
+};
+
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+const PROXY_TIMEOUT_MS = 8000;
+const CACHE_KEY = 'crypto-oil-prices-cache-v1';
+
+// Reuse the same personal Cloudflare Worker already used by the other pages
+// in this app (news.html, youtube.html, prediction-markets.html) for CORS
+// passthrough. IMPORTANT: if your Worker has a target-domain allowlist, add
+// query1.finance.yahoo.com to it, or the fallback path below will be
+// rejected by the Worker itself even though the Worker is reachable. Yahoo's
+// chart endpoint is usually directly fetchable (CORS-open) so this fallback
+// may never even be needed, but it's there for reliability.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function fetchJSONDirect(url){
+  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function fetchJSONViaProxyChain(url){
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker HTTP ' + res.status);
+      return await res.json();
+    }catch(err){
+      console.warn('[proxy] worker failed:', err && err.message);
+    }
+  }
+  return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
+    const res = await fetchWithTimeout(buildProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('proxy HTTP ' + res.status);
+    return await res.json();
+  })()));
+}
+
+// ---------------- Data fetch ----------------
+// Direct fetch first (Yahoo's chart endpoint is typically CORS-open with no
+// key required), falling back to the proxy chain only if that fails.
+async function fetchYahooQuote(symbol){
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1mo&interval=1d`;
+  let data;
+  try{
+    data = await fetchJSONDirect(url);
+  }catch(err){
+    data = await fetchJSONViaProxyChain(url);
+  }
+  const result = data && data.chart && Array.isArray(data.chart.result) && data.chart.result[0];
+  if(!result || !result.meta) throw new Error('Unexpected Yahoo Finance response shape');
+
+  const closesRaw = (result.indicators && result.indicators.quote && result.indicators.quote[0] && result.indicators.quote[0].close) || [];
+  const timestamps = result.timestamp || [];
+  const series = timestamps
+    .map((t, i) => ({ t, c: closesRaw[i] }))
+    .filter(p => typeof p.c === 'number' && isFinite(p.c));
+
+  return { meta: result.meta, series };
+}
+
+// ---------------- Rendering helpers ----------------
+function escapeHtml(s){
+  return (s || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatVolume(v){
+  if(v === null || v === undefined || isNaN(v)) return '—';
+  if(v >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+  if(v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+  return String(v);
+}
+
+function buildSparklineSVG(closes, isUp, gradId){
+  const w = 300, h = 56, padY = 5;
+  const vals = closes.filter(v => typeof v === 'number' && isFinite(v));
+  if(vals.length < 2) return '';
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = (max - min) || 1;
+  const stepX = w / (vals.length - 1);
+  const pts = vals.map((v, i) => {
+    const x = i * stepX;
+    const y = padY + (1 - (v - min) / range) * (h - 2 * padY);
+    return [x.toFixed(1), y.toFixed(1)];
+  });
+  const lineD = 'M' + pts.map(p => p.join(',')).join(' L');
+  const areaD = lineD + ` L${w},${h} L0,${h} Z`;
+  const stroke = isUp ? '#35E0C0' : '#FF5470';
+  return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${stroke}" stop-opacity=".32"/>
+      <stop offset="100%" stop-color="${stroke}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${areaD}" fill="url(#${gradId})"/>
+    <path d="${lineD}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+function rangeBar(low, high, current){
+  if(typeof low !== 'number' || typeof high !== 'number' || !(high > low)) return '';
+  const pct = Math.min(100, Math.max(0, ((current - low) / (high - low)) * 100));
+  return `
+    <div class="range-track"><div class="range-marker" style="left:${pct.toFixed(1)}%"></div></div>
+    <div class="range-labels"><span>$${low.toFixed(2)}</span><span>$${high.toFixed(2)}</span></div>`;
+}
+
+function renderQuoteCard(cfg, q){
+  if(!q){
+    return `
+      <div class="oil-card error">
+        <div class="oil-card-head">
+          <span class="oil-icon" style="background:${cfg.gradient}">🛢️</span>
+          <div class="oil-name-wrap">
+            <div class="oil-name">${cfg.name}</div>
+            <div class="oil-sub">${cfg.contract} · ${cfg.symbol}</div>
+          </div>
+        </div>
+        <div class="oil-error-msg">Couldn't load ${cfg.name} data this refresh.</div>
+      </div>`;
+  }
+
+  const { meta, series } = q;
+  const price = meta.regularMarketPrice;
+  const prevClose = (typeof meta.chartPreviousClose === 'number' ? meta.chartPreviousClose
+                     : (typeof meta.previousClose === 'number' ? meta.previousClose : price));
+  const change = price - prevClose;
+  const changePct = prevClose ? (change / prevClose * 100) : 0;
+  const isUp = change >= 0;
+  const closes = series.map(p => p.c);
+  const sparkline = buildSparklineSVG(closes, isUp, `spark-${cfg.id}`);
+  const asOf = meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000) : null;
+  const marketState = (meta.marketState || '').toUpperCase();
+
+  const dayRange = rangeBar(meta.regularMarketDayLow, meta.regularMarketDayHigh, price);
+  const yearRange = rangeBar(meta.fiftyTwoWeekLow, meta.fiftyTwoWeekHigh, price);
+
+  return `
+    <div class="oil-card">
+      <div class="oil-card-head">
+        <span class="oil-icon" style="background:${cfg.gradient}">🛢️</span>
+        <div class="oil-name-wrap">
+          <div class="oil-name">${cfg.name}</div>
+          <div class="oil-sub">${escapeHtml(meta.fullExchangeName || cfg.contract)} · ${cfg.symbol}</div>
+        </div>
+        ${marketState ? `<span class="market-state ${marketState === 'REGULAR' ? 'live' : ''}">${marketState === 'REGULAR' ? 'Live' : marketState}</span>` : ''}
+      </div>
+
+      <div class="oil-price-row">
+        <div class="oil-price">$${price.toFixed(2)}</div>
+        <div class="oil-change ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.abs(change).toFixed(2)} (${Math.abs(changePct).toFixed(2)}%)</div>
+      </div>
+
+      ${sparkline}
+
+      <div class="oil-stats">
+        <div class="stat"><span class="stat-label">Prev close</span><span class="stat-val">$${prevClose.toFixed(2)}</span></div>
+        <div class="stat"><span class="stat-label">Volume</span><span class="stat-val">${formatVolume(meta.regularMarketVolume)}</span></div>
+        <div class="stat"><span class="stat-label">Currency</span><span class="stat-val">${escapeHtml(meta.currency || 'USD')}/bbl</span></div>
+      </div>
+
+      ${dayRange ? `<div class="range-block"><div class="range-title">Day range</div>${dayRange}</div>` : ''}
+      ${yearRange ? `<div class="range-block"><div class="range-title">52-week range</div>${yearRange}</div>` : ''}
+
+      <div class="oil-foot">
+        <span class="oil-asof">${asOf ? 'As of ' + asOf.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+        <a class="oil-link" href="https://finance.yahoo.com/quote/${encodeURIComponent(cfg.symbol)}" target="_blank" rel="noopener">View chart ↗</a>
+      </div>
+    </div>`;
+}
+
+function renderSpreadCard(wti, brent){
+  if(!wti || !brent) return '';
+  const wp = wti.meta.regularMarketPrice, bp = brent.meta.regularMarketPrice;
+  const spread = bp - wp;
+  return `
+    <div class="spread-card">
+      <div class="spread-title">Brent – WTI Spread</div>
+      <div class="spread-value" style="color:${spread >= 0 ? 'var(--accent)' : 'var(--red)'}">${spread >= 0 ? '+' : ''}$${spread.toFixed(2)}</div>
+      <div class="spread-note">Brent has historically traded at a premium to WTI, reflecting transport costs, crude quality, and regional supply/demand differences. A widening spread often points to tighter international (vs. US) supply; a narrowing or negative spread points the other way.</div>
+    </div>`;
+}
+
+function renderAll(results){
+  const el = document.getElementById('content');
+  const { wti, brent } = results;
+  el.innerHTML = `
+    <div class="oil-grid">
+      ${renderQuoteCard(SYMBOLS.brent, brent)}
+      ${renderQuoteCard(SYMBOLS.wti, wti)}
+    </div>
+    ${renderSpreadCard(wti, brent)}`;
+}
+
+function renderSkeleton(){
+  document.getElementById('content').innerHTML = `<div class="page-skeleton">${'<div class="skel-card"></div>'.repeat(2)}</div>`;
+}
+
+function updateLastUpdatedLabel(failed){
+  const el = document.getElementById('updatedLabel');
+  el.classList.toggle('label-error', !!failed);
+  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed - see console' : ''; return; }
+  const mins = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 60000));
+  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  el.textContent = (failed ? 'Refresh failed, showing cached · ' : 'Updated ') + ago;
+}
+
+function showDegradedBanner(text){
+  const el = document.getElementById('degradedBanner');
+  if(!text){ el.classList.remove('show'); el.textContent = ''; return; }
+  el.textContent = text;
+  el.classList.add('show');
+}
+
+// ---------------- Cache (stale-while-revalidate, same pattern as the other pages) ----------------
+let lastResults = null;
+let lastUpdated = null;
+
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
+      results: lastResults
+    }));
+  }catch(err){ /* storage unavailable - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.results) return false;
+    lastResults = cached.results;
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+
+// ---------------- Main load ----------------
+async function loadAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  if(lastResults){
+    renderAll(lastResults);
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  const [wtiSettled, brentSettled] = await Promise.allSettled([
+    fetchYahooQuote(SYMBOLS.wti.symbol),
+    fetchYahooQuote(SYMBOLS.brent.symbol)
+  ]);
+  const wti = wtiSettled.status === 'fulfilled' ? wtiSettled.value : null;
+  const brent = brentSettled.status === 'fulfilled' ? brentSettled.value : null;
+  if(wtiSettled.status === 'rejected') console.warn('[WTI] failed:', wtiSettled.reason && wtiSettled.reason.message);
+  if(brentSettled.status === 'rejected') console.warn('[Brent] failed:', brentSettled.reason && brentSettled.reason.message);
+
+  let failed = false;
+
+  if(!wti && !brent){
+    failed = true;
+    if(!lastResults){
+      document.getElementById('content').innerHTML = `
+        <div class="error-state">
+          Couldn't load oil prices right now (Yahoo Finance unreachable).<br>
+          If you have a Cloudflare Worker configured for this app, make sure
+          query1.finance.yahoo.com is allowed through it. Check the console for details.
+          <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+        </div>`;
+      document.getElementById('retryBtn').addEventListener('click', loadAll);
+    }
+  }else{
+    lastResults = { wti, brent };
+    lastUpdated = new Date();
+    saveCache();
+    renderAll(lastResults);
+  }
+
+  if(wti && !brent){
+    showDegradedBanner('Brent data unavailable this refresh (common if your proxy Worker needs query1.finance.yahoo.com allow-listed) - showing WTI only.');
+  }else if(brent && !wti){
+    showDegradedBanner('WTI data unavailable this refresh (common if your proxy Worker needs query1.finance.yahoo.com allow-listed) - showing Brent only.');
+  }else{
+    showDegradedBanner(null);
+  }
+
+  updateLastUpdatedLabel(failed);
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+document.getElementById('noticeToggle').addEventListener('click', () => {
+  const btn = document.getElementById('noticeToggle');
+  const details = document.getElementById('noticeDetails');
+  const willOpen = details.hidden;
+  details.hidden = !willOpen;
+  btn.classList.toggle('open', willOpen);
+  btn.setAttribute('aria-expanded', String(willOpen));
+});
+
+loadCache();
+loadAll();
+setInterval(loadAll, REFRESH_INTERVAL_MS);
+setInterval(updateLastUpdatedLabel, 60000);
+</script>
+</body>
+</html>

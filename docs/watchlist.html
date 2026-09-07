@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watchlist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151B;
+    --panel2:#171B22;
+    --border:#232833;
+    --border-soft:#1B1F28;
+    --text:#E6E9EF;
+    --muted:#8B93A3;
+    --faint:#565F70;
+    --accent:#35E0C0;
+    --accent-dim:#1E7F6F;
+    --red:#FF5470;
+    --red-dim:#7A2E3B;
+    --amber:#F5A623;
+    --blue:#5B8CFF;
+    --violet:#A78BFA;
+    --orange:#FF8A4C;
+    --gold:#F0C24B;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 20px 70px;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(240,194,75,0.07), transparent 40%),
+      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
+  }
+  .wrap{max-width:820px;margin:0 auto;}
+
+  /* ---- Top header ---- */
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .refresh-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .refresh-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+  .refresh-btn.flipped svg{transform:rotate(180deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 16px;max-width:640px;}
+
+  .degraded-banner{
+    background:rgba(255,84,112,.08);border:1px solid rgba(255,84,112,.25);color:#ffb3c1;
+    border-radius:10px;padding:10px 14px;font:12px var(--font-mono);margin-bottom:16px;
+    display:none;
+  }
+  .degraded-banner.show{display:block;}
+
+  /* ---- Market pulse strip ---- */
+  .pulse-strip{
+    display:flex;flex-direction:column;gap:10px;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:12px 16px;margin-bottom:16px;
+  }
+  .pulse-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  .pulse-row-top{justify-content:space-between;}
+  .pulse-row-top .pulse-row-left{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  .pulse-item{display:flex;align-items:center;gap:7px;font:600 12.5px var(--font-mono);color:var(--muted);}
+  .pulse-item b{color:var(--text);font-size:13.5px;}
+  .pulse-up{color:var(--accent);}
+  .pulse-down{color:var(--red);}
+  .pulse-divider{width:1px;height:16px;background:var(--border);}
+
+  /* ---- Pulse strip inline coin search / quick-add ---- */
+  .pulse-search-wrap{
+    display:flex;align-items:center;gap:6px;background:var(--panel2);
+    border:1px solid var(--border);border-radius:8px;padding:4px 6px 4px 10px;
+    margin-left:auto;
+  }
+  .pulse-search-wrap:focus-within{border-color:var(--violet);}
+  .pulse-search-input{
+    background:none;border:none;color:var(--text);font:12px var(--font-mono);
+    width:104px;min-width:0;
+  }
+  .pulse-search-input:focus{outline:none;}
+  .pulse-search-input::placeholder{color:var(--faint);}
+  .pulse-search-error{
+    color:var(--red);font:700 13px var(--font-mono);flex-shrink:0;line-height:1;
+  }
+  .pulse-search-add{
+    flex-shrink:0;background:var(--violet);border:none;color:#141221;
+    width:22px;height:22px;border-radius:6px;cursor:pointer;font:700 13px var(--font-mono);
+    line-height:1;display:flex;align-items:center;justify-content:center;
+  }
+  .pulse-search-add:hover{filter:brightness(1.1);}
+  .pulse-search-add:disabled{opacity:.5;cursor:default;}
+
+  /* ---- Watchlist rows ---- */
+  .watch-list{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+
+  .watch-item{position:relative;border-radius:14px;overflow:hidden;}
+
+  .watch-delete-bg{
+    position:absolute;inset:0;border-radius:14px;background:var(--red);
+    display:flex;align-items:center;justify-content:flex-start;
+  }
+  .watch-delete-btn{
+    height:100%;padding:0 20px;background:transparent;border:none;color:#fff;
+    font:700 12px var(--font-mono);letter-spacing:.02em;cursor:pointer;
+    display:flex;align-items:center;gap:6px;white-space:nowrap;
+  }
+
+  .watch-card{
+    position:relative;z-index:1;
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:14px 16px;display:flex;flex-direction:column;
+    transition:border-color .15s, transform .2s ease;
+    touch-action:pan-y;user-select:none;
+  }
+  .watch-card:hover{border-color:var(--border-soft);}
+  .watch-card.error{cursor:default;gap:8px;}
+  .watch-item.open .watch-card{border-color:rgba(255,84,112,.4);}
+
+  .watch-top{display:flex;align-items:center;gap:11px;}
+  .watch-rank{
+    flex-shrink:0;width:30px;height:22px;border-radius:7px;
+    display:flex;align-items:center;justify-content:center;
+    font:700 11px var(--font-mono);color:var(--faint);border:1px solid var(--border);
+  }
+  .watch-rank.top{color:var(--gold);border-color:rgba(240,194,75,.4);background:rgba(240,194,75,.08);}
+  .coin-icon{width:32px;height:32px;border-radius:50%;flex-shrink:0;object-fit:cover;box-shadow:0 4px 12px rgba(0,0,0,.3);}
+  .coin-icon-fallback{
+    width:32px;height:32px;border-radius:50%;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font:700 13px var(--font-display);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.3);
+  }
+  .watch-id{min-width:0;flex:1;}
+  .watch-symbol{font-size:15px;font-weight:700;line-height:1.25;}
+  .watch-name{font-size:11px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  .watch-price-block{text-align:right;flex-shrink:0;}
+  .watch-price{
+    font:700 16.5px var(--font-mono);letter-spacing:-.01em;
+    border-radius:5px;padding:1px 4px;margin:-1px -4px;
+  }
+  .watch-price.flash-up{animation:flashUp .9s ease-out;}
+  .watch-price.flash-down{animation:flashDown .9s ease-out;}
+  @keyframes flashUp{0%{background:rgba(53,224,192,.35);}100%{background:transparent;}}
+  @keyframes flashDown{0%{background:rgba(255,84,112,.35);}100%{background:transparent;}}
+  .watch-change{font:600 12px var(--font-mono);margin-top:1px;}
+  .watch-change.up{color:var(--accent);}
+  .watch-change.down{color:var(--red);}
+
+  .watch-chevron{
+    flex-shrink:0;width:26px;height:26px;margin:-5px -6px -5px 2px;color:var(--faint);
+    display:flex;align-items:center;justify-content:center;
+    border-radius:7px;cursor:pointer;
+    transition:transform .2s ease,color .15s,background .15s;
+  }
+  .watch-chevron:hover{color:var(--gold);background:var(--panel2);}
+  .watch-chevron svg{width:12px;height:12px;}
+  .watch-card.expanded .watch-chevron{transform:rotate(180deg);color:var(--muted);}
+
+  .watch-details{
+    max-height:0;opacity:0;overflow:hidden;
+    display:flex;flex-direction:column;gap:10px;
+    transition:max-height .22s ease,opacity .18s ease,margin-top .22s ease;
+  }
+  .watch-card.expanded .watch-details{max-height:160px;opacity:1;margin-top:12px;}
+
+  .range-block{display:flex;flex-direction:column;gap:5px;}
+  .range-title{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;}
+  .range-track{position:relative;height:5px;border-radius:4px;background:var(--border-soft);}
+  .range-marker{
+    position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+    background:var(--gold);border:2px solid var(--bg);transform:translate(-50%,-50%);
+    box-shadow:0 0 0 1px var(--gold);
+  }
+  .range-labels{display:flex;justify-content:space-between;font:11px var(--font-mono);color:var(--muted);}
+
+  .watch-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid var(--border-soft);}
+  .watch-asof{font:10.5px var(--font-mono);color:var(--faint);}
+  .watch-link{font:600 11px var(--font-mono);color:var(--gold);text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
+  .watch-link:hover{text-decoration:underline;}
+  .watch-foot-links{display:flex;align-items:center;gap:14px;}
+  .analysis-btn{
+    font:600 11px var(--font-mono);color:var(--blue);background:none;border:none;padding:0;
+    text-decoration:none;display:inline-flex;align-items:center;gap:4px;cursor:pointer;
+  }
+  .analysis-btn:hover{text-decoration:underline;}
+
+  /* ---- Coin -> group assignment icon + picker ---- */
+  .group-picker-wrap{position:relative;display:inline-flex;}
+  .group-icon-btn{
+    background:none;border:none;padding:0;margin:0;color:var(--faint);cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
+  }
+  .group-icon-btn svg{width:14px;height:14px;}
+  .group-icon-btn:hover{color:var(--violet);}
+  .group-icon-btn.assigned{color:var(--violet);}
+  /* Appended directly to <body> (not nested inside the swipe-card, which
+     clips overflow) and positioned with fixed coordinates computed in JS,
+     so it always renders on top and is never cut off. */
+  .group-picker{
+    position:fixed;z-index:9999;min-width:180px;max-width:240px;max-height:280px;overflow-y:auto;
+    background:var(--panel2);border:1px solid var(--border);border-radius:10px;
+    padding:8px;display:flex;flex-direction:column;gap:2px;
+    box-shadow:0 12px 32px rgba(0,0,0,.5);
+  }
+  .group-picker-title{font:700 10px var(--font-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--faint);padding:2px 6px 6px;}
+  .group-picker-list{display:flex;flex-direction:column;gap:1px;}
+  .group-picker-item{
+    display:flex;align-items:center;gap:9px;color:var(--text);
+    font:600 12px var(--font-mono);padding:8px;border-radius:6px;cursor:pointer;
+  }
+  .group-picker-item:hover{background:var(--panel);}
+  .group-picker-item input[type="checkbox"]{
+    width:14px;height:14px;flex-shrink:0;accent-color:var(--violet);cursor:pointer;
+  }
+  .group-picker-empty{font:11px var(--font-mono);color:var(--faint);padding:6px;max-width:200px;white-space:normal;line-height:1.5;}
+
+  /* ---- Collapsible coin groups ---- */
+  .coin-group{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:12px 14px;margin-bottom:10px;
+  }
+  .coin-group-header{
+    width:100%;background:none;border:none;padding:0;margin:0;cursor:pointer;
+    display:flex;align-items:center;gap:9px;color:var(--text);
+  }
+  .coin-group-chevron{
+    flex-shrink:0;width:18px;height:18px;color:var(--muted);transition:transform .2s ease;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .coin-group-chevron svg{width:12px;height:12px;}
+  .coin-group.collapsed .coin-group-chevron{transform:rotate(-90deg);}
+  .coin-group-name{font:700 13px var(--font-display);flex:1;text-align:left;}
+  .coin-group-count{font:600 11px var(--font-mono);color:var(--faint);background:var(--panel2);border-radius:20px;padding:2px 8px;}
+  .coin-group-body{max-height:4000px;overflow:hidden;transition:max-height .25s ease,margin-top .2s ease;margin-top:12px;}
+  .coin-group.collapsed .coin-group-body{max-height:0;margin-top:0;}
+  .coin-group .watch-list{margin-bottom:0;}
+  .coin-group-empty{font:12px var(--font-mono);color:var(--faint);padding:10px 2px;}
+
+  /* ---- Top Movers section (mirrors defi.html's Market Movers panel,
+     rendered as its own collapsible group above the user's coin groups) ---- */
+  .movers-note{font:11px var(--font-mono);color:var(--faint);padding:0 2px 10px;}
+  .movers-grid{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media(min-width:560px){ .movers-grid{grid-template-columns:1fr 1fr;} }
+  .movers-col-title{font:700 11px var(--font-mono);text-transform:uppercase;letter-spacing:.06em;padding:2px 2px 4px;}
+  .movers-col-title.gain{color:var(--accent);}
+  .movers-col-title.lose{color:var(--red);}
+  .mover-row{display:flex;align-items:center;gap:10px;padding:7px 2px;}
+  .mover-row img{width:24px;height:24px;border-radius:50%;flex-shrink:0;background:var(--panel2);}
+  .mover-info{flex:1;min-width:0;}
+  .mover-name{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mover-price{font:10.5px var(--font-mono);color:var(--faint);}
+  .chg-pill{font:600 10px var(--font-mono);padding:1px 5px;border-radius:6px;white-space:nowrap;flex-shrink:0;}
+  .chg-pill.up{color:var(--accent);background:rgba(53,224,192,.1);}
+  .chg-pill.down{color:var(--red);background:rgba(255,84,112,.1);}
+  .chg-pill.flat{color:var(--muted);background:rgba(139,147,163,.1);}
+
+  /* ---- Group manager (add / remove / reorder groups) ---- */
+  .group-manager{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin-top:14px;
+  }
+  .group-manager-header{
+    width:100%;background:none;border:none;padding:0;margin:0;cursor:pointer;
+    display:flex;align-items:center;gap:9px;color:var(--text);margin-bottom:10px;
+  }
+  .group-manager-chevron{
+    flex-shrink:0;width:18px;height:18px;color:var(--muted);transition:transform .2s ease;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .group-manager-chevron svg{width:12px;height:12px;}
+  .group-manager.collapsed .group-manager-chevron{transform:rotate(-90deg);}
+  .group-manager-title{font:700 12px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);flex:1;text-align:left;margin-bottom:0;}
+  .group-manager-count{font:600 11px var(--font-mono);color:var(--faint);background:var(--panel2);border-radius:20px;padding:2px 8px;}
+  .group-manager-body{max-height:2000px;overflow:hidden;transition:max-height .25s ease,opacity .18s ease;opacity:1;}
+  .group-manager.collapsed .group-manager-body{max-height:0;opacity:0;}
+  .group-manager-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .group-manage-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--panel2);border:1px solid var(--border-soft);border-radius:9px;padding:8px 10px;
+  }
+  .group-manage-name{font:600 12.5px var(--font-display);}
+  .group-manage-actions{display:flex;align-items:center;gap:6px;}
+  .group-move-btn{
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:24px;height:24px;border-radius:6px;cursor:pointer;font:700 11px var(--font-mono);
+  }
+  .group-move-btn:hover:not(:disabled){border-color:var(--gold);color:var(--gold);}
+  .group-move-btn:disabled{opacity:.35;cursor:default;}
+  .group-remove-btn{
+    background:none;border:1px solid var(--border);color:var(--red);
+    padding:5px 9px;border-radius:6px;cursor:pointer;font:700 10.5px var(--font-mono);
+  }
+  .group-remove-btn:hover{border-color:var(--red);background:rgba(255,84,112,.08);}
+  .group-manage-empty{font:12px var(--font-mono);color:var(--faint);padding:2px 0;}
+  .group-add-form{display:flex;gap:8px;}
+  .group-add-input{
+    flex:1;min-width:0;background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:8px 10px;font:12px var(--font-mono);
+  }
+  .group-add-input:focus{outline:none;border-color:var(--violet);}
+  .group-add-btn{
+    flex-shrink:0;background:var(--violet);border:none;color:#141221;
+    padding:8px 14px;border-radius:8px;cursor:pointer;font:700 11.5px var(--font-mono);
+  }
+  .group-add-btn:hover{filter:brightness(1.1);}
+  .group-manage-row.is-ungrouped-section{border-style:dashed;border-color:var(--border);}
+  .group-ungrouped-toggle{
+    display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding-top:12px;
+    border-top:1px solid var(--border-soft);cursor:pointer;
+  }
+  .group-ungrouped-toggle input[type="checkbox"]{
+    width:15px;height:15px;flex-shrink:0;margin-top:1px;accent-color:var(--violet);cursor:pointer;
+  }
+  .group-ungrouped-toggle span{font:600 11.5px var(--font-mono);color:var(--muted);line-height:1.5;}
+
+  /* ---- Analysis overlay (embeds screener.html's own analysis modal, over this page) ---- */
+  .analysis-overlay{
+    position:fixed;inset:0;background:rgba(5,6,9,.82);z-index:999;
+    display:none;align-items:stretch;justify-content:center;
+  }
+  .analysis-overlay.open{display:flex;}
+  .analysis-overlay-inner{position:relative;width:100%;height:100%;background:var(--bg);}
+  .analysis-overlay-close{
+    position:absolute;top:12px;right:12px;z-index:2;
+    width:34px;height:34px;border-radius:9px;
+    background:var(--panel);border:1px solid var(--border);color:var(--text);
+    font:700 16px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .analysis-overlay-close:hover{border-color:var(--red);color:var(--red);}
+  .analysis-overlay-frame{width:100%;height:100%;border:0;display:block;}
+  .watch-error-msg{color:var(--faint);font:12px var(--font-mono);}
+
+  /* ---- Disclaimer / about panel ---- */
+  .notice{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin:22px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);
+  }
+  .notice b{color:var(--text);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{
+    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font:700 13px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, color .15s, border-color .15s;
+  }
+  .notice-toggle:hover{border-color:var(--gold);color:var(--gold);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{
+    display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
+  }
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);}
+
+  .page-skeleton{display:flex;flex-direction:column;gap:10px;}
+  .skel-card{height:150px;border-radius:14px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 37%,var(--panel) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  .error-state{
+    padding:34px 20px;text-align:center;color:#ffb3c1;font:12.5px var(--font-mono);
+    border:1px dashed rgba(255,84,112,.3);border-radius:12px;line-height:1.7;
+  }
+  .retry-btn{
+    margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:8px 16px;border-radius:8px;font:600 12px var(--font-mono);cursor:pointer;
+  }
+  .retry-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+</style>
+</head>
+<body>
+
+<div class="analysis-overlay" id="analysisOverlay">
+  <div class="analysis-overlay-inner">
+    <button class="analysis-overlay-close" id="analysisOverlayClose" type="button" aria-label="Close analysis">×</button>
+    <iframe class="analysis-overlay-frame" id="analysisOverlayFrame" title="Coin analysis" src="about:blank"></iframe>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>Watchlist</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="toggleAllGroupsBtn" type="button" aria-label="Collapse all groups" title="Collapse all groups" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 8 12 3 17 8"/><polyline points="7 21 12 16 17 21"/></svg>
+      </button>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="degraded-banner" id="degradedBanner"></div>
+
+  <div id="pulseStrip"></div>
+
+  <div id="content"></div>
+
+  <div id="groupManager"></div>
+
+  <div class="notice">
+    <div class="notice-summary">
+      <b>Reference data only, not a trading venue.</b>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+    </div>
+    <div class="notice-details" id="noticeDetails" hidden>
+      Prices are the last trade on Binance's USDT-margined perpetual futures market and can differ slightly from spot price. This page doesn't place trades or hold positions. Not financial advice.
+      <div class="src-tags">
+        <span class="src-tag"><span class="dot"></span>Price · Binance USDT-M Futures</span>
+        <span class="src-tag"><span class="dot"></span>Rank · CoinGecko</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------------- Config ----------------
+// Add more coins here later - symbol is the clean display ticker (no USDT
+// suffix), binanceSymbol is the exact USDT-M perpetual contract on Binance
+// Futures, coingeckoId is CoinGecko's internal id (used only for market-cap
+// rank + logo, never for price). Every coin (including the pinned ETH
+// default) can be removed via the swipe-to-delete gesture on its card -
+// except BTC, which is always kept on the watchlist and has no delete
+// option (see renderCoinRow's isBTC check and the guard in removeCoin).
+const DEFAULT_COINS = [
+  { symbol: 'BTC', binanceSymbol: 'BTCUSDT', coingeckoId: 'bitcoin',  name: 'Bitcoin',  gradient: 'linear-gradient(135deg,#f7931a,#c9761a)', pinned: true },
+  { symbol: 'ETH', binanceSymbol: 'ETHUSDT', coingeckoId: 'ethereum', name: 'Ethereum', gradient: 'linear-gradient(135deg,#8ea9ff,#5b6fd6)', pinned: true },
+];
+
+// Coins added via screener.html's "+ WL" button live here, shared through
+// localStorage - screener.html writes to this key, this page reads it and
+// appends those coins after DEFAULT_COINS (so a newly-added coin always ends
+// up last), and resolves each one's CoinGecko id/name/logo the first time it
+// loads (screener.html only knows the Binance symbol, not the CoinGecko id).
+const CUSTOM_COINS_KEY = 'crypto-watchlist-custom-coins';
+function loadCustomCoins(){
+  try{
+    const raw = localStorage.getItem(CUSTOM_COINS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list.filter(c => c && c.binanceSymbol) : [];
+  }catch(err){ return []; }
+}
+function saveCustomCoins(list){
+  try{ localStorage.setItem(CUSTOM_COINS_KEY, JSON.stringify(list)); }catch(err){ /* not critical */ }
+}
+
+// Tracks which of the built-in DEFAULT_COINS the user has removed via the "-"
+// button. DEFAULT_COINS itself is hardcoded in this file, so "removing" one
+// can't delete it from an array literal - instead we keep a small denylist of
+// binanceSymbols to filter out whenever the visible COINS list is rebuilt.
+const REMOVED_DEFAULTS_KEY = 'crypto-watchlist-removed-defaults';
+function loadRemovedDefaults(){
+  try{
+    const raw = localStorage.getItem(REMOVED_DEFAULTS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  }catch(err){ return []; }
+}
+function saveRemovedDefaults(list){
+  try{ localStorage.setItem(REMOVED_DEFAULTS_KEY, JSON.stringify(list)); }catch(err){ /* not critical */ }
+}
+
+let COINS = [];
+function rebuildCoinsList(){
+  const removedDefaults = new Set(loadRemovedDefaults());
+  const activeDefaults = DEFAULT_COINS.filter(c => !removedDefaults.has(c.binanceSymbol));
+  const defaultSymbols = new Set(DEFAULT_COINS.map(c => c.binanceSymbol));
+  const custom = loadCustomCoins().filter(c => !defaultSymbols.has(c.binanceSymbol));
+  COINS = activeDefaults.concat(custom);
+}
+rebuildCoinsList();
+
+// Removes a coin from the watchlist immediately (both storage and the visible
+// list) regardless of whether it's one of the built-in defaults (including
+// pinned BTC/ETH) or one added via screener.html's "+ WL" button, then
+// re-renders right away so the row's space is reclaimed by the rest of the
+// list rather than left blank.
+function removeCoin(binanceSymbol){
+  if(binanceSymbol === 'BTCUSDT') return; // BTC always stays on the watchlist
+
+  const coin = DEFAULT_COINS.find(c => c.binanceSymbol === binanceSymbol);
+
+  const isDefault = !!coin;
+  if(isDefault){
+    const removed = loadRemovedDefaults();
+    if(!removed.includes(binanceSymbol)) removed.push(binanceSymbol);
+    saveRemovedDefaults(removed);
+  }else{
+    saveCustomCoins(loadCustomCoins().filter(c => c.binanceSymbol !== binanceSymbol));
+  }
+  expandedCoins.delete(binanceSymbol);
+  openSwipeItem = null;
+  if(coinGroups[binanceSymbol]){ delete coinGroups[binanceSymbol]; saveCoinGroups(coinGroups); }
+  if(groupPickerSymbol === binanceSymbol) closeGroupPicker();
+  rebuildCoinsList();
+  renderAll();
+}
+
+// Binance's public spot product listing - undocumented, but it's the same
+// data backing binance.com's own markets pages and is widely relied on for
+// exactly this purpose. Each entry carries "s" (trading pair, e.g.
+// "BTCUSDT"), "b" (base asset, e.g. "BTC"), "q" (quote asset), and "an" (the
+// project's actual name, e.g. "Bitcoin"). Used only to look up a coin's real
+// name before searching CoinGecko - see findBinanceAssetName() below.
+const BINANCE_PRODUCTS_URL = 'https://www.binance.com/exchange-api/v2/public/asset-service/product/get-products';
+let binanceProductsCache = null;
+let binanceProductsFetchedAt = 0;
+const BINANCE_PRODUCTS_TTL_MS = 10 * 60 * 1000;
+async function ensureBinanceProducts(){
+  const isFresh = binanceProductsCache && (Date.now() - binanceProductsFetchedAt) < BINANCE_PRODUCTS_TTL_MS;
+  if(isFresh) return binanceProductsCache;
+  try{
+    const data = await fetchJSON(BINANCE_PRODUCTS_URL);
+    const list = Array.isArray(data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+    if(!list.length) throw new Error('Unexpected Binance product list response shape');
+    binanceProductsCache = list;
+    binanceProductsFetchedAt = Date.now();
+  }catch(err){
+    console.warn('[binance-products] could not load product list:', err && err.message);
+    if(!binanceProductsCache) binanceProductsCache = [];
+  }
+  return binanceProductsCache;
+}
+// Resolves a coin's real project name from Binance's product listing - tried
+// first by exact trading-pair symbol, then by base asset + USDT quote as a
+// fallback. Returns null if Binance has no matching product at all (e.g. a
+// futures-only listing with no spot pair); callers should fall back to
+// searching CoinGecko by ticker alone in that case.
+async function findBinanceAssetName(binanceSymbol, baseSymbol){
+  const products = await ensureBinanceProducts();
+  if(!products.length) return null;
+  let match = products.find(p => p && p.s === binanceSymbol);
+  if(!match) match = products.find(p => p && p.b === baseSymbol && p.q === 'USDT');
+  return (match && match.an) ? match.an : null;
+}
+
+// Resolves CoinGecko id/name/logo for any custom coin that doesn't have one
+// yet (screener.html only writes the Binance symbol when adding), then
+// persists the resolution back to localStorage so it's a one-time lookup.
+//
+// Ticker symbols collide a lot on CoinGecko - dozens of unrelated/defunct
+// projects can share a 3-4 letter symbol with whatever's actually trading on
+// Binance, and searching CoinGecko by ticker alone was picking up the wrong
+// one. Binance's own product listing knows each symbol's real project name
+// (findBinanceAssetName, above), so that name is looked up first and used to
+// search CoinGecko instead - only falling back to a ticker-only search if
+// Binance has no matching product for it.
+async function resolveCustomCoinMetadata(){
+  const custom = loadCustomCoins();
+  const unresolved = custom.filter(c => !c.coingeckoId);
+  if(!unresolved.length) return false;
+  let changed = false;
+  for(const c of unresolved){
+    try{
+      let binanceName = null;
+      try{
+        binanceName = await findBinanceAssetName(c.binanceSymbol, c.symbol);
+      }catch(err){
+        console.warn(`[watchlist] Binance name lookup failed for ${c.symbol}:`, err && err.message);
+      }
+      const query = binanceName || c.symbol;
+      const data = await fetchJSON(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`);
+      const results = Array.isArray(data && data.coins) ? data.coins : [];
+      let match = null;
+      if(binanceName){
+        match = results.find(x => (x.name || '').toLowerCase() === binanceName.toLowerCase() && (x.symbol || '').toLowerCase() === c.symbol.toLowerCase())
+          || results.find(x => (x.name || '').toLowerCase() === binanceName.toLowerCase())
+          || results.find(x => (x.symbol || '').toLowerCase() === c.symbol.toLowerCase())
+          || results[0];
+      }else{
+        match = results.find(x => (x.symbol || '').toLowerCase() === c.symbol.toLowerCase()) || results[0];
+      }
+      if(match){
+        c.coingeckoId = match.id;
+        if(match.name) c.name = match.name;
+        changed = true;
+      }
+    }catch(err){
+      console.warn(`[watchlist] couldn't resolve CoinGecko id for ${c.symbol}:`, err && err.message);
+    }
+  }
+  if(changed){
+    saveCustomCoins(custom);
+    rebuildCoinsList();
+  }
+  return changed;
+}
+
+
+const PRICE_REFRESH_MS  = 30 * 1000;       // ticker price + 24h stats - fast
+const RANK_REFRESH_MS   = 15 * 60 * 1000;  // market-cap rank - changes slowly
+const PROXY_TIMEOUT_MS  = 8000;
+const CACHE_KEY = 'crypto-watchlist-cache-v1';
+
+// Same TradingView app-linking setup as screener.html's analysis modal, so
+// "View chart" here behaves identically to opening a symbol there.
+const TRADINGVIEW_APP_PACKAGE = 'com.tradingview.tradingviewapp';
+function tradingViewChartUrl(binanceSymbol){
+  const tvSymbol = `BINANCE:${binanceSymbol}.P`;
+  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`;
+}
+// window.open()/target="_blank" gets handed off to the phone's default
+// browser by the WebView, which is why this used to open Chrome instead of
+// the TradingView app. An Android "intent://" URL explicitly names the
+// target app's package, so Android launches that app directly if it's
+// installed, and only falls back to the browser (via S.browser_fallback_url)
+// if it isn't. Non-Android contexts (desktop testing, iOS) just get a
+// normal new-tab open since intent:// is an Android-only scheme.
+//
+// IMPORTANT: this must go through window.open(), not window.location.href -
+// this page runs inside an iframe within index.html's shell, and only
+// window.open() actually escapes the iframe out to the OS intent resolver.
+function openExternalLink(webUrl, androidPackage){
+  const isAndroid = /Android/i.test(navigator.userAgent || '');
+  if(isAndroid && androidPackage){
+    const hostAndPath = webUrl.replace(/^https?:\/\//, '');
+    const intentUrl = `intent://${hostAndPath}#Intent;scheme=https;package=${androidPackage};S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+    window.open(intentUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  window.open(webUrl, '_blank', 'noopener,noreferrer');
+}
+function openTradingViewChart(binanceSymbol){
+  openExternalLink(tradingViewChartUrl(binanceSymbol), TRADINGVIEW_APP_PACKAGE);
+}
+
+// Same personal Cloudflare Worker used by the other pages in this app, as a
+// CORS passthrough of last resort. Binance's futures API and CoinGecko's
+// free markets endpoint are both normally directly fetchable (CORS-open), so
+// this fallback should rarely be needed - but if it ever is, make sure
+// fapi.binance.com and api.coingecko.com are allow-listed on the Worker.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function buildWorkerProxyUrl(u){
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+}
+const CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://proxy.corsfix.com/?${u}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+async function fetchJSONDirect(url){
+  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+async function fetchJSONViaProxyChain(url){
+  if(WORKER_PROXY_URL){
+    try{
+      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
+      if(!res.ok) throw new Error('worker HTTP ' + res.status);
+      return await res.json();
+    }catch(err){
+      console.warn('[proxy] worker failed:', err && err.message);
+    }
+  }
+  return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
+    const res = await fetchWithTimeout(buildProxyUrl(url), PROXY_TIMEOUT_MS);
+    if(!res.ok) throw new Error('proxy HTTP ' + res.status);
+    return await res.json();
+  })()));
+}
+async function fetchJSON(url){
+  try{
+    return await fetchJSONDirect(url);
+  }catch(err){
+    return await fetchJSONViaProxyChain(url);
+  }
+}
+
+// ---------------- Data fetch ----------------
+// One request for ALL USDT-M perpetual symbols' 24h stats, filtered down to
+// our watchlist client-side - far cheaper than one request per coin.
+async function fetchAllTickers24hr(){
+  const data = await fetchJSON('https://fapi.binance.com/fapi/v1/ticker/24hr');
+  if(!Array.isArray(data)) throw new Error('Unexpected Binance ticker response shape');
+  const wanted = new Set(COINS.map(c => c.binanceSymbol));
+  const map = {};
+  data.forEach(row => { if(wanted.has(row.symbol)) map[row.symbol] = row; });
+  return map;
+}
+async function fetchRanks(){
+  const ids = COINS.map(c => c.coingeckoId).filter(Boolean).join(',');
+  if(!ids) return {};
+  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(ids)}`;
+  const data = await fetchJSON(url);
+  if(!Array.isArray(data)) throw new Error('Unexpected CoinGecko response shape');
+  const map = {};
+  data.forEach(row => { map[row.id] = { rank: row.market_cap_rank, image: row.image }; });
+  return map;
+}
+
+// The full set of tradeable Binance USDT-M perpetual contract symbols (e.g.
+// "BTCUSDT") - used only to validate a coin typed into the pulse strip's
+// quick-add search box before it's added to the watchlist. Cached in memory
+// for PERPETUAL_SYMBOLS_TTL_MS since it rarely changes and every keystroke's
+// "+" click shouldn't refetch the entire exchange symbol list.
+let perpetualSymbolsCache = null;
+let perpetualSymbolsFetchedAt = 0;
+const PERPETUAL_SYMBOLS_TTL_MS = 10 * 60 * 1000;
+async function fetchPerpetualSymbols(){
+  const data = await fetchJSON('https://fapi.binance.com/fapi/v1/exchangeInfo');
+  const list = Array.isArray(data && data.symbols) ? data.symbols : [];
+  const set = new Set();
+  list.forEach(s => {
+    if(s.contractType === 'PERPETUAL' && s.quoteAsset === 'USDT' && s.status === 'TRADING'){
+      set.add(s.symbol);
+    }
+  });
+  if(!set.size) throw new Error('Unexpected Binance exchangeInfo response shape');
+  return set;
+}
+async function ensurePerpetualSymbols(){
+  const isFresh = perpetualSymbolsCache && (Date.now() - perpetualSymbolsFetchedAt) < PERPETUAL_SYMBOLS_TTL_MS;
+  if(isFresh) return perpetualSymbolsCache;
+  try{
+    perpetualSymbolsCache = await fetchPerpetualSymbols();
+    perpetualSymbolsFetchedAt = Date.now();
+  }catch(err){
+    console.warn('[pulse-search] could not load Binance perpetual symbol list:', err && err.message);
+    // Fall back to whatever we last had cached (even if stale) rather than
+    // an empty set, so a transient network hiccup doesn't make every symbol
+    // look invalid; only a genuinely empty first-ever fetch becomes {}.
+    if(!perpetualSymbolsCache) perpetualSymbolsCache = new Set();
+  }
+  return perpetualSymbolsCache;
+}
+
+// ---------------- Rendering helpers ----------------
+function escapeHtml(s){
+  return (s || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function formatPrice(v){
+  if(!isFinite(v)) return '—';
+  const decimals = v >= 100 ? 2 : v >= 1 ? 3 : 5;
+  return '$' + v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+function formatVolume(v){
+  if(!isFinite(v)) return '—';
+  if(v >= 1e9) return '$' + (v/1e9).toFixed(2) + 'B';
+  if(v >= 1e6) return '$' + (v/1e6).toFixed(2) + 'M';
+  if(v >= 1e3) return '$' + (v/1e3).toFixed(1) + 'K';
+  return '$' + v.toFixed(0);
+}
+function rangeBar(low, high, current){
+  if(!isFinite(low) || !isFinite(high) || !(high > low)) return '';
+  const pct = Math.min(100, Math.max(0, ((current - low) / (high - low)) * 100));
+  return `
+    <div class="range-track"><div class="range-marker" style="left:${pct.toFixed(1)}%"></div></div>
+    <div class="range-labels"><span>${formatPrice(low)}</span><span>${formatPrice(high)}</span></div>`;
+}
+function formatPct(n){
+  if(typeof n !== 'number' || !isFinite(n)) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+}
+function pctClass(n){
+  if(typeof n !== 'number' || !isFinite(n)) return 'flat';
+  return n > 0 ? 'up' : (n < 0 ? 'down' : 'flat');
+}
+
+// ---------------- Top Movers (same CoinGecko markets data + gainers/losers
+// split as defi.html's "Market Movers" panel, surfaced here too as its own
+// collapsible section so it's visible without leaving the watchlist) ----------------
+const TOPMOVERS_ID = 'topmovers';
+const MOVERS_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&price_change_percentage=24h&sparkline=false';
+const MOVERS_CACHE_KEY = 'crypto-watchlist-movers-cache-v1';
+const MOVERS_REFRESH_MS = 5 * 60 * 1000; // 5 min - CoinGecko's free tier rate-limits aggressively
+let moversData = null;   // last successfully fetched top-100-by-market-cap list
+let moversLastTs = null;
+
+function readMoversCache(){
+  try{
+    const raw = localStorage.getItem(MOVERS_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(err){ return null; }
+}
+function writeMoversCache(list){
+  try{ localStorage.setItem(MOVERS_CACHE_KEY, JSON.stringify({ data: list, ts: Date.now() })); }catch(err){ /* not critical */ }
+}
+function renderTopMoversSection(){
+  const isCollapsed = collapsedGroups.has(TOPMOVERS_ID);
+  return `
+    <div class="coin-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="${TOPMOVERS_ID}">
+      <button type="button" class="coin-group-header" onclick="toggleGroupCollapse('${TOPMOVERS_ID}')" aria-expanded="${!isCollapsed}">
+        <span class="coin-group-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        <span class="coin-group-name">🚀 Top Movers</span>
+      </button>
+      <div class="coin-group-body">
+        <div class="movers-note">Top 100 coins by market cap · 24h</div>
+        <div class="movers-grid" id="moversPanel"></div>
+      </div>
+    </div>`;
+}
+function renderMoversPanel(){
+  const panel = document.getElementById('moversPanel');
+  if(!panel) return; // section currently collapsed's DOM is still present, but guard just in case
+  if(!Array.isArray(moversData) || !moversData.length){
+    panel.innerHTML = '<div class="coin-group-empty">Market mover data unavailable this refresh.</div>';
+    return;
+  }
+  const withChange = moversData.filter(c => typeof c.price_change_percentage_24h === 'number');
+  const gainers = withChange.slice().sort((a,b) => b.price_change_percentage_24h - a.price_change_percentage_24h).slice(0,5);
+  const losers = withChange.slice().sort((a,b) => a.price_change_percentage_24h - b.price_change_percentage_24h).slice(0,5);
+  const renderCol = (title, cls, coins) => `
+    <div>
+      <div class="movers-col-title ${cls}">${title}</div>
+      ${coins.map(c => `
+        <div class="mover-row">
+          <img src="${escapeHtml(c.image||'')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+          <div class="mover-info">
+            <div class="mover-name">${escapeHtml(c.name)} <span style="color:var(--faint)">${escapeHtml((c.symbol||'').toUpperCase())}</span></div>
+            <div class="mover-price">$${(c.current_price||0) < 1 ? (c.current_price||0).toFixed(4) : (c.current_price||0).toLocaleString(undefined,{maximumFractionDigits:2})}</div>
+          </div>
+          <span class="chg-pill ${pctClass(c.price_change_percentage_24h)}">${formatPct(c.price_change_percentage_24h)}</span>
+        </div>`).join('')}
+    </div>`;
+  panel.innerHTML = renderCol('Top Gainers', 'gain', gainers) + renderCol('Top Losers', 'lose', losers);
+}
+async function loadMovers(){
+  try{
+    const data = await fetchJSON(MOVERS_URL);
+    if(!Array.isArray(data)) throw new Error('Unexpected CoinGecko response shape');
+    moversData = data;
+    moversLastTs = Date.now();
+    writeMoversCache(data);
+    renderMoversPanel();
+  }catch(err){
+    console.warn('[top movers] fetch failed:', err && err.message);
+    if(!moversLastTs){
+      const panel = document.getElementById('moversPanel');
+      if(panel) panel.innerHTML = '<div class="coin-group-empty">Market mover data unavailable this refresh.</div>';
+    }
+  }
+}
+(function initMovers(){
+  const cached = readMoversCache();
+  if(cached && Array.isArray(cached.data) && cached.data.length){
+    moversData = cached.data;
+    moversLastTs = cached.ts;
+  }
+  loadMovers();
+  setInterval(() => { if(!document.hidden) loadMovers(); }, MOVERS_REFRESH_MS);
+})();
+
+// index.html's home-screen Top Movers strip opens this page (see
+// activatePage('watchlist') there) and additionally posts this message so
+// the watchlist lands with every group collapsed except Top Movers itself -
+// the whole point of following a mover chip here is to see that section.
+function collapseAllGroupsExceptTopMovers(){
+  groups.forEach(g => collapsedGroups.add(g.id));
+  if(ungroupedEnabled) collapsedGroups.add(UNGROUPED_ID);
+  collapsedGroups.delete(TOPMOVERS_ID);
+  // Matches the existing "collapse all groups" behaviour: tuck away each
+  // coin's own expanded detail view too, so nothing is left open underneath.
+  expandedCoins.clear();
+  renderAll();
+}
+window.addEventListener('message', (e) => {
+  if(!e.data || e.data.type !== 'ts-collapse-groups-except-topmovers') return;
+  collapseAllGroupsExceptTopMovers();
+});
+
+// Tracks the last price we actually rendered for each coin, purely so we can
+// flash green/red on the specific coins that moved this refresh instead of
+// re-flashing every row on every tick.
+const lastRenderedPrice = {};
+
+// Tracks which coins are currently expanded (showing high/low, volume, and
+// chart link) - a plain in-memory Set keyed by binanceSymbol. renderAll()
+// rebuilds the whole list's innerHTML on every price refresh, so this state
+// has to live outside that render call to survive across refreshes; it just
+// resets to "all collapsed" on a full page reload, which is the desired
+// default (matches the compact #rank-line-only view).
+const expandedCoins = new Set();
+// Which .watch-item currently has its swipe-to-delete panel open (if any) -
+// used so opening a new one closes whichever was previously open.
+let openSwipeItem = null;
+
+// State for the inline "add coin" search box in the pulse strip. Lives
+// outside renderPulseStrip() so it survives that function rebuilding the
+// strip's innerHTML on every price refresh (every PRICE_REFRESH_MS) - without
+// this, whatever the user was mid-typing would get wiped out from under them.
+// status: 'idle' (nothing to report) or 'invalid' (last attempted symbol
+// didn't match any Binance USDT-M perpetual contract - shows the red "!").
+const pulseSearch = { text: '', status: 'idle' };
+
+// ---------------- Coin groups ----------------
+// Groups are user-defined labels a coin can be filed under (e.g. "DeFi",
+// "Watching closely"). BTC is intentionally never groupable and always
+// renders in the top-level ungrouped list. Group order (persisted as array
+// order in GROUPS_KEY) drives both the render order of the collapsible
+// sections and the up/down reorder controls in the group manager panel.
+const GROUPS_KEY = 'crypto-watchlist-groups';
+const COIN_GROUPS_KEY = 'crypto-watchlist-coin-groups';
+const UNGROUPABLE_SYMBOL = 'BTCUSDT';
+
+function loadGroups(){
+  try{
+    const raw = localStorage.getItem(GROUPS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list.filter(g => g && g.id && g.name) : [];
+  }catch(err){ return []; }
+}
+function saveGroups(list){
+  try{ localStorage.setItem(GROUPS_KEY, JSON.stringify(list)); }catch(err){ /* not critical */ }
+}
+function loadCoinGroups(){
+  try{
+    const raw = localStorage.getItem(COIN_GROUPS_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    if(!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
+    // Migrate the older single-group-per-coin format (string values) to the
+    // current multi-group format (arrays of group ids).
+    let migrated = false;
+    Object.keys(obj).forEach(sym => {
+      if(typeof obj[sym] === 'string'){ obj[sym] = [obj[sym]]; migrated = true; }
+      else if(!Array.isArray(obj[sym])){ delete obj[sym]; migrated = true; }
+    });
+    if(migrated) saveCoinGroups(obj);
+    return obj;
+  }catch(err){ return {}; }
+}
+function saveCoinGroups(obj){
+  try{ localStorage.setItem(COIN_GROUPS_KEY, JSON.stringify(obj)); }catch(err){ /* not critical */ }
+}
+
+let groups = loadGroups();           // [{ id, name }], order = display order
+let coinGroups = loadCoinGroups();   // { binanceSymbol: [groupId, ...] } - a coin can belong to several groups
+
+// "Ungrouped" is an optional pseudo-group: when enabled, every non-BTC coin
+// that isn't checked into any real group gets collected into its own
+// collapsible section (instead of sitting in a plain flat list up top), and
+// that section can be dragged into the reorder list just like a real group.
+// It isn't a real entry in GROUPS_KEY (nothing to name or delete), just a
+// toggle plus a remembered position within the combined display order.
+const UNGROUPED_SETTINGS_KEY = 'crypto-watchlist-ungrouped-group';
+const UNGROUPED_ID = 'ungrouped';
+const UNGROUPED_LABEL = 'Ungrouped';
+
+function loadUngroupedSettings(){
+  try{
+    const raw = localStorage.getItem(UNGROUPED_SETTINGS_KEY);
+    const obj = raw ? JSON.parse(raw) : null;
+    if(obj && typeof obj === 'object'){
+      return { enabled: !!obj.enabled, position: Number.isFinite(obj.position) ? obj.position : groups.length };
+    }
+  }catch(err){ /* ignore */ }
+  return { enabled: false, position: groups.length };
+}
+function saveUngroupedSettings(){
+  try{ localStorage.setItem(UNGROUPED_SETTINGS_KEY, JSON.stringify({ enabled: ungroupedEnabled, position: ungroupedPosition })); }catch(err){ /* not critical */ }
+}
+let ungroupedSettings = loadUngroupedSettings();
+let ungroupedEnabled = ungroupedSettings.enabled;
+let ungroupedPosition = ungroupedSettings.position;
+
+function setUngroupedEnabled(enabled){
+  ungroupedEnabled = enabled;
+  if(enabled && (ungroupedPosition < 0 || ungroupedPosition > groups.length)) ungroupedPosition = groups.length;
+  saveUngroupedSettings();
+  renderGroupManager();
+  renderAll();
+}
+// The combined, reorderable display order: real groups plus (if enabled)
+// the Ungrouped pseudo-group spliced in at its remembered position.
+function getCombinedOrder(){
+  const list = groups.map(g => ({ id: g.id, name: g.name, isUngroupedSection: false }));
+  if(ungroupedEnabled){
+    const pos = Math.max(0, Math.min(ungroupedPosition, list.length));
+    list.splice(pos, 0, { id: UNGROUPED_ID, name: UNGROUPED_LABEL, isUngroupedSection: true });
+  }
+  return list;
+}
+function moveCombined(id, dir){
+  const combined = getCombinedOrder();
+  const idx = combined.findIndex(x => x.id === id);
+  if(idx < 0) return;
+  const next = idx + dir;
+  if(next < 0 || next >= combined.length) return;
+  [combined[idx], combined[next]] = [combined[next], combined[idx]];
+  groups = combined.filter(x => !x.isUngroupedSection).map(x => groups.find(g => g.id === x.id));
+  saveGroups(groups);
+  ungroupedPosition = combined.findIndex(x => x.isUngroupedSection);
+  saveUngroupedSettings();
+  renderGroupManager();
+  renderAll();
+}
+
+// Which group sections are collapsed - in-memory only (like expandedCoins),
+// resets to "all expanded" on a fresh page load.
+const collapsedGroups = new Set();
+// The single floating group-picker panel currently open (or null). It's
+// appended straight to <body> rather than nested inside the card, so it's
+// never clipped by the card's overflow:hidden (used for the swipe gesture)
+// and always renders above everything else.
+let groupPickerEl = null;
+let groupPickerSymbol = null;
+
+function genGroupId(){
+  return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+function addGroup(name){
+  name = (name || '').trim();
+  if(!name) return;
+  if(groups.some(g => g.name.toLowerCase() === name.toLowerCase())) return;
+  groups.push({ id: genGroupId(), name });
+  saveGroups(groups);
+  renderGroupManager();
+  renderAll();
+}
+function removeGroup(id){
+  groups = groups.filter(g => g.id !== id);
+  saveGroups(groups);
+  let changed = false;
+  Object.keys(coinGroups).forEach(sym => {
+    const arr = coinGroups[sym];
+    if(Array.isArray(arr) && arr.includes(id)){
+      const filtered = arr.filter(gid => gid !== id);
+      if(filtered.length) coinGroups[sym] = filtered; else delete coinGroups[sym];
+      changed = true;
+    }
+  });
+  if(changed) saveCoinGroups(coinGroups);
+  collapsedGroups.delete(id);
+  closeGroupPicker();
+  renderGroupManager();
+  renderAll();
+}
+// Toggles a single coin's membership in a single group (checkbox semantics -
+// a coin can be checked into any number of groups at once).
+function toggleCoinGroup(binanceSymbol, groupId, checked){
+  if(binanceSymbol === UNGROUPABLE_SYMBOL) return;
+  const set = new Set(coinGroups[binanceSymbol] || []);
+  if(checked) set.add(groupId); else set.delete(groupId);
+  if(set.size) coinGroups[binanceSymbol] = Array.from(set); else delete coinGroups[binanceSymbol];
+  saveCoinGroups(coinGroups);
+  renderAll(); // updates section membership + the icon's "assigned" state; picker itself is untouched
+}
+function toggleGroupCollapse(id){
+  if(collapsedGroups.has(id)) collapsedGroups.delete(id); else collapsedGroups.add(id);
+  renderAll();
+}
+
+function closeGroupPicker(){
+  if(groupPickerEl) groupPickerEl.remove();
+  groupPickerEl = null;
+  groupPickerSymbol = null;
+}
+function buildGroupPickerHtml(binanceSymbol){
+  const memberOf = new Set(coinGroups[binanceSymbol] || []);
+  if(!groups.length){
+    return `<div class="group-picker-title">Add to group</div><div class="group-picker-empty">No groups yet — add one in "Groups" below the watchlist.</div>`;
+  }
+  const items = groups.map(g => `
+    <label class="group-picker-item">
+      <input type="checkbox" data-group-id="${g.id}" ${memberOf.has(g.id) ? 'checked' : ''}>
+      <span>${escapeHtml(g.name)}</span>
+    </label>`).join('');
+  return `<div class="group-picker-title">Add to group(s)</div><div class="group-picker-list">${items}</div>`;
+}
+function openGroupPicker(e, binanceSymbol){
+  e.preventDefault();
+  e.stopPropagation();
+  if(groupPickerSymbol === binanceSymbol){ closeGroupPicker(); return; }
+  closeGroupPicker();
+  const btn = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+
+  const el = document.createElement('div');
+  el.className = 'group-picker';
+  el.innerHTML = buildGroupPickerHtml(binanceSymbol);
+  el.addEventListener('click', ev => ev.stopPropagation());
+  el.addEventListener('pointerdown', ev => ev.stopPropagation());
+  document.body.appendChild(el);
+
+  // Position it near the button, flipping above/below and clamping
+  // horizontally so it always stays fully on-screen instead of getting cut
+  // off by a parent's overflow:hidden or the edge of the viewport.
+  const panelRect = el.getBoundingClientRect();
+  let top = rect.top - panelRect.height - 8;
+  if(top < 8) top = Math.min(rect.bottom + 8, window.innerHeight - panelRect.height - 8);
+  let left = Math.min(rect.left, window.innerWidth - panelRect.width - 8);
+  if(left < 8) left = 8;
+  el.style.top = Math.max(8, top) + 'px';
+  el.style.left = left + 'px';
+
+  el.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => toggleCoinGroup(binanceSymbol, cb.dataset.groupId, cb.checked));
+  });
+
+  groupPickerEl = el;
+  groupPickerSymbol = binanceSymbol;
+}
+function renderGroupIcon(coin){
+  if(coin.binanceSymbol === UNGROUPABLE_SYMBOL) return '';
+  const memberOf = coinGroups[coin.binanceSymbol] || [];
+  const title = memberOf.length ? `In ${memberOf.length} group${memberOf.length > 1 ? 's' : ''}` : 'Add to group';
+  return `
+    <span class="group-picker-wrap">
+      <button class="group-icon-btn ${memberOf.length ? 'assigned' : ''}" type="button" title="${title}" onclick="openGroupPicker(event, '${coin.binanceSymbol}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </button>
+    </span>`;
+}
+
+// Whether the "Groups" manager panel itself is collapsed - persisted like
+// the other group settings, so it stays collapsed across reloads once the
+// user tucks it away. Same on/off pattern as collapsedGroups, just a
+// single flag instead of a per-group set.
+const GROUP_MANAGER_COLLAPSED_KEY = 'crypto-watchlist-group-manager-collapsed';
+function loadGroupManagerCollapsed(){
+  try{ return localStorage.getItem(GROUP_MANAGER_COLLAPSED_KEY) === '1'; }catch(err){ return false; }
+}
+let groupManagerCollapsed = loadGroupManagerCollapsed();
+function toggleGroupManagerCollapse(){
+  groupManagerCollapsed = !groupManagerCollapsed;
+  try{ localStorage.setItem(GROUP_MANAGER_COLLAPSED_KEY, groupManagerCollapsed ? '1' : '0'); }catch(err){ /* not critical */ }
+  renderGroupManager();
+}
+
+function renderGroupManager(){
+  const el = document.getElementById('groupManager');
+  if(!el) return;
+  const combined = getCombinedOrder();
+  const rows = combined.map((item, idx) => `
+    <div class="group-manage-row ${item.isUngroupedSection ? 'is-ungrouped-section' : ''}">
+      <span class="group-manage-name">${escapeHtml(item.name)}</span>
+      <span class="group-manage-actions">
+        <button type="button" class="group-move-btn" title="Move up" ${idx === 0 ? 'disabled' : ''} onclick="moveCombined('${item.id}', -1)">↑</button>
+        <button type="button" class="group-move-btn" title="Move down" ${idx === combined.length - 1 ? 'disabled' : ''} onclick="moveCombined('${item.id}', 1)">↓</button>
+        ${item.isUngroupedSection
+          ? `<button type="button" class="group-remove-btn" title="Hide the Ungrouped section" onclick="setUngroupedEnabled(false)">Hide</button>`
+          : `<button type="button" class="group-remove-btn" title="Remove group" onclick="removeGroup('${item.id}')">Remove</button>`}
+      </span>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div class="group-manager ${groupManagerCollapsed ? 'collapsed' : ''}">
+      <button type="button" class="group-manager-header" onclick="toggleGroupManagerCollapse()" aria-expanded="${!groupManagerCollapsed}">
+        <span class="group-manager-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        <span class="group-manager-title">Groups</span>
+        <span class="group-manager-count">${combined.length}</span>
+      </button>
+      <div class="group-manager-body">
+        <div class="group-manager-list">${rows || '<div class="group-manage-empty">No groups yet - add one below.</div>'}</div>
+        <form class="group-add-form" id="groupAddForm">
+          <input type="text" id="newGroupInput" class="group-add-input" placeholder="New group name" maxlength="24" autocomplete="off">
+          <button type="submit" class="group-add-btn">Add group</button>
+        </form>
+        <label class="group-ungrouped-toggle">
+          <input type="checkbox" id="ungroupedToggle" ${ungroupedEnabled ? 'checked' : ''}>
+          <span>Collect every coin that isn't in a group yet into its own "Ungrouped" section</span>
+        </label>
+      </div>
+    </div>`;
+
+  document.getElementById('groupAddForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('newGroupInput');
+    addGroup(input.value);
+    input.value = '';
+    input.focus();
+  });
+  document.getElementById('ungroupedToggle').addEventListener('change', (e) => {
+    setUngroupedEnabled(e.target.checked);
+  });
+}
+
+// ---------------- Collapse-all / expand-all groups ----------------
+function updateToggleAllGroupsBtn(){
+  const btn = document.getElementById('toggleAllGroupsBtn');
+  if(!btn) return;
+  const sections = document.querySelectorAll('.coin-group');
+  if(!sections.length){ btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  const anyExpanded = Array.from(sections).some(s => !s.classList.contains('collapsed'));
+  const label = anyExpanded ? 'Collapse all groups' : 'Expand all groups';
+  btn.setAttribute('aria-label', label);
+  btn.setAttribute('title', label);
+  btn.classList.toggle('flipped', !anyExpanded);
+}
+document.getElementById('toggleAllGroupsBtn').addEventListener('click', () => {
+  const sections = document.querySelectorAll('.coin-group');
+  if(!sections.length) return;
+  const anyExpanded = Array.from(sections).some(s => !s.classList.contains('collapsed'));
+  // Walk the actual rendered sections (real groups + the Ungrouped section,
+  // when enabled) rather than just `groups`, so "collapse/expand all" also
+  // covers Ungrouped instead of leaving it in whatever state it was in.
+  sections.forEach(s => {
+    const id = s.dataset.groupId;
+    if(!id) return;
+    if(anyExpanded) collapsedGroups.add(id); else collapsedGroups.delete(id);
+  });
+  // Collapsing all groups should also collapse every individual coin's own
+  // expanded detail view (high/low, volume, chart link) inside them, so
+  // nothing is left showing once its parent group is tucked away. Expanding
+  // all groups intentionally does NOT touch expandedCoins - coins should
+  // stay collapsed by default even when their group opens back up.
+  if(anyExpanded){
+    expandedCoins.clear();
+  }
+  // The "Groups" manager panel follows only on collapse: collapsing all
+  // also tucks it away, but expanding all leaves it exactly as it was
+  // (never force-opened) - so if the user had already collapsed it, or
+  // it's already open, expand-all is a no-op for that panel either way.
+  if(anyExpanded && !groupManagerCollapsed){
+    groupManagerCollapsed = true;
+    try{ localStorage.setItem(GROUP_MANAGER_COLLAPSED_KEY, '1'); }catch(err){ /* not critical */ }
+    renderGroupManager();
+  }
+  renderAll();
+});
+
+// Closing the floating group-picker on any outside tap/click, same pattern
+// as the swipe-panel outside-close below.
+document.addEventListener('pointerdown', (e) => {
+  if(groupPickerEl && !groupPickerEl.contains(e.target) && !e.target.closest('.group-icon-btn')){
+    closeGroupPicker();
+  }
+});
+
+function renderCoinRow(coin, ticker, rankInfo){
+  const isExpanded = expandedCoins.has(coin.binanceSymbol);
+  // BTC is always available on the watchlist, so it gets no delete panel at
+  // all (nothing for the swipe gesture to reveal - see maxRevealFor below).
+  const isBTC = coin.binanceSymbol === 'BTCUSDT';
+  const deleteBg = isBTC ? '' : `
+    <div class="watch-delete-bg">
+      <button class="watch-delete-btn" type="button" aria-label="Delete ${coin.symbol} from watchlist" onclick="removeCoin('${coin.binanceSymbol}')">Delete</button>
+    </div>`;
+
+  if(!ticker){
+    return `
+      <div class="watch-item" data-symbol="${coin.binanceSymbol}">
+        ${deleteBg}
+        <div class="watch-card error" data-symbol="${coin.binanceSymbol}">
+          <div class="watch-top">
+            <span class="watch-rank">—</span>
+            <span class="coin-icon-fallback" style="background:${coin.gradient}">${coin.symbol[0]}</span>
+            <div class="watch-id">
+              <div class="watch-symbol">${coin.symbol}</div>
+              <div class="watch-name">${escapeHtml(coin.name)}</div>
+            </div>
+          </div>
+          <div class="watch-error-msg">Couldn't load ${coin.symbol} price this refresh.</div>
+        </div>
+      </div>`;
+  }
+
+  const price = parseFloat(ticker.lastPrice);
+  const changePct = parseFloat(ticker.priceChangePercent);
+  const isUp = changePct >= 0;
+  const high = parseFloat(ticker.highPrice);
+  const low = parseFloat(ticker.lowPrice);
+  const quoteVolume = parseFloat(ticker.quoteVolume);
+  const closeTime = ticker.closeTime ? new Date(ticker.closeTime) : null;
+
+  const prev = lastRenderedPrice[coin.symbol];
+  let flashClass = '';
+  if(typeof prev === 'number' && isFinite(prev) && price !== prev){
+    flashClass = price > prev ? 'flash-up' : 'flash-down';
+  }
+  lastRenderedPrice[coin.symbol] = price;
+
+  const rank = rankInfo && rankInfo.rank;
+  const isTopRank = typeof rank === 'number' && rank <= 10;
+  const icon = (rankInfo && rankInfo.image)
+    ? `<img class="coin-icon" src="${escapeHtml(rankInfo.image)}" alt="${coin.symbol}">`
+    : `<span class="coin-icon-fallback" style="background:${coin.gradient}">${coin.symbol[0]}</span>`;
+
+  return `
+    <div class="watch-item" data-symbol="${coin.binanceSymbol}">
+      ${deleteBg}
+      <div class="watch-card ${isExpanded ? 'expanded' : ''}" data-symbol="${coin.binanceSymbol}">
+        <div class="watch-top">
+          <span class="watch-rank ${isTopRank ? 'top' : ''}">${typeof rank === 'number' ? '#' + rank : '—'}</span>
+          ${icon}
+          <div class="watch-id">
+            <div class="watch-symbol">${coin.symbol}</div>
+            <div class="watch-name">${escapeHtml(coin.name)}</div>
+          </div>
+          <div class="watch-price-block">
+            <div class="watch-price ${flashClass}">${formatPrice(price)}</div>
+            <div class="watch-change ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.abs(changePct).toFixed(2)}%</div>
+          </div>
+          <span class="watch-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        </div>
+
+        <div class="watch-details">
+          <div class="range-block">
+            <div class="range-title">24h range</div>
+            ${rangeBar(low, high, price)}
+          </div>
+
+          <div class="watch-foot">
+            <span class="watch-asof">${closeTime ? 'Vol ' + formatVolume(quoteVolume) : ''}</span>
+            <span class="watch-foot-links">
+              ${renderGroupIcon(coin)}
+              <button class="analysis-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); openAnalysisOverlay('${coin.binanceSymbol}')">Analysis</button>
+              <a class="watch-link" href="${tradingViewChartUrl(coin.binanceSymbol)}" rel="noopener" onclick="event.preventDefault(); event.stopPropagation(); openTradingViewChart('${coin.binanceSymbol}')">View chart ↗</a>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderPulseStrip(tickers){
+  const rows = COINS.map(c => tickers[c.binanceSymbol]).filter(Boolean);
+  const el = document.getElementById('pulseStrip');
+  if(!rows.length){ el.innerHTML = ''; return; }
+  const upCount = rows.filter(r => parseFloat(r.priceChangePercent) >= 0).length;
+  const downCount = rows.length - upCount;
+  let biggest = rows[0];
+  rows.forEach(r => { if(Math.abs(parseFloat(r.priceChangePercent)) > Math.abs(parseFloat(biggest.priceChangePercent))) biggest = r; });
+  const biggestCoin = COINS.find(c => c.binanceSymbol === biggest.symbol);
+  const biggestPct = parseFloat(biggest.priceChangePercent);
+
+  // This whole strip gets rebuilt from scratch every price refresh
+  // (PRICE_REFRESH_MS, ~30s) via renderAll(), which would otherwise wipe out
+  // anything the user's mid-typing into the quick-add search box and steal
+  // focus out from under them. pulseSearch (text/status) carries the typed
+  // value + red-"!" state through the rebuild, and we explicitly restore
+  // DOM focus + caret position below if the box was focused going in.
+  const prevInput = document.getElementById('pulseCoinSearch');
+  const hadFocus = !!prevInput && document.activeElement === prevInput;
+  const hasText = pulseSearch.text.trim().length > 0;
+  const showError = hasText && pulseSearch.status === 'invalid';
+
+  el.innerHTML = `
+    <div class="pulse-strip">
+      <div class="pulse-row pulse-row-top">
+        <div class="pulse-row-left">
+          <span class="pulse-item"><b class="pulse-up">${upCount}</b>&nbsp;up</span>
+          <span class="pulse-divider"></span>
+          <span class="pulse-item"><b class="pulse-down">${downCount}</b>&nbsp;down</span>
+        </div>
+        <div class="pulse-search-wrap">
+          <input type="text" id="pulseCoinSearch" class="pulse-search-input" placeholder="Add coin"
+            maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false"
+            value="${escapeHtml(pulseSearch.text)}"
+            oninput="handlePulseSearchInput(this)"
+            onkeydown="if(event.key==='Enter'){ event.preventDefault(); handlePulseSearchAdd(); }">
+          <span id="pulseSearchError" class="pulse-search-error" style="display:${showError ? '' : 'none'};">!</span>
+          <button id="pulseSearchAddBtn" class="pulse-search-add" type="button"
+            style="display:${hasText ? '' : 'none'};" onclick="handlePulseSearchAdd()">+</button>
+        </div>
+      </div>
+      <div class="pulse-row pulse-row-bottom">
+        <span class="pulse-item">Biggest mover&nbsp;<b class="${biggestPct >= 0 ? 'pulse-up' : 'pulse-down'}">${biggestCoin ? biggestCoin.symbol : ''} ${biggestPct >= 0 ? '+' : ''}${biggestPct.toFixed(2)}%</b></span>
+      </div>
+    </div>`;
+
+  if(hadFocus){
+    const input = document.getElementById('pulseCoinSearch');
+    if(input){
+      input.focus();
+      const pos = input.value.length;
+      input.setSelectionRange(pos, pos);
+    }
+  }
+}
+
+// Toggles the "+" add button and red "!" mismatch indicator directly, rather
+// than going through a full renderPulseStrip() rebuild on every keystroke -
+// that would otherwise fight with the user's own caret position while typing.
+function updatePulseSearchUI(){
+  const addBtn = document.getElementById('pulseSearchAddBtn');
+  const errEl = document.getElementById('pulseSearchError');
+  if(!addBtn || !errEl) return;
+  const hasText = pulseSearch.text.trim().length > 0;
+  addBtn.style.display = hasText ? '' : 'none';
+  errEl.style.display = (hasText && pulseSearch.status === 'invalid') ? '' : 'none';
+}
+
+function handlePulseSearchInput(inputEl){
+  pulseSearch.text = inputEl.value;
+  // Typing again clears any previous red "!" until the next "+" attempt.
+  pulseSearch.status = 'idle';
+  updatePulseSearchUI();
+}
+
+// Validates whatever's typed against the live list of Binance USDT-M
+// perpetual symbols and, on a match, adds it to the watchlist the same way
+// screener.html's "+ WL" button does (a custom coin keyed only by
+// binanceSymbol - resolveCustomCoinMetadata() fills in its CoinGecko id/name
+// on the next load cycle). On no match, shows a red "!" in the search box
+// instead of adding anything.
+async function handlePulseSearchAdd(){
+  const raw = pulseSearch.text.trim();
+  if(!raw) return;
+  const addBtn = document.getElementById('pulseSearchAddBtn');
+  if(addBtn) addBtn.disabled = true;
+  try{
+    const base = raw.toUpperCase().replace(/USDT$/, '');
+    const candidateSymbol = base + 'USDT';
+    const symbols = await ensurePerpetualSymbols();
+    if(!symbols.has(candidateSymbol)){
+      pulseSearch.status = 'invalid';
+      updatePulseSearchUI();
+      return;
+    }
+    pulseSearch.text = '';
+    pulseSearch.status = 'idle';
+    const input = document.getElementById('pulseCoinSearch');
+    if(input) input.value = '';
+    updatePulseSearchUI();
+    // Already on the watchlist (default or previously added) - nothing more
+    // to do, just clear the box (already done above).
+    if(COINS.some(c => c.binanceSymbol === candidateSymbol)) return;
+    const custom = loadCustomCoins();
+    custom.push({ symbol: base, binanceSymbol: candidateSymbol });
+    saveCustomCoins(custom);
+    rebuildCoinsList();
+    resolveCustomCoinMetadata().finally(refreshAll);
+  }catch(err){
+    console.warn('[pulse-search] add failed:', err && err.message);
+    pulseSearch.status = 'invalid';
+    updatePulseSearchUI();
+  }finally{
+    if(addBtn) addBtn.disabled = false;
+  }
+}
+
+function rankOf(coin){
+  return (state.ranks[coin.coingeckoId] && state.ranks[coin.coingeckoId].rank) || 999;
+}
+function byRank(a, b){ return rankOf(a) - rankOf(b); }
+function renderRow(coin){
+  return renderCoinRow(coin, state.tickers[coin.binanceSymbol], state.ranks[coin.coingeckoId]);
+}
+
+function isCoinUngrouped(c){
+  return !(coinGroups[c.binanceSymbol] && coinGroups[c.binanceSymbol].length);
+}
+function renderGroupSection(id, name, coinsInSection, alwaysShow){
+  if(!coinsInSection.length && !alwaysShow) return ''; // real group with no coins in it yet - stay hidden
+  const isCollapsed = collapsedGroups.has(id);
+  return `
+    <div class="coin-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="${id}">
+      <button type="button" class="coin-group-header" onclick="toggleGroupCollapse('${id}')" aria-expanded="${!isCollapsed}">
+        <span class="coin-group-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        <span class="coin-group-name">${escapeHtml(name)}</span>
+        <span class="coin-group-count">${coinsInSection.length}</span>
+      </button>
+      <div class="coin-group-body">
+        <div class="watch-list">${coinsInSection.map(renderRow).join('') || '<div class="coin-group-empty">No coins here yet.</div>'}</div>
+      </div>
+    </div>`;
+}
+
+function renderAll(){
+  const el = document.getElementById('content');
+
+  // BTC is always ungrouped by design and never joins the Ungrouped section.
+  const btc = COINS.filter(c => c.binanceSymbol === UNGROUPABLE_SYMBOL);
+  const others = COINS.filter(c => c.binanceSymbol !== UNGROUPABLE_SYMBOL);
+
+  let bodyHtml = '';
+  if(!ungroupedEnabled){
+    // Default behaviour: BTC + any other ungrouped coin sit in one flat
+    // list up top, then Top Movers, then real groups render as collapsible
+    // sections below.
+    const ungrouped = [...btc, ...others.filter(isCoinUngrouped)].sort(byRank);
+    bodyHtml += `<div class="watch-list">${ungrouped.map(renderRow).join('')}</div>`;
+    bodyHtml += renderTopMoversSection();
+    bodyHtml += groups.map(g => {
+      const coinsInGroup = others.filter(c => Array.isArray(coinGroups[c.binanceSymbol]) && coinGroups[c.binanceSymbol].includes(g.id)).sort(byRank);
+      return renderGroupSection(g.id, g.name, coinsInGroup, false);
+    }).join('');
+  }else{
+    // BTC still sits alone up top; every other coin - grouped or not - now
+    // lives in a collapsible section, including a dedicated "Ungrouped" one
+    // that can be dragged anywhere in the group order. Top Movers always
+    // renders right after the Ungrouped section (wherever the user has it
+    // positioned) and before the remaining named groups; if Ungrouped isn't
+    // in the order at all, Top Movers goes straight above the groups.
+    bodyHtml += `<div class="watch-list">${btc.sort(byRank).map(renderRow).join('')}</div>`;
+    const orderedSections = getCombinedOrder().map(item => {
+      if(item.isUngroupedSection){
+        const coinsInSection = others.filter(isCoinUngrouped).sort(byRank);
+        return { html: renderGroupSection(UNGROUPED_ID, UNGROUPED_LABEL, coinsInSection, true), isUngroupedSection: true };
+      }
+      const coinsInGroup = others.filter(c => Array.isArray(coinGroups[c.binanceSymbol]) && coinGroups[c.binanceSymbol].includes(item.id)).sort(byRank);
+      return { html: renderGroupSection(item.id, item.name, coinsInGroup, false), isUngroupedSection: false };
+    });
+    const ungroupedIdx = orderedSections.findIndex(s => s.isUngroupedSection);
+    if(ungroupedIdx === -1){
+      bodyHtml += renderTopMoversSection();
+      bodyHtml += orderedSections.map(s => s.html).join('');
+    }else{
+      bodyHtml += orderedSections.slice(0, ungroupedIdx + 1).map(s => s.html).join('');
+      bodyHtml += renderTopMoversSection();
+      bodyHtml += orderedSections.slice(ungroupedIdx + 1).map(s => s.html).join('');
+    }
+  }
+
+  el.innerHTML = bodyHtml;
+  renderPulseStrip(state.tickers);
+  updateToggleAllGroupsBtn();
+  renderMoversPanel();
+}
+
+function renderSkeleton(){
+  document.getElementById('content').innerHTML = `<div class="page-skeleton">${'<div class="skel-card"></div>'.repeat(COINS.length)}</div>`;
+}
+
+// ---------------- Card gestures: tap to expand/collapse, swipe left->right to reveal delete ----------------
+// Delegated on the #content container (rather than bound per-card) so it
+// keeps working across every renderAll() re-render without needing to be
+// re-attached each time.
+(function setupCardGestures(){
+  const content = document.getElementById('content');
+  const DRAG_THRESHOLD = 6;    // px of horizontal movement before it counts as a drag, not a tap
+  const OPEN_RATIO = 0.4;      // fraction of the delete panel's width needed to snap open on release
+
+  let dragItem = null;      // .watch-item currently being interacted with
+  let dragCard = null;      // its .watch-card
+  let startX = 0, startY = 0;
+  let currentX = 0;
+  let isDragging = false;   // confirmed horizontal drag (vs. tap or vertical scroll)
+  let axisLocked = null;    // 'x' | 'y' | null, decided once movement exceeds threshold
+  let maxReveal = 0;
+  let pointerId = null;
+  let dragOnChevron = false; // whether the pointerdown started on the expand/collapse chevron
+
+  function closeItem(item){
+    if(!item) return;
+    const card = item.querySelector('.watch-card');
+    if(card) card.style.transform = '';
+    item.classList.remove('open');
+    if(openSwipeItem === item) openSwipeItem = null;
+  }
+
+  content.addEventListener('pointerdown', (e) => {
+    // Let real interactive elements (delete button, chart link) handle their own clicks.
+    if(e.target.closest('a, button')) return;
+
+    const card = e.target.closest('.watch-card');
+    if(!card) return;
+    const item = card.closest('.watch-item');
+    if(!item) return;
+
+    // Opening a new card's swipe panel closes whichever one was already open.
+    if(openSwipeItem && openSwipeItem !== item) closeItem(openSwipeItem);
+
+    dragItem = item;
+    dragCard = card;
+    startX = e.clientX;
+    startY = e.clientY;
+    currentX = item.classList.contains('open') ? maxRevealFor(item) : 0;
+    isDragging = false;
+    axisLocked = null;
+    maxReveal = maxRevealFor(item);
+    pointerId = e.pointerId;
+    dragOnChevron = !!e.target.closest('.watch-chevron');
+    dragCard.style.transition = 'none';
+  });
+
+  function maxRevealFor(item){
+    const bg = item.querySelector('.watch-delete-bg');
+    if(!bg) return 0; // no delete panel on this card (BTC) - nothing to reveal
+    const btn = bg.querySelector('.watch-delete-btn');
+    return btn ? btn.offsetWidth : 84;
+  }
+
+  content.addEventListener('pointermove', (e) => {
+    if(!dragCard || e.pointerId !== pointerId) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    if(axisLocked === null){
+      if(Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+      axisLocked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if(axisLocked === 'x'){
+        isDragging = true;
+        try{ dragCard.setPointerCapture(pointerId); }catch(err){}
+      }
+    }
+    if(axisLocked !== 'x') return;
+
+    e.preventDefault();
+    const base = dragItem.classList.contains('open') ? maxReveal : 0;
+    let next = base + dx;
+    next = Math.max(0, Math.min(maxReveal, next));
+    dragCard.style.transform = `translateX(${next}px)`;
+  }, { passive: false });
+
+  function endDrag(e){
+    if(!dragCard) return;
+    dragCard.style.transition = '';
+
+    if(isDragging && axisLocked === 'x'){
+      const base = dragItem.classList.contains('open') ? maxReveal : 0;
+      const dx = (e.clientX !== undefined ? e.clientX : startX) - startX;
+      const finalX = Math.max(0, Math.min(maxReveal, base + dx));
+      if(finalX > maxReveal * OPEN_RATIO){
+        dragCard.style.transform = `translateX(${maxReveal}px)`;
+        dragItem.classList.add('open');
+        openSwipeItem = dragItem;
+      }else{
+        closeItem(dragItem);
+      }
+    }else{
+      // A tap (no meaningful drag): if this item's delete panel is open, a tap
+      // anywhere on the card closes it again. Otherwise, only a tap on the
+      // chevron toggles expand/collapse - tapping elsewhere on the card does
+      // nothing, so the row's own price/details aren't dismissed by accident.
+      if(dragItem.classList.contains('open')){
+        closeItem(dragItem);
+      }else if(dragOnChevron){
+        const symbol = dragCard.dataset.symbol;
+        if(symbol && !dragCard.classList.contains('error')){
+          const nowExpanded = !dragCard.classList.contains('expanded');
+          dragCard.classList.toggle('expanded', nowExpanded);
+          if(nowExpanded) expandedCoins.add(symbol); else expandedCoins.delete(symbol);
+        }
+      }
+    }
+
+    dragItem = null; dragCard = null; pointerId = null; axisLocked = null; isDragging = false; dragOnChevron = false;
+  }
+
+  content.addEventListener('pointerup', endDrag);
+  content.addEventListener('pointercancel', endDrag);
+
+  // Tapping anywhere outside the watchlist closes any open swipe panel.
+  document.addEventListener('pointerdown', (e) => {
+    if(openSwipeItem && !openSwipeItem.contains(e.target)) closeItem(openSwipeItem);
+  });
+})();
+
+function updateLastUpdatedLabel(failed){
+  const el = document.getElementById('updatedLabel');
+  el.classList.toggle('label-error', !!failed);
+  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed - see console' : ''; return; }
+  const secs = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 1000));
+  const ago = secs < 60 ? `${secs}s ago` : secs < 3600 ? `${Math.round(secs/60)}m ago` : `${Math.round(secs/3600)}h ago`;
+  el.textContent = (failed ? 'Refresh failed, showing cached · ' : 'Updated ') + ago;
+}
+function showDegradedBanner(text){
+  const el = document.getElementById('degradedBanner');
+  if(!text){ el.classList.remove('show'); el.textContent = ''; return; }
+  el.textContent = text;
+  el.classList.add('show');
+}
+
+// ---------------- Analysis overlay ----------------
+// Embeds screener.html's own analysis modal (via its ?symbol= deep link)
+// as a full-window overlay, so "Analysis" opens straight into it without
+// leaving this page or losing watchlist state underneath.
+function openAnalysisOverlay(binanceSymbol){
+  if(!binanceSymbol) return;
+  const frame = document.getElementById('analysisOverlayFrame');
+  frame.src = `screener.html?symbol=${encodeURIComponent(binanceSymbol)}`;
+  document.getElementById('analysisOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeAnalysisOverlay(){
+  document.getElementById('analysisOverlay').classList.remove('open');
+  document.getElementById('analysisOverlayFrame').src = 'about:blank';
+  document.body.style.overflow = '';
+}
+document.getElementById('analysisOverlayClose').addEventListener('click', closeAnalysisOverlay);
+document.getElementById('analysisOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'analysisOverlay') closeAnalysisOverlay();
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape' && document.getElementById('analysisOverlay').classList.contains('open')) closeAnalysisOverlay();
+});
+
+// ---------------- State + cache (stale-while-revalidate, same pattern as the other pages) ----------------
+const state = { tickers: {}, ranks: {} };
+let lastUpdated = null;
+
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ lastUpdated: lastUpdated ? lastUpdated.toISOString() : null, state }));
+  }catch(err){ /* storage unavailable - not critical */ }
+}
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return false;
+    const cached = JSON.parse(raw);
+    if(!cached.state) return false;
+    Object.assign(state, cached.state);
+    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
+    return true;
+  }catch(err){ return false; }
+}
+
+// ---------------- Load cycles ----------------
+async function loadPrices(){
+  try{
+    state.tickers = await fetchAllTickers24hr();
+    lastUpdated = new Date();
+    saveCache();
+    renderAll();
+    updateLastUpdatedLabel(false);
+    return true;
+  }catch(err){
+    console.warn('[prices] failed:', err && err.message);
+    updateLastUpdatedLabel(true);
+    return false;
+  }
+}
+async function loadRanks(){
+  try{
+    state.ranks = await fetchRanks();
+    saveCache();
+    renderAll();
+    showDegradedBanner(null);
+  }catch(err){
+    console.warn('[ranks] failed:', err && err.message);
+    if(!Object.keys(state.ranks).length){
+      showDegradedBanner('Couldn\u2019t load CoinGecko rank data this refresh - showing prices without rank.');
+    }
+  }
+}
+
+async function refreshAll(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  if(Object.keys(state.tickers).length){
+    renderAll();
+    updateLastUpdatedLabel();
+  }else{
+    renderSkeleton();
+  }
+
+  const priceOk = await loadPrices();
+
+  if(!priceOk && !Object.keys(state.tickers).length){
+    document.getElementById('content').innerHTML = `
+      <div class="error-state">
+        Couldn't load prices right now (Binance futures API unreachable).<br>
+        If you have a Cloudflare Worker configured for this app, make sure
+        fapi.binance.com is allowed through it. Check the console for details.
+        <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
+      </div>`;
+    document.getElementById('retryBtn').addEventListener('click', refreshAll);
+  }
+
+  // Was previously gated on "if state.ranks is completely empty" - which meant
+  // once ANY rank data was cached (e.g. from the default coins), this would
+  // never re-run even after a new custom coin (added via screener.html's
+  // "+ WL") resolved its CoinGecko id. That coin would then permanently show
+  // no rank/logo, since fetchRanks() simply never got called for it. Now it
+  // re-checks whenever any coin currently in COINS is missing a rank entry.
+  const missingRank = COINS.some(c => c.coingeckoId && !state.ranks[c.coingeckoId]);
+  if(missingRank) await loadRanks();
+
+  setTimeout(() => btn.classList.remove('spinning'), 400);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+
+document.getElementById('noticeToggle').addEventListener('click', () => {
+  const btn = document.getElementById('noticeToggle');
+  const details = document.getElementById('noticeDetails');
+  const willOpen = details.hidden;
+  details.hidden = !willOpen;
+  btn.classList.toggle('open', willOpen);
+  btn.setAttribute('aria-expanded', String(willOpen));
+});
+
+loadCache();
+renderGroupManager();
+if(Object.keys(state.tickers).length) renderAll();
+resolveCustomCoinMetadata().finally(refreshAll);
+setInterval(loadPrices, PRICE_REFRESH_MS);
+setInterval(loadRanks, RANK_REFRESH_MS);
+setInterval(() => updateLastUpdatedLabel(false), 15000);
+
+// Picks up a coin added from screener.html's "+ WL" button in another tab
+// without needing a manual reload here - both pages share the same
+// CUSTOM_COINS_KEY in localStorage, and the 'storage' event fires in every
+// OTHER tab of the same origin whenever one tab writes to it.
+window.addEventListener('storage', (e) => {
+  if(e.key !== CUSTOM_COINS_KEY) return;
+  rebuildCoinsList();
+  resolveCustomCoinMetadata().finally(refreshAll);
+});
+</script>
+</body>
+</html>
