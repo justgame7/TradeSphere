@@ -10,7 +10,7 @@ on:
 jobs:
   screen:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20   # raised from 10 - screen.js now paces requests to OKX much more conservatively (fully serial, 500ms min gap, up to 8 retries with backoff on 429), which trades runtime for reliability
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
