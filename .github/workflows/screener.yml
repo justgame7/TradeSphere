@@ -1,0 +1,27 @@
+name: Ichimoku breakout screener
+
+on:
+  schedule:
+    # Top of every hour, UTC. GitHub's scheduler can run a few minutes late
+    # under load on the free tier — that's normal.
+    - cron: '0 * * * *'
+  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'   # screen.js needs Node 20+ for built-in fetch
+
+      - name: Run screener
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node screen.js
