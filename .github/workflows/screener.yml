@@ -2,9 +2,9 @@ name: Ichimoku breakout screener
 
 on:
   schedule:
-    # Top of every hour, UTC. GitHub's scheduler can run a few minutes late
+    # Top of every half hour, UTC. GitHub's scheduler can run a few minutes late
     # under load on the free tier — that's normal.
-    - cron: '0 * * * *'
+    - cron: '0/30 * * * *'
   workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
 
 jobs:
