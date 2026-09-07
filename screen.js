@@ -1,18 +1,38 @@
 // screen.js
 //
-// Standalone port of the Ichimoku breakout screener from screener.html, for
-// running headless (no browser/DOM) on a schedule via GitHub Actions.
+// Standalone Ichimoku breakout screener, for running headless (no browser/DOM)
+// on a schedule via GitHub Actions. Ports the same Ichimoku math used in
+// screener.html.
 //
-// This intentionally mirrors screener.html's logic byte-for-byte:
-//   - Same donchianMid() / computeIchimokuSignal() math
-//   - Same USDT-M perpetual futures universe (Binance fapi/v1/exchangeInfo)
-//   - Same default params: tenkan=9, kijun=26, senkouB=52, interval=1d,
-//     minVolume=10,000,000 USDT
+// DATA SOURCE: Bybit V5 API (category=linear, USDT perpetuals), not Binance.
+// Binance's futures API (fapi.binance.com) returns HTTP 451 for GitHub
+// Actions runner IPs ("Service unavailable from a restricted location"), and
+// still blocks proxied requests via the Cloudflare Worker with a 403 - so
+// this was switched to Bybit, which as of this writing serves these runner
+// + Worker IPs without issue. All requests still go through the same
+// Cloudflare Worker (?url=<encoded target>) as the rest of the TradeSphere
+// suite; api.bybit.com and api.bytick.com must be present in the Worker's
+// ALLOWED_HOSTS.
 //
-// It scans every symbol, keeps only rows with an active setup (Long/Short),
-// and sends JUST the coin names to Telegram. Nothing here touches or changes
-// screener.html - this is a separate, read-only consumer of the same public
-// Binance endpoints.
+// Bybit V5 API quirks handled here (different from Binance's fapi):
+//   - GET /v5/market/kline returns candles NEWEST-FIRST ("sort in reverse by
+//     startTime" per Bybit's docs) - reversed here to oldest-first, since
+//     computeIchimokuSignal assumes dClose[last] = today, same as
+//     screener.html's assumption for Binance data.
+//   - GET /v5/market/instruments-info is paginated (500+ linear symbols,
+//     500/page default) - a cursor loop is required or symbols go missing.
+//   - Kline row shape: [startTime, open, high, low, close, volume, turnover].
+//     "turnover" (index 6) is the USDT-notional value - the equivalent of
+//     Binance's quoteVolume - NOT "volume" (index 5, which is base-asset
+//     units, e.g. BTC not USDT).
+//
+// Same default params as screener.html: tenkan=9, kijun=26, senkouB=52,
+// daily interval, minVolume=10,000,000 USDT notional turnover.
+//
+// NOTE: Bybit's overall market volume tends to run lower than Binance's for
+// many altcoins. The $10M daily-turnover floor below was calibrated against
+// Binance and may filter out more Bybit symbols than expected - worth
+// revisiting after a few runs if the LONG/SHORT lists look thin.
 //
 // Run locally to test:
 //   TELEGRAM_BOT_TOKEN=xxx TELEGRAM_CHAT_ID=xxx node screen.js
@@ -20,29 +40,23 @@
 // See README.md for the one-time Telegram bot setup and how the GitHub
 // Actions workflow (.github/workflows/screener.yml) schedules this hourly.
 
-const FAPI_HOSTS = [
-  'https://fapi.binance.com',
-  'https://fapi1.binance.com',
-  'https://fapi2.binance.com',
-  'https://fapi3.binance.com',
+const BYBIT_HOSTS = [
+  'https://api.bybit.com',
+  'https://api.bytick.com', // Bybit's official alternate mainnet domain
 ];
 
 const PARAMS = {
   tenkanLen: 9,
   kijunLen: 26,
   senkouBLen: 52,
-  interval: '1d',
+  interval: 'D', // Bybit interval code for daily (Binance used '1d')
   minVolume: 10_000_000,
 };
 
 const CONCURRENCY = 8;
 
-// Binance returns HTTP 451 "restricted location" for GitHub Actions runner
-// IPs (Azure datacenter ranges) when called directly - confirmed via a live
-// run's log. Route through the same Cloudflare Worker the rest of the suite
-// already uses as a CORS/proxy relay (see README's "Cloudflare Worker
-// allowlist" note); Cloudflare's edge IPs aren't subject to that block.
-// fapi.binance.com + fapi1/2/3 must be present in the Worker's ALLOWED_HOSTS.
+// Same Cloudflare Worker proxy the rest of the TradeSphere suite uses.
+// api.bybit.com / api.bytick.com must be in the Worker's ALLOWED_HOSTS.
 const WORKER_BASE = 'https://newsyt.justfagame9.workers.dev';
 
 function proxiedUrl(targetUrl) {
@@ -50,7 +64,7 @@ function proxiedUrl(targetUrl) {
 }
 
 // ---------------- fetch helpers (mirrors screener.html's activeHost fallback) ----------------
-let activeHost = FAPI_HOSTS[0];
+let activeHost = BYBIT_HOSTS[0];
 
 async function fetchWithTimeout(url, ms = 15000) {
   const controller = new AbortController();
@@ -63,7 +77,7 @@ async function fetchWithTimeout(url, ms = 15000) {
 }
 
 async function fetchJSON(path) {
-  const order = [activeHost, ...FAPI_HOSTS.filter((h) => h !== activeHost)];
+  const order = [activeHost, ...BYBIT_HOSTS.filter((h) => h !== activeHost)];
   let lastErr;
   for (const host of order) {
     const target = host + path;
@@ -84,46 +98,71 @@ async function fetchJSON(path) {
           `Non-JSON body (status ${res.status}) via worker for ${target} :: ${raw.slice(0, 300)}`
         );
       }
+      if (data.retCode !== 0) {
+        throw new Error(`Bybit retCode ${data.retCode} for ${target} :: ${data.retMsg || ''}`);
+      }
       activeHost = host;
-      return data;
+      return data.result;
     } catch (e) {
       lastErr = e;
-      // Logged (not swallowed) so a full-outage run tells us exactly what
-      // each host returned instead of just "Unexpected end of JSON input".
       console.error(`fetchJSON failed for ${target}: ${e.message}`);
     }
   }
   throw lastErr;
 }
 
+// ---------------- symbol universe (paginated) ----------------
 async function getUSDTPerpetualSymbols() {
-  const info = await fetchJSON('/fapi/v1/exchangeInfo');
-  return info.symbols
-    .filter((s) => s.contractType === 'PERPETUAL' && s.quoteAsset === 'USDT' && s.status === 'TRADING')
-    .map((s) => s.symbol);
+  const symbols = [];
+  let cursor = '';
+  do {
+    const qs = new URLSearchParams({ category: 'linear', limit: '1000' });
+    if (cursor) qs.set('cursor', cursor);
+    const result = await fetchJSON(`/v5/market/instruments-info?${qs.toString()}`);
+    for (const s of result.list) {
+      if (s.contractType === 'LinearPerpetual' && s.quoteCoin === 'USDT' && s.status === 'Trading') {
+        symbols.push(s.symbol);
+      }
+    }
+    cursor = result.nextPageCursor || '';
+  } while (cursor);
+  return symbols;
 }
 
+// ---------------- klines ----------------
 async function getKlines(symbol, interval, limit) {
-  const path = `/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-  const raw = await fetchJSON(path);
-  return raw.map((k) => ({
-    openTime: k[0],
+  const qs = new URLSearchParams({
+    category: 'linear',
+    symbol,
+    interval,
+    limit: String(limit),
+  });
+  const result = await fetchJSON(`/v5/market/kline?${qs.toString()}`);
+  // Bybit returns newest-first; reverse to oldest-first so dClose[last] = today,
+  // matching what computeIchimokuSignal expects.
+  const rows = [...result.list].reverse();
+  return rows.map((k) => ({
+    openTime: Number(k[0]),
     open: parseFloat(k[1]),
     high: parseFloat(k[2]),
     low: parseFloat(k[3]),
     close: parseFloat(k[4]),
-    volume: parseFloat(k[5]),
-    closeTime: k[6],
-    quoteVolume: parseFloat(k[7]),
+    volume: parseFloat(k[5]),      // base-asset volume (not used for the volume filter)
+    quoteVolume: parseFloat(k[6]), // turnover - USDT-notional volume, same role as Binance's quoteVolume
   }));
 }
 
+// ---------------- current prices ----------------
 async function getCurrentPrices() {
-  const data = await fetchJSON('/fapi/v1/ticker/price');
-  return Object.fromEntries(data.map((item) => [item.symbol, parseFloat(item.price)]));
+  const result = await fetchJSON('/v5/market/tickers?category=linear');
+  const out = {};
+  for (const t of result.list) {
+    out[t.symbol] = parseFloat(t.lastPrice);
+  }
+  return out;
 }
 
-// ---------------- Ichimoku core (verbatim port of screener.html) ----------------
+// ---------------- Ichimoku core (verbatim port of screener.html - unchanged) ----------------
 function donchianMid(highs, lows, len, endIdx) {
   if (endIdx - len + 1 < 0) return NaN;
   let hh = -Infinity, ll = Infinity;
@@ -336,7 +375,7 @@ async function sendTelegramMessage(text) {
 
 // ---------------- main ----------------
 async function main() {
-  console.log(`Fetching USDT-M perpetual futures symbol list...`);
+  console.log(`Fetching USDT perpetual symbol list (Bybit)...`);
   const symbols = await getUSDTPerpetualSymbols();
   const currentPrices = await getCurrentPrices();
   console.log(`Scanning ${symbols.length} symbols (interval=${PARAMS.interval})...`);
@@ -370,7 +409,7 @@ async function main() {
   const stamp = now.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
   const message =
-    `<b>Ichimoku breakout screener — ${stamp}</b>\n` +
+    `<b>Ichimoku breakout screener (Bybit) — ${stamp}</b>\n` +
     `Scanned ${symbols.length} symbols, ${withTrade.length} with an active setup (min daily vol $${PARAMS.minVolume.toLocaleString()}).\n\n` +
     `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
     `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}\n\n` +
