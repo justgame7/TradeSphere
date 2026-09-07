@@ -37,25 +37,26 @@ const PARAMS = {
 
 const CONCURRENCY = 8;
 
-// Some CDNs/WAFs in front of exchange APIs flag requests with no real
-// browser User-Agent (Node's default fetch sends almost nothing) as bot
-// traffic and quietly return a 200 with an empty/blocked body instead of a
-// proper HTTP error. Sending a normal browser UA avoids that class of
-// silent failure.
-const REQUEST_HEADERS = {
-  'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  Accept: 'application/json',
-};
+// Binance returns HTTP 451 "restricted location" for GitHub Actions runner
+// IPs (Azure datacenter ranges) when called directly - confirmed via a live
+// run's log. Route through the same Cloudflare Worker the rest of the suite
+// already uses as a CORS/proxy relay (see README's "Cloudflare Worker
+// allowlist" note); Cloudflare's edge IPs aren't subject to that block.
+// fapi.binance.com + fapi1/2/3 must be present in the Worker's ALLOWED_HOSTS.
+const WORKER_BASE = 'https://newsyt.justfagame9.workers.dev';
+
+function proxiedUrl(targetUrl) {
+  return `${WORKER_BASE}/?url=${encodeURIComponent(targetUrl)}`;
+}
 
 // ---------------- fetch helpers (mirrors screener.html's activeHost fallback) ----------------
 let activeHost = FAPI_HOSTS[0];
 
-async function fetchWithTimeout(url, ms = 10000) {
+async function fetchWithTimeout(url, ms = 15000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   try {
-    return await fetch(url, { signal: controller.signal, headers: REQUEST_HEADERS });
+    return await fetch(url, { signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -65,21 +66,22 @@ async function fetchJSON(path) {
   const order = [activeHost, ...FAPI_HOSTS.filter((h) => h !== activeHost)];
   let lastErr;
   for (const host of order) {
+    const target = host + path;
     try {
-      const res = await fetchWithTimeout(host + path);
+      const res = await fetchWithTimeout(proxiedUrl(target));
       const raw = await res.text();
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status} on ${host}${path} :: ${raw.slice(0, 300)}`);
+        throw new Error(`HTTP ${res.status} via worker for ${target} :: ${raw.slice(0, 300)}`);
       }
       if (!raw) {
-        throw new Error(`Empty body (status ${res.status}) on ${host}${path}`);
+        throw new Error(`Empty body (status ${res.status}) via worker for ${target}`);
       }
       let data;
       try {
         data = JSON.parse(raw);
       } catch {
         throw new Error(
-          `Non-JSON body (status ${res.status}) on ${host}${path} :: ${raw.slice(0, 300)}`
+          `Non-JSON body (status ${res.status}) via worker for ${target} :: ${raw.slice(0, 300)}`
         );
       }
       activeHost = host;
@@ -88,7 +90,7 @@ async function fetchJSON(path) {
       lastErr = e;
       // Logged (not swallowed) so a full-outage run tells us exactly what
       // each host returned instead of just "Unexpected end of JSON input".
-      console.error(`fetchJSON failed for ${host}${path}: ${e.message}`);
+      console.error(`fetchJSON failed for ${target}: ${e.message}`);
     }
   }
   throw lastErr;
