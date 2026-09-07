@@ -194,7 +194,7 @@ function donchianMid(highs, lows, len, endIdx) {
 function computeIchimokuSignal(symbol, daily, currentPrice, params) {
   const needed = 2 * params.kijunLen + params.senkouBLen + 10;
   if (!Number.isFinite(currentPrice)) throw new Error('current price unavailable');
-  if (daily.length < needed) throw new Error('insufficient daily history');
+  if (daily.length < needed) throw new Error(`insufficient daily history (${daily.length}/${needed} bars)`);
 
   const dHigh = daily.map((d) => d.high), dLow = daily.map((d) => d.low), dClose = daily.map((d) => d.close);
 
@@ -305,7 +305,7 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params) {
 async function screenSymbol(symbol, params) {
   const needed = 2 * params.kijunLen + params.senkouBLen + 10;
   const daily = await getKlines(symbol, params.interval, Math.max(needed, 150));
-  if (daily.length === 0) throw new Error('no candle data returned');
+  if (daily.length === 0) throw new Error(`no candle data returned (requested ${Math.max(needed, 150)} bars)`);
   // Current/entry price = close of the last (still-forming) daily candle -
   // see the CoinDCX quirks note at the top of this file.
   const currentPrice = daily[daily.length - 1].close;
@@ -340,6 +340,11 @@ function targetFor(entry, stop, isLong, multiple) {
   if (stop === null || !Number.isFinite(stop)) return NaN;
   const risk = Math.abs(entry - stop);
   return isLong ? entry + multiple * risk : entry - multiple * risk;
+}
+
+// Strips CoinDCX's "B-" prefix and "_USDT" suffix, e.g. "B-PEPE_USDT" -> "PEPE".
+function stripUsdt(s) {
+  return s.replace(/^B-/, '').replace(/_USDT$/, '');
 }
 
 // ---------------- Telegram ----------------
@@ -407,14 +412,32 @@ async function main() {
   const results = scanned.filter((r) => r.volToday > PARAMS.minVolume && r.setup !== '');
 
   // Diagnostics only (not sent to Telegram) - lets a future silent-zero run be
-  // root-caused from the Action log instead of guessed at blind.
+  // root-caused from the Action log instead of guessed at blind. Errors are
+  // bucketed by cause (rather than a flat sample of messages) with the
+  // actual failing symbols listed, since "no candle data" vs "insufficient
+  // history" point at different root causes - the former suggests the pair
+  // has no candle series at all, the latter suggests a recently-listed
+  // instrument that just hasn't accumulated 114 days yet.
   console.log(
     `Diagnostics: ${symbols.length} symbols -> ${scanned.length} scanned ok, ${errored.length} errored, ` +
     `${hasSetup.length} had a trend setup, ${results.length} passed the $${PARAMS.minVolume.toLocaleString()} volume gate.`
   );
   if (errored.length) {
-    const sampleErrors = [...new Set(errored.slice(0, 5).map((r) => r.error))];
-    console.log(`Sample errors: ${sampleErrors.join(' | ')}`);
+    const buckets = new Map(); // error-type label -> [{symbol, error}]
+    for (const r of errored) {
+      const label = r.error.startsWith('insufficient daily history') ? 'insufficient daily history'
+        : r.error.startsWith('no candle data returned') ? 'no candle data returned'
+        : r.error.startsWith('current price unavailable') ? 'current price unavailable'
+        : r.error.startsWith('HTTP ') || r.error.includes('fetch') ? 'fetch/HTTP error'
+        : 'other';
+      if (!buckets.has(label)) buckets.set(label, []);
+      buckets.get(label).push(r);
+    }
+    console.log(`Errors by cause:`);
+    for (const [label, rows] of buckets) {
+      const symbolList = rows.map((r) => stripUsdt(r.symbol)).join(', ');
+      console.log(`  ${label} (${rows.length}): ${symbolList}`);
+    }
   }
 
   // Same entry/stop/target math as the analysis modal's trade plan in screener.html:
@@ -432,8 +455,6 @@ async function main() {
   const longs = withTrade.filter((r) => r.setup === 'Long').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
   const shorts = withTrade.filter((r) => r.setup === 'Short').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
 
-  // Strips CoinDCX's "B-" prefix and "_USDT" suffix, e.g. "B-PEPE_USDT" -> "PEPE".
-  const stripUsdt = (s) => s.replace(/^B-/, '').replace(/_USDT$/, '');
   const fmtRow = (r) =>
     `<b>${stripUsdt(r.symbol)}</b> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}\n` +
     `Entry <code>${fmt(r.entry)}</code> · SL <code>${fmt(r.stop)}</code> · TP <code>${fmt(r.target)}</code>`;
