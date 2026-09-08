@@ -501,9 +501,17 @@ async function main() {
   const longs = withTrade.filter((r) => r.setup === 'Long').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
   const shorts = withTrade.filter((r) => r.setup === 'Short').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
 
-  const fmtRow = (r) =>
-    `<b>${stripUsdt(r.symbol)}</b> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}\n` +
-    `Entry <code>${fmt(r.entry)}</code> · SL <code>${fmt(r.stop)}</code> · TP <code>${fmt(r.target)}</code>`;
+  // tradesphere:// custom-scheme deep link - tapping the coin name in
+  // Telegram opens the TradeSphere app straight into screener.html's
+  // analysis for that coin (screener.html?symbol=<coin> already handles
+  // the rest). See index.html / screener.html for the matching appUrlOpen
+  // listeners that handle this on the app side.
+  const deepLink = (coin) => `tradesphere://screener?symbol=${encodeURIComponent(coin)}`;
+  const fmtRow = (r) => {
+    const coin = stripUsdt(r.symbol);
+    return `<a href="${deepLink(coin)}"><b>${coin}</b></a> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}\n` +
+      `Entry <code>${fmt(r.entry)}</code> · SL <code>${fmt(r.stop)}</code> · TP <code>${fmt(r.target)}</code>`;
+  };
   const fmtSection = (rows) => rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
 
   const now = new Date();
