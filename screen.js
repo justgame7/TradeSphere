@@ -91,20 +91,41 @@ const COINDCX_PUBLIC_BASE = 'https://public.coindcx.com';
 const ACTIVE_INSTRUMENTS_URL = `${COINDCX_API_BASE}/exchange/v1/derivatives/futures/data/active_instruments`;
 const FUTURES_CANDLES_URL = `${COINDCX_PUBLIC_BASE}/market_data/candlesticks`;
 
-// How far back to window the candlesticks request. There's no bar-count
-// "limit" param on this endpoint (unlike the spot one) - history is
-// windowed via from/to instead - so this requests a generous multi-month
-// range and lets computeIchimokuSignal's own "insufficient history" check
-// catch genuinely-too-new listings.
-const HISTORY_DAYS = 200; // comfortably more than the 114 bars actually needed
-
-const PARAMS = {
+// Ichimoku period counts are timeframe-agnostic - still 9/26/52 bars,
+// just of whichever candle size is being scanned - so these are shared
+// across both timeframes below rather than duplicated per entry.
+const ICHIMOKU_PARAMS = {
   tenkanLen: 9,
   kijunLen: 26,
   senkouBLen: 52,
-  resolution: '1d', // CoinDCX futures candlesticks resolution code for daily candles
-  minVolume: 10_000_000,
 };
+
+// Both scans below run back-to-back against the same CoinDCX symbol
+// universe and get combined into one Telegram message.
+//   - Daily: resolution "1d" is CONFIRMED - captured from a real CoinDCX
+//     network request (see the header note above on "candlesticks" /
+//     "pcode=f"). historyDays=200 comfortably covers the 114 bars needed.
+//   - 4H: resolution "4h" is a BEST-GUESS, following the same lowercase
+//     "<number><unit>" pattern as the confirmed "1d" code - it has NOT
+//     been verified against a live response the way "1d" was. If a real
+//     run's diagnostics show the 4H portion erroring on ~all 500 symbols
+//     (as "no candle data returned" or "other"), that's the signal this
+//     guess is wrong: grab the real code the same way "candlesticks" was
+//     found originally (browser DevTools -> Network -> XHR, switch
+//     CoinDCX's futures chart to the 4H timeframe) and swap it in here.
+//     historyDays=40 gives ~240 four-hour bars, comfortably over the 114
+//     needed (114 bars * 4h = 19 days of coverage needed).
+//   - minVolume is deliberately left at the SAME $10,000,000 absolute
+//     notional threshold for both, NOT scaled down for 4H. Applied to a
+//     single 4-hour bar's volume (rather than a full day's), this is
+//     proportionally much stricter - roughly requiring 6x the "24h
+//     equivalent" volume - so expect meaningfully fewer 4H setups until
+//     this is tuned against real runs. Divide by ~6 here if it's too
+//     strict once there's real data to look at.
+const TIMEFRAMES = [
+  { label: 'Daily', resolution: '1d', historyDays: 200, minVolume: 10_000_000, ...ICHIMOKU_PARAMS },
+  { label: '4H', resolution: '4h', historyDays: 40, minVolume: 10_000_000, ...ICHIMOKU_PARAMS },
+];
 
 const CONCURRENCY = 3; // conservative starting point - CoinDCX doesn't publish a public market-data rate limit, tune after watching real runs
 
@@ -241,7 +262,7 @@ function donchianMid(highs, lows, len, endIdx) {
 function computeIchimokuSignal(symbol, daily, currentPrice, params) {
   const needed = 2 * params.kijunLen + params.senkouBLen + 10;
   if (!Number.isFinite(currentPrice)) throw new Error('current price unavailable');
-  if (daily.length < needed) throw new Error(`insufficient daily history (${daily.length}/${needed} bars)`);
+  if (daily.length < needed) throw new Error(`insufficient bar history (${daily.length}/${needed} bars)`);
 
   const dHigh = daily.map((d) => d.high), dLow = daily.map((d) => d.low), dClose = daily.map((d) => d.close);
 
@@ -349,13 +370,13 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params) {
   };
 }
 
-async function screenSymbol(symbol, params) {
-  const daily = await getKlines(symbol, params.resolution, HISTORY_DAYS);
-  if (daily.length === 0) throw new Error(`no candle data returned (requested ${HISTORY_DAYS}d window)`);
-  // Current/entry price = close of the last (still-forming) daily candle -
-  // see the CoinDCX quirks note at the top of this file.
+async function screenSymbol(symbol, tf) {
+  const daily = await getKlines(symbol, tf.resolution, tf.historyDays);
+  if (daily.length === 0) throw new Error(`no candle data returned (requested ${tf.historyDays}d window)`);
+  // Current/entry price = close of the last (still-forming) candle - see
+  // the CoinDCX quirks note at the top of this file.
   const currentPrice = daily[daily.length - 1].close;
-  return computeIchimokuSignal(symbol, daily, currentPrice, params);
+  return computeIchimokuSignal(symbol, daily, currentPrice, tf);
 }
 
 // ---------------- concurrency-limited queue (mirrors screener.html's runPool) ----------------
@@ -377,7 +398,103 @@ async function runPool(items, worker, concurrency) {
   return results;
 }
 
-// ---------------- trade-level math (mirrors screener.html's analysis modal) ----------------
+// ---------------- per-timeframe scan (runs once per entry in TIMEFRAMES) ----------------
+// Scans every symbol for one timeframe, logs that timeframe's own
+// diagnostics (prefixed so Daily vs 4H errors don't get mixed together in
+// the Action log), and returns the Long/Short setups with trade-plan math
+// already attached.
+async function runTimeframeScan(symbols, tf) {
+  console.log(`\nScanning ${symbols.length} symbols for ${tf.label} (resolution=${tf.resolution})...`);
+
+  const raw = await runPool(symbols, (s) => screenSymbol(s, tf), CONCURRENCY);
+  const scanned = raw.filter((r) => r && !r.error);
+  const errored = raw.filter((r) => r && r.error);
+  const hasSetup = scanned.filter((r) => r.setup !== '');
+  const results = scanned.filter((r) => r.volToday > tf.minVolume && r.setup !== '');
+
+  // Diagnostics only (not sent to Telegram) - lets a future silent-zero run be
+  // root-caused from the Action log instead of guessed at blind. Errors are
+  // bucketed by cause (rather than a flat sample of messages) with the
+  // actual failing symbols listed, since "no candle data" vs "insufficient
+  // history" point at different root causes - the former suggests the pair
+  // (or, for 4H, possibly the resolution code itself) has no candle series
+  // at all, the latter suggests a recently-listed instrument that just
+  // hasn't accumulated enough bars yet.
+  console.log(
+    `[${tf.label}] Diagnostics: ${symbols.length} symbols -> ${scanned.length} scanned ok, ${errored.length} errored, ` +
+    `${hasSetup.length} had a trend setup, ${results.length} passed the $${tf.minVolume.toLocaleString()} volume gate.`
+  );
+  if (errored.length) {
+    const buckets = new Map(); // error-type label -> [{symbol, error}]
+    for (const r of errored) {
+      const label = r.error.startsWith('insufficient bar history') ? 'insufficient bar history'
+        : r.error.startsWith('no candle data returned') ? 'no candle data returned'
+        : r.error.startsWith('current price unavailable') ? 'current price unavailable'
+        : r.error.startsWith('HTTP ') || r.error.includes('fetch') ? 'fetch/HTTP error'
+        : 'other';
+      if (!buckets.has(label)) buckets.set(label, []);
+      buckets.get(label).push(r);
+    }
+    console.log(`[${tf.label}] Errors by cause:`);
+    for (const [label, rows] of buckets) {
+      const symbolList = rows.map((r) => stripUsdt(r.symbol)).join(', ');
+      console.log(`  ${label} (${rows.length}): ${symbolList}`);
+    }
+  }
+
+  // Same entry/stop/target math as the analysis modal's trade plan in screener.html:
+  //   entry = entryPrice (current price at scan time)
+  //   stop  = today's cloud bottom (Long) / cloud top (Short)
+  //   target = entry ± 2x the entry-to-stop risk
+  const withTrade = results.map((r) => {
+    const isLong = r.setup === 'Long';
+    const entry = r.entryPrice;
+    const stop = isLong ? r.cloudBottom : r.cloudTop;
+    const target = targetFor(entry, stop, isLong, 2);
+    return { ...r, entry, stop, target };
+  });
+
+  const longs = withTrade.filter((r) => r.setup === 'Long').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
+  const shorts = withTrade.filter((r) => r.setup === 'Short').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
+  return { longs, shorts };
+}
+
+// tradesphere:// custom-scheme deep link - tapping the coin name in
+// Telegram opens the TradeSphere app straight into screener.html's
+// analysis for that coin (screener.html?symbol=<coin> already handles
+// the rest). See index.html / screener.html for the matching appUrlOpen
+// listeners that handle this on the app side.
+// Telegram's Bot API only trusts a known set of URL schemes (http, https,
+// tg, ...) on inline links and silently drops any <a> using a scheme it
+// doesn't recognize - tradesphere:// isn't in that set, which is why coin
+// names rendered as plain bold text with no link at all. Routing through
+// a real https:// page on the existing Worker (see worker-open-route.js)
+// that performs the tradesphere:// handoff itself works around this,
+// since Telegram happily renders a plain https link, and it's the
+// browser opening THAT page - not Telegram's own link parser - that
+// actually launches the custom scheme.
+function deepLink(coin) {
+  return `https://newsyt.justfagame9.workers.dev/open?symbol=${encodeURIComponent(coin)}`;
+}
+function fmtRow(r) {
+  const coin = stripUsdt(r.symbol);
+  return `<a href="${deepLink(coin)}"><b>${coin}</b></a> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
+}
+function fmtSection(rows) {
+  return rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
+}
+
+// IST (Asia/Kolkata, UTC+5:30) instead of UTC, e.g. "2026-09-08 10:48 IST".
+function formatIST(date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')} IST`;
+}
+
 function fmt(n, d = 4) {
   return (n === undefined || n === null || isNaN(n)) ? '—' : n.toFixed(d);
 }
@@ -449,98 +566,30 @@ async function sendTelegramMessage(text) {
 async function main() {
   console.log(`Fetching USDT perpetual symbol list (CoinDCX)...`);
   const symbols = await getUSDTPerpetualSymbols();
-  console.log(`Scanning ${symbols.length} symbols (resolution=${PARAMS.resolution})...`);
 
-  const raw = await runPool(symbols, (s) => screenSymbol(s, PARAMS), CONCURRENCY);
-  const scanned = raw.filter((r) => r && !r.error);
-  const errored = raw.filter((r) => r && r.error);
-  const hasSetup = scanned.filter((r) => r.setup !== '');
-  const results = scanned.filter((r) => r.volToday > PARAMS.minVolume && r.setup !== '');
-
-  // Diagnostics only (not sent to Telegram) - lets a future silent-zero run be
-  // root-caused from the Action log instead of guessed at blind. Errors are
-  // bucketed by cause (rather than a flat sample of messages) with the
-  // actual failing symbols listed, since "no candle data" vs "insufficient
-  // history" point at different root causes - the former suggests the pair
-  // has no candle series at all, the latter suggests a recently-listed
-  // instrument that just hasn't accumulated 114 days yet.
-  console.log(
-    `Diagnostics: ${symbols.length} symbols -> ${scanned.length} scanned ok, ${errored.length} errored, ` +
-    `${hasSetup.length} had a trend setup, ${results.length} passed the $${PARAMS.minVolume.toLocaleString()} volume gate.`
-  );
-  if (errored.length) {
-    const buckets = new Map(); // error-type label -> [{symbol, error}]
-    for (const r of errored) {
-      const label = r.error.startsWith('insufficient daily history') ? 'insufficient daily history'
-        : r.error.startsWith('no candle data returned') ? 'no candle data returned'
-        : r.error.startsWith('current price unavailable') ? 'current price unavailable'
-        : r.error.startsWith('HTTP ') || r.error.includes('fetch') ? 'fetch/HTTP error'
-        : 'other';
-      if (!buckets.has(label)) buckets.set(label, []);
-      buckets.get(label).push(r);
-    }
-    console.log(`Errors by cause:`);
-    for (const [label, rows] of buckets) {
-      const symbolList = rows.map((r) => stripUsdt(r.symbol)).join(', ');
-      console.log(`  ${label} (${rows.length}): ${symbolList}`);
-    }
+  // Run each timeframe's scan fully before starting the next, rather than
+  // interleaving - keeps the pacing throttle's request spacing meaningful
+  // per timeframe and keeps each timeframe's diagnostics block contiguous
+  // in the log instead of interleaved line-by-line.
+  const scans = [];
+  for (const tf of TIMEFRAMES) {
+    const { longs, shorts } = await runTimeframeScan(symbols, tf);
+    scans.push({ tf, longs, shorts });
   }
 
-  // Same entry/stop/target math as the analysis modal's trade plan in screener.html:
-  //   entry = entryPrice (current price at scan time)
-  //   stop  = today's cloud bottom (Long) / cloud top (Short)
-  //   target = entry ± 2x the entry-to-stop risk
-  const withTrade = results.map((r) => {
-    const isLong = r.setup === 'Long';
-    const entry = r.entryPrice;
-    const stop = isLong ? r.cloudBottom : r.cloudTop;
-    const target = targetFor(entry, stop, isLong, 2);
-    return { ...r, entry, stop, target };
-  });
-
-  const longs = withTrade.filter((r) => r.setup === 'Long').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
-  const shorts = withTrade.filter((r) => r.setup === 'Short').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
-
-  // tradesphere:// custom-scheme deep link - tapping the coin name in
-  // Telegram opens the TradeSphere app straight into screener.html's
-  // analysis for that coin (screener.html?symbol=<coin> already handles
-  // the rest). See index.html / screener.html for the matching appUrlOpen
-  // listeners that handle this on the app side.
-  // Telegram's Bot API only trusts a known set of URL schemes (http, https,
-  // tg, ...) on inline links and silently drops any <a> using a scheme it
-  // doesn't recognize - tradesphere:// isn't in that set, which is why coin
-  // names rendered as plain bold text with no link at all. Routing through
-  // a real https:// page on the existing Worker (see worker-open-route.js)
-  // that performs the tradesphere:// handoff itself works around this,
-  // since Telegram happily renders a plain https link, and it's the
-  // browser opening THAT page - not Telegram's own link parser - that
-  // actually launches the custom scheme.
-  const deepLink = (coin) => `https://newsyt.justfagame9.workers.dev/open?symbol=${encodeURIComponent(coin)}`;
-  const fmtRow = (r) => {
-    const coin = stripUsdt(r.symbol);
-    return `<a href="${deepLink(coin)}"><b>${coin}</b></a> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
-  };
-  const fmtSection = (rows) => rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
-
-  // IST (Asia/Kolkata, UTC+5:30) instead of UTC, e.g. "2026-09-08 10:48 IST".
-  function formatIST(date) {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(date);
-    const get = (type) => parts.find((p) => p.type === type).value;
-    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')} IST`;
-  }
   const stamp = formatIST(new Date());
+
+  const sectionFor = ({ tf, longs, shorts }) =>
+    `<b>— ${tf.label} —</b>\n` +
+    `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
+    `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}`;
 
   const message =
     `<b>Ichimoku breakout screener (CoinDCX) — ${stamp}</b>\n\n` +
-    `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
-    `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}\n\n` +
+    scans.map(sectionFor).join('\n\n') + '\n\n' +
     `✅ = confirmed · CK/PK = breakout type`;
 
-  console.log(message.replace(/<\/?[a-z]+>/g, ''));
+  console.log('\n' + message.replace(/<\/?[a-z]+>/g, ''));
   await sendTelegramMessage(message);
 }
 
