@@ -124,7 +124,7 @@ const ICHIMOKU_PARAMS = {
 //     strict once there's real data to look at.
 const TIMEFRAMES = [
   { label: 'Daily', resolution: '1d', historyDays: 200, minVolume: 10_000_000, ...ICHIMOKU_PARAMS },
-  { label: '4H', resolution: '4h', historyDays: 40, minVolume: 10_000_000, ...ICHIMOKU_PARAMS },
+  { label: '4H', resolution: '4h', historyDays: 40, minVolume: 1_000_000, ...ICHIMOKU_PARAMS },
 ];
 
 const CONCURRENCY = 3; // conservative starting point - CoinDCX doesn't publish a public market-data rate limit, tune after watching real runs
