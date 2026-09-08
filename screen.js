@@ -507,7 +507,7 @@ function deepLink(coin) {
   return `https://newsyt.justfagame9.workers.dev/open?symbol=${encodeURIComponent(coin)}`;
 }
 function fmtRow(r) {
-  const coin = stripUsdt(r.symbol);
+  const coin = stripSizePrefix(stripUsdt(r.symbol));
   return `<b>$${coin}</b> · ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
 }
 function fmtSection(rows) {
@@ -541,6 +541,17 @@ function targetFor(entry, stop, isLong, multiple) {
 // Strips CoinDCX's "B-" prefix and "_USDT" suffix, e.g. "B-PEPE_USDT" -> "PEPE".
 function stripUsdt(s) {
   return s.replace(/^B-/, '').replace(/_USDT$/, '');
+}
+
+// Strips exchange "size multiplier" prefixes so alerts read as the plain
+// coin name, e.g. "1000SHIB" -> "SHIB", "1000000BABYDOGE" -> "BABYDOGE".
+// Only matches an exact power-of-ten prefix (10/100/1000/10000/100000/1000000)
+// followed by letters, so real tickers that merely start with a digit -
+// e.g. "1INCH" - are left untouched (its "1" isn't in the matched set).
+// Longest prefixes are listed first so "1000000BABYDOGE" doesn't get
+// mis-split as "1000" + "000BABYDOGE".
+function stripSizePrefix(coin) {
+  return coin.replace(/^(1000000|100000|10000|1000|100|10)([A-Z].*)$/, '$2');
 }
 
 // ---------------- Telegram ----------------
