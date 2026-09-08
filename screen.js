@@ -506,7 +506,16 @@ async function main() {
   // analysis for that coin (screener.html?symbol=<coin> already handles
   // the rest). See index.html / screener.html for the matching appUrlOpen
   // listeners that handle this on the app side.
-  const deepLink = (coin) => `tradesphere://screener?symbol=${encodeURIComponent(coin)}`;
+  // Telegram's Bot API only trusts a known set of URL schemes (http, https,
+  // tg, ...) on inline links and silently drops any <a> using a scheme it
+  // doesn't recognize - tradesphere:// isn't in that set, which is why coin
+  // names rendered as plain bold text with no link at all. Routing through
+  // a real https:// page on the existing Worker (see worker-open-route.js)
+  // that performs the tradesphere:// handoff itself works around this,
+  // since Telegram happily renders a plain https link, and it's the
+  // browser opening THAT page - not Telegram's own link parser - that
+  // actually launches the custom scheme.
+  const deepLink = (coin) => `https://newsyt.justfagame9.workers.dev/open?symbol=${encodeURIComponent(coin)}`;
   const fmtRow = (r) => {
     const coin = stripUsdt(r.symbol);
     return `<a href="${deepLink(coin)}"><b>${coin}</b></a> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}\n` +
