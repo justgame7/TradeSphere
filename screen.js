@@ -587,10 +587,19 @@ async function main() {
 
   const stamp = formatIST(new Date());
 
-  const sectionFor = ({ tf, longs, shorts }) =>
-    `<b>— ${tf.label} —</b>\n` +
-    `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
-    `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}`;
+  const sectionFor = ({ tf, longs, shorts }) => {
+    // Only show a LONG/SHORT header when that side actually has entries -
+    // no more "SHORT (0)" cluttering the message. If neither side has any
+    // setups for this timeframe, collapse the whole thing to a single
+    // "none" line instead of two empty headers.
+    if (longs.length === 0 && shorts.length === 0) {
+      return `<b>— ${tf.label} —</b>\nnone`;
+    }
+    const parts = [`<b>— ${tf.label} —</b>`];
+    if (longs.length) parts.push(`<b>LONG (${longs.length})</b>\n${fmtSection(longs)}`);
+    if (shorts.length) parts.push(`<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}`);
+    return parts.join('\n\n');
+  };
 
   const message =
     `<b>Ichimoku breakout screener (CoinDCX) — ${stamp}</b>\n\n` +
