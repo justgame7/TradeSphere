@@ -460,6 +460,9 @@
   .funding-row span{font-weight:700;color:var(--text);}
   .funding-row span.funding-pos{color:var(--red);}
   .funding-row span.funding-neg{color:var(--accent);}
+  .funding-row span.funding-interval-1h{font-weight:700;color:var(--red);}
+  .funding-row span.funding-interval-4h{color:var(--accent);}
+  .funding-row span.funding-interval-8h{color:var(--muted);}
   .tf-switch-row{margin-top:-4px;}
   .tf-switch-link{color:var(--accent);text-decoration:none;font-weight:700;}
   .tf-switch-link:hover{text-decoration:underline;}
@@ -925,18 +928,47 @@ async function getBybitCurrentPrice(symbol){
   return price;
 }
 
+// Binance only lists symbols whose funding interval is NOT the 8h default, so
+// this list is fetched/cached once and any symbol missing from it is 8h.
+let binanceFundingIntervalCache = null;
+async function getBinanceFundingIntervals(){
+  if(binanceFundingIntervalCache) return binanceFundingIntervalCache;
+  try{
+    const data = await fetchJSON(`/fapi/v1/fundingInfo`);
+    const map = {};
+    for(const item of data){
+      map[item.symbol] = Number(item.fundingIntervalHours);
+    }
+    binanceFundingIntervalCache = map;
+  }catch(e){
+    binanceFundingIntervalCache = {};
+  }
+  return binanceFundingIntervalCache;
+}
+
 // Perpetual funding rate + the next funding timestamp, for the "Funding: <rate> in
 // <time>" line on the analysis card's Levels section. Binance's premiumIndex and
-// Bybit's linear tickers both carry this directly - no extra endpoint needed.
+// Bybit's linear tickers both carry rate/timestamp directly; the funding period
+// (1h/4h/8h) needs a second lookup on each exchange since neither ticker endpoint
+// includes it.
 async function getFundingInfo(symbol, source){
   if(source === 'Bybit'){
     const data = await fetchBybitJSON(`/v5/market/tickers?category=linear&symbol=${symbol}`);
     const ticker = data.result && data.result.list && data.result.list[0];
     if(!ticker) throw new Error('funding not found on Bybit');
-    return { rate: parseFloat(ticker.fundingRate), nextFundingTime: Number(ticker.nextFundingTime) };
+    let intervalHours = 8;
+    try{
+      const infoData = await fetchBybitJSON(`/v5/market/instruments-info?category=linear&symbol=${symbol}`);
+      const info = infoData.result && infoData.result.list && infoData.result.list[0];
+      const minutes = info && Number(info.fundingInterval);
+      if(Number.isFinite(minutes) && minutes > 0) intervalHours = minutes / 60;
+    }catch(e){ /* fall back to 8h default */ }
+    return { rate: parseFloat(ticker.fundingRate), nextFundingTime: Number(ticker.nextFundingTime), intervalHours };
   }
   const data = await fetchJSON(`/fapi/v1/premiumIndex?symbol=${symbol}`);
-  return { rate: parseFloat(data.lastFundingRate), nextFundingTime: Number(data.nextFundingTime) };
+  const intervals = await getBinanceFundingIntervals();
+  const intervalHours = Number.isFinite(intervals[symbol]) ? intervals[symbol] : 8;
+  return { rate: parseFloat(data.lastFundingRate), nextFundingTime: Number(data.nextFundingTime), intervalHours };
 }
 
 // "3h 42m" / "45m" / "now" - compact countdown to the next funding timestamp.
@@ -946,6 +978,21 @@ function formatFundingCountdown(targetMs){
   if(diffMin <= 0) return 'now';
   const h = Math.floor(diffMin / 60), m = diffMin % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// "1h" / "4h" / "8h" - the funding period itself, shown as "(4h)" next to the rate.
+function formatFundingInterval(hours){
+  if(!Number.isFinite(hours) || hours <= 0) return null;
+  const rounded = Math.round(hours * 100) / 100;
+  return `${rounded}h`;
+}
+
+// Colour-codes the funding interval: bold red for 1h, green(accent) for 4h, grey for 8h.
+function fundingIntervalClassFor(hours){
+  if(!Number.isFinite(hours)) return '';
+  if(hours <= 1) return 'funding-interval-1h';
+  if(hours <= 4) return 'funding-interval-4h';
+  return 'funding-interval-8h';
 }
 
 // Dispatches to whichever exchange a given screened row actually came from,
@@ -1958,7 +2005,10 @@ async function openAnalysis(symbol, intervalOverride){
     const fundingCountdown = funding ? formatFundingCountdown(funding.nextFundingTime) : null;
     const fundingClass = fundingRate === null ? '' : (fundingRate > 0 ? 'funding-pos' : (fundingRate < 0 ? 'funding-neg' : ''));
     const fundingRateText = fundingRate === null ? '—' : `${fundingRate >= 0 ? '+' : ''}${(fundingRate * 100).toFixed(4)}%`;
-    const fundingLine = `<div class="funding-row">Funding: <span class="${fundingClass}">${fundingRateText}</span>${fundingCountdown ? ` in ${fundingCountdown}` : ''}</div>`;
+    const fundingIntervalText = funding ? formatFundingInterval(funding.intervalHours) : null;
+    const fundingIntervalClass = fundingIntervalText ? fundingIntervalClassFor(funding.intervalHours) : '';
+    const fundingIntervalHtml = fundingIntervalText ? ` (<span class="${fundingIntervalClass}">${fundingIntervalText}</span>)` : '';
+    const fundingLine = `<div class="funding-row">Funding: <span class="${fundingClass}">${fundingRateText}</span>${fundingCountdown ? ` in ${fundingCountdown}` : ''}${fundingIntervalHtml}</div>`;
     const breakoutLine = hasSetup ? `<div class="funding-row">Breakout Price: <span>${formatAnalysisValue(effectiveRow.breakoutPrice)}</span></div>` : '';
     const switchTargetInterval = interval === '1d' ? '4h' : (interval === '4h' ? '1d' : null);
     const switchLine = switchTargetInterval ? `<div class="funding-row tf-switch-row"><a href="javascript:void(0)" class="tf-switch-link" onclick="switchAnalysisTimeframe('${symbol}','${switchTargetInterval}')">Switch to ${timeframeLabel(switchTargetInterval)} analysis →</a></div>` : '';
