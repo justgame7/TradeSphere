@@ -487,7 +487,14 @@ function fmtRow(r) {
   // 6 extra + 1 = 7 total; ... 8+ char coin -> 0 extra, just the 1 default.
   // Monospace (<code>) makes this padding actually line up visually, unlike
   // Telegram's default proportional font.
-  const pad = ' '.repeat(Math.max(8 - coin.length, 0));
+  // NOTE: regular U+0020 spaces here looked correctly spaced on Telegram
+  // Desktop (Qt renders every literal space faithfully) but visibly
+  // compressed on iOS/Android (their text renderers collapse runs of plain
+  // spaces even inside <code>). Non-breaking spaces (U+00A0) aren't treated
+  // as collapsible by those renderers, so use those instead for the padding
+  // - the single default delimiter stays a normal space for readability/
+  // copy-paste behavior, only the extra alignment padding uses NBSP.
+  const pad = '\u00A0'.repeat(Math.max(8 - coin.length, 0));
   return `<code>${coin}${pad} ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry ${fmt(r.entry)}</code>`;
 }
 function fmtSection(rows) {
