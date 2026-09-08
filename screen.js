@@ -501,26 +501,35 @@ async function main() {
   const longs = withTrade.filter((r) => r.setup === 'Long').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
   const shorts = withTrade.filter((r) => r.setup === 'Short').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
 
-  // tradesphere:// custom-scheme deep link - tapping the coin name in
-  // Telegram opens the TradeSphere app straight into screener.html's
-  // analysis for that coin (screener.html?symbol=<coin> already handles
-  // the rest). See index.html / screener.html for the matching appUrlOpen
-  // listeners that handle this on the app side.
-  // Telegram's Bot API only trusts a known set of URL schemes (http, https,
-  // tg, ...) on inline links and silently drops any <a> using a scheme it
-  // doesn't recognize - tradesphere:// isn't in that set, which is why coin
-  // names rendered as plain bold text with no link at all. Routing through
-  // a real https:// page on the existing Worker (see worker-open-route.js)
-  // that performs the tradesphere:// handoff itself works around this,
-  // since Telegram happily renders a plain https link, and it's the
-  // browser opening THAT page - not Telegram's own link parser - that
-  // actually launches the custom scheme.
-  const deepLink = (coin) => `https://newsyt.justfagame9.workers.dev/open?symbol=${encodeURIComponent(coin)}`;
-  const fmtRow = (r) => {
-    const coin = stripUsdt(r.symbol);
-    return `<a href="${deepLink(coin)}"><b>${coin}</b></a> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
-  };
-  const fmtSection = (rows) => rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
+  // Aligned monospace table via Telegram's <pre> block. Note: <pre> can't
+  // reliably contain other formatting tags (like <a> links) in Telegram's
+  // HTML parser - nesting them risks the whole message failing to send -
+  // so this intentionally drops the earlier tap-to-open-app deep link in
+  // favor of a clean table (explicit tradeoff, confirmed with the user).
+  function buildTable(rows) {
+    if (!rows.length) return 'none';
+    const data = rows.map((r) => ({
+      coin: stripUsdt(r.symbol),
+      type: r.breakout,
+      entry: fmt(r.entry),
+      conf: r.confirmed ? 'Yes' : '',
+    }));
+    const headers = { coin: 'Coin', type: 'Type', entry: 'Entry', conf: 'Conf' };
+    const widths = {
+      coin: Math.max(headers.coin.length, ...data.map((d) => d.coin.length)),
+      type: Math.max(headers.type.length, ...data.map((d) => d.type.length)),
+      entry: Math.max(headers.entry.length, ...data.map((d) => d.entry.length)),
+      conf: Math.max(headers.conf.length, ...data.map((d) => d.conf.length)),
+    };
+    const padRight = (s, w) => s.padEnd(w, ' ');
+    const padLeft = (s, w) => s.padStart(w, ' ');
+    const rowLine = (coin, type, entry, conf) =>
+      `${padRight(coin, widths.coin)} | ${padRight(type, widths.type)} | ${padLeft(entry, widths.entry)} | ${padRight(conf, widths.conf)}`;
+    const header = rowLine(headers.coin, headers.type, headers.entry, headers.conf);
+    const sep = `${'-'.repeat(widths.coin)}-+-${'-'.repeat(widths.type)}-+-${'-'.repeat(widths.entry)}-+-${'-'.repeat(widths.conf)}`;
+    const body = data.map((d) => rowLine(d.coin, d.type, d.entry, d.conf));
+    return `<pre>${[header, sep, ...body].join('\n')}</pre>`;
+  }
 
   // IST (Asia/Kolkata, UTC+5:30) instead of UTC, e.g. "2026-09-08 10:48 IST".
   function formatIST(date) {
@@ -536,9 +545,9 @@ async function main() {
 
   const message =
     `<b>Ichimoku breakout screener (CoinDCX) — ${stamp}</b>\n\n` +
-    `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
-    `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}\n\n` +
-    `✅ = confirmed · CK/PK = breakout type`;
+    `<b>LONG (${longs.length})</b>\n${buildTable(longs)}\n\n` +
+    `<b>SHORT (${shorts.length})</b>\n${buildTable(shorts)}\n\n` +
+    `Conf = confirmed · Type = breakout (CK/PK)`;
 
   console.log(message.replace(/<\/?[a-z]+>/g, ''));
   await sendTelegramMessage(message);
