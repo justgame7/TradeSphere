@@ -478,7 +478,11 @@ function deepLink(coin) {
 }
 function fmtRow(r) {
   const coin = stripUsdt(r.symbol);
-  return `<a href="${deepLink(coin)}"><b>${coin}</b></a> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
+  // Pad so the coin name + gap always lines up to a virtual 8-char column:
+  // 1-char coin -> 7 extra spaces + 1 default delimiter = 8 total; 2-char ->
+  // 6 extra + 1 = 7 total; ... 8+ char coin -> 0 extra, just the 1 default.
+  const pad = ' '.repeat(Math.max(8 - coin.length, 0));
+  return `<a href="${deepLink(coin)}"><b>${coin}</b></a>${pad} ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
 }
 function fmtSection(rows) {
   return rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
