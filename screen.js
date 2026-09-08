@@ -518,8 +518,7 @@ async function main() {
   const deepLink = (coin) => `https://newsyt.justfagame9.workers.dev/open?symbol=${encodeURIComponent(coin)}`;
   const fmtRow = (r) => {
     const coin = stripUsdt(r.symbol);
-    return `<a href="${deepLink(coin)}"><b>${coin}</b></a> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''}\n` +
-      `Entry <code>${fmt(r.entry)}</code> · SL <code>${fmt(r.stop)}</code> · TP <code>${fmt(r.target)}</code>`;
+    return `<a href="${deepLink(coin)}"><b>${coin}</b></a> ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
   };
   const fmtSection = (rows) => rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
 
@@ -531,7 +530,7 @@ async function main() {
     `Scanned ${symbols.length} symbols, ${withTrade.length} with an active setup (min daily vol $${PARAMS.minVolume.toLocaleString()}).\n\n` +
     `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
     `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}\n\n` +
-    `✅ = confirmed · CK/PK = breakout type · SL/TP = 1:2 risk:reward off today's cloud`;
+    `✅ = confirmed · CK/PK = breakout type`;
 
   console.log(message.replace(/<\/?[a-z]+>/g, ''));
   await sendTelegramMessage(message);
