@@ -123,8 +123,8 @@ const ICHIMOKU_PARAMS = {
 //     this is tuned against real runs. Divide by ~6 here if it's too
 //     strict once there's real data to look at.
 const TIMEFRAMES = [
-  { label: 'Daily', resolution: '1d', historyDays: 200, minVolume: 10_000_000, ...ICHIMOKU_PARAMS },
   { label: '4H', resolution: '4h', historyDays: 40, minVolume: 1_000_000, ...ICHIMOKU_PARAMS },
+  { label: 'Daily', resolution: '1d', historyDays: 200, minVolume: 10_000_000, ...ICHIMOKU_PARAMS },
 ];
 
 const CONCURRENCY = 3; // conservative starting point - CoinDCX doesn't publish a public market-data rate limit, tune after watching real runs
@@ -486,7 +486,10 @@ function fmtRow(r) {
   return `<b>${coin}</b> · ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
 }
 function fmtSection(rows) {
-  return rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
+  // Single newline between coins within a LONG/SHORT block - no blank line.
+  // Blank-line spacing is reserved for between LONG/SHORT and between
+  // 4H/Daily sections, both handled outside this function.
+  return rows.length ? rows.map(fmtRow).join('\n') : 'none';
 }
 
 // IST (Asia/Kolkata, UTC+5:30) instead of UTC, e.g. "2026-09-08 10:48 IST".
