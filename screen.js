@@ -426,22 +426,65 @@ async function sendTelegramMessage(text) {
     return;
   }
 
+  // Telegram's own per-chat/per-bot rate limit is separate from CoinDCX's -
+  // it returned HTTP 429 with a "retry_after" (seconds) telling us exactly
+  // how long to wait, most likely from repeated manual test runs hitting
+  // the same chat in a short window. Since Telegram tells us the exact
+  // wait rather than leaving it to guesswork, this honors retry_after
+  // directly instead of exponential backoff - but caps total wait per
+  // chunk so a single run can't hang indefinitely into the next scheduled
+  // run if something is persistently wrong.
+  const MAX_RETRIES = 3;
+  const MAX_WAIT_MS = 20 * 60 * 1000; // 20 minutes - generous for a stray rate limit, not so long it eats the next hourly run
+
   for (let i = 0; i < chunks.length; i++) {
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: chunks[i],
-        parse_mode: 'HTML',
-        disable_web_page_preview: true,
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`Telegram send failed (part ${i + 1}/${chunks.length}): HTTP ${res.status} ${body}`);
+    let attempt = 0;
+    let waitedMs = 0;
+    while (true) {
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: chunks[i],
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        }),
+      });
+      if (res.ok) break;
+
+      const bodyText = await res.text().catch(() => '');
+      if (res.status === 429 && attempt < MAX_RETRIES) {
+        let retryAfterSec = 5;
+        try {
+          const parsed = JSON.parse(bodyText);
+          if (parsed && parsed.parameters && typeof parsed.parameters.retry_after === 'number') {
+            retryAfterSec = parsed.parameters.retry_after;
+          }
+        } catch {
+          // fall back to the default above if the body isn't parseable JSON
+        }
+        const waitMs = (retryAfterSec + 1) * 1000; // Telegram's advertised wait, plus a small buffer
+        if (waitedMs + waitMs > MAX_WAIT_MS) {
+          throw new Error(
+            `Telegram send failed (part ${i + 1}/${chunks.length}): still rate-limited after waiting ` +
+            `${Math.round(waitedMs / 1000)}s this run, next retry_after=${retryAfterSec}s would exceed the ` +
+            `${MAX_WAIT_MS / 60000}-minute cap :: ${bodyText}`
+          );
+        }
+        console.log(
+          `Telegram rate-limited (429) sending part ${i + 1}/${chunks.length} - waiting ${retryAfterSec}s ` +
+          `per Telegram's retry_after, then retrying (attempt ${attempt + 1}/${MAX_RETRIES})...`
+        );
+        await sleep(waitMs);
+        waitedMs += waitMs;
+        attempt++;
+        continue;
+      }
+
+      throw new Error(`Telegram send failed (part ${i + 1}/${chunks.length}): HTTP ${res.status} ${bodyText}`);
     }
-    if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 300));
+    if (i < chunks.length - 1) await sleep(300);
   }
 }
 
