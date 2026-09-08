@@ -522,12 +522,20 @@ async function main() {
   };
   const fmtSection = (rows) => rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
 
-  const now = new Date();
-  const stamp = now.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+  // IST (Asia/Kolkata, UTC+5:30) instead of UTC, e.g. "2026-09-08 10:48 IST".
+  function formatIST(date) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(date);
+    const get = (type) => parts.find((p) => p.type === type).value;
+    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')} IST`;
+  }
+  const stamp = formatIST(new Date());
 
   const message =
-    `<b>Ichimoku breakout screener (CoinDCX) — ${stamp}</b>\n` +
-    `Scanned ${symbols.length} symbols, ${withTrade.length} with an active setup (min daily vol $${PARAMS.minVolume.toLocaleString()}).\n\n` +
+    `<b>Ichimoku breakout screener (CoinDCX) — ${stamp}</b>\n\n` +
     `<b>LONG (${longs.length})</b>\n${fmtSection(longs)}\n\n` +
     `<b>SHORT (${shorts.length})</b>\n${fmtSection(shorts)}\n\n` +
     `✅ = confirmed · CK/PK = breakout type`;
