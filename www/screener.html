@@ -1046,6 +1046,17 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params){
   const iToday = dClose.length - 1;
   const iYest = iToday - 1;
 
+  // Volume gate is computed ONCE per symbol per scan (not per-candle). A
+  // freshly-opened current candle starts at ~0 volume and would otherwise
+  // wrongly fail the filter right as a breakout forms, so we pass the gate
+  // if EITHER the current (still-forming) candle OR the last fully-closed
+  // candle clears minVolume. This single volumeOk value is reused for both
+  // the today- and yesterday-indexed signal checks below, so a coin can
+  // never be double-counted for satisfying the gate on two different bars.
+  const currentVolume = daily[iToday].quoteVolume;
+  const lastClosedVolume = daily[iYest].quoteVolume;
+  const volumeOk = currentVolume > params.minVolume || lastClosedVolume > params.minVolume;
+
   function signalAt(index){
     const previous = index - 1;
     const price = dClose[index];
@@ -1064,7 +1075,6 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params){
       chikouCloudPrevious.bottom, tenkan, kijun, futureA, futureB].every(v => !isNaN(v));
     if(!valid) return null;
 
-    const volumeOk = volume > params.minVolume;
     const longTrend = tenkan > kijun && futureA > futureB;
     const shortTrend = tenkan < kijun && futureB > futureA;
     const ckLong = pricePrevious < chikouCloudPrevious.top &&
@@ -1117,6 +1127,7 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params){
     symbol, confirmed, priceToday, breakoutPrice, entryPrice,
     cloudTop: today.cloud.top, cloudBottom: today.cloud.bottom,
     tenkanNow: today.tenkan, kijunNow: today.kijun, volToday: today.volume,
+    currentVolume, lastClosedVolume, volumeOk,
     ckLong, pkLong, ckShort, pkShort, breakout, setup,
     interval: params.interval
   };
@@ -1264,7 +1275,7 @@ async function runScreener(){
     const scanned = raw.filter(r => r && !r.error);
     const failedCount = raw.length - scanned.length;
 
-    allResults = scanned.filter(r => r.volToday > params.minVolume);
+    allResults = scanned.filter(r => r.volumeOk);
     const belowVolCount = scanned.length - allResults.length;
 
     setFilter('breakout');
