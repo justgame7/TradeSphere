@@ -116,38 +116,27 @@ const ICHIMOKU_PARAMS = {
 //     historyDays=40 gives ~240 four-hour bars, comfortably over the 114
 //     needed (114 bars * 4h = 19 days of coverage needed).
 //   - minVolume is deliberately left at a lower absolute notional
-//     threshold for 4H ($1,000,000) than Daily ($10,000,000), since it's
-//     now compared against a rolling 4-hour volume sum rather than a full
-//     day's - see rollingCandles below.
-//   - rollingCandles: the volume gate no longer reads the timeframe's own
-//     last candle (partial candles start near-zero right after a new bar
-//     opens, wrongly failing real setups) NOR its last fully-closed candle
-//     (still up to one whole 4H/daily period stale). Instead it sums the
-//     last N 5-minute candles - 48 x 5m = exactly 4 hours for the 4H scan,
-//     288 x 5m = exactly 24 hours for the Daily scan - giving a rolling,
-//     close-to-real-time volume figure whose staleness is bounded by the
-//     5-minute candle size instead of the full scan period. See
-//     buildRollingVolumeCache/sumRecentVolume below for the implementation.
+//     threshold for 4H ($1,000,000) than Daily ($10,000,000).
+//   - Volume gate: a rolling-5m-candle-sum approach was tried here (48 x 5m
+//     for 4H, 288 x 5m for Daily) but didn't work out in practice (the "5m"
+//     resolution guess likely wasn't right, plus it roughly doubled run
+//     time by adding a whole extra fetch pass) and was reverted. The gate
+//     now checks EITHER of two candles at each timeframe's own resolution -
+//     the last fully-CLOSED candle (daily[iYest]) OR the still-forming
+//     current candle (daily[iToday]) - passing if EITHER clears minVolume,
+//     computed once as a single volumeOk boolean in computeIchimokuSignal
+//     (not per-candle), so a coin can never appear twice in the results for
+//     satisfying both. This catches real breakouts happening on strong
+//     current-candle volume without waiting for that candle to close, while
+//     still catching ones where volume was strong on the prior closed
+//     candle but has since cooled off mid-candle.
 const TIMEFRAMES = [
-  { label: '4H', resolution: '4h', historyDays: 40, minVolume: 1_000_000, rollingCandles: 48, ...ICHIMOKU_PARAMS },
-  { label: 'Daily', resolution: '1d', historyDays: 200, minVolume: 10_000_000, rollingCandles: 288, ...ICHIMOKU_PARAMS },
+  { label: '4H', resolution: '4h', historyDays: 40, minVolume: 1_000_000, ...ICHIMOKU_PARAMS },
+  { label: 'Daily', resolution: '1d', historyDays: 200, minVolume: 10_000_000, ...ICHIMOKU_PARAMS },
 ];
 
-// 5-minute candle resolution used purely for the rolling volume gate (see
-// TIMEFRAMES.rollingCandles above) - NOT used for the Ichimoku indicator
-// itself, which still needs bars at each timeframe's own native resolution.
-// Like "4h", the code "5m" is a BEST-GUESS following the same lowercase
-// "<number><unit>" pattern as the CONFIRMED "1d" code - it has NOT been
-// verified against a live response. If buildRollingVolumeCache's diagnostics
-// show ~all symbols erroring, capture the real code the same way "4h" would
-// be verified (DevTools -> Network -> XHR, switch CoinDCX's chart to 5m) and
-// swap it in here.
-const FIVE_MIN_RESOLUTION = '5m';
-// 288 x 5m = 24h of coverage needed (the largest rollingCandles value above,
-// from the Daily scan) + 1 day buffer for exchange downtime/gaps.
-const FIVE_MIN_HISTORY_DAYS = 2;
-
 const CONCURRENCY = 3; // conservative starting point - CoinDCX doesn't publish a public market-data rate limit, tune after watching real runs
+
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -279,7 +268,7 @@ function donchianMid(highs, lows, len, endIdx) {
   return (hh + ll) / 2;
 }
 
-function computeIchimokuSignal(symbol, daily, currentPrice, params, rollingVolume) {
+function computeIchimokuSignal(symbol, daily, currentPrice, params) {
   const needed = 2 * params.kijunLen + params.senkouBLen + 10;
   if (!Number.isFinite(currentPrice)) throw new Error('current price unavailable');
   if (daily.length < needed) throw new Error(`insufficient bar history (${daily.length}/${needed} bars)`);
@@ -309,16 +298,17 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params, rollingVolum
   const iToday = dClose.length - 1;
   const iYest = iToday - 1;
 
-  // Volume gate: prefer the rolling 5-minute-candle sum passed in from the
-  // caller (see TIMEFRAMES.rollingCandles / buildRollingVolumeCache /
-  // sumRecentVolume) - 48 x 5m = 4 hours for the 4H scan, 288 x 5m = 24
-  // hours for the Daily scan - since that's at most 5 minutes stale rather
-  // than up to a full 4H/daily period stale. Falls back to this timeframe's
-  // own last fully-CLOSED candle (daily[iYest], not the still-forming last
-  // one) if the 5m fetch failed for this symbol, so a missing rolling
-  // figure degrades gracefully instead of dropping the symbol outright.
+  // Volume gate now checks BOTH the last fully-CLOSED candle AND the
+  // still-forming current candle, passing if EITHER clears minVolume - a
+  // real breakout can show up with strong volume already building on the
+  // current (incomplete) candle, and shouldn't have to wait for that
+  // candle to close if the prior closed candle didn't happen to clear the
+  // bar either. Since this produces one volumeOk boolean shared by every
+  // signalAt() call below (not per-index), a coin can never be counted
+  // twice for satisfying both conditions - it's a single pass/fail gate.
   const lastClosedVolume = daily[iYest].quoteVolume;
-  const volumeForGate = Number.isFinite(rollingVolume) ? rollingVolume : lastClosedVolume;
+  const currentVolume = daily[iToday].quoteVolume;
+  const volumeOk = lastClosedVolume > params.minVolume || currentVolume > params.minVolume;
 
   function signalAt(index) {
     const previous = index - 1;
@@ -332,13 +322,11 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params, rollingVolum
     const kijun = donchianMid(dHigh, dLow, params.kijunLen, index);
     const futureA = senkouA_raw(index);
     const futureB = senkouB_raw(index);
-    const volume = volumeForGate;
     const valid = [cloud.top, cloud.bottom, cloudPrevious.top, cloudPrevious.bottom,
       chikouCloud.top, chikouCloud.bottom, chikouCloudPrevious.top,
       chikouCloudPrevious.bottom, tenkan, kijun, futureA, futureB].every((v) => !isNaN(v));
     if (!valid) return null;
 
-    const volumeOk = volume > params.minVolume;
     const longTrend = tenkan > kijun && futureA > futureB;
     const shortTrend = tenkan < kijun && futureB > futureA;
     const ckLong = pricePrevious < chikouCloudPrevious.top &&
@@ -351,7 +339,7 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params, rollingVolum
       price < cloud.bottom && price < chikouCloud.bottom && shortTrend && volumeOk;
 
     return {
-      price, volume, cloud, chikouCloud, tenkan, kijun,
+      price, cloud, chikouCloud, tenkan, kijun,
       ckLong, pkLong, ckShort, pkShort,
       long: ckLong || pkLong,
       short: ckShort || pkShort,
@@ -395,67 +383,25 @@ function computeIchimokuSignal(symbol, daily, currentPrice, params, rollingVolum
     breakoutPrice,
     cloudTop: today.cloud.top,
     cloudBottom: today.cloud.bottom,
-    volToday: volumeForGate,
+    // Reported/sorted volume = whichever of the two candles actually
+    // cleared the gate (or the larger of the two if both did/neither did),
+    // so the outer `r.volToday > tf.minVolume` filter in runTimeframeScan
+    // stays equivalent to the volumeOk check used above.
+    volToday: Math.max(lastClosedVolume, currentVolume),
+    volLastClosed: lastClosedVolume,
+    volCurrent: currentVolume,
     breakout,
     setup,
   };
 }
 
-// Sums the quoteVolume of the last `n` 5-minute candles from a candle
-// array (see buildRollingVolumeCache) - used as the rolling volume-gate
-// figure instead of a single native-resolution candle. Returns undefined
-// (rather than a misleadingly-low number) if candles is missing entirely
-// (the 5m fetch failed for this symbol) - screenSymbol/computeIchimokuSignal
-// then fall back to the last closed native-resolution candle's volume.
-// NOTE: if a symbol has fewer than `n` 5m candles available (e.g. a very
-// recently listed instrument), this sums whatever's there rather than
-// padding with zeros - which can under-report volume for brand-new
-// listings. Acceptable tradeoff for now since minVolume gates are meant to
-// screen OUT illiquid/new instruments anyway.
-function sumRecentVolume(candles, n) {
-  if (!candles || candles.length === 0) return undefined;
-  return candles.slice(-n).reduce((sum, c) => sum + c.quoteVolume, 0);
-}
-
-// Fetches 5-minute candles for every symbol ONCE per run (not once per
-// timeframe) and caches them, since both the 4H and Daily scans need a
-// rolling 5m-candle sum (48 candles / 288 candles respectively - see
-// TIMEFRAMES.rollingCandles) computed from the SAME underlying 5m series;
-// fetching 288 candles (24h of coverage, the larger of the two) once per
-// symbol here covers both scans' needs via sumRecentVolume's slice(-n).
-async function buildRollingVolumeCache(symbols) {
-  console.log(`\nFetching 5m candles for rolling volume gate (${symbols.length} symbols, resolution=${FIVE_MIN_RESOLUTION})...`);
-  const raw = await runPool(symbols, async (s) => {
-    try {
-      const candles = await getKlines(s, FIVE_MIN_RESOLUTION, FIVE_MIN_HISTORY_DAYS);
-      return { symbol: s, candles };
-    } catch (e) {
-      return { symbol: s, error: e.message };
-    }
-  }, CONCURRENCY);
-
-  const cache = new Map();
-  let errored = 0;
-  for (const r of raw) {
-    if (r.error || !r.candles || r.candles.length === 0) { errored++; continue; }
-    cache.set(r.symbol, r.candles);
-  }
-  console.log(
-    `Rolling volume cache: ${cache.size}/${symbols.length} symbols ok, ${errored} errored/empty ` +
-    `(those fall back to each timeframe's last closed native-resolution candle).`
-  );
-  return cache;
-}
-
-async function screenSymbol(symbol, tf, rollingVolumeCache) {
+async function screenSymbol(symbol, tf) {
   const daily = await getKlines(symbol, tf.resolution, tf.historyDays);
   if (daily.length === 0) throw new Error(`no candle data returned (requested ${tf.historyDays}d window)`);
   // Current/entry price = close of the last (still-forming) candle - see
   // the CoinDCX quirks note at the top of this file.
   const currentPrice = daily[daily.length - 1].close;
-  const fiveMinCandles = rollingVolumeCache ? rollingVolumeCache.get(symbol) : undefined;
-  const rollingVolume = sumRecentVolume(fiveMinCandles, tf.rollingCandles);
-  return computeIchimokuSignal(symbol, daily, currentPrice, tf, rollingVolume);
+  return computeIchimokuSignal(symbol, daily, currentPrice, tf);
 }
 
 // ---------------- concurrency-limited queue (mirrors screener.html's runPool) ----------------
@@ -482,10 +428,10 @@ async function runPool(items, worker, concurrency) {
 // diagnostics (prefixed so Daily vs 4H errors don't get mixed together in
 // the Action log), and returns the Long/Short setups with trade-plan math
 // already attached.
-async function runTimeframeScan(symbols, tf, rollingVolumeCache) {
+async function runTimeframeScan(symbols, tf) {
   console.log(`\nScanning ${symbols.length} symbols for ${tf.label} (resolution=${tf.resolution})...`);
 
-  const raw = await runPool(symbols, (s) => screenSymbol(s, tf, rollingVolumeCache), CONCURRENCY);
+  const raw = await runPool(symbols, (s) => screenSymbol(s, tf), CONCURRENCY);
   const scanned = raw.filter((r) => r && !r.error);
   const errored = raw.filter((r) => r && r.error);
   const hasSetup = scanned.filter((r) => r.setup !== '');
@@ -654,17 +600,13 @@ async function main() {
   console.log(`Fetching USDT perpetual symbol list (CoinDCX)...`);
   const symbols = await getUSDTPerpetualSymbols();
 
-  // Fetch each symbol's 5m candles ONCE up front (shared by both
-  // timeframes' volume gates via sumRecentVolume) rather than per-scan.
-  const rollingVolumeCache = await buildRollingVolumeCache(symbols);
-
   // Run each timeframe's scan fully before starting the next, rather than
   // interleaving - keeps the pacing throttle's request spacing meaningful
   // per timeframe and keeps each timeframe's diagnostics block contiguous
   // in the log instead of interleaved line-by-line.
   const scans = [];
   for (const tf of TIMEFRAMES) {
-    const { longs, shorts } = await runTimeframeScan(symbols, tf, rollingVolumeCache);
+    const { longs, shorts } = await runTimeframeScan(symbols, tf);
     scans.push({ tf, longs, shorts });
   }
 
