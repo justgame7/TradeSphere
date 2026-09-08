@@ -459,11 +459,11 @@ async function runTimeframeScan(symbols, tf) {
   return { longs, shorts };
 }
 
-// tradesphere:// custom-scheme deep link - tapping the coin name in
-// Telegram opens the TradeSphere app straight into screener.html's
-// analysis for that coin (screener.html?symbol=<coin> already handles
-// the rest). See index.html / screener.html for the matching appUrlOpen
-// listeners that handle this on the app side.
+// tradesphere:// custom-scheme deep link - tapping the coin name used to
+// open the TradeSphere app straight into screener.html's analysis for that
+// coin (screener.html?symbol=<coin> already handles the rest). See
+// index.html / screener.html for the matching appUrlOpen listeners that
+// handle this on the app side.
 // Telegram's Bot API only trusts a known set of URL schemes (http, https,
 // tg, ...) on inline links and silently drops any <a> using a scheme it
 // doesn't recognize - tradesphere:// isn't in that set, which is why coin
@@ -473,6 +473,10 @@ async function runTimeframeScan(symbols, tf) {
 // since Telegram happily renders a plain https link, and it's the
 // browser opening THAT page - not Telegram's own link parser - that
 // actually launches the custom scheme.
+// NOTE: currently unused - fmtRow below dropped the <a> link in favor of
+// wrapping the whole row in <code> for a monospace/Courier-New-style look,
+// since Telegram's HTML mode doesn't allow nesting <a> inside <code> (or
+// vice versa). Left in place in case the link takes priority again later.
 function deepLink(coin) {
   return `https://newsyt.justfagame9.workers.dev/open?symbol=${encodeURIComponent(coin)}`;
 }
@@ -481,8 +485,10 @@ function fmtRow(r) {
   // Pad so the coin name + gap always lines up to a virtual 8-char column:
   // 1-char coin -> 7 extra spaces + 1 default delimiter = 8 total; 2-char ->
   // 6 extra + 1 = 7 total; ... 8+ char coin -> 0 extra, just the 1 default.
+  // Monospace (<code>) makes this padding actually line up visually, unlike
+  // Telegram's default proportional font.
   const pad = ' '.repeat(Math.max(8 - coin.length, 0));
-  return `<a href="${deepLink(coin)}"><b>${coin}</b></a>${pad} ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
+  return `<code>${coin}${pad} ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry ${fmt(r.entry)}</code>`;
 }
 function fmtSection(rows) {
   return rows.length ? rows.map(fmtRow).join('\n\n') : 'none';
