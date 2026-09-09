@@ -415,6 +415,10 @@
   @media(max-width:520px){.plan-grid,.plan-inputs{grid-template-columns:1fr;}}
   .analysis-modal{position:fixed;inset:0;background:rgba(5,6,9,.78);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:20px;z-index:11;}
   .analysis-modal.open{display:flex;}
+  .price-action-modal{z-index:12;} /* stacks above the analysis modal (z-index:11) rather than replacing it */
+  .price-action-link{display:block;width:100%;margin-top:10px;background:rgba(53,224,192,.08);border:1px solid rgba(53,224,192,.3);color:var(--accent);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border-radius:7px;padding:8px 10px;cursor:pointer;text-align:left;}
+  .price-action-link:hover{background:rgba(53,224,192,.16);border-color:var(--accent);}
+  .decision-price-action{display:block;width:100%;margin:12px 0 0;text-align:center;}
   .analysis-dialog{width:min(1100px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:0 22px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
   /* .analysis-dialog itself is the scrolling container (overflow:auto), so the
      sticky header pins relative to IT, not the page - stays visible while
@@ -444,7 +448,7 @@
   .decision-tag{font:11px var(--font-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent);white-space:nowrap;}
   .analysis-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px;}
   .analysis-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:13px;color:var(--text);font:12px/1.55 var(--font-mono);transition:border-color .15s;}
-  .analysis-card strong{display:block;color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px;}
+  .analysis-card>strong{display:block;color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px;} /* scoped to the card's own label only - inline <strong> tags used for pattern names inside <p> body text must stay inline, not block/uppercase */
   .analysis-card .analysis-value{display:block;color:var(--text);font-size:13px;font-weight:600;margin-bottom:8px;}
   .analysis-card .analysis-value em{font-style:normal;color:var(--accent);}
   .analysis-card p{margin:0;color:var(--muted);}
@@ -693,7 +697,19 @@
     </div>
     <p class="analysis-status" id="analysisStatus">Loading Binance candles...</p>
     <div class="chart-wrap"><canvas id="analysisChart"></canvas></div>
+    <button type="button" class="price-action-link decision-price-action" onclick="openPriceAction(event)">Price action analysis →</button>
     <div id="analysisDetails"></div>
+  </div>
+</div>
+<div class="analysis-modal price-action-modal" id="priceActionModal" onclick="closePriceAction(event)">
+  <div class="analysis-dialog" style="width:min(700px,100%);" role="dialog" aria-modal="true" aria-labelledby="priceActionTitle" onclick="event.stopPropagation()">
+    <div class="trade-head" style="position:static;">
+      <div class="header-title-wrap">
+        <div><h2 id="priceActionTitle">Price action analysis</h2></div>
+      </div>
+      <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="closePriceAction()">×</button></div>
+    </div>
+    <div id="priceActionDetails" class="analysis-grid"></div>
   </div>
 </div>
 <div class="coininfo-modal" id="coinInfoModal" onclick="closeCoinInfo(event)">
@@ -1694,7 +1710,7 @@ async function higherTimeframeAnalysis(symbol, htfInterval, source){
   const v20 = e20[e20.length-1], v50 = e50[e50.length-1], v200 = e200[e200.length-1];
   const side = (price > v20 && v20 > v50 && v50 > v200) ? 1 : ((price < v20 && v20 < v50 && v50 < v200) ? -1 : 0);
   const swings = findSwings(candles);
-  return {side, levels: nearestLevels(swings, price), ob: findOrderBlocks(candles), cci: cci(candles,34), vol: volumeRead(candles)};
+  return {side, levels: nearestLevels(swings, price), ob: findOrderBlocks(candles), cci: cci(candles,34), vol: volumeRead(candles), chartPatterns: detectChartPatterns(candles, swings), candlePatterns: detectCandlestickPatterns(candles)};
 }
 function analysisInterval(){
   return document.getElementById('timeframe').value;
@@ -1730,6 +1746,365 @@ function recentEmaCross(ema50Values, ema200Values, currentPrice, hasSetup, isLon
   }
   return null;
 }
+// =====================================================================
+// Candlestick & Chart Pattern Recognition
+// ---------------------------------------------------------------------
+// Two independent detectors:
+//   detectCandlestickPatterns  - single/2/3/5-candle formations (the
+//                                 classic Nison-style catalogue), scanned
+//                                 over the last few CLOSED candles.
+//   detectChartPatterns        - multi-bar price-action structures built
+//                                 on top of the same swing-pivot list
+//                                 (findSwings) already used for S/R,
+//                                 order blocks and market structure.
+// These are heuristic, rule-based reads (there's no single official
+// definition for most chart patterns), tuned conservatively so a card
+// only fires when the shape is reasonably clean - silence is preferred
+// over a false positive.
+// =====================================================================
+
+// Per-candle shape metrics used by every candlestick rule below.
+function candleMetrics(c){
+  const range = Math.max(c.high - c.low, 1e-9);
+  const body = Math.abs(c.close - c.open);
+  return {
+    body, range, bodyPct: body / range,
+    upperWick: c.high - Math.max(c.open, c.close),
+    lowerWick: Math.min(c.open, c.close) - c.low,
+    bull: c.close > c.open, bear: c.close < c.open
+  };
+}
+// Simple directional context for a candle at index `idx`: were the
+// `lookback` candles BEFORE it trending up, down, or flat? Used to tell
+// a Hammer (after a downtrend) from a Hanging Man (after an uptrend),
+// and a Shooting Star (after an uptrend) from an Inverted Hammer (after
+// a downtrend) - same candle shape, opposite meaning, context is everything.
+function trendBefore(candles, idx, lookback){
+  const start = Math.max(0, idx - lookback);
+  if(idx - start < 3) return 'flat';
+  const chg = (candles[idx].close - candles[start].close) / candles[start].close;
+  return chg > 0.02 ? 'up' : (chg < -0.02 ? 'down' : 'flat');
+}
+function detectCandlestickPatterns(candles){
+  const patterns = [];
+  const n = candles.length;
+  const add = (name, bias, barsAgo, note) => patterns.push({name, bias, barsAgo, note});
+
+  // Single / two / three candle formations, checked ending on each of the
+  // last 3 closed candles (barsAgo 0 = the latest candle) so a pattern
+  // that printed a bar or two ago is still surfaced, just marked as older.
+  for(let barsAgo = 0; barsAgo <= 2; barsAgo++){
+    const i = n - 1 - barsAgo;
+    if(i < 4) continue;
+    const c0 = candles[i], m0 = candleMetrics(c0);
+    const trend = trendBefore(candles, i - 1, 10);
+
+    if(m0.bodyPct <= 0.1){
+      if(m0.lowerWick >= 0.6*m0.range && m0.upperWick <= 0.15*m0.range) add('Dragonfly Doji','bullish',barsAgo,'Tiny body with a long lower wick and almost no upper wick - lower prices were firmly rejected.');
+      else if(m0.upperWick >= 0.6*m0.range && m0.lowerWick <= 0.15*m0.range) add('Gravestone Doji','bearish',barsAgo,'Tiny body with a long upper wick and almost no lower wick - higher prices were firmly rejected.');
+      else if(m0.upperWick >= 0.3*m0.range && m0.lowerWick >= 0.3*m0.range) add('Long-Legged Doji','neutral',barsAgo,'Long wicks on both sides around a razor-thin body - strong indecision, often seen right at turning points.');
+      else add('Doji','neutral',barsAgo,'Open and close are virtually equal - buyers and sellers are in balance.');
+    } else if(m0.bodyPct >= 0.9){
+      add(m0.bull ? 'Bullish Marubozu' : 'Bearish Marubozu', m0.bull ? 'bullish' : 'bearish', barsAgo, `A full-bodied candle with almost no wicks - ${m0.bull ? 'buyers' : 'sellers'} were in control from open to close.`);
+    } else if(m0.lowerWick >= 2*m0.body && m0.upperWick <= 0.4*m0.body && m0.bodyPct <= 0.4){
+      if(trend === 'down') add('Hammer','bullish',barsAgo,'Small body near the top of the range with a long lower wick after a downtrend - buyers stepped in and rejected new lows.');
+      else if(trend === 'up') add('Hanging Man','bearish',barsAgo,'Same shape as a Hammer but forming after an uptrend - a long lower wick shows sellers tested the downside; needs a bearish follow-through candle to confirm.');
+    } else if(m0.upperWick >= 2*m0.body && m0.lowerWick <= 0.4*m0.body && m0.bodyPct <= 0.4){
+      if(trend === 'up') add('Shooting Star','bearish',barsAgo,'Small body near the bottom of the range with a long upper wick after an uptrend - buyers pushed higher but sellers took it all back.');
+      else if(trend === 'down') add('Inverted Hammer','bullish',barsAgo,'Same shape as a Shooting Star but forming after a downtrend - a long upper wick shows buyers tested higher ground; needs a bullish follow-through candle to confirm.');
+    } else if(m0.bodyPct <= 0.35 && m0.upperWick >= 0.8*m0.body && m0.lowerWick >= 0.8*m0.body){
+      add('Spinning Top','neutral',barsAgo,'Small body with wicks on both sides of similar length - indecision after a directional move, often precedes a pause or reversal.');
+    }
+
+    if(i >= 1){
+      const c1 = candles[i-1], m1 = candleMetrics(c1);
+      if(m1.bear && m0.bull && c0.open <= c1.close && c0.close >= c1.open && m0.body > m1.body) add('Bullish Engulfing','bullish',barsAgo,'The candle\'s body fully engulfs the prior bearish candle\'s body - a decisive shift from selling to buying pressure.');
+      if(m1.bull && m0.bear && c0.open >= c1.close && c0.close <= c1.open && m0.body > m1.body) add('Bearish Engulfing','bearish',barsAgo,'The candle\'s body fully engulfs the prior bullish candle\'s body - a decisive shift from buying to selling pressure.');
+      const prevMid = (c1.open + c1.close) / 2;
+      if(m1.bear && m1.bodyPct > 0.5 && m0.bull && c0.open < c1.low && c0.close > prevMid && c0.close < c1.open) add('Piercing Line','bullish',barsAgo,'Opens below the prior candle\'s low, then closes back above the midpoint of its body - a strong one-bar reversal attempt.');
+      if(m1.bull && m1.bodyPct > 0.5 && m0.bear && c0.open > c1.high && c0.close < prevMid && c0.close > c1.open) add('Dark Cloud Cover','bearish',barsAgo,'Opens above the prior candle\'s high, then closes back below the midpoint of its body - sellers reversed a strong up-close.');
+      const hiBody = Math.max(c1.open, c1.close), loBody = Math.min(c1.open, c1.close);
+      if(m1.bodyPct > 0.4 && m0.body < m1.body*0.6 && Math.max(c0.open,c0.close) <= hiBody && Math.min(c0.open,c0.close) >= loBody){
+        add(m1.bear ? 'Bullish Harami' : 'Bearish Harami', m1.bear ? 'bullish' : 'bearish', barsAgo, `A small candle sits fully inside the prior large ${m1.bear?'bearish':'bullish'} candle's body - ${m1.bear?'selling':'buying'} momentum is stalling out.`);
+      }
+      const tol = c1.high * 0.0015;
+      if(trend === 'up' && Math.abs(c0.high - c1.high) <= tol && (m0.bear || m0.bodyPct < 0.3)) add('Tweezer Top','bearish',barsAgo,'Two candles printing matching highs after an uptrend - resistance held twice in a row.');
+      if(trend === 'down' && Math.abs(c0.low - c1.low) <= tol && (m0.bull || m0.bodyPct < 0.3)) add('Tweezer Bottom','bullish',barsAgo,'Two candles printing matching lows after a downtrend - support held twice in a row.');
+      if(m1.bear && m0.bull && c0.open > c1.open && c0.low > c1.high) add('Bullish Kicker','bullish',barsAgo,'A gap-up open with zero overlap versus the prior bearish candle - an abrupt, aggressive change of sentiment.');
+      if(m1.bull && m0.bear && c0.open < c1.open && c0.high < c1.low) add('Bearish Kicker','bearish',barsAgo,'A gap-down open with zero overlap versus the prior bullish candle - an abrupt, aggressive change of sentiment.');
+    }
+
+    if(i >= 2){
+      const c1 = candles[i-1], c2 = candles[i-2], m1 = candleMetrics(c1), m2 = candleMetrics(c2);
+      const mid2 = (c2.open + c2.close) / 2;
+      if(m2.bear && m2.bodyPct > 0.5 && m1.bodyPct < 0.35 && m0.bull && c0.close > mid2) add('Morning Star','bullish',barsAgo,'A long bearish candle, a small-bodied pause, then a strong bullish candle closing back above the first candle\'s midpoint - a classic bottoming sequence.');
+      if(m2.bull && m2.bodyPct > 0.5 && m1.bodyPct < 0.35 && m0.bear && c0.close < mid2) add('Evening Star','bearish',barsAgo,'A long bullish candle, a small-bodied pause, then a strong bearish candle closing back below the first candle\'s midpoint - a classic topping sequence.');
+      if(m2.bear && m1.bodyPct < 0.25 && c1.high < c2.low && m0.bull && c0.low > c1.high) add('Bullish Abandoned Baby','bullish',barsAgo,'A small-bodied candle gaps away from both neighbors on both sides - a rare, isolated reversal signal at a low.');
+      if(m2.bull && m1.bodyPct < 0.25 && c1.low > c2.high && m0.bear && c0.high < c1.low) add('Bearish Abandoned Baby','bearish',barsAgo,'A small-bodied candle gaps away from both neighbors on both sides - a rare, isolated reversal signal at a high.');
+      if(m2.bull && m1.bull && m0.bull && c1.open >= c2.open && c1.close > c2.close && c0.open >= c1.open && c0.close > c1.close && m0.upperWick < m0.body*0.3 && m1.upperWick < m1.body*0.3) add('Three White Soldiers','bullish',barsAgo,'Three consecutive strong bullish candles with rising closes and small upper wicks - sustained buying pressure.');
+      if(m2.bear && m1.bear && m0.bear && c1.open <= c2.open && c1.close < c2.close && c0.open <= c1.open && c0.close < c1.close && m0.lowerWick < m0.body*0.3 && m1.lowerWick < m1.body*0.3) add('Three Black Crows','bearish',barsAgo,'Three consecutive strong bearish candles with falling closes and small lower wicks - sustained selling pressure.');
+    }
+  }
+
+  // Rising / Falling Three Methods - a 5-candle continuation pattern, only
+  // meaningful as of the most recent candle (barsAgo 0).
+  if(n >= 5){
+    const c4=candles[n-5], c3=candles[n-4], c2=candles[n-3], c1=candles[n-2], c0=candles[n-1];
+    const m4=candleMetrics(c4), m0=candleMetrics(c0), mids=[c3,c2,c1];
+    const insideRange = mids.every(c => c.high <= c4.high && c.low >= c4.low);
+    if(m4.bull && m4.bodyPct > 0.45 && insideRange && mids.filter(c=>c.close<c.open).length >= 2 && m0.bull && c0.close > c4.close) add('Rising Three Methods','bullish',0,'A strong bullish candle, three small pullback candles that stay inside its range, then a fresh bullish candle closing above the first - a pause that resolves in favor of the uptrend.');
+    if(m4.bear && m4.bodyPct > 0.45 && insideRange && mids.filter(c=>c.close>c.open).length >= 2 && m0.bear && c0.close < c4.close) add('Falling Three Methods','bearish',0,'A strong bearish candle, three small pullback candles that stay inside its range, then a fresh bearish candle closing below the first - a pause that resolves in favor of the downtrend.');
+  }
+
+  // Most recent / most relevant first; cap the list so the card stays readable.
+  patterns.sort((a,b) => a.barsAgo - b.barsAgo);
+  return patterns.slice(0, 6);
+}
+
+// ---- RSI series + Wilder-style Failure Swing (a momentum/price hybrid,
+// included here since it's one of the requested "chart" patterns and RSI
+// is already computed elsewhere on this screen). ----
+function rsiSeries(values, length=14){
+  const result = new Array(values.length).fill(null);
+  if(values.length <= length) return result;
+  let gains=0, losses=0;
+  for(let i=1;i<=length;i++){ const chg=values[i]-values[i-1]; if(chg>=0) gains+=chg; else losses-=chg; }
+  let avgGain=gains/length, avgLoss=losses/length;
+  result[length] = avgLoss===0 ? 100 : 100 - (100/(1+avgGain/avgLoss));
+  for(let i=length+1;i<values.length;i++){
+    const chg=values[i]-values[i-1];
+    avgGain=(avgGain*(length-1)+Math.max(0,chg))/length;
+    avgLoss=(avgLoss*(length-1)+Math.max(0,-chg))/length;
+    result[i]=avgLoss===0 ? 100 : 100 - (100/(1+avgGain/avgLoss));
+  }
+  return result;
+}
+function findRsiPivots(series, radius=3){
+  const pivots=[];
+  for(let i=radius;i<series.length-radius;i++){
+    if(series[i]===null) continue;
+    const window=series.slice(i-radius,i+radius+1).filter(v=>v!==null);
+    if(!window.length) continue;
+    if(series[i] >= Math.max(...window)) pivots.push({index:i,type:'high',value:series[i]});
+    else if(series[i] <= Math.min(...window)) pivots.push({index:i,type:'low',value:series[i]});
+  }
+  return pivots;
+}
+function detectFailureSwing(candles){
+  const closes = candles.map(c=>c.close);
+  const series = rsiSeries(closes,14);
+  const pivots = findRsiPivots(series,3).filter(p => p.index >= series.length-60);
+  const highs = pivots.filter(p=>p.type==='high'), lows = pivots.filter(p=>p.type==='low');
+  const currentRsi = series[series.length-1];
+  if(currentRsi===null) return null;
+  if(highs.length>=2){
+    const [p1,p2] = highs.slice(-2);
+    if(p1.value>=70 && p2.value<p1.value){
+      const between = lows.filter(l=>l.index>p1.index && l.index<p2.index);
+      if(between.length){
+        const pullbackLow = Math.min(...between.map(l=>l.value));
+        if(currentRsi < pullbackLow) return {name:'Bearish Failure Swing (RSI)', bias:'bearish', detail:`RSI peaked at ${p1.value.toFixed(1)}, pulled back, rallied again to a lower high of ${p2.value.toFixed(1)}, and has now broken below the ${pullbackLow.toFixed(1)} pullback floor - a classic Wilder failure swing, often marking a top even before price itself rolls over.`};
+      }
+    }
+  }
+  if(lows.length>=2){
+    const [p1,p2] = lows.slice(-2);
+    if(p1.value<=30 && p2.value>p1.value){
+      const between = highs.filter(h=>h.index>p1.index && h.index<p2.index);
+      if(between.length){
+        const bounceHigh = Math.max(...between.map(h=>h.value));
+        if(currentRsi > bounceHigh) return {name:'Bullish Failure Swing (RSI)', bias:'bullish', detail:`RSI bottomed at ${p1.value.toFixed(1)}, bounced, dipped again to a higher low of ${p2.value.toFixed(1)}, and has now broken above the ${bounceHigh.toFixed(1)} bounce ceiling - a classic Wilder failure swing, often marking a bottom even before price itself turns up.`};
+      }
+    }
+  }
+  return null;
+}
+
+// ---- Trendline/channel family: triangles, wedges, rectangle, megaphone,
+// broadening top/bottom. All derived from a linear-regression slope fit
+// through the recent swing highs and, separately, the recent swing lows -
+// the standard way to approximate a chart's two trendlines without manual
+// drawing. Slopes are normalized to "% change across the lookback window"
+// so the same flat/rising/falling thresholds work at any price scale. ----
+function linRegSlope(points){
+  const n=points.length; if(n<2) return 0;
+  const sx=points.reduce((s,p)=>s+p.x,0), sy=points.reduce((s,p)=>s+p.y,0);
+  const sxy=points.reduce((s,p)=>s+p.x*p.y,0), sxx=points.reduce((s,p)=>s+p.x*p.x,0);
+  const denom = n*sxx - sx*sx;
+  return denom===0 ? 0 : (n*sxy - sx*sy)/denom;
+}
+function detectChannelPattern(candles, swings){
+  const n = candles.length, lookback = Math.min(50, n), startIdx = n - lookback;
+  const recentHighs = swings.filter(s=>s.type==='high' && s.index>=startIdx).slice(-5);
+  const recentLows = swings.filter(s=>s.type==='low' && s.index>=startIdx).slice(-5);
+  if(recentHighs.length<2 || recentLows.length<2) return null;
+  const price = candles[n-1].close;
+  const slopeHigh = linRegSlope(recentHighs.map(s=>({x:s.index,y:s.price}))) / price * lookback * 100;
+  const slopeLow  = linRegSlope(recentLows.map(s=>({x:s.index,y:s.price})))  / price * lookback * 100;
+  const flatTol = 1.5;
+  const highFlat = Math.abs(slopeHigh) < flatTol, lowFlat = Math.abs(slopeLow) < flatTol;
+  const highRising = slopeHigh > flatTol, highFalling = slopeHigh < -flatTol;
+  const lowRising = slopeLow > flatTol, lowFalling = slopeLow < -flatTol;
+  const topPrice = recentHighs[recentHighs.length-1].price, botPrice = recentLows[recentLows.length-1].price;
+
+  if(highFlat && lowRising) return {name:'Ascending Triangle', bias:'bullish', detail:`Resistance is flat near ${formatAnalysisValue(topPrice)} while swing lows step up - buyers are getting more aggressive into a fixed ceiling. A close above ${formatAnalysisValue(topPrice)} would complete the pattern.`};
+  if(lowFlat && highFalling) return {name:'Descending Triangle', bias:'bearish', detail:`Support is flat near ${formatAnalysisValue(botPrice)} while swing highs step down - sellers are getting more aggressive into a fixed floor. A close below ${formatAnalysisValue(botPrice)} would complete the pattern.`};
+  if(highFalling && lowRising) return {name:'Symmetrical Triangle', bias:'neutral', detail:`Swing highs are falling and swing lows are rising into a converging range between ${formatAnalysisValue(botPrice)} and ${formatAnalysisValue(topPrice)} - volatility is compressing. The eventual breakout direction (watch volume) matters more than the pattern itself.`};
+  if(highRising && lowRising && slopeHigh < slopeLow) return {name:'Rising Wedge', bias:'bearish', detail:`Both swing highs and swing lows are rising, but the range is narrowing as it climbs - despite the up-slope, rising wedges resolve down more often than not. A break of the rising lower trendline is the bearish trigger.`};
+  if(highFalling && lowFalling && slopeHigh > slopeLow) return {name:'Falling Wedge', bias:'bullish', detail:`Both swing highs and swing lows are falling, but the range is narrowing as it declines - despite the down-slope, falling wedges resolve up more often than not. A break of the falling upper trendline is the bullish trigger.`};
+  if(highFlat && lowFlat) return {name:'Rectangle', bias:'neutral', detail:`Price is bouncing between flat resistance near ${formatAnalysisValue(topPrice)} and flat support near ${formatAnalysisValue(botPrice)} - a trading range. Fade the edges or wait for a decisive breakout.`};
+  if(highRising && lowFalling){
+    const priorTrend = trendBefore(candles, startIdx, 40);
+    if(priorTrend==='up') return {name:'Broadening Top', bias:'bearish', detail:`Coming off an extended uptrend, swing highs are rising while swing lows are falling - the range is widening at a market extreme, a classic (if uncommon) topping formation. A break of the rising lower boundary near ${formatAnalysisValue(botPrice)} is the bearish trigger.`};
+    if(priorTrend==='down') return {name:'Broadening Bottom', bias:'bullish', detail:`Coming off an extended downtrend, swing highs are rising while swing lows are falling - the range is widening at a market extreme, a classic (if uncommon) bottoming formation. A break of the falling upper boundary near ${formatAnalysisValue(topPrice)} is the bullish trigger.`};
+    return {name:'Megaphone (Broadening Formation)', bias:'neutral', detail:`Swing highs are rising and swing lows are falling at the same time - the range is expanding rather than contracting, mid-trend, signaling rising volatility and disagreement between buyers and sellers. These are unreliable for directional bets; wait for a clear break AND hold outside the widening range before trusting a breakout.`};
+  }
+  return null;
+}
+// Flags/Pennants: a sharp, high-momentum "pole" move followed by a tight
+// consolidation that either drifts counter to the pole (Flag, a parallel
+// channel) or converges (Pennant, a small symmetrical triangle).
+function detectFlagPennant(candles){
+  const n = candles.length;
+  if(n < 20) return null;
+  const pole = candles.slice(n-18, n-8), consol = candles.slice(n-8, n);
+  if(pole.length<8 || consol.length<8) return null;
+  const poleChangePct = (pole[pole.length-1].close - pole[0].open) / pole[0].open * 100;
+  if(Math.abs(poleChangePct) < 8) return null;
+  const poleRange = Math.max(...pole.map(c=>c.high)) - Math.min(...pole.map(c=>c.low));
+  const consolHigh = Math.max(...consol.map(c=>c.high)), consolLow = Math.min(...consol.map(c=>c.low));
+  if((consolHigh - consolLow) > poleRange*0.65) return null;
+  const bullPole = poleChangePct > 0;
+  const firstHalf = consol.slice(0, Math.floor(consol.length/2)), secondHalf = consol.slice(Math.floor(consol.length/2));
+  const firstRange = Math.max(...firstHalf.map(c=>c.high)) - Math.min(...firstHalf.map(c=>c.low));
+  const secondRange = Math.max(...secondHalf.map(c=>c.high)) - Math.min(...secondHalf.map(c=>c.low));
+  const converging = secondRange < firstRange*0.75;
+  return {
+    name: converging ? (bullPole?'Bullish Pennant':'Bearish Pennant') : (bullPole?'Bull Flag':'Bear Flag'),
+    bias: bullPole?'bullish':'bearish',
+    detail: `A sharp ${bullPole?'rally':'sell-off'} of ${Math.abs(poleChangePct).toFixed(1)}% (the flagpole) has been followed by a tight, ${converging?'converging':'sideways-drifting'} consolidation - a classic continuation setup. A break in the direction of the pole (${bullPole?'up':'down'}) with volume expanding would resume the trend.`
+  };
+}
+// Cup & Handle / Rounding Bottom: a slow, rounded bowl in price. Splits the
+// lookback into thirds and checks the middle third is meaningfully lower
+// than both outer thirds (the bowl), with the two rims roughly level. A
+// shallow pullback right at the end (near the right rim) upgrades it from
+// a plain Rounding Bottom to a Cup and Handle.
+function detectCupAndHandle(candles){
+  const n = candles.length, lookback = Math.min(90, n);
+  if(lookback < 45) return null;
+  const seg = candles.slice(n-lookback), third = Math.floor(seg.length/3);
+  const left = seg.slice(0,third), mid = seg.slice(third,2*third), right = seg.slice(2*third);
+  const leftHigh = Math.max(...left.map(c=>c.high)), midLow = Math.min(...mid.map(c=>c.low)), rightHigh = Math.max(...right.map(c=>c.high));
+  const roundedBowl = midLow < leftHigh*0.93 && midLow < rightHigh*0.93 && Math.abs(leftHigh-rightHigh)/leftHigh < 0.08;
+  if(!roundedBowl) return null;
+  const handleSeg = seg.slice(-Math.max(5, Math.floor(seg.length*0.12)));
+  const handleLow = Math.min(...handleSeg.map(c=>c.low));
+  const rim = Math.max(leftHigh, rightHigh);
+  const handleDepthPct = (rim - handleLow) / rim * 100;
+  const hasHandle = handleDepthPct > 2 && handleDepthPct < 15 && handleSeg[handleSeg.length-1].close < rim;
+  if(hasHandle) return {name:'Cup and Handle', bias:'bullish', detail:`A rounded bowl from ${formatAnalysisValue(leftHigh)} down to ${formatAnalysisValue(midLow)} and back to ${formatAnalysisValue(rightHigh)}, followed by a shallow ${handleDepthPct.toFixed(1)}% handle pullback - a bullish continuation setup. Trigger is a breakout above the rim near ${formatAnalysisValue(rim)}.`};
+  return {name:'Rounding Bottom', bias:'bullish', detail:`Price has traced a gradual, rounded bowl from ${formatAnalysisValue(leftHigh)} down to ${formatAnalysisValue(midLow)} and back up toward ${formatAnalysisValue(rightHigh)} - a slow, accumulation-style base. A close above the rim (~${formatAnalysisValue(rim)}) would confirm the reversal.`};
+}
+// Diamond: swing range visibly widens (broadening) then narrows again
+// (a triangle) within the same window - a fairly rare reversal pattern
+// usually seen after an extended trend.
+function detectDiamond(candles, swings){
+  const n = candles.length, lookback = 60, startIdx = n - lookback;
+  const recent = swings.filter(s => s.index >= startIdx);
+  if(recent.length < 6) return null;
+  const mid = Math.floor(recent.length/2), first = recent.slice(0,mid), second = recent.slice(mid);
+  const rangeOf = arr => Math.max(...arr.map(s=>s.price)) - Math.min(...arr.map(s=>s.price));
+  const firstStart = rangeOf(first.slice(0,Math.ceil(first.length/2))), firstEnd = rangeOf(first.slice(Math.floor(first.length/2)));
+  const secondStart = rangeOf(second.slice(0,Math.ceil(second.length/2))), secondEnd = rangeOf(second.slice(Math.floor(second.length/2)));
+  if(firstEnd > firstStart*1.2 && secondEnd < secondStart*0.75){
+    return {name:'Diamond Pattern', bias:'neutral', detail:`Swing volatility expanded and then contracted, tracing a diamond shape - usually a reversal pattern after an extended trend. A confirmed break of the diamond's lower boundary points down; a break of the upper boundary points up.`};
+  }
+  return null;
+}
+// Island Reversal: an isolated cluster of 1-4 candles that gapped away
+// from the prior price action and then gapped back the other way, leaving
+// a price "island". True gaps are uncommon on a 24/7 perpetual market, so
+// this fires rarely - which is correct, it's meant to be a rare signal.
+function detectIslandReversal(candles){
+  const n = candles.length;
+  if(n < 8) return null;
+  for(let gapStart = n-3; gapStart >= Math.max(4, n-15); gapStart--){
+    for(let islandLen = 1; islandLen <= 4; islandLen++){
+      const preIdx = gapStart - islandLen - 1, postIdx = gapStart;
+      if(preIdx < 0 || postIdx >= n) continue;
+      const pre = candles[preIdx], island = candles.slice(preIdx+1, preIdx+1+islandLen), post = candles[postIdx];
+      if(!island.length) continue;
+      const islandHigh = Math.max(...island.map(c=>c.high)), islandLow = Math.min(...island.map(c=>c.low));
+      if(islandLow > pre.high && post.high < islandLow) return {name:'Bearish Island Reversal', bias:'bearish', detail:`A cluster of candles gapped above ${formatAnalysisValue(pre.high)} and then gapped back below ${formatAnalysisValue(islandLow)} - an isolated "island" of trading, a rare but classic exhaustion signal at a top.`};
+      if(islandHigh < pre.low && post.low > islandHigh) return {name:'Bullish Island Reversal', bias:'bullish', detail:`A cluster of candles gapped below ${formatAnalysisValue(pre.low)} and then gapped back above ${formatAnalysisValue(islandHigh)} - an isolated "island" of trading, a rare but classic exhaustion signal at a bottom.`};
+    }
+  }
+  return null;
+}
+// Percent difference between two prices - used throughout the chart-pattern
+// checks below to test whether two swing points are "roughly equal".
+function pctDiff(a,b){ return Math.abs(a-b) / ((a+b)/2) * 100; }
+function detectChartPatterns(candles, swings){
+  const results = [];
+  const highs = swings.filter(s=>s.type==='high'), lows = swings.filter(s=>s.type==='low');
+  const lastPrice = candles[candles.length-1].close;
+
+  // Double / Triple Top & Bottom
+  if(highs.length>=2){
+    const [h1,h2] = highs.slice(-2);
+    const between = lows.filter(l=>l.index>h1.index && l.index<h2.index);
+    if(between.length && pctDiff(h1.price,h2.price)<1.5 && h2.index-h1.index>=5){
+      const neckline = Math.min(...between.map(l=>l.price)), confirmed = lastPrice < neckline;
+      results.push({name:'Double Top (M)', bias:'bearish', detail:`Two peaks near ${formatAnalysisValue(h1.price)} / ${formatAnalysisValue(h2.price)} separated by a pullback to ${formatAnalysisValue(neckline)}. ${confirmed?'Price has already broken the neckline - pattern confirmed.':`Watch for a break below ${formatAnalysisValue(neckline)} to confirm.`}`});
+    }
+  }
+  if(lows.length>=2){
+    const [l1,l2] = lows.slice(-2);
+    const between = highs.filter(h=>h.index>l1.index && h.index<l2.index);
+    if(between.length && pctDiff(l1.price,l2.price)<1.5 && l2.index-l1.index>=5){
+      const neckline = Math.max(...between.map(h=>h.price)), confirmed = lastPrice > neckline;
+      results.push({name:'Double Bottom (W)', bias:'bullish', detail:`Two troughs near ${formatAnalysisValue(l1.price)} / ${formatAnalysisValue(l2.price)} separated by a bounce to ${formatAnalysisValue(neckline)}. ${confirmed?'Price has already broken the neckline - pattern confirmed.':`Watch for a break above ${formatAnalysisValue(neckline)} to confirm.`}`});
+    }
+  }
+  if(highs.length>=3){
+    const [h1,h2,h3] = highs.slice(-3);
+    if(pctDiff(h1.price,h2.price)<1.5 && pctDiff(h2.price,h3.price)<1.5 && pctDiff(h1.price,h3.price)<2) results.push({name:'Triple Top', bias:'bearish', detail:`Three peaks clustered near ${formatAnalysisValue((h1.price+h2.price+h3.price)/3)} - resistance has held three times, raising the odds of a breakdown if support gives way.`});
+  }
+  if(lows.length>=3){
+    const [l1,l2,l3] = lows.slice(-3);
+    if(pctDiff(l1.price,l2.price)<1.5 && pctDiff(l2.price,l3.price)<1.5 && pctDiff(l1.price,l3.price)<2) results.push({name:'Triple Bottom', bias:'bullish', detail:`Three troughs clustered near ${formatAnalysisValue((l1.price+l2.price+l3.price)/3)} - support has held three times, raising the odds of a breakout if resistance gives way.`});
+  }
+  // Head & Shoulders / Inverse
+  if(highs.length>=3 && lows.length>=2){
+    const [s1,head,s2] = highs.slice(-3);
+    if(head.price>s1.price && head.price>s2.price && pctDiff(s1.price,s2.price)<3){
+      const necklineLows = lows.filter(l=>l.index>s1.index && l.index<s2.index);
+      if(necklineLows.length>=2){
+        const neckline=(necklineLows[0].price+necklineLows[necklineLows.length-1].price)/2, confirmed=lastPrice<neckline;
+        results.push({name:'Head & Shoulders', bias:'bearish', detail:`Left shoulder ${formatAnalysisValue(s1.price)}, head ${formatAnalysisValue(head.price)}, right shoulder ${formatAnalysisValue(s2.price)}, neckline near ${formatAnalysisValue(neckline)}. ${confirmed?'Neckline is broken - pattern confirmed.':`Watch for a neckline break below ${formatAnalysisValue(neckline)} to confirm.`}`});
+      }
+    }
+  }
+  if(lows.length>=3 && highs.length>=2){
+    const [s1,head,s2] = lows.slice(-3);
+    if(head.price<s1.price && head.price<s2.price && pctDiff(s1.price,s2.price)<3){
+      const necklineHighs = highs.filter(h=>h.index>s1.index && h.index<s2.index);
+      if(necklineHighs.length>=2){
+        const neckline=(necklineHighs[0].price+necklineHighs[necklineHighs.length-1].price)/2, confirmed=lastPrice>neckline;
+        results.push({name:'Inverse Head & Shoulders', bias:'bullish', detail:`Left shoulder ${formatAnalysisValue(s1.price)}, head ${formatAnalysisValue(head.price)}, right shoulder ${formatAnalysisValue(s2.price)}, neckline near ${formatAnalysisValue(neckline)}. ${confirmed?'Neckline is broken - pattern confirmed.':`Watch for a neckline break above ${formatAnalysisValue(neckline)} to confirm.`}`});
+      }
+    }
+  }
+  const channel = detectChannelPattern(candles, swings); if(channel) results.push(channel);
+  const flag = detectFlagPennant(candles); if(flag) results.push(flag);
+  const cup = detectCupAndHandle(candles); if(cup) results.push(cup);
+  const diamond = detectDiamond(candles, swings); if(diamond) results.push(diamond);
+  const island = detectIslandReversal(candles); if(island) results.push(island);
+  const failSwing = detectFailureSwing(candles); if(failSwing) results.push(failSwing);
+  return results;
+}
+
 function drawAnalysisChart(candles, retracement, currentPrice, ema50Values, ema200Values){
   const canvas = document.getElementById('analysisChart');
   const rect = canvas.getBoundingClientRect();
@@ -1794,6 +2169,10 @@ async function openAnalysis(symbol, intervalOverride){
     const candles = warmupCandles.slice(-180);
     if(candles.length < 30) throw new Error('Not enough candles available');
     const closes = candles.map(candle => candle.close), warmupCloses = warmupCandles.map(candle => candle.close), swings = findSwings(candles), swingMove = latestSwingMove(swings);
+    // Candlestick + chart pattern reads for the current timeframe (see the
+    // detector functions above drawAnalysisChart for the full pattern catalogue).
+    const candlePatterns = detectCandlestickPatterns(candles);
+    const chartPatterns = detectChartPatterns(candles, swings);
     const recentHigh = swingMove ? swingMove.high : Math.max(...candles.slice(Math.max(0,candles.length-80)).map(candle=>candle.high));
     const recentLow = swingMove ? swingMove.low : Math.min(...candles.slice(Math.max(0,candles.length-80)).map(candle=>candle.low));
     const retracement = swingMove ? swingMove.midpoint : recentLow + (recentHigh - recentLow) * .5;
@@ -1840,7 +2219,14 @@ async function openAnalysis(symbol, intervalOverride){
     const structureSide = /Bullish/.test(marketStructure.state) ? 1 : (/Bearish/.test(marketStructure.state) ? -1 : null);
     const emaSide = (ema20 > ema50 && ema50 > ema200) ? 1 : ((ema20 < ema50 && ema50 < ema200) ? -1 : null);
     const cloudSide = Number.isFinite(effectiveRow.cloudTop) && Number.isFinite(effectiveRow.cloudBottom) ? (currentPrice > effectiveRow.cloudTop ? 1 : (currentPrice < effectiveRow.cloudBottom ? -1 : null)) : null;
-    const votes = [rsiSide, macdSide, structureSide, emaSide, cloudSide];
+    // Fold the candlestick + chart pattern reads into the same bullish/bearish
+    // vote count as every other factor (RSI, MACD, structure, EMA, Cloud).
+    // Only the 3 most-recent candlestick reads count, so one pattern from
+    // several bars ago can't outvote what's happening right now.
+    const patternBullCount = candlePatterns.slice(0,3).filter(p=>p.bias==='bullish').length + chartPatterns.filter(p=>p.bias==='bullish').length;
+    const patternBearCount = candlePatterns.slice(0,3).filter(p=>p.bias==='bearish').length + chartPatterns.filter(p=>p.bias==='bearish').length;
+    const patternSide = patternBullCount === patternBearCount ? null : (patternBullCount > patternBearCount ? 1 : -1);
+    const votes = [rsiSide, macdSide, structureSide, emaSide, cloudSide, patternSide];
     const bullVotes = votes.filter(v => v === 1).length, bearVotes = votes.filter(v => v === -1).length, totalVotes = votes.filter(v => v !== null).length;
     const biasDir = bullVotes === bearVotes ? 0 : (bullVotes > bearVotes ? 1 : -1);
     const biasLabel = biasDir === 1 ? 'Bullish' : (biasDir === -1 ? 'Bearish' : 'Mixed');
@@ -2016,6 +2402,37 @@ async function openAnalysis(symbol, intervalOverride){
     const levelsHeadline = hasSetup ? `Entry ${formatAnalysisValue(entry)} | Stop ${formatAnalysisValue(stop)} | Target ${formatAnalysisValue(target)}` : `Watch: Cloud ${formatAnalysisValue(effectiveRow.cloudBottom)}–${formatAnalysisValue(effectiveRow.cloudTop)} | EMA50 ${formatAnalysisValue(ema50)}`;
     const levelsLine = hasSetup ? 'Stop sits at the cloud boundary; target is a 2R (2x risk) objective. Check liquidity and exchange order rules before sizing.' : 'No active trigger — these are the levels that would need to break for a Long/Short signal to fire.';
 
+    // Candlestick Patterns (current TF, last few closed candles)
+    const candleHeadline = candlePatterns.length
+      ? `${candlePatterns[0].name} (${candlePatterns[0].bias})${candlePatterns[0].barsAgo===0 ? ' — forming now' : ` — ${candlePatterns[0].barsAgo} bar${candlePatterns[0].barsAgo>1?'s':''} ago`}`
+      : 'No classic pattern in recent candles';
+    let candleLine;
+    if(!candlePatterns.length){
+      candleLine = 'None of the standard single/multi-candle reversal or continuation patterns (Doji, Hammer, Engulfing, Stars, Three Soldiers/Crows, etc.) are present in the last few closed candles.';
+    } else {
+      const topCandles = candlePatterns.slice(0,3);
+      candleLine = topCandles.map(p => `<strong style="color:var(--text)">${p.name}</strong>${p.barsAgo>0?` (${p.barsAgo} bar${p.barsAgo>1?'s':''} ago)`:''}: ${p.note}`).join('<br>');
+      if(hasSetup){
+        const cBull = topCandles.filter(p=>p.bias==='bullish').length, cBear = topCandles.filter(p=>p.bias==='bearish').length;
+        const cDir = cBull===cBear ? null : (cBull>cBear ? 1 : -1);
+        if(cDir !== null) candleLine += `<br>This reads ${cDir===dir ? 'in favor of' : 'against'} the ${effectiveRow.setup} idea.`;
+      }
+    }
+
+    // Chart (Price) Patterns — current TF swing structure + a glance at HTF
+    const chartHeadline = chartPatterns.length ? chartPatterns.map(p=>p.name).slice(0,2).join(' + ') : 'No classic chart pattern detected';
+    let chartLine;
+    if(!chartPatterns.length){
+      chartLine = `No Double/Triple Top-Bottom, Head & Shoulders, Triangle, Wedge, Flag/Pennant, Rectangle, Cup & Handle, Rounding Bottom, Diamond, Broadening/Megaphone, Island Reversal or RSI Failure Swing is currently forming on ${timeframeLabel(interval)} swings.`;
+    } else {
+      chartLine = chartPatterns.map(p => `<strong style="color:var(--text)">${p.name}</strong> (${p.bias}): ${p.detail}`).join('<br>');
+    }
+    if(htf && htf.chartPatterns && htf.chartPatterns.length){
+      const htfBull = htf.chartPatterns.filter(p=>p.bias==='bullish').length, htfBear = htf.chartPatterns.filter(p=>p.bias==='bearish').length;
+      const agrees = (htfBull>htfBear && patternSide===1) || (htfBear>htfBull && patternSide===-1);
+      chartLine += `<br>${htfLabel}: ${htf.chartPatterns.map(p=>p.name).join(', ')} also visible on the higher timeframe${chartPatterns.length ? ` — ${agrees ? 'reinforcing' : 'adding context to'} the current-TF read.` : '.'}`;
+    }
+
     // Overall
     const htfHeadline = htfSide === 1 ? 'Bullish' : (htfSide === -1 ? 'Bearish' : (htfSide === 0 ? 'Mixed' : 'Unavailable'));
     let htfLine = '';
@@ -2081,6 +2498,11 @@ async function openAnalysis(symbol, intervalOverride){
       }
     }
 
+    // Stashed for the "Price action analysis" popover (opened from the
+    // Ichimoku card) so candlestick + chart pattern reads live in their own
+    // stacked window instead of two separate cards in the main grid.
+    window.priceActionData = {candleHeadline, candleLine, chartHeadline, chartLine};
+
     const cardHtml = ([label,value,detail]) => `<div class="analysis-card${label === 'Levels' ? ' execution' : ''}"><strong>${label}</strong><span class="analysis-value"><em>${value}</em></span>${label === 'Levels' ? detail : `<p>${detail}</p>`}</div>`;
     const mainCards = [
       ['Ichimoku (9/26/52)', ichimokuHeadline, ichimokuLine],
@@ -2102,6 +2524,26 @@ async function openAnalysis(symbol, intervalOverride){
 function closeAnalysis(event){
   if(event && event.target !== document.getElementById('analysisModal')) return;
   document.getElementById('analysisModal').classList.remove('open');
+}
+
+// Price action popover - candlestick + chart pattern reads, opened from the
+// Ichimoku card's "Price action analysis" link. Stacks above the analysis
+// modal (higher z-index) rather than replacing it, so closing it returns to
+// the analysis window underneath.
+function openPriceAction(event){
+  if(event) event.stopPropagation();
+  const data = window.priceActionData;
+  if(!data) return;
+  const cardHtml = ([label,value,detail]) => `<div class="analysis-card"><strong>${label}</strong><span class="analysis-value"><em>${value}</em></span><p>${detail}</p></div>`;
+  document.getElementById('priceActionDetails').innerHTML = [
+    ['Candlestick Patterns', data.candleHeadline, data.candleLine],
+    ['Chart Patterns — Price Action', data.chartHeadline, data.chartLine]
+  ].map(cardHtml).join('');
+  document.getElementById('priceActionModal').classList.add('open');
+}
+function closePriceAction(event){
+  if(event && event.target !== document.getElementById('priceActionModal')) return;
+  document.getElementById('priceActionModal').classList.remove('open');
 }
 
 // Levels-card link: closes the Daily analysis window and reopens the same
