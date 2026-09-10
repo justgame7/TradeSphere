@@ -86,65 +86,10 @@
 // See README.md for the one-time Telegram bot setup and how the GitHub
 // Actions workflow (.github/workflows/screener.yml) schedules this hourly.
 
-// FUNDING RATE / FUNDING INTERVAL - added after the above CoinDCX section was
-// already stable. CoinDCX's public API doesn't expose funding rate or
-// funding interval in any usable form, and Binance is blocked at the GitHub
-// Actions runner level (see the CANDLE ENDPOINT HISTORY note above, and
-// screen.js's git history around when the CoinDCX rewrite happened - Azure
-// datacenter IPs get HTTP 451 from Binance). CoinGlass was evaluated as an
-// alternative and rejected: as of writing, every CoinGlass API plan
-// (including the entry "Hobbyist" tier) is a PAID subscription starting at
-// $29/mo, authenticated via a CG-API-KEY header - there's no free
-// programmatic tier, only their web dashboard is free. That doesn't fit this
-// project's free-tier-only approach.
-//
-// Bybit's V5 API is used instead - public, unauthenticated, and already
-// proven reachable from GitHub Actions runners elsewhere in this project's
-// pipeline (unlike Binance). Two calls total per run (not per-symbol):
-//   - GET https://api.bybit.com/v5/market/tickers?category=linear
-//     One call returns EVERY linear (USDT/USDC-margined) perpetual's current
-//     fundingRate and nextFundingTime in a single "result.list" array - no
-//     per-symbol requests needed. Some non-perpetual instruments in that
-//     list report fundingRate as an empty string; those are skipped.
-//   - GET https://api.bybit.com/v5/market/instruments-info?category=linear
-//     Canonical source for funding INTERVAL, via the fundingInterval field -
-//     returned in MINUTES (not hours), e.g. 480 = 8h. Paginated via
-//     limit/cursor, but Bybit's whole linear symbol list has fit in a single
-//     1000-row page in practice. As a fallback, newer Bybit ticker payloads
-//     sometimes also carry fundingIntervalHour directly - used only if this
-//     instruments-info call fails outright.
-// Matched to CoinDCX's "B-COIN_USDT" pairs via bybitSymbolFor() below, which
-// strips CoinDCX's wrapper (same stripUsdt() used for display) and appends
-// "USDT" - e.g. "B-1000SHIB_USDT" -> "1000SHIBUSDT". CoinDCX's size-prefix
-// convention (1000SHIB, 1000PEPE, ...) mirrors Bybit's own for the large
-// majority of symbols, so this holds without a manual mapping table. Any
-// symbol that doesn't resolve on Bybit (CoinDCX-only listings) just shows no
-// funding data rather than failing the run.
-
 const COINDCX_API_BASE = 'https://api.coindcx.com';
 const COINDCX_PUBLIC_BASE = 'https://public.coindcx.com';
 const ACTIVE_INSTRUMENTS_URL = `${COINDCX_API_BASE}/exchange/v1/derivatives/futures/data/active_instruments`;
 const FUTURES_CANDLES_URL = `${COINDCX_PUBLIC_BASE}/market_data/candlesticks`;
-
-const BYBIT_API_BASE = 'https://api.bybit.com';
-const BYBIT_TICKERS_URL = `${BYBIT_API_BASE}/v5/market/tickers?category=linear`;
-const BYBIT_INSTRUMENTS_URL = `${BYBIT_API_BASE}/v5/market/instruments-info`;
-
-// Unlike CoinDCX (hit directly above - no issue from a GitHub Actions
-// runner), api.bybit.com's CloudFront distribution actively GEO-BLOCKS the
-// GitHub Actions runner's datacenter region ("The Amazon CloudFront
-// distribution is configured to block access from your country" - HTTP
-// 403), confirmed from a real run. So Bybit calls are routed through the
-// same TradeSphere Cloudflare Worker proxy the rest of the project already
-// uses for browser-side CORS passthrough - its edge isn't geo-blocked the
-// way the runner's IP is. api.bybit.com must be in the Worker's
-// ALLOWED_HOSTS for this to work (already added as of this change). Same
-// query-param proxy pattern as the rest of the app: WORKER_PROXY_URL +
-// "/?url=" + encodeURIComponent(targetUrl) - see e.g. etf-flows.html.
-const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
-function viaWorker(url) {
-  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(url)}`;
-}
 
 // Ichimoku period counts are timeframe-agnostic - still 9/26/52 bars,
 // just of whichever candle size is being scanned - so these are shared
@@ -271,67 +216,6 @@ async function fetchJSON(url) {
 async function getUSDTPerpetualSymbols() {
   const data = await fetchJSON(ACTIVE_INSTRUMENTS_URL);
   return data.filter((pair) => pair.endsWith('_USDT'));
-}
-
-// ---------------- funding rate / funding interval (Bybit) ----------------
-// Maps a CoinDCX "B-COIN_USDT" pair to Bybit's own symbol format - see the
-// header note above on why this mapping holds for most symbols.
-function bybitSymbolFor(coindcxPair) {
-  return `${stripUsdt(coindcxPair)}USDT`;
-}
-
-// Fetched ONCE per run (not per-symbol, not per-timeframe) and shared across
-// both the 4H and Daily scans, since funding rate/interval don't depend on
-// which timeframe is being screened. Returns a Map keyed by Bybit symbol
-// (e.g. "BTCUSDT") -> { fundingRate, intervalHours, nextFundingTime }.
-// Never throws - a failure here degrades to "no funding data" for the run
-// rather than failing the whole scan, since funding is supplementary to the
-// core Ichimoku signal.
-async function getBybitFundingMap() {
-  const fundingMap = new Map();
-
-  try {
-    const body = await fetchJSON(viaWorker(BYBIT_TICKERS_URL));
-    const list = body && body.result && Array.isArray(body.result.list) ? body.result.list : [];
-    for (const t of list) {
-      const rate = parseFloat(t.fundingRate);
-      if (!t.symbol || !Number.isFinite(rate)) continue; // "" fundingRate on some non-perp instruments
-      const tickerInterval = parseFloat(t.fundingIntervalHour);
-      fundingMap.set(t.symbol, {
-        fundingRate: rate,
-        nextFundingTime: Number(t.nextFundingTime) || null,
-        // First guess only - overwritten below by instruments-info, the
-        // canonical source, when that call succeeds.
-        intervalHours: Number.isFinite(tickerInterval) ? tickerInterval : null,
-      });
-    }
-  } catch (e) {
-    console.error(`Bybit funding: tickers fetch failed, funding data omitted from this run - ${e.message}`);
-    return fundingMap; // empty - screenSymbol/runTimeframeScan treat a missing entry as "no funding data"
-  }
-
-  try {
-    let cursor = '';
-    let page = 0;
-    do {
-      const qs = new URLSearchParams({ category: 'linear', limit: '1000' });
-      if (cursor) qs.set('cursor', cursor);
-      const body = await fetchJSON(viaWorker(`${BYBIT_INSTRUMENTS_URL}?${qs.toString()}`));
-      const list = body && body.result && Array.isArray(body.result.list) ? body.result.list : [];
-      for (const inst of list) {
-        const entry = fundingMap.get(inst.symbol);
-        const minutes = Number(inst.fundingInterval);
-        if (entry && Number.isFinite(minutes) && minutes > 0) entry.intervalHours = minutes / 60;
-      }
-      cursor = body && body.result ? body.result.nextPageCursor : '';
-      page++;
-    } while (cursor && page < 10); // safety cap - Bybit's whole linear list has fit in one page in practice
-  } catch (e) {
-    console.error(`Bybit funding: instruments-info fetch failed, falling back to ticker-reported intervals where available - ${e.message}`);
-  }
-
-  console.log(`Bybit funding: ${fundingMap.size} symbols with current funding data.`);
-  return fundingMap;
 }
 
 // ---------------- klines ----------------
@@ -544,7 +428,7 @@ async function runPool(items, worker, concurrency) {
 // diagnostics (prefixed so Daily vs 4H errors don't get mixed together in
 // the Action log), and returns the Long/Short setups with trade-plan math
 // already attached.
-async function runTimeframeScan(symbols, tf, fundingMap) {
+async function runTimeframeScan(symbols, tf) {
   console.log(`\nScanning ${symbols.length} symbols for ${tf.label} (resolution=${tf.resolution})...`);
 
   const raw = await runPool(symbols, (s) => screenSymbol(s, tf), CONCURRENCY);
@@ -592,8 +476,7 @@ async function runTimeframeScan(symbols, tf, fundingMap) {
     const entry = r.entryPrice;
     const stop = isLong ? r.cloudBottom : r.cloudTop;
     const target = targetFor(entry, stop, isLong, 2);
-    const funding = fundingMap.get(bybitSymbolFor(r.symbol)) || null;
-    return { ...r, entry, stop, target, funding };
+    return { ...r, entry, stop, target };
   });
 
   const longs = withTrade.filter((r) => r.setup === 'Long').sort((a, b) => b.confirmed - a.confirmed || b.volToday - a.volToday);
@@ -623,19 +506,9 @@ async function runTimeframeScan(symbols, tf, fundingMap) {
 function deepLink(coin) {
   return `https://newsyt.justfagame9.workers.dev/open?symbol=${encodeURIComponent(coin)}`;
 }
-// Funding rate as a signed percentage + its interval, e.g. "+0.0050% (8h)".
-// Omitted entirely (returns '') when Bybit had no matching symbol or the
-// funding fetch failed for this run - see getBybitFundingMap().
-function fmtFunding(funding) {
-  if (!funding || !Number.isFinite(funding.fundingRate)) return '';
-  const pctValue = funding.fundingRate * 100;
-  const pct = `${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(4)}%`;
-  const interval = Number.isFinite(funding.intervalHours) ? `${funding.intervalHours}h` : 'interval n/a';
-  return ` · Funding <code>${pct}</code> (${interval})`;
-}
 function fmtRow(r) {
   const coin = stripSizePrefix(stripUsdt(r.symbol));
-  return `<b>$${coin}</b> · ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>${fmtFunding(r.funding)}`;
+  return `<b>$${coin}</b> · ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
 }
 function fmtSection(rows) {
   // Single newline between coins within a LONG/SHORT block - no blank line.
@@ -735,12 +608,8 @@ async function sendTelegramMessage(text) {
 
 // ---------------- main ----------------
 async function main() {
-  console.log(`Fetching USDT perpetual symbol list (CoinDCX) and funding data (Bybit)...`);
-  // Independent of each other, so fetched concurrently rather than back-to-back.
-  const [symbols, fundingMap] = await Promise.all([
-    getUSDTPerpetualSymbols(),
-    getBybitFundingMap(),
-  ]);
+  console.log(`Fetching USDT perpetual symbol list (CoinDCX)...`);
+  const symbols = await getUSDTPerpetualSymbols();
 
   // Run each timeframe's scan fully before starting the next, rather than
   // interleaving - keeps the pacing throttle's request spacing meaningful
@@ -748,7 +617,7 @@ async function main() {
   // in the log instead of interleaved line-by-line.
   const scans = [];
   for (const tf of TIMEFRAMES) {
-    const { longs, shorts } = await runTimeframeScan(symbols, tf, fundingMap);
+    const { longs, shorts } = await runTimeframeScan(symbols, tf);
     scans.push({ tf, longs, shorts });
   }
 
@@ -771,7 +640,7 @@ async function main() {
   const message =
     `<b>Ichimoku breakout screener (CoinDCX) — ${stamp}</b>\n\n` +
     scans.map(sectionFor).join('\n\n') + '\n\n' +
-    `✅ = confirmed · CK/PK = breakout type · Funding via Bybit`;
+    `✅ = confirmed · CK/PK = breakout type`;
 
   console.log('\n' + message.replace(/<\/?[a-z]+>/g, ''));
   await sendTelegramMessage(message);
