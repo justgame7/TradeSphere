@@ -150,20 +150,23 @@ const WEEKLY_TIMEFRAME = { label: 'Weekly', resolution: '1w', historyDays: 1100,
 
 // The weekly scan should only run once a week, on the first hourly run at
 // or after 12:00 IST on Monday - not on every hourly run that happens to
-// land Monday afternoon. Since the workflow runs on the hour, "first run
-// at or after 12:00" is just "the run whose IST hour is exactly 12": the
-// 12:00-12:59 slot. Every other hour (including 13:00+ Monday and all of
-// Tue-Sun) skips it - there's no persisted state between runs, so this
-// hour-equality check is what keeps it to once a week without needing one.
+// land Monday afternoon. Narrowed to the 12:00-12:40 IST window (rather
+// than the full 12:00-12:59 hour) so that if the workflow ever fires more
+// than once inside the 12 o'clock hour, a run landing past :40 is treated
+// as a stray/retry rather than a second legitimate weekly run. There's no
+// persisted state between runs, so this is a time-window narrowing, not a
+// true dedupe - multiple runs that land at/before :40 will still each
+// trigger the weekly scan.
 function isWeeklyScanWindow(date) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Kolkata',
     weekday: 'short',
     hour: '2-digit',
+    minute: '2-digit',
     hour12: false,
   }).formatToParts(date);
   const get = (type) => parts.find((p) => p.type === type).value;
-  return get('weekday') === 'Mon' && Number(get('hour')) === 12;
+  return get('weekday') === 'Mon' && Number(get('hour')) === 12 && Number(get('minute')) <= 40;
 }
 
 const CONCURRENCY = 3; // conservative starting point - CoinDCX doesn't publish a public market-data rate limit, tune after watching real runs
@@ -647,8 +650,8 @@ async function main() {
   const timeframesToRun = runWeekly ? [...TIMEFRAMES, WEEKLY_TIMEFRAME] : TIMEFRAMES;
   console.log(
     runWeekly
-      ? 'Weekly scan window (Mon 12:00 IST) - including Weekly alongside 4H/Daily this run.'
-      : 'Not the weekly scan window (Mon 12:00 IST) - skipping Weekly, running 4H/Daily only.'
+      ? 'Weekly scan window (Mon 12:00-12:40 IST) - including Weekly alongside 4H/Daily this run.'
+      : 'Not the weekly scan window (Mon 12:00-12:40 IST) - skipping Weekly, running 4H/Daily only.'
   );
 
   // Run each timeframe's scan fully before starting the next, rather than
