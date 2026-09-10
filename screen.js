@@ -508,7 +508,7 @@ function deepLink(coin) {
 }
 function fmtRow(r) {
   const coin = stripSizePrefix(stripUsdt(r.symbol));
-  return `<b>$${coin}</b> · ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · Entry <code>${fmt(r.entry)}</code>`;
+  return `<b>$${coin}</b> · ${r.setup} (${r.breakout})${r.confirmed ? ' ✅' : ''} · ₮ <code>${fmt(r.entry)}</code>`;
 }
 function fmtSection(rows) {
   // Single newline between coins within a LONG/SHORT block - no blank line.
