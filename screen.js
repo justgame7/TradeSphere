@@ -689,12 +689,6 @@ async function main() {
   console.log(`Fetching USDT perpetual symbol list (CoinDCX)...`);
   const symbols = await getUSDTPerpetualSymbols();
 
-  // Fetched once up front, in parallel with nothing else (it's two quick
-  // bulk Binance calls) - independent of the CoinDCX symbol list/scans, so
-  // there's no ordering dependency, just kept sequential here for simplicity.
-  console.log('Fetching funding rate / interval data (Binance)...');
-  const fundingMap = await getFundingData();
-
   // Run each timeframe's scan fully before starting the next, rather than
   // interleaving - keeps the pacing throttle's request spacing meaningful
   // per timeframe and keeps each timeframe's diagnostics block contiguous
@@ -703,6 +697,36 @@ async function main() {
   for (const tf of TIMEFRAMES) {
     const { longs, shorts } = await runTimeframeScan(symbols, tf);
     scans.push({ tf, longs, shorts });
+  }
+
+  // Funding data is fetched HERE - after both scans finish, immediately
+  // before it's used to format the message - rather than at the top of
+  // main(). Binance's "lastFundingRate" isn't a value that only updates
+  // once per funding interval; it floats continuously between settlements
+  // based on the live mark/index premium. A ~500-symbol x 2-timeframe scan
+  // can take several minutes, so fetching funding data before that scan
+  // (as an earlier version of this did) left a multi-minute staleness
+  // window between the funding snapshot and the message actually being
+  // sent - easily enough for a coin's rate to cross zero in between.
+  // Fetching it last instead keeps that window as small as possible.
+  console.log('Fetching funding rate / interval data (Binance)...');
+  const fundingMap = await getFundingData();
+
+  // Diagnostics only (not sent to Telegram) - logs the actual funding
+  // snapshot for every coin that made it into a result, so a future
+  // "why didn't the funding line show up" question can be checked
+  // against the Action log instead of re-derived from scratch.
+  const allResults = scans.flatMap((s) => [...s.longs, ...s.shorts]);
+  if (allResults.length) {
+    console.log('Funding snapshot for this run\'s results:');
+    for (const r of allResults) {
+      const bSym = binanceSymbolFor(r.symbol);
+      const f = fundingMap.get(bSym);
+      console.log(
+        `  ${stripUsdt(r.symbol)} (${bSym}): ` +
+        (f ? `rate=${(f.fundingRate * 100).toFixed(4)}%, interval=${f.intervalHours}h` : 'no funding data found')
+      );
+    }
   }
 
   const stamp = formatIST(new Date());
