@@ -150,23 +150,20 @@ const WEEKLY_TIMEFRAME = { label: 'Weekly', resolution: '1w', historyDays: 1100,
 
 // The weekly scan should only run once a week, on the first hourly run at
 // or after 12:00 IST on Monday - not on every hourly run that happens to
-// land Monday afternoon. Narrowed to the 12:00-12:40 IST window (rather
-// than the full 12:00-12:59 hour) so that if the workflow ever fires more
-// than once inside the 12 o'clock hour, a run landing past :40 is treated
-// as a stray/retry rather than a second legitimate weekly run. There's no
-// persisted state between runs, so this is a time-window narrowing, not a
-// true dedupe - multiple runs that land at/before :40 will still each
-// trigger the weekly scan.
+// land Monday afternoon. Since the workflow runs on the hour, "first run
+// at or after 12:00" is just "the run whose IST hour is exactly 12": the
+// 12:00-12:59 slot. Every other hour (including 13:00+ Monday and all of
+// Tue-Sun) skips it - there's no persisted state between runs, so this
+// hour-equality check is what keeps it to once a week without needing one.
 function isWeeklyScanWindow(date) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Kolkata',
     weekday: 'short',
     hour: '2-digit',
-    minute: '2-digit',
     hour12: false,
   }).formatToParts(date);
   const get = (type) => parts.find((p) => p.type === type).value;
-  return get('weekday') === 'Mon' && Number(get('hour')) === 12 && Number(get('minute')) <= 40;
+  return get('weekday') === 'Mon' && Number(get('hour')) === 12;
 }
 
 const CONCURRENCY = 3; // conservative starting point - CoinDCX doesn't publish a public market-data rate limit, tune after watching real runs
@@ -640,117 +637,8 @@ async function sendTelegramMessage(text) {
   }
 }
 
-// ---------------- price alerts ----------------
-// Lets you type things like "ETH > 2500" (or "ETH < 2500") into the
-// Telegram chat with this bot. Each run: read whatever messages are
-// currently sitting unconfirmed in Telegram's own update queue (no offset
-// tracked or stored anywhere - Telegram holds unconfirmed updates for up
-// to 24h on its own), parse any coin-condition lines out of them, check
-// each one's current price, and fold any that currently satisfy their
-// condition into the same alert message the Ichimoku scan sends. Anything
-// that doesn't satisfy yet is simply left alone - no state is written, so
-// it'll just get re-read and re-checked again next run for as long as
-// Telegram keeps it in the queue.
-const ALERT_LINE_RE = /^([A-Za-z0-9]{1,15})\s*(>=|<=|>|<)\s*(-?\d+(?:\.\d+)?)\s*$/;
-
-// Talks to Telegram directly (no proxy needed - this runs in Node on
-// GitHub Actions, not a browser, so there's no CORS restriction here).
-// No offset passed - always reads whatever's currently unconfirmed.
-async function getTelegramUpdates() {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return [];
-  const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/getUpdates?timeout=0`);
-  if (!res.ok) throw new Error(`getUpdates failed: HTTP ${res.status}`);
-  const body = await res.json();
-  if (!body.ok) throw new Error(`getUpdates returned ok:false :: ${JSON.stringify(body).slice(0, 300)}`);
-  return body.result || [];
-}
-
-// Parses every line of every message from the configured chat into
-// coin-condition objects. Non-matching lines (typos, unrelated chat) are
-// silently ignored rather than erroring the whole run.
-function parseAlertsFromUpdates(updates, expectedChatId) {
-  const parsed = [];
-  for (const u of updates) {
-    const msg = u.message;
-    if (!msg || !msg.text) continue;
-    if (expectedChatId && String(msg.chat.id) !== String(expectedChatId)) continue;
-    for (const line of msg.text.split('\n')) {
-      const m = line.trim().match(ALERT_LINE_RE);
-      if (!m) continue;
-      parsed.push({ coin: m[1].toUpperCase(), op: m[2], threshold: Number(m[3]) });
-    }
-  }
-  return parsed;
-}
-
-function opSatisfied(price, op, threshold) {
-  switch (op) {
-    case '>': return price > threshold;
-    case '<': return price < threshold;
-    case '>=': return price >= threshold;
-    case '<=': return price <= threshold;
-    default: return false;
-  }
-}
-
-// Current price for a single coin - a short, fine-resolution candle window
-// (1h x 2 days) so this stays reasonably fresh regardless of which
-// timeframes happened to run this hour.
-async function fetchCurrentPrice(coin) {
-  const pair = `B-${coin}_USDT`;
-  const candles = await getKlines(pair, '1h', 2);
-  if (!candles.length) throw new Error(`no candle data for ${pair}`);
-  return candles[candles.length - 1].close;
-}
-
-// Reads + checks every coin-condition currently sitting in Telegram's
-// queue. Returns just the ones that currently satisfy their condition -
-// the rest are dropped on the floor (not tracked, not confirmed away from
-// Telegram's queue - they'll simply be read and re-checked again next run).
-async function checkPriceAlerts() {
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  const updates = await getTelegramUpdates();
-  const conditions = parseAlertsFromUpdates(updates, chatId);
-
-  const triggered = [];
-  const priceCache = new Map();
-  for (const c of conditions) {
-    try {
-      if (!priceCache.has(c.coin)) {
-        priceCache.set(c.coin, await fetchCurrentPrice(c.coin));
-      }
-      const price = priceCache.get(c.coin);
-      if (opSatisfied(price, c.op, c.threshold)) {
-        triggered.push({ ...c, price });
-      }
-    } catch (e) {
-      // Coin not found / candle fetch failed - just skip this one, log so
-      // it's visible in the run; it'll be re-attempted next run since
-      // nothing is confirmed away from Telegram's queue.
-      console.error(`Alert check failed for ${c.coin} ${c.op} ${c.threshold}: ${e.message}`);
-    }
-  }
-
-  console.log(`Price alerts: ${conditions.length} condition(s) found in chat, ${triggered.length} currently triggered.`);
-  return triggered;
-}
-
-function fmtAlertsSection(triggered) {
-  if (!triggered.length) return '';
-  const lines = triggered.map((a) => `🔔 <b>${a.coin}</b> is now ${fmt(a.price, 2)} (${a.op} ${a.threshold})`).join('\n');
-  return `<b>— Price Alerts —</b>\n${lines}`;
-}
-
 // ---------------- main ----------------
 async function main() {
-  let triggeredAlerts = [];
-  try {
-    triggeredAlerts = await checkPriceAlerts();
-  } catch (e) {
-    console.error(`Price alerts check failed (continuing with the Ichimoku scan): ${e.message}`);
-  }
-
   console.log(`Fetching USDT perpetual symbol list (CoinDCX)...`);
   const symbols = await getUSDTPerpetualSymbols();
 
@@ -759,8 +647,8 @@ async function main() {
   const timeframesToRun = runWeekly ? [...TIMEFRAMES, WEEKLY_TIMEFRAME] : TIMEFRAMES;
   console.log(
     runWeekly
-      ? 'Weekly scan window (Mon 12:00-12:40 IST) - including Weekly alongside 4H/Daily this run.'
-      : 'Not the weekly scan window (Mon 12:00-12:40 IST) - skipping Weekly, running 4H/Daily only.'
+      ? 'Weekly scan window (Mon 12:00 IST) - including Weekly alongside 4H/Daily this run.'
+      : 'Not the weekly scan window (Mon 12:00 IST) - skipping Weekly, running 4H/Daily only.'
   );
 
   // Run each timeframe's scan fully before starting the next, rather than
@@ -789,12 +677,9 @@ async function main() {
     return parts.join('\n\n');
   };
 
-  const alertsSection = fmtAlertsSection(triggeredAlerts);
-
   const message =
     `<b>Ichimoku breakout screener (CoinDCX) — ${stamp}</b>\n\n` +
-    scans.map(sectionFor).join('\n\n') +
-    (alertsSection ? '\n\n' + alertsSection : '') + '\n\n' +
+    scans.map(sectionFor).join('\n\n') + '\n\n' +
     `✅ = confirmed · CK/PK = breakout type`;
 
   console.log('\n' + message.replace(/<\/?[a-z]+>/g, ''));
