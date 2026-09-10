@@ -130,6 +130,22 @@ const BYBIT_API_BASE = 'https://api.bybit.com';
 const BYBIT_TICKERS_URL = `${BYBIT_API_BASE}/v5/market/tickers?category=linear`;
 const BYBIT_INSTRUMENTS_URL = `${BYBIT_API_BASE}/v5/market/instruments-info`;
 
+// Unlike CoinDCX (hit directly above - no issue from a GitHub Actions
+// runner), api.bybit.com's CloudFront distribution actively GEO-BLOCKS the
+// GitHub Actions runner's datacenter region ("The Amazon CloudFront
+// distribution is configured to block access from your country" - HTTP
+// 403), confirmed from a real run. So Bybit calls are routed through the
+// same TradeSphere Cloudflare Worker proxy the rest of the project already
+// uses for browser-side CORS passthrough - its edge isn't geo-blocked the
+// way the runner's IP is. api.bybit.com must be in the Worker's
+// ALLOWED_HOSTS for this to work (already added as of this change). Same
+// query-param proxy pattern as the rest of the app: WORKER_PROXY_URL +
+// "/?url=" + encodeURIComponent(targetUrl) - see e.g. etf-flows.html.
+const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+function viaWorker(url) {
+  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(url)}`;
+}
+
 // Ichimoku period counts are timeframe-agnostic - still 9/26/52 bars,
 // just of whichever candle size is being scanned - so these are shared
 // across both timeframes below rather than duplicated per entry.
@@ -275,7 +291,7 @@ async function getBybitFundingMap() {
   const fundingMap = new Map();
 
   try {
-    const body = await fetchJSON(BYBIT_TICKERS_URL);
+    const body = await fetchJSON(viaWorker(BYBIT_TICKERS_URL));
     const list = body && body.result && Array.isArray(body.result.list) ? body.result.list : [];
     for (const t of list) {
       const rate = parseFloat(t.fundingRate);
@@ -300,7 +316,7 @@ async function getBybitFundingMap() {
     do {
       const qs = new URLSearchParams({ category: 'linear', limit: '1000' });
       if (cursor) qs.set('cursor', cursor);
-      const body = await fetchJSON(`${BYBIT_INSTRUMENTS_URL}?${qs.toString()}`);
+      const body = await fetchJSON(viaWorker(`${BYBIT_INSTRUMENTS_URL}?${qs.toString()}`));
       const list = body && body.result && Array.isArray(body.result.list) ? body.result.list : [];
       for (const inst of list) {
         const entry = fundingMap.get(inst.symbol);
