@@ -115,6 +115,20 @@ const BINANCE_PREMIUM_INDEX_URL = `${BINANCE_FAPI_BASE}/fapi/v1/premiumIndex`;
 const BINANCE_FUNDING_INFO_URL = `${BINANCE_FAPI_BASE}/fapi/v1/fundingInfo`;
 const DEFAULT_FUNDING_INTERVAL_HOURS = 8; // Binance's standard interval for any symbol not listed by fundingInfo
 
+// GITHUB ACTIONS + BINANCE GEO-BLOCK:
+// GitHub-hosted runners execute on Azure infrastructure in US regions,
+// which Binance blocks for regulatory reasons - every direct call to
+// fapi.binance.com from a GH Actions runner gets HTTP 451 ("Service
+// unavailable from a restricted location"), consistently, every run - not
+// a transient rate-limit or outage. getFundingData() below retries once
+// through the same Cloudflare Worker CORS proxy screener.html uses for
+// stock data (which runs from Cloudflare's edge network rather than a
+// fixed Azure-US IP, so it isn't caught by the same block) before giving
+// up and continuing without funding data.
+const WORKER_PROXY_BASE = 'https://newsyt.justfagame9.workers.dev/?url=';
+const viaWorkerProxy = (url) => `${WORKER_PROXY_BASE}${encodeURIComponent(url)}`;
+const isGeoBlockError = (e) => /HTTP 45\d/.test(e.message) || /restricted location/i.test(e.message);
+
 // Ichimoku period counts are timeframe-agnostic - still 9/26/52 bars,
 // just of whichever candle size is being scanned - so these are shared
 // across both timeframes below rather than duplicated per entry.
@@ -296,8 +310,21 @@ async function getFundingData() {
       fetchJSON(BINANCE_FUNDING_INFO_URL),
     ]);
   } catch (e) {
-    console.error(`Funding data fetch failed, continuing without it: ${e.message}`);
-    return new Map();
+    if (isGeoBlockError(e)) {
+      console.error(`Direct Binance fetch geo-blocked (${e.message.split(' :: ')[0]}), retrying via Worker proxy...`);
+      try {
+        [premiums, fundingInfo] = await Promise.all([
+          fetchJSON(viaWorkerProxy(BINANCE_PREMIUM_INDEX_URL)),
+          fetchJSON(viaWorkerProxy(BINANCE_FUNDING_INFO_URL)),
+        ]);
+      } catch (e2) {
+        console.error(`Funding data fetch failed via proxy too, continuing without it: ${e2.message}`);
+        return new Map();
+      }
+    } else {
+      console.error(`Funding data fetch failed, continuing without it: ${e.message}`);
+      return new Map();
+    }
   }
   const intervalBySymbol = new Map(fundingInfo.map((f) => [f.symbol, Number(f.fundingIntervalHours)]));
   const map = new Map();
