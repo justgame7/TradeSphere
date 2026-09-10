@@ -135,6 +135,37 @@ const TIMEFRAMES = [
   { label: 'Daily', resolution: '1d', historyDays: 200, minVolume: 10_000_000, ...ICHIMOKU_PARAMS },
 ];
 
+// Weekly scan - same shape as the two above, but NOT included in TIMEFRAMES
+// since it doesn't run every hour like 4H/Daily do. main() only appends this
+// to the run list when isWeeklyScanWindow() (below) says so. resolution
+// "1w" follows the same lowercase "<number><unit>" pattern as "4h"/"1d" but,
+// like "4h" was originally, is a BEST-GUESS - not yet confirmed against a
+// live response. If the weekly portion errors on ~all symbols the first
+// Monday it actually runs, grab the real code the same way "1d" was found
+// (browser DevTools -> Network -> XHR, switch CoinDCX's futures chart to
+// the 1W timeframe) and swap it in here. historyDays=1100 gives ~157 weekly
+// bars, comfortably over the 114 needed (114 bars * 7d = 798 days of
+// coverage needed). minVolume reuses Daily's threshold.
+const WEEKLY_TIMEFRAME = { label: 'Weekly', resolution: '1w', historyDays: 1100, minVolume: 10_000_000, ...ICHIMOKU_PARAMS };
+
+// The weekly scan should only run once a week, on the first hourly run at
+// or after 12:00 IST on Monday - not on every hourly run that happens to
+// land Monday afternoon. Since the workflow runs on the hour, "first run
+// at or after 12:00" is just "the run whose IST hour is exactly 12": the
+// 12:00-12:59 slot. Every other hour (including 13:00+ Monday and all of
+// Tue-Sun) skips it - there's no persisted state between runs, so this
+// hour-equality check is what keeps it to once a week without needing one.
+function isWeeklyScanWindow(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+    hour: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return get('weekday') === 'Mon' && Number(get('hour')) === 12;
+}
+
 const CONCURRENCY = 3; // conservative starting point - CoinDCX doesn't publish a public market-data rate limit, tune after watching real runs
 
 
@@ -611,12 +642,21 @@ async function main() {
   console.log(`Fetching USDT perpetual symbol list (CoinDCX)...`);
   const symbols = await getUSDTPerpetualSymbols();
 
+  const now = new Date();
+  const runWeekly = isWeeklyScanWindow(now);
+  const timeframesToRun = runWeekly ? [...TIMEFRAMES, WEEKLY_TIMEFRAME] : TIMEFRAMES;
+  console.log(
+    runWeekly
+      ? 'Weekly scan window (Mon 12:00 IST) - including Weekly alongside 4H/Daily this run.'
+      : 'Not the weekly scan window (Mon 12:00 IST) - skipping Weekly, running 4H/Daily only.'
+  );
+
   // Run each timeframe's scan fully before starting the next, rather than
   // interleaving - keeps the pacing throttle's request spacing meaningful
   // per timeframe and keeps each timeframe's diagnostics block contiguous
   // in the log instead of interleaved line-by-line.
   const scans = [];
-  for (const tf of TIMEFRAMES) {
+  for (const tf of timeframesToRun) {
     const { longs, shorts } = await runTimeframeScan(symbols, tf);
     scans.push({ tf, longs, shorts });
   }
