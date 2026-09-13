@@ -716,11 +716,19 @@
 
   /* ---------------- Condition builder ---------------- */
   #scannerPane .builder-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  #scannerPane .builder-row .field-inline{min-width:0;max-width:100%;}
 #scannerPane select, #scannerPane input[type=number], #scannerPane input[type=text]{
     background:var(--panel2);border:1px solid var(--border);color:var(--text);
     border-radius:9px;padding:9px 11px;font:500 12.5px var(--font-mono);outline:none;
+    max-width:100%;box-sizing:border-box;
   }
 #scannerPane select:focus, #scannerPane input:focus{border-color:var(--accent);}
+#scannerPane #scnMetricSelect{width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#scannerPane #scnOperatorSelect{width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media(max-width:380px){
+  #scannerPane #scnMetricSelect{width:150px;}
+  #scannerPane #scnOperatorSelect{width:120px;}
+}
 #scannerPane .add-condition-btn{
     background:var(--panel2);border:1px dashed var(--border-strong);color:var(--accent);
     border-radius:9px;padding:9px 16px;font:600 12px var(--font-display);cursor:pointer;
