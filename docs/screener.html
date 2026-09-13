@@ -571,6 +571,244 @@
     line-height:1.6;
     padding:6px 0;
   }
+  /* ---------------- App tabs (Screener / Scanner) ---------------- */
+  .app-tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .app-tab{
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    border-radius:10px;padding:9px 16px;font:600 12.5px var(--font-display);cursor:pointer;
+    transition:border-color .15s,color .15s,background .15s;
+  }
+  .app-tab:hover{color:var(--text);border-color:var(--border-soft);}
+  .app-tab.active{background:var(--accent);color:#07130f;border-color:var(--accent);}
+
+  /* =========================================================================
+     Scanner (scoped under #scannerPane so it can't collide with the
+     screener's own styles above)
+     ========================================================================= */
+
+  #scannerPane{
+    --bg:#06070A;
+    --panel:rgba(17,20,27,0.66);
+    --panel-solid:#12151C;
+    --panel2:#171B24;
+    --border:rgba(255,255,255,0.07);
+    --border-strong:rgba(255,255,255,0.14);
+    --text:#EDEFF5;
+    --muted:#8B93A6;
+    --faint:#525A6B;
+    --accent:#35E0C0;
+    --accent-dim:#1B6F5F;
+    --accent2:#7C8CFF;
+    --red:#FF4D6D;
+    --red-dim:#7A2436;
+    --gold:#F0C24B;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+#scannerPane a{color:inherit;}
+#scannerPane ::selection{background:rgba(53,224,192,0.25);}
+#scannerPane .wrap{max-width:1280px;margin:0 auto;padding:0 20px;}
+
+
+  /* ---------------- Topbar ---------------- */
+  #scannerPane .topbar{
+    position:sticky;top:0;z-index:40;
+    backdrop-filter:blur(14px);
+    background:rgba(6,7,10,0.78);
+    border-bottom:1px solid var(--border);
+  }
+#scannerPane .topbar-inner{
+    max-width:1280px;margin:0 auto;padding:14px 20px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  }
+#scannerPane .brand{display:flex;align-items:center;gap:10px;}
+#scannerPane .brand-mark{
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 22px rgba(53,224,192,0.35);
+    flex:none;
+  }
+#scannerPane .brand-mark svg{width:16px;height:16px;}
+#scannerPane .brand-text{display:flex;flex-direction:column;line-height:1.15;}
+#scannerPane .brand-text .t1{font-weight:700;font-size:15.5px;letter-spacing:-0.01em;}
+#scannerPane .brand-text .t2{font:500 10.5px var(--font-mono);color:var(--faint);letter-spacing:.06em;}
+#scannerPane .topbar-stats{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+#scannerPane .tb-stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;}
+#scannerPane .tb-stat .v{font:600 13px var(--font-mono);color:var(--text);}
+#scannerPane .tb-stat .k{font-size:10px;color:var(--faint);letter-spacing:.04em;}
+#scannerPane .live-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:scnPulse 2s infinite;flex:none;}
+
+  @keyframes scnPulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+#scannerPane .live-chip{
+    display:inline-flex;align-items:center;gap:7px;
+    font:600 10.5px var(--font-mono);color:var(--accent);
+    background:rgba(53,224,192,.08);border:1px solid rgba(53,224,192,.28);
+    border-radius:20px;padding:6px 11px;white-space:nowrap;
+  }
+
+
+  /* ---------------- Hero / intro ---------------- */
+  #scannerPane .hero{padding:30px 0 6px;}
+#scannerPane .hero h1{font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.01em;}
+#scannerPane .hero p{color:var(--muted);font-size:13.5px;line-height:1.6;max-width:640px;margin:0;}
+
+
+  /* ---------------- Panels ---------------- */
+  #scannerPane .panel{
+    background:var(--panel);
+    backdrop-filter:blur(10px);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:22px 24px;
+    margin-top:18px;
+  }
+#scannerPane .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+#scannerPane .panel-title{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14.5px;}
+#scannerPane .panel-title .idx{
+    font:700 10px var(--font-mono);color:var(--bg);background:var(--accent);
+    width:19px;height:19px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none;
+  }
+#scannerPane .panel-sub{color:var(--faint);font-size:11.5px;}
+
+
+  /* ---------------- Presets ---------------- */
+  #scannerPane .preset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;}
+#scannerPane .preset-card{
+    background:var(--panel2);border:1px solid var(--border);border-radius:13px;
+    padding:13px 14px;cursor:pointer;text-align:left;transition:border-color .15s, transform .15s, background .15s;
+    display:flex;flex-direction:column;gap:6px;
+  }
+#scannerPane .preset-card:hover{border-color:var(--border-strong);transform:translateY(-1px);}
+#scannerPane .preset-card.active{border-color:var(--accent);background:rgba(53,224,192,0.07);}
+#scannerPane .preset-card .pc-icon{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;}
+#scannerPane .preset-card .pc-title{font-weight:600;font-size:12.5px;}
+#scannerPane .preset-card .pc-desc{font-size:10.5px;color:var(--faint);line-height:1.4;}
+
+
+  /* ---------------- Condition builder ---------------- */
+  #scannerPane .builder-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+#scannerPane select, #scannerPane input[type=number], #scannerPane input[type=text]{
+    background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    border-radius:9px;padding:9px 11px;font:500 12.5px var(--font-mono);outline:none;
+  }
+#scannerPane select:focus, #scannerPane input:focus{border-color:var(--accent);}
+#scannerPane .add-condition-btn{
+    background:var(--panel2);border:1px dashed var(--border-strong);color:var(--accent);
+    border-radius:9px;padding:9px 16px;font:600 12px var(--font-display);cursor:pointer;
+    display:flex;align-items:center;gap:6px;transition:border-color .15s,background .15s;
+  }
+#scannerPane .add-condition-btn:hover{border-color:var(--accent);background:rgba(53,224,192,0.06);}
+#scannerPane .chips-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;min-height:16px;}
+#scannerPane .cond-chip{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(124,140,255,0.09);border:1px solid rgba(124,140,255,0.32);
+    color:#C9CFFF;border-radius:20px;padding:6px 8px 6px 13px;font:600 11.5px var(--font-mono);
+  }
+#scannerPane .cond-chip button{
+    background:rgba(255,255,255,0.08);border:none;color:inherit;width:17px;height:17px;border-radius:50%;
+    cursor:pointer;font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;
+  }
+#scannerPane .cond-chip button:hover{background:rgba(255,255,255,0.18);}
+#scannerPane .empty-chips{color:var(--faint);font-size:12px;font-style:italic;}
+#scannerPane .match-toggle{display:flex;background:var(--panel2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+#scannerPane .match-toggle button{
+    background:transparent;border:none;color:var(--muted);padding:8px 14px;font:600 11.5px var(--font-mono);cursor:pointer;
+  }
+#scannerPane .match-toggle button.active{background:var(--accent);color:#04211C;}
+
+
+  /* ---------------- Scan controls ---------------- */
+  #scannerPane .scan-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px;padding-top:18px;border-top:1px solid var(--border);}
+#scannerPane .tf-toggle{display:flex;background:var(--panel2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+#scannerPane .tf-toggle button{background:transparent;border:none;color:var(--muted);padding:9px 15px;font:600 12px var(--font-mono);cursor:pointer;}
+#scannerPane .tf-toggle button.active{background:var(--accent);color:#04211C;}
+#scannerPane .field-inline{display:flex;flex-direction:column;gap:4px;}
+#scannerPane .field-inline label{font:600 10px var(--font-mono);color:var(--faint);letter-spacing:.04em;text-transform:uppercase;}
+#scannerPane .run-btn{
+    margin-left:auto;position:relative;overflow:hidden;
+    background:linear-gradient(135deg,var(--accent),#1fb99e);color:#04211C;border:none;
+    border-radius:12px;padding:13px 26px;font:700 13.5px var(--font-display);cursor:pointer;
+    display:flex;align-items:center;gap:9px;box-shadow:0 6px 24px rgba(53,224,192,0.25);
+    transition:transform .12s, box-shadow .12s;
+  }
+#scannerPane .run-btn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(53,224,192,0.35);}
+#scannerPane .run-btn:disabled{opacity:.65;cursor:default;transform:none;}
+#scannerPane .run-btn .ring{width:15px;height:15px;border-radius:50%;border:2px solid rgba(4,33,28,.35);border-top-color:#04211C;display:none;animation:scnSpin .7s linear infinite;}
+#scannerPane .run-btn.loading .ring{display:inline-block;}
+#scannerPane .run-btn.loading .arrow{display:none;}
+
+  @keyframes scnSpin{to{transform:rotate(360deg);}}
+#scannerPane .progress-wrap{margin-top:14px;display:none;}
+#scannerPane .progress-track{height:5px;border-radius:99px;background:var(--panel2);overflow:hidden;border:1px solid var(--border);}
+#scannerPane .progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .25s;}
+#scannerPane .progress-label{margin-top:8px;font:500 11.5px var(--font-mono);color:var(--muted);display:flex;justify-content:space-between;}
+#scannerPane .error-box{display:none;margin-top:14px;background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.3);color:#ffb4c1;border-radius:12px;padding:12px 14px;font-size:12.5px;line-height:1.5;}
+
+
+  /* ---------------- Results ---------------- */
+  #scannerPane .results-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+#scannerPane .results-title{display:flex;align-items:center;gap:10px;}
+#scannerPane .results-count{font-size:19px;font-weight:700;}
+#scannerPane .results-count .n{color:var(--accent);}
+#scannerPane .results-actions{display:flex;gap:10px;align-items:center;}
+#scannerPane .ghost-btn{
+    background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:9px;
+    padding:8px 13px;font:600 11.5px var(--font-mono);cursor:pointer;display:flex;align-items:center;gap:6px;
+  }
+#scannerPane .ghost-btn:hover{border-color:var(--border-strong);}
+#scannerPane .ghost-btn:disabled{opacity:.4;cursor:default;}
+#scannerPane .table-scroll{overflow-x:auto;border-radius:14px;border:1px solid var(--border);}
+#scannerPane table{width:100%;border-collapse:collapse;min-width:980px;}
+#scannerPane thead th{
+    text-align:left;font:600 10.5px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.05em;
+    padding:12px 14px;background:var(--panel2);border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;
+    position:sticky;top:0;
+  }
+#scannerPane thead th:hover{color:var(--muted);}
+#scannerPane thead th.sorted{color:var(--accent);}
+#scannerPane tbody td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:12.5px;white-space:nowrap;}
+#scannerPane tbody tr{transition:background .1s;}
+#scannerPane tbody tr:hover{background:rgba(255,255,255,0.02);}
+#scannerPane tbody tr:last-child td{border-bottom:none;}
+#scannerPane .sym-cell{display:flex;align-items:center;gap:10px;}
+#scannerPane .sym-badge{width:30px;height:30px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font:700 10.5px var(--font-mono);color:#fff;}
+#scannerPane .sym-name{font-weight:700;font-size:13px;}
+#scannerPane .sym-sub{font:500 10px var(--font-mono);color:var(--faint);}
+#scannerPane .mono{font-family:var(--font-mono);}
+#scannerPane .chg-pos{color:var(--accent);}
+#scannerPane .chg-neg{color:var(--red);}
+#scannerPane .spark{display:block;}
+#scannerPane .badge{display:inline-flex;align-items:center;gap:4px;font:600 10.5px var(--font-mono);padding:4px 8px;border-radius:20px;white-space:nowrap;}
+#scannerPane .badge-bull{background:rgba(53,224,192,0.1);color:var(--accent);border:1px solid rgba(53,224,192,0.3);}
+#scannerPane .badge-bear{background:rgba(255,77,109,0.1);color:var(--red);border:1px solid rgba(255,77,109,0.3);}
+#scannerPane .badge-neutral{background:rgba(139,147,166,0.1);color:var(--muted);border:1px solid var(--border);}
+#scannerPane .matched-chips{display:flex;flex-wrap:wrap;gap:4px;max-width:220px;white-space:normal;}
+#scannerPane .matched-chip{font:600 9.5px var(--font-mono);padding:3px 7px;border-radius:20px;background:rgba(124,140,255,0.1);color:#B7C0FF;border:1px solid rgba(124,140,255,0.25);}
+#scannerPane .row-actions{display:flex;gap:6px;}
+#scannerPane .icon-btn{
+    width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);
+    color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;text-decoration:none;
+  }
+#scannerPane .icon-btn:hover{border-color:var(--border-strong);color:var(--text);}
+#scannerPane .icon-btn.added{color:var(--accent);border-color:rgba(53,224,192,0.35);}
+#scannerPane .empty-state{
+    text-align:center;padding:60px 20px;color:var(--faint);
+  }
+#scannerPane .empty-state .es-icon{font-size:34px;margin-bottom:10px;opacity:.6;}
+#scannerPane .empty-state .es-title{font-weight:600;color:var(--muted);font-size:14px;margin-bottom:5px;}
+#scannerPane .empty-state .es-sub{font-size:12px;max-width:360px;margin:0 auto;line-height:1.5;}
+#scannerPane .footer-note{margin-top:26px;text-align:center;color:var(--faint);font-size:11px;font-family:var(--font-mono);line-height:1.7;}
+
+
+  @media (max-width:720px){#scannerPane .hero h1{font-size:21px;}
+#scannerPane .panel{padding:18px 16px;}
+#scannerPane .run-btn{margin-left:0;width:100%;justify-content:center;}
+#scannerPane .scan-bar{flex-direction:column;align-items:stretch;}}
+  /* -- hero stats row (merged layout) -- */
+  #scannerPane .hero-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px;}
+  #scannerPane .scn-stats{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+
 </style>
 </head>
 <body>
@@ -586,6 +824,12 @@
   </div>
 </div>
 
+<div class="app-tabs">
+  <button type="button" class="app-tab active" id="tabScreenerBtn" onclick="switchAppView('screener')">📈 Screener</button>
+  <button type="button" class="app-tab" id="tabScannerBtn" onclick="switchAppView('scanner')">🔍 Scanner</button>
+</div>
+
+<div id="screenerPane">
 <div class="panel">
   <input type="hidden" id="tenkanLen" value="9">
   <input type="hidden" id="kijunLen" value="26">
@@ -736,6 +980,122 @@
     </div>
   </div>
 </div>
+</div><!-- /screenerPane -->
+
+<div id="scannerPane" style="display:none;">
+
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-top">
+      <h1>Build a condition. Scan the market.</h1>
+      <div class="scn-stats">
+        <span class="live-chip"><span class="live-dot"></span>LIVE · USDT-M</span>
+        <div class="tb-stat"><span class="v" id="scnTbUniverse">—</span><span class="k">universe</span></div>
+        <div class="tb-stat"><span class="v" id="scnTbLastScan">—</span><span class="k">last scan</span></div>
+      </div>
+    </div>
+    <p>Combine technical and market-data conditions — RSI, MACD, EMA structure, volatility, volume — into a single scan across every USDT-margined perpetual future, and get back only the coins that actually match.</p>
+  </div>
+
+  <!-- Presets -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="idx">1</span>Quick screens</div>
+      <div class="panel-sub">Tap one to load a ready-made condition set, then tweak it below</div>
+    </div>
+    <div class="preset-grid" id="scnPresetGrid"></div>
+  </div>
+
+  <!-- Condition builder -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="idx">2</span>Condition builder</div>
+      <div class="panel-sub" id="scnMatchModeSub">A coin must satisfy every condition below</div>
+    </div>
+    <div class="builder-row">
+      <div class="field-inline">
+        <label>Metric</label>
+        <select id="scnMetricSelect"></select>
+      </div>
+      <div class="field-inline">
+        <label>Operator</label>
+        <select id="scnOperatorSelect"></select>
+      </div>
+      <div class="field-inline" id="scnValueField">
+        <label>Value</label>
+        <input type="number" id="scnValueInput" step="any" style="width:110px;">
+      </div>
+      <div class="field-inline">
+        <label>&nbsp;</label>
+        <button class="add-condition-btn" onclick="Scanner.addConditionFromForm()">+ Add condition</button>
+      </div>
+      <div class="field-inline" style="margin-left:auto;">
+        <label>Match</label>
+        <div class="match-toggle">
+          <button id="scnMatchAllBtn" class="active" onclick="Scanner.setMatchMode('all')">ALL</button>
+          <button id="scnMatchAnyBtn" onclick="Scanner.setMatchMode('any')">ANY</button>
+        </div>
+      </div>
+    </div>
+    <div class="chips-row" id="scnChipsRow"><span class="empty-chips">No conditions yet — add one above or pick a quick screen.</span></div>
+
+    <div class="scan-bar">
+      <div class="field-inline">
+        <label>Timeframe</label>
+        <div class="tf-toggle" id="scnTfToggle">
+          <button data-tf="1h">1H</button>
+          <button data-tf="4h" class="active">4H</button>
+          <button data-tf="1d">1D</button>
+        </div>
+      </div>
+      <div class="field-inline">
+        <label>Min 24h volume ($)</label>
+        <input type="number" id="scnMinVolume" value="5000000" style="width:130px;">
+      </div>
+      <div class="field-inline">
+        <label>Concurrency</label>
+        <input type="number" id="scnConcurrency" value="8" min="1" max="20" style="width:70px;">
+      </div>
+      <button class="run-btn" id="scnRunBtn" onclick="Scanner.runScan()">
+        <span class="ring"></span>
+        <span class="arrow">▶</span>
+        <span id="scnRunBtnLabel">Run scan</span>
+      </button>
+    </div>
+
+    <div class="progress-wrap" id="scnProgressWrap">
+      <div class="progress-track"><div class="progress-fill" id="scnProgressFill"></div></div>
+      <div class="progress-label"><span id="scnStatusText">Idle</span><span id="scnProgressPct">0%</span></div>
+    </div>
+    <div class="error-box" id="scnErrorBox"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="panel" id="scnResultsPanel">
+    <div class="results-head">
+      <div class="results-title">
+        <div class="results-count"><span class="n" id="scnResultsCountN">0</span> matches</div>
+      </div>
+      <div class="results-actions">
+        <button class="ghost-btn" id="scnCsvBtn" onclick="Scanner.exportCSV()" disabled>⇩ Export CSV</button>
+      </div>
+    </div>
+    <div id="scnResultsBody">
+      <div class="empty-state">
+        <div class="es-icon">◎</div>
+        <div class="es-title">No scan run yet</div>
+        <div class="es-sub">Pick a quick screen or build your own conditions, then hit Run scan to search the full USDT-M perpetual universe.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Data via Binance USDT-M Futures · Prices update every scan, not continuously · Not financial advice</div>
+</div>
+
+
+</div><!-- /scannerPane -->
+
 </div>
 
 <script>
@@ -3142,6 +3502,584 @@ function downloadCSV(){
   coinSearchInput.value = symbolParam.trim().toUpperCase();
   searchAndAnalyze();
 })();
+
+// Toggles between the Ichimoku screener and the condition-based scanner.
+// Both panes live in the DOM at all times (scanner's data/state doesn't
+// reset when you switch away and back); only visibility changes.
+function switchAppView(view){
+  const screenerPane = document.getElementById('screenerPane');
+  const scannerPane = document.getElementById('scannerPane');
+  const screenerBtn = document.getElementById('tabScreenerBtn');
+  const scannerBtn = document.getElementById('tabScannerBtn');
+  const isScanner = view === 'scanner';
+  screenerPane.style.display = isScanner ? 'none' : '';
+  scannerPane.style.display = isScanner ? '' : 'none';
+  screenerBtn.classList.toggle('active', !isScanner);
+  scannerBtn.classList.toggle('active', isScanner);
+}
+</script>
+
+<script>
+(function(){
+
+/* =========================================================================
+   Data sources (mirrors screener.html's host-fallback pattern)
+   ========================================================================= */
+const FAPI_HOSTS = [
+  "https://fapi.binance.com",
+  "https://fapi1.binance.com",
+  "https://fapi2.binance.com",
+  "https://fapi3.binance.com",
+  "https://fapi4.binance.com"
+];
+let activeHost = FAPI_HOSTS[0];
+
+async function fetchWithTimeout(url, ms=12000){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), ms);
+  try{ return await fetch(url, { signal: controller.signal }); }
+  finally{ clearTimeout(timer); }
+}
+async function fetchJSON(path){
+  const order = [activeHost, ...FAPI_HOSTS.filter(h => h !== activeHost)];
+  let lastErr;
+  for(const host of order){
+    try{
+      const res = await fetchWithTimeout(host + path);
+      if(!res.ok) throw new Error(`HTTP ${res.status} on ${host}${path}`);
+      const data = await res.json();
+      activeHost = host;
+      return data;
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr;
+}
+async function getUSDTPerpetualSymbols(){
+  const info = await fetchJSON(`/fapi/v1/exchangeInfo`);
+  return info.symbols
+    .filter(s => s.contractType === "PERPETUAL" && s.quoteAsset === "USDT" && s.status === "TRADING")
+    .map(s => s.symbol);
+}
+async function getKlines(symbol, interval, limit){
+  const raw = await fetchJSON(`/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+  return raw.map(k => ({ open:parseFloat(k[1]), high:parseFloat(k[2]), low:parseFloat(k[3]), close:parseFloat(k[4]), volume:parseFloat(k[5]) }));
+}
+async function get24hTickers(){
+  const data = await fetchJSON(`/fapi/v1/ticker/24hr`);
+  const map = {};
+  for(const t of data){
+    map[t.symbol] = {
+      priceChangePercent: parseFloat(t.priceChangePercent),
+      lastPrice: parseFloat(t.lastPrice),
+      quoteVolume: parseFloat(t.quoteVolume),
+      highPrice: parseFloat(t.highPrice),
+      lowPrice: parseFloat(t.lowPrice)
+    };
+  }
+  return map;
+}
+
+/* ---------------- Concurrency-limited queue ---------------- */
+async function runPool(items, worker, concurrency, onProgress){
+  let idx = 0, done = 0;
+  const results = new Array(items.length);
+  async function next(){
+    while(idx < items.length){
+      const i = idx++;
+      try{ results[i] = await worker(items[i]); }
+      catch(e){ results[i] = { symbol: items[i], error: e.message }; }
+      done++;
+      if(onProgress) onProgress(done, items.length);
+    }
+  }
+  await Promise.all(new Array(Math.min(concurrency, items.length)).fill(0).map(next));
+  return results;
+}
+
+/* =========================================================================
+   Indicator math (same formulas as screener.html)
+   ========================================================================= */
+function ema(values, length){
+  const result = new Array(values.length).fill(null);
+  if(values.length < length) return result;
+  const mult = 2 / (length + 1);
+  let prev = values.slice(0,length).reduce((s,v)=>s+v,0) / length;
+  result[length-1] = prev;
+  for(let i=length;i<values.length;i++){ prev = (values[i]-prev)*mult+prev; result[i] = prev; }
+  return result;
+}
+function lastValid(arr){ for(let i=arr.length-1;i>=0;i--){ if(arr[i]!==null && Number.isFinite(arr[i])) return arr[i]; } return null; }
+function valueAt(arr, offsetFromEnd){
+  let seen = -1;
+  for(let i=arr.length-1;i>=0;i--){
+    if(arr[i]!==null && Number.isFinite(arr[i])){ seen++; if(seen===offsetFromEnd) return arr[i]; }
+  }
+  return null;
+}
+function rsi(values, length=14){
+  if(values.length <= length) return NaN;
+  let gains=0, losses=0;
+  for(let i=1;i<=length;i++){ const c=values[i]-values[i-1]; if(c>=0) gains+=c; else losses-=c; }
+  let avgG=gains/length, avgL=losses/length;
+  for(let i=length+1;i<values.length;i++){
+    const c=values[i]-values[i-1];
+    avgG=(avgG*(length-1)+Math.max(0,c))/length;
+    avgL=(avgL*(length-1)+Math.max(0,-c))/length;
+  }
+  return avgL===0 ? 100 : 100-(100/(1+avgG/avgL));
+}
+function macdHistSeries(values){
+  const fast=ema(values,12), slow=ema(values,26);
+  const line=values.map((_,i)=> fast[i]!==null && slow[i]!==null ? fast[i]-slow[i] : null);
+  const validIdx = line.map((v,i)=>v!==null?i:-1).filter(i=>i>=0);
+  const validVals = validIdx.map(i=>line[i]);
+  const sig = ema(validVals,9);
+  const hist = new Array(line.length).fill(null);
+  validIdx.forEach((idx,j)=>{ if(sig[j]!==null) hist[idx] = line[idx]-sig[j]; });
+  return hist;
+}
+function atr(candles, length=14){
+  if(candles.length<=length) return NaN;
+  const tr=[];
+  for(let i=1;i<candles.length;i++){
+    const c=candles[i], p=candles[i-1];
+    tr.push(Math.max(c.high-c.low, Math.abs(c.high-p.close), Math.abs(c.low-p.close)));
+  }
+  let v = tr.slice(0,length).reduce((s,x)=>s+x,0)/length;
+  for(let i=length;i<tr.length;i++) v=(v*(length-1)+tr[i])/length;
+  return v;
+}
+function bollinger(values, length=20, mult=2){
+  if(values.length<length) return {upper:NaN, lower:NaN, mid:NaN, widthPct:NaN};
+  const window = values.slice(-length);
+  const mid = window.reduce((s,v)=>s+v,0)/length;
+  const variance = window.reduce((s,v)=>s+(v-mid)*(v-mid),0)/length;
+  const sd = Math.sqrt(variance);
+  const upper = mid+mult*sd, lower = mid-mult*sd;
+  return { upper, lower, mid, widthPct: mid>0 ? ((upper-lower)/mid)*100 : NaN };
+}
+function volumeRatio(candles){
+  if(candles.length<21) return null;
+  const trailing = candles.slice(-21,-1);
+  const avg = trailing.reduce((s,c)=>s+c.volume,0)/trailing.length;
+  const last = candles[candles.length-1];
+  return avg>0 ? last.volume/avg : null;
+}
+
+/* =========================================================================
+   Metric extraction per symbol
+   ========================================================================= */
+async function computeMetrics(symbol, interval, ticker){
+  const needed = interval === '1h' ? 230 : (interval === '4h' ? 230 : 230);
+  const candles = await getKlines(symbol, interval, Math.min(needed, 500));
+  if(candles.length < 60) throw new Error('not enough candles');
+  const closes = candles.map(c=>c.close);
+  const price = ticker ? ticker.lastPrice : closes[closes.length-1];
+
+  const ema20arr = ema(closes,20), ema50arr = ema(closes,50), ema200arr = ema(closes,200);
+  const ema20 = lastValid(ema20arr), ema50 = lastValid(ema50arr), ema200 = lastValid(ema200arr);
+  const ema20Prev = valueAt(ema20arr,1), ema50Prev = valueAt(ema50arr,1);
+
+  const rsiVal = rsi(closes,14);
+  const hist = macdHistSeries(closes);
+  const macdHist = lastValid(hist);
+  const macdHistPrev = valueAt(hist,1);
+
+  const atrVal = atr(candles,14);
+  const atrPct = Number.isFinite(atrVal) ? (atrVal/price)*100 : NaN;
+  const bb = bollinger(closes,20,2);
+  const volRatio = volumeRatio(candles);
+
+  const high24 = ticker ? ticker.highPrice : Math.max(...candles.slice(-6).map(c=>c.high));
+  const low24 = ticker ? ticker.lowPrice : Math.min(...candles.slice(-6).map(c=>c.low));
+  const nearHighPct = high24>0 ? ((high24-price)/high24)*100 : NaN;
+  const nearLowPct = low24>0 ? ((price-low24)/low24)*100 : NaN;
+
+  const change24h = ticker ? ticker.priceChangePercent : ((price-closes[closes.length-2])/closes[closes.length-2])*100;
+  const quoteVolume24h = ticker ? ticker.quoteVolume : null;
+
+  const emaCrossUp = ema20!==null && ema50!==null && ema20Prev!==null && ema50Prev!==null && ema20>ema50 && ema20Prev<=ema50Prev;
+  const emaCrossDown = ema20!==null && ema50!==null && ema20Prev!==null && ema50Prev!==null && ema20<ema50 && ema20Prev>=ema50Prev;
+  const macdCrossUp = macdHist!==null && macdHistPrev!==null && macdHist>0 && macdHistPrev<=0;
+  const macdCrossDown = macdHist!==null && macdHistPrev!==null && macdHist<0 && macdHistPrev>=0;
+
+  const spark = closes.slice(-28);
+
+  return {
+    symbol, price, change24h, quoteVolume24h,
+    rsi: rsiVal, macdHist, macdHistPrev, macdCrossUp, macdCrossDown,
+    ema20, ema50, ema200, emaCrossUp, emaCrossDown,
+    priceAboveEma200: ema200!==null ? price>ema200 : null,
+    atrPct, bbWidthPct: bb.widthPct, volRatio,
+    nearHighPct, nearLowPct, spark
+  };
+}
+
+/* =========================================================================
+   Condition system
+   ========================================================================= */
+const METRICS = [
+  { key:'rsi', label:'RSI (14)', group:'Technicals', unit:'', ops:['<','>'], def:30 },
+  { key:'macdHist', label:'MACD Histogram', group:'Technicals', unit:'', ops:['>0 (bullish)','<0 (bearish)','crossed bullish','crossed bearish'], noValue:true },
+  { key:'emaTrend', label:'EMA20 vs EMA50', group:'Technicals', unit:'', ops:['above (golden)','below (death)','just crossed up','just crossed down'], noValue:true },
+  { key:'priceVsEma200', label:'Price vs EMA200', group:'Technicals', unit:'', ops:['above','below'], noValue:true },
+  { key:'atrPct', label:'Volatility (ATR %)', group:'Technicals', unit:'%', ops:['<','>'], def:3 },
+  { key:'bbWidthPct', label:'Bollinger Band Width', group:'Technicals', unit:'%', ops:['<','>'], def:4 },
+  { key:'change24h', label:'24h Change', group:'Market data', unit:'%', ops:['>','<'], def:5 },
+  { key:'quoteVolume24h', label:'24h Quote Volume', group:'Market data', unit:'$', ops:['>'], def:5000000 },
+  { key:'volRatio', label:'Volume vs 20-bar avg', group:'Market data', unit:'×', ops:['>'], def:2 },
+  { key:'nearHighPct', label:'Distance from 24h High', group:'Market data', unit:'%', ops:['<'], def:1 },
+  { key:'nearLowPct', label:'Distance from 24h Low', group:'Market data', unit:'%', ops:['<'], def:1 },
+];
+const METRIC_BY_KEY = Object.fromEntries(METRICS.map(m=>[m.key,m]));
+
+let conditions = [];   // {metric, operator, value}
+let matchMode = 'all';
+let allResults = [];
+let sortKey = 'change24h';
+let sortDir = -1;
+let currentInterval = '4h';
+
+function populateMetricSelect(){
+  const sel = document.getElementById('scnMetricSelect');
+  const groups = {};
+  METRICS.forEach(m => { (groups[m.group] = groups[m.group]||[]).push(m); });
+  sel.innerHTML = Object.entries(groups).map(([g,items]) =>
+    `<optgroup label="${g}">${items.map(m=>`<option value="${m.key}">${m.label}</option>`).join('')}</optgroup>`
+  ).join('');
+  sel.addEventListener('change', populateOperatorSelect);
+  populateOperatorSelect();
+}
+function populateOperatorSelect(){
+  const metric = METRIC_BY_KEY[document.getElementById('scnMetricSelect').value];
+  const opSel = document.getElementById('scnOperatorSelect');
+  opSel.innerHTML = metric.ops.map(o=>`<option value="${o}">${o}</option>`).join('');
+  document.getElementById('scnValueField').style.display = metric.noValue ? 'none' : 'flex';
+  if(!metric.noValue) document.getElementById('scnValueInput').value = metric.def ?? '';
+}
+
+function addConditionFromForm(){
+  const metricKey = document.getElementById('scnMetricSelect').value;
+  const operator = document.getElementById('scnOperatorSelect').value;
+  const metric = METRIC_BY_KEY[metricKey];
+  const value = metric.noValue ? null : parseFloat(document.getElementById('scnValueInput').value);
+  if(!metric.noValue && !Number.isFinite(value)){ return; }
+  conditions.push({ metric: metricKey, operator, value });
+  renderChips();
+}
+function removeCondition(i){ conditions.splice(i,1); renderChips(); }
+function renderChips(){
+  const row = document.getElementById('scnChipsRow');
+  document.querySelectorAll('.preset-card').forEach(c=>c.classList.remove('active'));
+  if(!conditions.length){ row.innerHTML = '<span class="empty-chips">No conditions yet — add one above or pick a quick screen.</span>'; return; }
+  row.innerHTML = conditions.map((c,i)=>{
+    const m = METRIC_BY_KEY[c.metric];
+    const valTxt = m.noValue ? '' : ` ${c.value}${m.unit}`;
+    return `<span class="cond-chip">${m.label} ${c.operator}${valTxt}<button onclick="Scanner.removeCondition(${i})">✕</button></span>`;
+  }).join('');
+}
+function setMatchMode(mode){
+  matchMode = mode;
+  document.getElementById('scnMatchAllBtn').classList.toggle('active', mode==='all');
+  document.getElementById('scnMatchAnyBtn').classList.toggle('active', mode==='any');
+  document.getElementById('scnMatchModeSub').textContent = mode==='all'
+    ? 'A coin must satisfy every condition below'
+    : 'A coin must satisfy at least one condition below';
+  if(allResults.length) sortAndRender();
+}
+
+function evalCondition(metrics, cond){
+  const v = metrics[cond.metric];
+  switch(cond.metric){
+    case 'macdHist':
+      if(cond.operator==='>0 (bullish)') return v!==null && v>0;
+      if(cond.operator==='<0 (bearish)') return v!==null && v<0;
+      if(cond.operator==='crossed bullish') return !!metrics.macdCrossUp;
+      if(cond.operator==='crossed bearish') return !!metrics.macdCrossDown;
+      return false;
+    case 'emaTrend':
+      if(cond.operator==='above (golden)') return metrics.ema20!==null && metrics.ema50!==null && metrics.ema20>metrics.ema50;
+      if(cond.operator==='below (death)') return metrics.ema20!==null && metrics.ema50!==null && metrics.ema20<metrics.ema50;
+      if(cond.operator==='just crossed up') return !!metrics.emaCrossUp;
+      if(cond.operator==='just crossed down') return !!metrics.emaCrossDown;
+      return false;
+    case 'priceVsEma200':
+      if(metrics.priceAboveEma200===null) return false;
+      return cond.operator==='above' ? metrics.priceAboveEma200 : !metrics.priceAboveEma200;
+    default:
+      if(v===null || v===undefined || !Number.isFinite(v)) return false;
+      if(cond.operator==='>') return v > cond.value;
+      if(cond.operator==='<') return v < cond.value;
+      return false;
+  }
+}
+function evaluateAll(metrics){
+  if(!conditions.length) return { passed:true, matched:[] };
+  const flags = conditions.map(c => evalCondition(metrics, c));
+  const passed = matchMode==='all' ? flags.every(Boolean) : flags.some(Boolean);
+  const matched = conditions.filter((c,i)=>flags[i]).map(c=>METRIC_BY_KEY[c.metric].label);
+  return { passed, matched };
+}
+
+/* =========================================================================
+   Presets
+   ========================================================================= */
+const PRESETS = [
+  { id:'oversold', icon:'↺', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Oversold reversal', desc:'RSI under 30 while price still holds above EMA200',
+    conds:[{metric:'rsi',operator:'<',value:30},{metric:'priceVsEma200',operator:'above',value:null}], mode:'all' },
+  { id:'breakout', icon:'⚡', color:'linear-gradient(135deg,#ff8a4c,#c2501a)', title:'Momentum breakout', desc:'24h move over 5% backed by a 2× volume surge',
+    conds:[{metric:'change24h',operator:'>',value:5},{metric:'volRatio',operator:'>',value:2}], mode:'all' },
+  { id:'golden', icon:'✕', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Golden cross', desc:'EMA20 has just crossed above EMA50',
+    conds:[{metric:'emaTrend',operator:'just crossed up',value:null}], mode:'all' },
+  { id:'squeeze', icon:'▭', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Volatility squeeze', desc:'Bollinger width under 4% — coiling before a move',
+    conds:[{metric:'bbWidthPct',operator:'<',value:4}], mode:'all' },
+  { id:'surge', icon:'▲', color:'linear-gradient(135deg,#5b8cff,#2b4fb0)', title:'Volume surge', desc:'Current bar trading at 3× its 20-bar average volume',
+    conds:[{metric:'volRatio',operator:'>',value:3}], mode:'all' },
+  { id:'nearhigh', icon:'◆', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Near 24h high', desc:'Trading within 1% of its 24h high — strength',
+    conds:[{metric:'nearHighPct',operator:'<',value:1}], mode:'all' },
+];
+function renderPresets(){
+  document.getElementById('scnPresetGrid').innerHTML = PRESETS.map(p => `
+    <div class="preset-card" id="preset-${p.id}" onclick="Scanner.applyPreset('${p.id}')">
+      <div class="pc-icon" style="background:${p.color};color:#04140F;">${p.icon}</div>
+      <div class="pc-title">${p.title}</div>
+      <div class="pc-desc">${p.desc}</div>
+    </div>`).join('');
+}
+function applyPreset(id){
+  const preset = PRESETS.find(p=>p.id===id);
+  if(!preset) return;
+  conditions = preset.conds.map(c=>({...c}));
+  matchMode = preset.mode;
+  setMatchMode(preset.mode);
+  renderChips();
+  document.getElementById(`preset-${id}`).classList.add('active');
+}
+
+/* =========================================================================
+   Scan execution
+   ========================================================================= */
+function setStatus(msg){ document.getElementById('scnStatusText').textContent = msg; }
+function showError(msg){ const b=document.getElementById('scnErrorBox'); b.style.display='block'; b.innerHTML=msg; }
+function hideError(){ document.getElementById('scnErrorBox').style.display='none'; }
+
+document.getElementById('scnTfToggle').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-tf]');
+  if(!btn) return;
+  document.querySelectorAll('#scnTfToggle button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentInterval = btn.dataset.tf;
+});
+
+async function runScan(){
+  hideError();
+  const btn = document.getElementById('scnRunBtn');
+  btn.disabled = true; btn.classList.add('loading');
+  document.getElementById('scnRunBtnLabel').textContent = 'Scanning…';
+  document.getElementById('scnCsvBtn').disabled = true;
+  const progressWrap = document.getElementById('scnProgressWrap');
+  const progressFill = document.getElementById('scnProgressFill');
+  const progressPct = document.getElementById('scnProgressPct');
+  progressWrap.style.display = 'block';
+  progressFill.style.width = '0%'; progressPct.textContent = '0%';
+
+  const minVol = parseFloat(document.getElementById('scnMinVolume').value) || 0;
+  const concurrency = Math.max(1, parseInt(document.getElementById('scnConcurrency').value) || 8);
+
+  try{
+    setStatus('Fetching USDT-M perpetual futures symbol list…');
+    const symbols = await getUSDTPerpetualSymbols();
+    document.getElementById('scnTbUniverse').textContent = symbols.length;
+    setStatus('Fetching 24h tickers…');
+    const tickers = await get24hTickers();
+
+    setStatus(`Scanning all ${symbols.length} USDT-M perpetuals…`);
+
+    const raw = await runPool(symbols, async (symbol) => {
+      const ticker = tickers[symbol];
+      const metrics = await computeMetrics(symbol, currentInterval, ticker);
+      const { passed, matched } = evaluateAll(metrics);
+      const volumeOk = (metrics.quoteVolume24h ?? 0) >= minVol;
+      return { ...metrics, passed: passed && volumeOk, matched };
+    }, concurrency, (done,total)=>{
+      const pct = (done/total*100).toFixed(0);
+      progressFill.style.width = `${pct}%`;
+      progressPct.textContent = `${pct}%`;
+      setStatus(`Scanning… ${done}/${total}`);
+    });
+
+    const scanned = raw.filter(r => r && !r.error);
+    const failedCount = raw.length - scanned.length;
+    allResults = scanned.filter(r => r.passed);
+
+    document.getElementById('scnTbLastScan').textContent = new Date().toLocaleTimeString();
+    setStatus(`Done — ${allResults.length} matches out of ${symbols.length} scanned (${failedCount} skipped, below-volume excluded).`);
+    sortAndRender();
+    document.getElementById('scnCsvBtn').disabled = allResults.length === 0;
+  }catch(e){
+    showError(`Error: <b>${e.message}</b><br><br>This usually means Binance's Futures API couldn't be reached — check your internet connection, or that Binance isn't blocked on your network/VPN.`);
+    setStatus('Failed.');
+  }finally{
+    btn.disabled = false; btn.classList.remove('loading');
+    document.getElementById('scnRunBtnLabel').textContent = 'Run scan';
+    setTimeout(()=>{ progressWrap.style.display='none'; }, 900);
+  }
+}
+
+/* =========================================================================
+   Rendering results
+   ========================================================================= */
+const SORT_LABELS = { symbol:'Symbol', price:'Price', change24h:'24h %', rsi:'RSI', macdHist:'MACD', volRatio:'Vol ×', matchCount:'Matched' };
+function sortAndRender(){
+  let rows = [...allResults];
+  rows.sort((a,b)=>{
+    let av, bv;
+    if(sortKey==='matchCount'){ av=a.matched.length; bv=b.matched.length; }
+    else { av=a[sortKey]; bv=b[sortKey]; }
+    if(typeof av==='string') return sortDir*String(av).localeCompare(String(bv));
+    return sortDir*(((av??-Infinity))-((bv??-Infinity)));
+  });
+  renderTable(rows);
+}
+function setSort(key){
+  if(sortKey===key) sortDir *= -1; else { sortKey=key; sortDir = key==='symbol' ? 1 : -1; }
+  sortAndRender();
+}
+
+function fmtNum(n,d=2){ return (n===null||n===undefined||!Number.isFinite(n)) ? '—' : n.toFixed(d); }
+function fmtVol(n){
+  if(n===null||n===undefined||!Number.isFinite(n)) return '—';
+  if(n>=1e9) return '$'+(n/1e9).toFixed(2)+'B';
+  if(n>=1e6) return '$'+(n/1e6).toFixed(2)+'M';
+  if(n>=1e3) return '$'+(n/1e3).toFixed(1)+'K';
+  return '$'+n.toFixed(0);
+}
+function fmtPrice(n){
+  if(!Number.isFinite(n)) return '—';
+  if(n>=100) return n.toFixed(2);
+  if(n>=1) return n.toFixed(4);
+  return n.toFixed(6);
+}
+const PALETTE = ['#35e0c0','#8ea9ff','#ff8a4c','#a78bfa','#f5a623','#ff5470','#5b8cff','#f0c24b'];
+function colorForSymbol(sym){ let h=0; for(let i=0;i<sym.length;i++) h=(h*31+sym.charCodeAt(i))>>>0; return PALETTE[h%PALETTE.length]; }
+function sparkSVG(values, up){
+  if(!values || values.length<2) return '';
+  const w=90,h=28,pad=2;
+  const min=Math.min(...values), max=Math.max(...values);
+  const range = (max-min)||1;
+  const pts = values.map((v,i)=>{
+    const x = pad + (i/(values.length-1))*(w-2*pad);
+    const y = h-pad-((v-min)/range)*(h-2*pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const color = up ? 'var(--accent)' : 'var(--red)';
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+const WATCHLIST_CUSTOM_KEY = 'crypto-watchlist-custom-coins';
+const WATCHLIST_DEFAULT_SYMBOLS = new Set(['BTCUSDT','ETHUSDT']);
+function loadWatchlistCustomCoins(){
+  try{ const raw = localStorage.getItem(WATCHLIST_CUSTOM_KEY); const list = raw?JSON.parse(raw):[]; return Array.isArray(list)?list:[]; }
+  catch(e){ return []; }
+}
+function isInWatchlist(sym){ return WATCHLIST_DEFAULT_SYMBOLS.has(sym) || loadWatchlistCustomCoins().some(c=>c && c.binanceSymbol===sym); }
+function addToWatchlist(sym, btn){
+  if(isInWatchlist(sym)) return;
+  const base = sym.replace(/USDT$/i,'');
+  const list = loadWatchlistCustomCoins();
+  list.push({ symbol:base, binanceSymbol:sym, name:base, coingeckoId:null, gradient:`linear-gradient(135deg,${colorForSymbol(sym)},#1c8f79)`, addedAt:Date.now() });
+  try{ localStorage.setItem(WATCHLIST_CUSTOM_KEY, JSON.stringify(list)); }catch(e){ return; }
+  if(btn){ btn.textContent='✓'; btn.classList.add('added'); btn.onclick=null; }
+}
+
+function renderTable(rows){
+  document.getElementById('scnResultsCountN').textContent = rows.length;
+  const body = document.getElementById('scnResultsBody');
+  if(!rows.length){
+    body.innerHTML = `<div class="empty-state">
+      <div class="es-icon">◎</div>
+      <div class="es-title">No matches</div>
+      <div class="es-sub">Nothing in the current universe satisfies these conditions. Try loosening a threshold, switching to ANY match, or scanning a different timeframe.</div>
+    </div>`;
+    return;
+  }
+  const headCell = (key,label) => `<th class="${sortKey===key?'sorted':''}" onclick="Scanner.setSort('${key}')">${label}${sortKey===key?(sortDir===1?' ↑':' ↓'):''}</th>`;
+  body.innerHTML = `
+    <div class="table-scroll">
+    <table>
+      <thead><tr>
+        ${headCell('symbol','Symbol')}
+        ${headCell('price','Price')}
+        ${headCell('change24h','24h %')}
+        <th>Trend</th>
+        <th>Chart</th>
+        ${headCell('rsi','RSI')}
+        <th>MACD</th>
+        ${headCell('volRatio','Vol ×')}
+        ${headCell('matchCount','Matched')}
+        <th>WL</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => renderRow(r)).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+function renderRow(r){
+  const base = r.symbol.replace(/USDT$/,'');
+  const up = r.change24h >= 0;
+  const color = colorForSymbol(r.symbol);
+  const trendBadge = r.priceAboveEma200===null ? `<span class="badge badge-neutral">—</span>`
+    : r.priceAboveEma200 ? `<span class="badge badge-bull">▲ above EMA200</span>` : `<span class="badge badge-bear">▼ below EMA200</span>`;
+  const tvUrl = `https://www.tradingview.com/chart/?symbol=BINANCE:${r.symbol}.P`;
+  const already = isInWatchlist(r.symbol);
+  return `<tr>
+    <td><div class="sym-cell">
+      <div class="sym-badge" style="background:linear-gradient(135deg,${color},#151821);">${base.slice(0,4)}</div>
+      <div><div class="sym-name">${base}</div><div class="sym-sub">USDT-M PERP</div></div>
+    </div></td>
+    <td class="mono">${fmtPrice(r.price)}</td>
+    <td class="mono ${up?'chg-pos':'chg-neg'}">${up?'+':''}${fmtNum(r.change24h,2)}%</td>
+    <td>${trendBadge}</td>
+    <td>${sparkSVG(r.spark, up)}</td>
+    <td class="mono">${fmtNum(r.rsi,1)}</td>
+    <td class="mono ${r.macdHist>0?'chg-pos':(r.macdHist<0?'chg-neg':'')}">${fmtNum(r.macdHist,4)}</td>
+    <td class="mono">${r.volRatio!==null?fmtNum(r.volRatio,2)+'×':'—'}</td>
+    <td><div class="matched-chips">${r.matched.map(m=>`<span class="matched-chip">${m}</span>`).join('') || '<span class="matched-chip">any</span>'}</div></td>
+    <td><div class="row-actions">
+      <a class="icon-btn" href="${tvUrl}" target="_blank" rel="noopener noreferrer" title="Open chart">↗</a>
+      <button class="icon-btn${already?' added':''}" ${already?'disabled':''} onclick="Scanner.addToWatchlist('${r.symbol}', this)" title="Add to watchlist">${already?'✓':'+'}</button>
+    </div></td>
+  </tr>`;
+}
+
+function exportCSV(){
+  if(!allResults.length) return;
+  const cols = ['symbol','price','change24h','rsi','macdHist','volRatio','bbWidthPct','atrPct','matched'];
+  const lines = [cols.join(',')].concat(allResults.map(r => cols.map(c => {
+    if(c==='matched') return `"${r.matched.join(' | ')}"`;
+    const v = r[c];
+    return Number.isFinite(v) ? v.toFixed(6) : '';
+  }).join(',')));
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `scanner-results-${Date.now()}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* =========================================================================
+   Init
+   ========================================================================= */
+populateMetricSelect();
+renderPresets();
+applyPreset('breakout');
+
+
+window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, applyPreset, setSort, addToWatchlist };
+})();
+
 </script>
 
 </body>
