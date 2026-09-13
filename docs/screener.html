@@ -697,7 +697,7 @@
     </div>
     <p class="analysis-status" id="analysisStatus">Loading Binance candles...</p>
     <div class="chart-wrap"><canvas id="analysisChart"></canvas></div>
-    <button type="button" class="price-action-link decision-price-action" onclick="openPriceAction(event)">Price action analysis →</button>
+    <button type="button" class="price-action-link decision-price-action" onclick="openPriceAction(event)">Price action & ICT analysis →</button>
     <div id="analysisDetails"></div>
   </div>
 </div>
@@ -705,7 +705,7 @@
   <div class="analysis-dialog" style="width:min(700px,100%);" role="dialog" aria-modal="true" aria-labelledby="priceActionTitle" onclick="event.stopPropagation()">
     <div class="trade-head" style="position:static;">
       <div class="header-title-wrap">
-        <div><h2 id="priceActionTitle">Price action analysis</h2></div>
+        <div><h2 id="priceActionTitle">Price action & ICT analysis</h2></div>
       </div>
       <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="closePriceAction()">×</button></div>
     </div>
@@ -1696,6 +1696,121 @@ function findOrderBlocks(candles){
   }
   return {bullishOB, bearishOB};
 }
+
+// ===================== ICT (Inner Circle Trader) concepts =====================
+// These implement the standard ICT/SMC definitions taught across his mentorship
+// material — Fair Value Gaps, Liquidity pools/sweeps, Breaker Blocks, and
+// Premium/Discount + OTE — plus a simplified Power of Three (AMD) read. They sit
+// alongside the market structure (BOS/CHoCH) and order block detectors above and
+// feed the ICT cards in the "Price action & ICT analysis" popover.
+
+// Fair Value Gaps: a 3-candle imbalance where candle[i-2]'s high/low doesn't
+// overlap candle[i]'s low/high, leaving a gap price often returns to "fill"
+// before continuing the original move. A gap is treated as mitigated once
+// price has traded back through its midpoint; only unmitigated gaps are kept.
+function detectFairValueGaps(candles, lookback=60){
+  const n = candles.length, start = Math.max(2, n - lookback), gaps = [];
+  for(let i = start; i < n; i++){
+    const left = candles[i-2], right = candles[i];
+    if(left.high < right.low){
+      const top = right.low, bottom = left.high, mid = (top + bottom) / 2;
+      let mitigated = false;
+      for(let j = i + 1; j < n; j++){ if(candles[j].low <= mid){ mitigated = true; break; } }
+      if(!mitigated) gaps.push({type:'bullish', top, bottom, index:i});
+    } else if(left.low > right.high){
+      const top = left.low, bottom = right.high, mid = (top + bottom) / 2;
+      let mitigated = false;
+      for(let j = i + 1; j < n; j++){ if(candles[j].high >= mid){ mitigated = true; break; } }
+      if(!mitigated) gaps.push({type:'bearish', top, bottom, index:i});
+    }
+  }
+  return gaps;
+}
+// Splits unmitigated FVGs relative to current price: the one price is
+// currently trading inside (if any), plus the nearest one below and above.
+function classifyFVGs(gaps, currentPrice){
+  const inside = gaps.find(g => currentPrice >= g.bottom && currentPrice <= g.top) || null;
+  const below = gaps.filter(g => g.top < currentPrice).sort((a,b) => (currentPrice - a.top) - (currentPrice - b.top))[0] || null;
+  const above = gaps.filter(g => g.bottom > currentPrice).sort((a,b) => (a.bottom - currentPrice) - (b.bottom - currentPrice))[0] || null;
+  return {inside, below, above};
+}
+
+// Liquidity pools: clusters of two or more swing highs/lows within a small
+// tolerance of each other. ICT treats these as resting liquidity (stops and
+// breakout orders) that price is frequently drawn to before reversing.
+function findLiquidityPools(swings, tolerancePct=0.15){
+  const cluster = (list) => {
+    const pools = [];
+    for(const s of [...list].sort((a,b) => a.index - b.index)){
+      const pool = pools.find(p => Math.abs(p.price - s.price) / s.price * 100 <= tolerancePct);
+      if(pool){ pool.touches++; pool.lastIndex = Math.max(pool.lastIndex, s.index); }
+      else pools.push({price:s.price, touches:1, lastIndex:s.index});
+    }
+    return pools.filter(p => p.touches >= 2);
+  };
+  return {buySide: cluster(swings.filter(s => s.type === 'high')), sellSide: cluster(swings.filter(s => s.type === 'low'))};
+}
+// Liquidity sweep: a wick that pokes through a pool but closes back on the
+// other side within the last few candles — the classic ICT "stop hunt" that
+// often precedes a reversal. Sweeping buy-side liquidity (equal highs) reads
+// bearish; sweeping sell-side liquidity (equal lows) reads bullish.
+function detectLiquiditySweep(candles, pools){
+  const n = candles.length;
+  for(let i = n - 1; i >= Math.max(0, n - 6); i--){
+    const c = candles[i];
+    for(const pool of pools.buySide){
+      if(pool.lastIndex < i && c.high > pool.price && c.close < pool.price) return {direction:'bearish', poolPrice:pool.price, barsAgo:n - 1 - i, kind:'buy-side', touches:pool.touches};
+    }
+    for(const pool of pools.sellSide){
+      if(pool.lastIndex < i && c.low < pool.price && c.close > pool.price) return {direction:'bullish', poolPrice:pool.price, barsAgo:n - 1 - i, kind:'sell-side', touches:pool.touches};
+    }
+  }
+  return null;
+}
+
+// Breaker Blocks: an order block that price later closes back through flips
+// role — a broken bullish OB becomes bearish resistance, and a broken
+// bearish OB becomes bullish support. Checked against the same OBs already
+// found for the current timeframe.
+function detectBreakerBlocks(candles, orderBlocks){
+  const last = candles[candles.length - 1];
+  return {
+    bearishBreaker: (orderBlocks.bullishOB && last.close < orderBlocks.bullishOB.bottom) ? orderBlocks.bullishOB : null,
+    bullishBreaker: (orderBlocks.bearishOB && last.close > orderBlocks.bearishOB.top) ? orderBlocks.bearishOB : null
+  };
+}
+
+// Premium/Discount + OTE: splits the latest swing leg at its 50% midpoint —
+// below 50% of an up-leg is "discount" (favors longs), above is "premium"
+// (favors shorts), and vice versa for a down-leg. The 62-79% retracement of
+// the leg is ICT's Optimal Trade Entry (OTE) pocket.
+function computePremiumDiscount(swingMove, currentPrice){
+  if(!swingMove) return null;
+  const {high, low, direction} = swingMove, range = high - low;
+  if(range <= 0) return null;
+  const posPct = (currentPrice - low) / range * 100;
+  const zone = posPct >= 50 ? 'premium' : 'discount';
+  const oteA = direction === 'bullish' ? high - range * 0.62 : low + range * 0.79;
+  const oteB = direction === 'bullish' ? high - range * 0.79 : low + range * 0.62;
+  const oteTop = Math.max(oteA, oteB), oteBottom = Math.min(oteA, oteB);
+  return {posPct, zone, oteTop, oteBottom, inOTE: currentPrice >= oteBottom && currentPrice <= oteTop, direction};
+}
+
+// Power of Three / AMD: Accumulation (tight range) -> Manipulation (a
+// liquidity sweep beyond that range) -> Distribution (expansion the other
+// way). Simplified read: compares recent range volatility to the prior
+// stretch, and checks whether a liquidity sweep preceded the current push.
+function computePowerOfThree(candles, sweep){
+  const n = candles.length, recent = candles.slice(Math.max(0, n - 10)), prior = candles.slice(Math.max(0, n - 30), Math.max(0, n - 10));
+  if(prior.length < 5 || recent.length < 5) return {phase:'Unclear', detail:'Not enough bars for a reliable AMD read on this timeframe.'};
+  const rangeOf = arr => Math.max(...arr.map(c => c.high)) - Math.min(...arr.map(c => c.low));
+  const expanding = rangeOf(recent) > rangeOf(prior) * 1.3;
+  if(sweep && expanding) return {phase:`Distribution (${sweep.direction})`, detail:`A ${sweep.kind} liquidity sweep ${sweep.barsAgo === 0 ? 'just printed' : `${sweep.barsAgo} bars ago`}, followed by range expansion — a clean manipulation-into-distribution sequence favoring ${sweep.direction === 'bullish' ? 'longs' : 'shorts'}.`};
+  if(!expanding) return {phase:'Accumulation', detail:'Range has stayed tight relative to the prior stretch — consistent with an accumulation phase. Watch for a liquidity sweep of the range extremes to mark the manipulation leg.'};
+  return {phase:'Expansion (unconfirmed)', detail:'Range has expanded but without a clear liquidity sweep preceding it on this timeframe — directional, but doesn\'t fit a clean AMD sequence.'};
+}
+// ================= end ICT concepts =================
+
 // Multi-timeframe check: one step up only (4H->Daily, Daily->Weekly). Weekly has nothing
 // higher in this app, so it's skipped. This is deliberately a single trend confirmation,
 // not a second full indicator stack — the classic "trade your timeframe, glance one level up" rule.
@@ -2261,6 +2376,15 @@ async function openAnalysis(symbol, intervalOverride){
     const keyLevels = nearestLevels(swings, currentPrice);
     const orderBlocks = findOrderBlocks(candles);
 
+    // ---- ICT concepts: FVGs, liquidity pools/sweeps, breaker blocks, premium/discount, AMD ----
+    const fvgs = detectFairValueGaps(candles);
+    const fvgNear = classifyFVGs(fvgs, currentPrice);
+    const liquidityPools = findLiquidityPools(swings);
+    const liquiditySweep = detectLiquiditySweep(candles, liquidityPools);
+    const breakerBlocks = detectBreakerBlocks(candles, orderBlocks);
+    const premiumDiscount = computePremiumDiscount(swingMove, currentPrice);
+    const powerOfThree = computePowerOfThree(candles, liquiditySweep);
+
     // ---- Extra Ichimoku components for the card copy: Chikou-vs-its-own-cloud,
     // the Tenkan/Kijun cross, and the future (leading) Kumo — computed fresh
     // from the same candles used everywhere else on this screen, using the
@@ -2385,6 +2509,86 @@ async function openAnalysis(symbol, intervalOverride){
       if(htfOB) srLine += ` ${htfLabel} OB ${formatAnalysisValue(htfOB.bottom)}–${formatAnalysisValue(htfOB.top)}.`;
     }
 
+    // ================= ICT card copy (Price action & ICT analysis popover) =================
+
+    // ICT Market Structure — reuses marketStructure/structureSide computed above,
+    // framed the way ICT uses BOS/CHoCH: BOS confirms continuation, CHoCH is the
+    // first warning of a reversal, not confirmation of one.
+    const ictStructureHeadline = marketStructure.state;
+    let ictStructureLine = marketStructure.detail;
+    if(/CHoCH/.test(marketStructure.state)) ictStructureLine += ' In ICT\'s model, a CHoCH is only the first warning that trend may be reversing — treat it as a reason to stop hunting old-trend setups and start watching for a new leg, not as an entry signal by itself.';
+    else if(/BOS/.test(marketStructure.state)) ictStructureLine += ' A BOS confirms the existing trend is still in control — ICT treats this as license to keep looking for continuation entries in that direction.';
+
+    // ICT Liquidity — nearest resting pools plus any recent sweep/stop-hunt.
+    const buyPool = liquidityPools.buySide.slice().sort((a,b) => Math.abs(a.price - currentPrice) - Math.abs(b.price - currentPrice))[0];
+    const sellPool = liquidityPools.sellSide.slice().sort((a,b) => Math.abs(a.price - currentPrice) - Math.abs(b.price - currentPrice))[0];
+    const ictLiquidityHeadline = liquiditySweep
+      ? `${liquiditySweep.kind === 'buy-side' ? 'Buy-side' : 'Sell-side'} liquidity swept ${liquiditySweep.barsAgo === 0 ? 'this candle' : `${liquiditySweep.barsAgo} bars ago`}`
+      : (buyPool || sellPool ? 'Resting liquidity pools nearby' : 'No clear equal-high/low pools');
+    let ictLiquidityLine = liquiditySweep
+      ? `Price wicked through equal ${liquiditySweep.kind === 'buy-side' ? 'highs' : 'lows'} (${liquiditySweep.touches} touches) around ${formatAnalysisValue(liquiditySweep.poolPrice)} and closed back on the other side — a classic stop hunt. ICT reads this as ${liquiditySweep.direction === 'bullish' ? 'sell-side liquidity taken before an upside move — bullish.' : 'buy-side liquidity taken before a downside move — bearish.'}`
+      : 'No fresh sweep-and-reject in the last few candles.';
+    if(buyPool) ictLiquidityLine += ` Nearest buy-side pool (equal highs, ${buyPool.touches}× touched): ${formatAnalysisValue(buyPool.price)} — a likely draw if price pushes up.`;
+    if(sellPool) ictLiquidityLine += ` Nearest sell-side pool (equal lows, ${sellPool.touches}× touched): ${formatAnalysisValue(sellPool.price)} — a likely draw if price pushes down.`;
+
+    // Fair Value Gaps — unmitigated 3-candle imbalances near current price.
+    const ictFvgHeadline = fvgNear.inside ? `Trading inside a ${fvgNear.inside.type} FVG` : ((fvgNear.below || fvgNear.above) ? 'Unmitigated FVGs nearby' : 'No unmitigated FVGs nearby');
+    let ictFvgLine = '';
+    if(fvgNear.inside) ictFvgLine += `Price is currently inside a ${fvgNear.inside.type} Fair Value Gap (${formatAnalysisValue(fvgNear.inside.bottom)}–${formatAnalysisValue(fvgNear.inside.top)}) — a common reaction zone; ${fvgNear.inside.type === 'bullish' ? 'holding above it keeps the bullish imbalance intact.' : 'holding below it keeps the bearish imbalance intact.'}`;
+    if(fvgNear.below) ictFvgLine += `${ictFvgLine ? '<br>' : ''}Nearest unmitigated gap below: ${fvgNear.below.type} FVG at ${formatAnalysisValue(fvgNear.below.bottom)}–${formatAnalysisValue(fvgNear.below.top)}${fvgNear.below.type === 'bullish' ? ' — a likely support/pullback magnet.' : ' — an older imbalance, less relevant to downside continuation.'}`;
+    if(fvgNear.above) ictFvgLine += `${ictFvgLine ? '<br>' : ''}Nearest unmitigated gap above: ${fvgNear.above.type} FVG at ${formatAnalysisValue(fvgNear.above.bottom)}–${formatAnalysisValue(fvgNear.above.top)}${fvgNear.above.type === 'bearish' ? ' — a likely resistance/pullback magnet.' : ' — an older imbalance, less relevant to upside continuation.'}`;
+    if(!ictFvgLine) ictFvgLine = 'No unfilled 3-candle imbalances in the recent range on this timeframe.';
+
+    // Breaker Blocks — a flipped/failed order block.
+    const ictBreakerHeadline = breakerBlocks.bullishBreaker ? 'Bullish breaker in play' : (breakerBlocks.bearishBreaker ? 'Bearish breaker in play' : 'No breaker block yet');
+    let ictBreakerLine;
+    if(breakerBlocks.bullishBreaker) ictBreakerLine = `Price closed back above a former bearish order block (${formatAnalysisValue(breakerBlocks.bullishBreaker.bottom)}–${formatAnalysisValue(breakerBlocks.bullishBreaker.top)}) — it has flipped from resistance to a bullish breaker, now expected to act as support on a retest.`;
+    else if(breakerBlocks.bearishBreaker) ictBreakerLine = `Price closed back below a former bullish order block (${formatAnalysisValue(breakerBlocks.bearishBreaker.bottom)}–${formatAnalysisValue(breakerBlocks.bearishBreaker.top)}) — it has flipped from support to a bearish breaker, now expected to act as resistance on a retest.`;
+    else ictBreakerLine = 'Neither order block on this timeframe has been invalidated yet — both are still trading as plain order blocks, not breakers.';
+
+    // Premium/Discount + OTE.
+    const ictPdHeadline = premiumDiscount ? `${premiumDiscount.zone === 'premium' ? 'Premium' : 'Discount'} — ${premiumDiscount.posPct.toFixed(0)}% of range${premiumDiscount.inOTE ? ' (in OTE)' : ''}` : 'Range unavailable';
+    let ictPdLine;
+    if(!premiumDiscount) ictPdLine = 'Not enough swing structure yet to define a premium/discount range.';
+    else{
+      ictPdLine = `Current price sits at ${premiumDiscount.posPct.toFixed(0)}% of the ${formatAnalysisValue(recentLow)}–${formatAnalysisValue(recentHigh)} range — ${premiumDiscount.zone === 'discount' ? 'discount territory, where ICT favors looking for longs.' : 'premium territory, where ICT favors looking for shorts.'} The Optimal Trade Entry (62–79% retracement) pocket for the ${premiumDiscount.direction} leg sits at ${formatAnalysisValue(premiumDiscount.oteBottom)}–${formatAnalysisValue(premiumDiscount.oteTop)}${premiumDiscount.inOTE ? ' — price is inside it right now, the zone ICT treats as the highest-probability entry.' : ' — currently untested.'}`;
+    }
+
+    // Power of Three (AMD phase).
+    const ictAmdHeadline = powerOfThree.phase;
+    const ictAmdLine = powerOfThree.detail;
+
+    // ICT Overall Verdict — combines structure, liquidity sweep, premium/discount,
+    // breaker and FVG location into one directional read, cross-checked against
+    // the active Ichimoku setup (if any) for agreement/conflict.
+    const sweepSide = liquiditySweep ? (liquiditySweep.direction === 'bullish' ? 1 : -1) : null;
+    const pdSide = premiumDiscount ? (premiumDiscount.zone === 'discount' ? 1 : -1) : null;
+    const breakerSide = breakerBlocks.bullishBreaker ? 1 : (breakerBlocks.bearishBreaker ? -1 : null);
+    const fvgSide = (fvgNear.below && fvgNear.below.type === 'bullish' && !(fvgNear.above && fvgNear.above.type === 'bearish')) ? 1
+      : ((fvgNear.above && fvgNear.above.type === 'bearish' && !(fvgNear.below && fvgNear.below.type === 'bullish')) ? -1 : null);
+    const ictVotes = [structureSide, sweepSide, pdSide, breakerSide, fvgSide];
+    const ictBull = ictVotes.filter(v => v === 1).length, ictBear = ictVotes.filter(v => v === -1).length, ictTotal = ictVotes.filter(v => v !== null).length;
+    const ictDir = ictBull === ictBear ? 0 : (ictBull > ictBear ? 1 : -1);
+    const ictVerdictHeadline = ictTotal === 0 ? 'Not enough ICT confluence yet' : `${ictDir === 1 ? 'Long' : ictDir === -1 ? 'Short' : 'Neutral'} lean — ${Math.max(ictBull,ictBear)}/${ictTotal} ICT factors`;
+    let ictVerdictLine;
+    if(ictTotal === 0){
+      ictVerdictLine = 'Structure, liquidity, premium/discount and breaker reads are unavailable or conflicting on this timeframe — no ICT-based edge yet.';
+    } else {
+      const factorNames = [];
+      if(structureSide !== null) factorNames.push(`market structure (${structureSide === 1 ? 'bullish' : 'bearish'})`);
+      if(sweepSide !== null) factorNames.push(`the recent liquidity sweep (${sweepSide === 1 ? 'bullish' : 'bearish'})`);
+      if(pdSide !== null) factorNames.push(`${premiumDiscount.zone} pricing (${pdSide === 1 ? 'favors longs' : 'favors shorts'})`);
+      if(breakerSide !== null) factorNames.push(`the ${breakerSide === 1 ? 'bullish' : 'bearish'} breaker block`);
+      if(fvgSide !== null) factorNames.push(`the nearby ${fvgSide === 1 ? 'bullish' : 'bearish'} FVG`);
+      ictVerdictLine = `${ictBull} of ${ictTotal} available ICT factors lean bullish, ${ictBear} lean bearish (${factorNames.join(', ')}). `;
+      if(ictDir === 0) ictVerdictLine += 'Confluence is split — this is not a clean ICT setup; wait for structure, liquidity and pricing to agree before acting.';
+      else{
+        ictVerdictLine += `Combined, this leans ${ictDir === 1 ? 'long' : 'short'}`;
+        ictVerdictLine += hasSetup ? (dir === ictDir ? `, which agrees with the active Ichimoku ${effectiveRow.setup} setup — added confluence.` : `, which conflicts with the active Ichimoku ${effectiveRow.setup} setup — treat that trigger with extra caution.`) : '.';
+        if(premiumDiscount && premiumDiscount.inOTE) ictVerdictLine += ' Price is also sitting inside the OTE pocket right now, the zone ICT traders typically look to engage from.';
+      }
+    }
+
     // Levels
     const funding = await fundingPromise;
     const fundingRate = funding && Number.isFinite(funding.rate) ? funding.rate : null;
@@ -2501,7 +2705,16 @@ async function openAnalysis(symbol, intervalOverride){
     // Stashed for the "Price action analysis" popover (opened from the
     // Ichimoku card) so candlestick + chart pattern reads live in their own
     // stacked window instead of two separate cards in the main grid.
-    window.priceActionData = {candleHeadline, candleLine, chartHeadline, chartLine};
+    window.priceActionData = {
+      candleHeadline, candleLine, chartHeadline, chartLine,
+      ictVerdictHeadline, ictVerdictLine,
+      ictStructureHeadline, ictStructureLine,
+      ictLiquidityHeadline, ictLiquidityLine,
+      ictFvgHeadline, ictFvgLine,
+      ictBreakerHeadline, ictBreakerLine,
+      ictPdHeadline, ictPdLine,
+      ictAmdHeadline, ictAmdLine
+    };
 
     const cardHtml = ([label,value,detail]) => `<div class="analysis-card${label === 'Levels' ? ' execution' : ''}"><strong>${label}</strong><span class="analysis-value"><em>${value}</em></span>${label === 'Levels' ? detail : `<p>${detail}</p>`}</div>`;
     const mainCards = [
@@ -2534,8 +2747,15 @@ function openPriceAction(event){
   if(event) event.stopPropagation();
   const data = window.priceActionData;
   if(!data) return;
-  const cardHtml = ([label,value,detail]) => `<div class="analysis-card"><strong>${label}</strong><span class="analysis-value"><em>${value}</em></span><p>${detail}</p></div>`;
+  const cardHtml = ([label,value,detail,verdict]) => `<div class="analysis-card${verdict ? ' execution' : ''}"><strong>${label}</strong><span class="analysis-value"><em>${value}</em></span><p>${detail}</p></div>`;
   document.getElementById('priceActionDetails').innerHTML = [
+    ['ICT Overall Verdict', data.ictVerdictHeadline, data.ictVerdictLine, true],
+    ['ICT Market Structure — BOS / CHoCH', data.ictStructureHeadline, data.ictStructureLine],
+    ['ICT Liquidity — Pools & Sweeps', data.ictLiquidityHeadline, data.ictLiquidityLine],
+    ['ICT Fair Value Gaps (FVG)', data.ictFvgHeadline, data.ictFvgLine],
+    ['ICT Order Blocks & Breakers', data.ictBreakerHeadline, data.ictBreakerLine],
+    ['ICT Premium / Discount — OTE Zone', data.ictPdHeadline, data.ictPdLine],
+    ['ICT Power of Three (AMD)', data.ictAmdHeadline, data.ictAmdLine],
     ['Candlestick Patterns', data.candleHeadline, data.candleLine],
     ['Chart Patterns — Price Action', data.chartHeadline, data.chartLine]
   ].map(cardHtml).join('');
