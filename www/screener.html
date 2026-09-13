@@ -572,14 +572,18 @@
     padding:6px 0;
   }
   /* ---------------- App tabs (Screener / Scanner) ---------------- */
-  .app-tabs{display:flex;gap:8px;margin-bottom:16px;}
-  .app-tab{
-    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
-    border-radius:10px;padding:9px 16px;font:600 12.5px var(--font-display);cursor:pointer;
-    transition:border-color .15s,color .15s,background .15s;
+  .app-tabs-row{display:flex;justify-content:center;margin-bottom:16px;}
+  .app-tabs{
+    display:inline-flex;align-items:center;background:var(--panel);border:1px solid var(--border);
+    border-radius:14px;padding:4px;gap:4px;flex-shrink:0;
   }
-  .app-tab:hover{color:var(--text);border-color:var(--border-soft);}
-  .app-tab.active{background:var(--accent);color:#07130f;border-color:var(--accent);}
+  .app-tab{
+    border:none;background:transparent;color:var(--muted);
+    border-radius:10px;padding:9px 18px;font:600 12.5px var(--font-display);cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .app-tab:hover:not(.active){color:var(--text);}
+  .app-tab.active{background:rgba(53,224,192,.14);color:var(--accent);}
 
   /* =========================================================================
      Scanner (scoped under #scannerPane so it can't collide with the
@@ -695,27 +699,58 @@
   #scannerPane .preset-group .pg-chevron{margin-left:auto;color:var(--faint);font-size:12px;transition:transform .15s;flex:none;}
   #scannerPane .preset-group[open] summary{border-bottom:1px solid var(--border);}
   #scannerPane .preset-group[open] .pg-chevron{transform:rotate(180deg);color:var(--accent);}
-  #scannerPane .preset-cards-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;}
+  #scannerPane .preset-cards-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;padding:10px;}
 #scannerPane .preset-card{
-    background:var(--panel2);border:1px solid var(--border);border-radius:12px;
-    padding:10px 11px;cursor:pointer;text-align:left;transition:border-color .15s, transform .15s, background .15s;
-    display:flex;flex-direction:column;gap:5px;
+    position:relative;isolation:isolate;overflow:hidden;
+    background:linear-gradient(155deg,var(--panel2),var(--panel-solid));
+    border:1px solid var(--border);border-radius:14px;
+    padding:12px 13px 13px;cursor:pointer;text-align:left;
+    display:flex;flex-direction:column;gap:6px;
+    box-shadow:0 1px 0 0 rgba(255,255,255,.04) inset;
+    transition:border-color .2s ease, transform .2s ease, box-shadow .2s ease, background .2s ease;
   }
-#scannerPane .preset-card:hover{border-color:var(--border-strong);transform:translateY(-1px);}
-#scannerPane .preset-card.active{border-color:var(--accent);background:rgba(53,224,192,0.07);}
-#scannerPane .preset-card .pc-icon{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;}
-#scannerPane .preset-card .pc-title{font-weight:600;font-size:11.5px;}
+#scannerPane .preset-card::before{
+    content:'';position:absolute;z-index:0;top:-40%;left:-15%;width:75%;height:85%;
+    background:radial-gradient(circle,var(--pc-color,var(--accent)) 0%,transparent 72%);
+    opacity:0;filter:blur(18px);transition:opacity .25s ease;pointer-events:none;
+  }
+#scannerPane .preset-card:hover{
+    border-color:var(--border-strong);transform:translateY(-2px);
+    box-shadow:0 1px 0 0 rgba(255,255,255,.04) inset, 0 10px 24px -12px rgba(0,0,0,.55);
+  }
+#scannerPane .preset-card:hover::before{opacity:.14;}
+#scannerPane .preset-card.active{
+    border-color:var(--pc-color,var(--accent));
+    background:linear-gradient(155deg,color-mix(in srgb,var(--pc-color,var(--accent)) 12%,var(--panel2)),var(--panel-solid));
+    box-shadow:0 1px 0 0 rgba(255,255,255,.04) inset, 0 0 0 1px color-mix(in srgb,var(--pc-color,var(--accent)) 45%,transparent), 0 10px 26px -14px color-mix(in srgb,var(--pc-color,var(--accent)) 60%,transparent);
+  }
+#scannerPane .preset-card.active::before{opacity:.22;}
+#scannerPane .preset-card .pc-head{position:relative;z-index:1;display:flex;align-items:center;gap:9px;}
+#scannerPane .preset-card .pc-icon{
+    width:30px;height:30px;border-radius:9px;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+    box-shadow:0 4px 12px -3px color-mix(in srgb,var(--pc-color,var(--accent)) 65%,transparent);
+  }
+#scannerPane .preset-card .pc-title{font-weight:700;font-size:12px;letter-spacing:-.01em;}
+#scannerPane .preset-card .pc-desc-wrap{
+    position:relative;z-index:1;display:grid;grid-template-rows:0fr;
+    transition:grid-template-rows .25s ease;
+  }
+#scannerPane .preset-card.active .pc-desc-wrap{grid-template-rows:1fr;margin-top:1px;}
 #scannerPane .preset-card .pc-desc{
-    font-size:9.5px;color:var(--faint);line-height:1.35;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    min-height:0;overflow:hidden;font-size:9.5px;color:var(--faint);line-height:1.4;
   }
   @media (min-width:520px){
     #scannerPane .preset-cards-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));}
+  }
+  @media (prefers-reduced-motion:reduce){
+    #scannerPane .preset-card, #scannerPane .preset-card::before, #scannerPane .preset-card .pc-desc-wrap{transition:none;}
   }
 
 
   /* ---------------- Condition builder ---------------- */
   #scannerPane .builder-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  #scannerPane .builder-row + .builder-row{margin-top:10px;}
   #scannerPane .builder-row .field-inline{min-width:0;max-width:100%;}
 #scannerPane select, #scannerPane input[type=number], #scannerPane input[type=text]{
     background:var(--panel2);border:1px solid var(--border);color:var(--text);
@@ -853,9 +888,11 @@
   </div>
 </div>
 
-<div class="app-tabs">
-  <button type="button" class="app-tab active" id="tabScreenerBtn" onclick="switchAppView('screener')">📈 Screener</button>
-  <button type="button" class="app-tab" id="tabScannerBtn" onclick="switchAppView('scanner')">🔍 Scanner</button>
+<div class="app-tabs-row">
+  <div class="app-tabs">
+    <button type="button" class="app-tab active" id="tabScreenerBtn" onclick="switchAppView('screener')">📈 Screener</button>
+    <button type="button" class="app-tab" id="tabScannerBtn" onclick="switchAppView('scanner')">🔍 Scanner</button>
+  </div>
 </div>
 
 <div id="screenerPane">
@@ -1057,7 +1094,9 @@
         <label>&nbsp;</label>
         <button class="add-condition-btn" onclick="Scanner.addConditionFromForm()">+ Add condition</button>
       </div>
-      <div class="field-inline" style="margin-left:auto;">
+    </div>
+    <div class="builder-row">
+      <div class="field-inline">
         <label>Match</label>
         <div class="match-toggle">
           <button id="scnMatchAllBtn" class="active" onclick="Scanner.setMatchMode('all')">ALL</button>
@@ -4096,8 +4135,54 @@ const PRESETS = [
     conds:[{metric:'oiChangePct',operator:'>',value:10},{metric:'change24h',operator:'>',value:0}], mode:'all' },
 ];
 const PRESET_CATEGORY_ORDER = ['Momentum','Trend','Volatility','Volume','Derivatives'];
+const RECENT_PRESETS_KEY = 'scn-recent-presets-v1';
+const RECENT_PRESETS_MAX = 4;
+function getRecentPresetIds(){
+  let ids = [];
+  try{ ids = JSON.parse(localStorage.getItem(RECENT_PRESETS_KEY)) || []; }catch(e){ ids = []; }
+  return ids.filter(id => PRESETS.some(p=>p.id===id));
+}
+function recordRecentPreset(id){
+  let ids = getRecentPresetIds().filter(x=>x!==id);
+  ids.unshift(id);
+  ids = ids.slice(0, RECENT_PRESETS_MAX);
+  try{ localStorage.setItem(RECENT_PRESETS_KEY, JSON.stringify(ids)); }catch(e){ /* storage unavailable */ }
+}
+function getRecentPresetItems(){
+  // Top N recently-used presets; if fewer than N have been used yet, pad
+  // with the next unused presets (in default order) so the section always
+  // shows a full row of useful starting points.
+  const ids = getRecentPresetIds();
+  const items = ids.map(id => PRESETS.find(p=>p.id===id)).filter(Boolean);
+  for(const p of PRESETS){
+    if(items.length >= RECENT_PRESETS_MAX) break;
+    if(!items.some(x=>x.id===p.id)) items.push(p);
+  }
+  return items.slice(0, RECENT_PRESETS_MAX);
+}
+function renderPresetCard(p, domId){
+  return `
+    <div class="preset-card" id="${domId}" data-preset-id="${p.id}" style="--pc-color:${p.color};" onclick="Scanner.applyPreset('${p.id}')">
+      <div class="pc-head">
+        <div class="pc-icon" style="background:${p.color};color:#04140F;">${p.icon}</div>
+        <div class="pc-title">${p.title}</div>
+      </div>
+      <div class="pc-desc-wrap"><div class="pc-desc">${p.desc}</div></div>
+    </div>`;
+}
 function renderPresets(){
-  let html = '';
+  const recentItems = getRecentPresetItems();
+  let html = `
+    <details class="preset-group" id="preset-group-Recent" open>
+      <summary>
+        <span class="pg-name">Recently used</span>
+        <span class="pg-count">${recentItems.length}</span>
+        <span class="pg-chevron">▾</span>
+      </summary>
+      <div class="preset-cards-grid">
+        ${recentItems.map(p => renderPresetCard(p, `preset-recent-${p.id}`)).join('')}
+      </div>
+    </details>`;
   for(const cat of PRESET_CATEGORY_ORDER){
     const items = PRESETS.filter(p=>p.cat===cat);
     if(!items.length) continue;
@@ -4109,12 +4194,7 @@ function renderPresets(){
           <span class="pg-chevron">▾</span>
         </summary>
         <div class="preset-cards-grid">
-          ${items.map(p => `
-            <div class="preset-card" id="preset-${p.id}" onclick="Scanner.applyPreset('${p.id}')">
-              <div class="pc-icon" style="background:${p.color};color:#04140F;">${p.icon}</div>
-              <div class="pc-title">${p.title}</div>
-              <div class="pc-desc">${p.desc}</div>
-            </div>`).join('')}
+          ${items.map(p => renderPresetCard(p, `preset-${p.id}`)).join('')}
         </div>
       </details>`;
   }
@@ -4127,7 +4207,9 @@ function applyPreset(id){
   matchMode = preset.mode;
   setMatchMode(preset.mode);
   renderChips();
-  document.getElementById(`preset-${id}`).classList.add('active');
+  recordRecentPreset(id);
+  renderPresets();
+  document.querySelectorAll(`.preset-card[data-preset-id="${id}"]`).forEach(c=>c.classList.add('active'));
   const group = document.getElementById(`preset-group-${preset.cat}`);
   if(group) group.open = true;
 }
