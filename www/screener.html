@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ichimoku Breakout Screener (Binance USDT-M)</title>
+<title>Ichimoku Breakout (Binance USDT-M)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -474,7 +474,7 @@
   @media(max-width:700px){.analysis-grid{grid-template-columns:1fr;}.chart-wrap{height:340px;}}
   .analysis-cell{display:flex;align-items:center;gap:6px;}
 
-  /* ---------------- Scanner screens matched popover ---------------- */
+  /* ---------------- Custom screens matched popover ---------------- */
   .screen-match-subtitle{margin:2px 0 0;color:var(--faint);font:11px var(--font-mono);}
   .screen-match-ict-toggle{
     display:flex;align-items:center;gap:7px;margin:12px 0 0;cursor:pointer;user-select:none;
@@ -936,8 +936,8 @@
 
 <div class="app-tabs-row">
   <div class="app-tabs">
-    <button type="button" class="app-tab active" id="tabScreenerBtn" onclick="switchAppView('screener')">📈 Screener</button>
-    <button type="button" class="app-tab" id="tabScannerBtn" onclick="switchAppView('scanner')">🔍 Scanner</button>
+    <button type="button" class="app-tab active" id="tabScreenerBtn" onclick="switchAppView('screener')">📈 Cloud Breakout</button>
+    <button type="button" class="app-tab" id="tabScannerBtn" onclick="switchAppView('scanner')">🔍 Custom Screens</button>
   </div>
 </div>
 
@@ -1054,7 +1054,7 @@
     <p class="analysis-status" id="analysisStatus">Loading Binance candles...</p>
     <div class="chart-wrap"><canvas id="analysisChart"></canvas></div>
     <button type="button" class="price-action-link decision-price-action" onclick="openPriceAction(event)">Price action & ICT analysis →</button>
-    <button type="button" class="price-action-link screen-match-link" onclick="Scanner.openScreenMatch(event)">Scanner screens matched →</button>
+    <button type="button" class="price-action-link screen-match-link" onclick="Scanner.openScreenMatch(event)">Custom screens matched →</button>
     <div id="analysisDetails"></div>
   </div>
 </div>
@@ -1074,7 +1074,7 @@
     <div class="trade-head" style="position:static;">
       <div class="header-title-wrap">
         <div>
-          <h2 id="screenMatchTitle">Scanner screens matched</h2>
+          <h2 id="screenMatchTitle">Custom screens matched</h2>
           <p class="screen-match-subtitle" id="screenMatchSubtitle">—</p>
         </div>
       </div>
@@ -3652,8 +3652,7 @@ function switchAppView(view){
   scannerPane.style.display = isScanner ? '' : 'none';
   screenerBtn.classList.toggle('active', !isScanner);
   scannerBtn.classList.toggle('active', isScanner);
-  document.getElementById('mainTitleText').textContent = 'Scanner';
-  document.getElementById('mainEyebrowText').textContent = isScanner ? 'Condition-Based Scanner' : 'Ichimoku Breakout Screener';
+  document.getElementById('mainEyebrowText').textContent = isScanner ? 'Condition-Based' : 'Ichimoku Breakout';
 }
 </script>
 
@@ -4638,7 +4637,7 @@ function applyPreset(id){
 }
 
 /* =========================================================================
-   "Scanner screens matched" — checks a single coin (opened from the
+   "Custom screens matched" — checks a single coin (opened from the
    Screener's analysis modal) against all Scanner presets, independent of
    whichever conditions/preset happen to be active in the Scanner tab.
    ========================================================================= */
@@ -4669,7 +4668,7 @@ async function openScreenMatch(event){
   document.getElementById('screenMatchSubtitle').textContent = symbol;
   const ictToggle = document.getElementById('screenMatchIctToggle');
   if(ictToggle) ictToggle.checked = includeIct;
-  body.innerHTML = `<div class="screen-match-status">Checking ${symbol} against all ${PRESETS.length} scanner screens…</div>`;
+  body.innerHTML = `<div class="screen-match-status">Checking ${symbol} against all ${PRESETS.length} custom screens…</div>`;
   modal.classList.add('open');
   try{
     const interval = currentAnalysisInterval || '4h';
@@ -4688,7 +4687,7 @@ async function openScreenMatch(event){
     lastScreenMatch = { symbol, interval, metrics };
     renderScreenMatches(symbol, interval, metrics);
   }catch(e){
-    body.innerHTML = `<div class="screen-match-status">Couldn't check scanner screens for ${symbol}: ${e.message}</div>`;
+    body.innerHTML = `<div class="screen-match-status">Couldn't check custom screens for ${symbol}: ${e.message}</div>`;
   }
 }
 function closeScreenMatch(event){
@@ -4735,7 +4734,7 @@ function renderScreenMatches(symbol, interval, metrics){
     <div class="screen-match-summary">
       <span class="smc-count">${matchedCount}/${presets.length}</span>
       <div class="smc-copy">
-        <span class="smc-label">${symbol} matches ${matchedCount} scanner screen${matchedCount===1?'':'s'}</span>
+        <span class="smc-label">${symbol} matches ${matchedCount} custom screen${matchedCount===1?'':'s'}</span>
         <span class="smc-sub">Checked on the ${timeframeLabel(interval)} timeframe</span>
       </div>
     </div>
