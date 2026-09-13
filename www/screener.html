@@ -1183,9 +1183,9 @@
       </button>
     </div>
 
+    <div class="progress-label" id="scnStatusWrap"><span id="scnStatusText">Idle</span><span id="scnProgressPct"></span></div>
     <div class="progress-wrap" id="scnProgressWrap">
       <div class="progress-track"><div class="progress-fill" id="scnProgressFill"></div></div>
-      <div class="progress-label"><span id="scnStatusText">Idle</span><span id="scnProgressPct">0%</span></div>
     </div>
     <div class="error-box" id="scnErrorBox"></div>
   </div>
@@ -4450,7 +4450,7 @@ async function runScan(){
   }finally{
     btn.disabled = false; btn.classList.remove('loading');
     document.getElementById('scnRunBtnLabel').textContent = 'Run scan';
-    setTimeout(()=>{ progressWrap.style.display='none'; }, 900);
+    setTimeout(()=>{ progressWrap.style.display='none'; progressPct.textContent=''; }, 900);
   }
 }
 
