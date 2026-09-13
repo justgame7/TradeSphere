@@ -680,7 +680,22 @@
 
 
   /* ---------------- Presets ---------------- */
-  #scannerPane .preset-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+  #scannerPane .preset-group{border:1px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden;background:var(--panel2);}
+  #scannerPane .preset-group:last-child{margin-bottom:0;}
+  #scannerPane .preset-group summary{
+    list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;
+    padding:11px 12px;transition:background .15s;
+  }
+  #scannerPane .preset-group summary::-webkit-details-marker{display:none;}
+  #scannerPane .preset-group summary:hover{background:rgba(255,255,255,0.02);}
+  #scannerPane .preset-group .pg-name{
+    font:700 10.5px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text);
+  }
+  #scannerPane .preset-group .pg-count{font-size:10px;color:var(--faint);font-weight:600;}
+  #scannerPane .preset-group .pg-chevron{margin-left:auto;color:var(--faint);font-size:12px;transition:transform .15s;flex:none;}
+  #scannerPane .preset-group[open] summary{border-bottom:1px solid var(--border);}
+  #scannerPane .preset-group[open] .pg-chevron{transform:rotate(180deg);color:var(--accent);}
+  #scannerPane .preset-cards-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;}
 #scannerPane .preset-card{
     background:var(--panel2);border:1px solid var(--border);border-radius:12px;
     padding:10px 11px;cursor:pointer;text-align:left;transition:border-color .15s, transform .15s, background .15s;
@@ -695,7 +710,7 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   @media (min-width:520px){
-    #scannerPane .preset-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));}
+    #scannerPane .preset-cards-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));}
   }
 
 
@@ -998,7 +1013,6 @@
       <div class="tb-stat"><span class="v" id="scnTbUniverse">—</span><span class="k">universe</span></div>
       <div class="tb-stat"><span class="v" id="scnTbLastScan">—</span><span class="k">last scan</span></div>
     </div>
-    <p>Combine technical and market-data conditions — RSI, MACD, EMA structure, volatility, volume — into a single scan and get back only the coins that actually match.</p>
   </div>
 
   <!-- Presets -->
@@ -1054,11 +1068,12 @@
             <button data-tf="1h">1H</button>
             <button data-tf="4h" class="active">4H</button>
             <button data-tf="1d">1D</button>
+            <button data-tf="1w">1W</button>
           </div>
         </div>
         <div class="field-inline">
           <label>Min 24h volume ($)</label>
-          <input type="number" id="scnMinVolume" value="5000000">
+          <input type="number" id="scnMinVolume" value="3000000">
         </div>
       </div>
       <button class="run-btn" id="scnRunBtn" onclick="Scanner.runScan()">
@@ -1091,7 +1106,10 @@
     </div>
   </div>
 
-  <div class="footer-note">Data via Binance USDT-M Futures · Prices update every scan, not continuously · Not financial advice</div>
+  <div class="footer-note">
+    <p style="margin:0 0 10px;">Combine technical, market-data, and derivatives conditions — RSI, MACD, EMA structure, ADX, Stochastic RSI, divergence, volatility, volume, funding rate, open interest — into a single scan and get back only the coins that actually match.</p>
+    Data via Binance USDT-M Futures · Prices update every scan, not continuously · Not financial advice
+  </div>
 </div>
 
 
@@ -3581,6 +3599,30 @@ async function get24hTickers(){
   }
   return map;
 }
+// One bulk call covers funding for every symbol (Binance returns the whole
+// book when `symbol` is omitted) — cheap enough to fetch on every scan.
+async function getAllFundingRates(){
+  const data = await fetchJSON(`/fapi/v1/premiumIndex`);
+  const map = {};
+  for(const item of data){
+    const rate = parseFloat(item.lastFundingRate);
+    if(Number.isFinite(rate)) map[item.symbol] = { rate: rate*100, nextFundingTime: Number(item.nextFundingTime) };
+  }
+  return map;
+}
+// Open interest has no bulk "all symbols" endpoint, so this is one extra
+// per-symbol call — only fired when an active condition actually needs it
+// (see runScan). ~24h change using 4h-bucketed OI history.
+async function getOiChangePct(symbol){
+  try{
+    const data = await fetchJSON(`/futures/data/openInterestHist?symbol=${symbol}&period=4h&limit=7`);
+    if(!Array.isArray(data) || data.length<2) return null;
+    const first = parseFloat(data[0].sumOpenInterest);
+    const last = parseFloat(data[data.length-1].sumOpenInterest);
+    if(!Number.isFinite(first) || !Number.isFinite(last) || first===0) return null;
+    return ((last-first)/first)*100;
+  }catch(e){ return null; }
+}
 
 /* ---------------- Concurrency-limited queue ---------------- */
 async function runPool(items, worker, concurrency, onProgress){
@@ -3668,6 +3710,124 @@ function volumeRatio(candles){
   const last = candles[candles.length-1];
   return avg>0 ? last.volume/avg : null;
 }
+// Full RSI series (Wilder), one value per bar, instead of just the latest —
+// needed as the input for Stochastic RSI and the divergence detector below.
+function rsiSeries(values, length=14){
+  const out = new Array(values.length).fill(null);
+  if(values.length <= length) return out;
+  let gains=0, losses=0;
+  for(let i=1;i<=length;i++){ const c=values[i]-values[i-1]; if(c>=0) gains+=c; else losses-=c; }
+  let avgG=gains/length, avgL=losses/length;
+  out[length] = avgL===0 ? 100 : 100-(100/(1+avgG/avgL));
+  for(let i=length+1;i<values.length;i++){
+    const c=values[i]-values[i-1];
+    avgG=(avgG*(length-1)+Math.max(0,c))/length;
+    avgL=(avgL*(length-1)+Math.max(0,-c))/length;
+    out[i] = avgL===0 ? 100 : 100-(100/(1+avgG/avgL));
+  }
+  return out;
+}
+// Stochastic RSI %K: normalizes RSI itself against its own N-bar range, then
+// smooths with a short moving average — more sensitive than plain RSI for
+// timing entries/exits inside an already-established trend.
+function stochRsiK(rsiArr, stochLength=14, kSmooth=3){
+  const raw = new Array(rsiArr.length).fill(null);
+  for(let i=0;i<rsiArr.length;i++){
+    if(rsiArr[i]===null) continue;
+    const window=[];
+    for(let j=i;j>=0 && window.length<stochLength;j--){
+      if(rsiArr[j]===null) break;
+      window.push(rsiArr[j]);
+    }
+    if(window.length<stochLength) continue;
+    const mn=Math.min(...window), mx=Math.max(...window);
+    raw[i] = mx>mn ? ((rsiArr[i]-mn)/(mx-mn))*100 : 0;
+  }
+  const k = new Array(raw.length).fill(null);
+  for(let i=0;i<raw.length;i++){
+    if(raw[i]===null) continue;
+    const window=[];
+    for(let j=i;j>=0 && window.length<kSmooth;j--){
+      if(raw[j]===null) break;
+      window.push(raw[j]);
+    }
+    if(window.length<kSmooth) continue;
+    k[i] = window.reduce((s,v)=>s+v,0)/window.length;
+  }
+  return k;
+}
+// Wilder's ADX/+DI/-DI from raw candles — trend-strength filter, commonly
+// paired with breakout screens to weed out chop (ADX under ~20).
+function adx(candles, length=14){
+  if(candles.length <= length*2) return { adx:null, plusDI:null, minusDI:null };
+  const plusDM=[], minusDM=[], tr=[];
+  for(let i=1;i<candles.length;i++){
+    const c=candles[i], p=candles[i-1];
+    const upMove = c.high-p.high, downMove = p.low-c.low;
+    plusDM.push(upMove>downMove && upMove>0 ? upMove : 0);
+    minusDM.push(downMove>upMove && downMove>0 ? downMove : 0);
+    tr.push(Math.max(c.high-c.low, Math.abs(c.high-p.close), Math.abs(c.low-p.close)));
+  }
+  function wilderSmooth(arr, len){
+    const out = new Array(arr.length).fill(null);
+    if(arr.length<len) return out;
+    let sum = arr.slice(0,len).reduce((s,v)=>s+v,0);
+    out[len-1] = sum;
+    for(let i=len;i<arr.length;i++){ sum = sum-(sum/len)+arr[i]; out[i]=sum; }
+    return out;
+  }
+  const smoothTR = wilderSmooth(tr,length), smoothPlusDM = wilderSmooth(plusDM,length), smoothMinusDM = wilderSmooth(minusDM,length);
+  const plusDIarr=[], minusDIarr=[], dx=[];
+  for(let i=0;i<smoothTR.length;i++){
+    if(smoothTR[i]===null || smoothTR[i]===0){ plusDIarr.push(null); minusDIarr.push(null); dx.push(null); continue; }
+    const pdi = (smoothPlusDM[i]/smoothTR[i])*100, mdi = (smoothMinusDM[i]/smoothTR[i])*100;
+    plusDIarr.push(pdi); minusDIarr.push(mdi);
+    const sum = pdi+mdi;
+    dx.push(sum>0 ? (Math.abs(pdi-mdi)/sum)*100 : 0);
+  }
+  const validDX = dx.filter(v=>v!==null);
+  if(validDX.length<length) return { adx:null, plusDI:lastValid(plusDIarr), minusDI:lastValid(minusDIarr) };
+  let adxVal = validDX.slice(0,length).reduce((s,v)=>s+v,0)/length;
+  for(let i=length;i<validDX.length;i++){ adxVal = (adxVal*(length-1)+validDX[i])/length; }
+  return { adx:adxVal, plusDI:lastValid(plusDIarr), minusDI:lastValid(minusDIarr) };
+}
+// Finds simple local pivots (span bars lower/higher on both sides) in a series.
+function findPivots(arr, span=2){
+  const highs=[], lows=[];
+  for(let i=span;i<arr.length-span;i++){
+    if(arr[i]===null || arr[i]===undefined) continue;
+    let isHigh=true, isLow=true;
+    for(let j=i-span;j<=i+span;j++){
+      if(j===i || arr[j]===null || arr[j]===undefined) continue;
+      if(arr[j]>=arr[i]) isHigh=false;
+      if(arr[j]<=arr[i]) isLow=false;
+    }
+    if(isHigh) highs.push(i);
+    if(isLow) lows.push(i);
+  }
+  return { highs, lows };
+}
+// Regular RSI divergence: price prints a higher high while RSI prints a lower
+// high (bearish), or price prints a lower low while RSI prints a higher low
+// (bullish). Only flags divergences whose second pivot is recent, so stale
+// divergence from weeks ago doesn't keep matching.
+function detectDivergence(closes, rsiArr, lookback=40, span=2){
+  const start = Math.max(0, closes.length-lookback);
+  const priceWindow = closes.slice(start);
+  const rsiWindow = rsiArr.slice(start);
+  const { highs, lows } = findPivots(priceWindow, span);
+  const recentCutoff = priceWindow.length - span - 4;
+  let bearish=false, bullish=false;
+  if(highs.length>=2){
+    const h1=highs[highs.length-2], h2=highs[highs.length-1];
+    if(h2>=recentCutoff && priceWindow[h2]>priceWindow[h1] && rsiWindow[h1]!==null && rsiWindow[h2]!==null && rsiWindow[h2]<rsiWindow[h1]) bearish = true;
+  }
+  if(lows.length>=2){
+    const l1=lows[lows.length-2], l2=lows[lows.length-1];
+    if(l2>=recentCutoff && priceWindow[l2]<priceWindow[l1] && rsiWindow[l1]!==null && rsiWindow[l2]!==null && rsiWindow[l2]>rsiWindow[l1]) bullish = true;
+  }
+  return { bullish, bearish };
+}
 
 /* =========================================================================
    Metric extraction per symbol
@@ -3683,10 +3843,20 @@ async function computeMetrics(symbol, interval, ticker){
   const ema20 = lastValid(ema20arr), ema50 = lastValid(ema50arr), ema200 = lastValid(ema200arr);
   const ema20Prev = valueAt(ema20arr,1), ema50Prev = valueAt(ema50arr,1);
 
-  const rsiVal = rsi(closes,14);
+  const rsiArr = rsiSeries(closes,14);
+  const rsiVal = lastValid(rsiArr);
   const hist = macdHistSeries(closes);
   const macdHist = lastValid(hist);
   const macdHistPrev = valueAt(hist,1);
+
+  const stochKArr = stochRsiK(rsiArr,14,3);
+  const stochRsiKVal = lastValid(stochKArr);
+  const stochRsiKPrev = valueAt(stochKArr,1);
+  const stochRsiCrossUp = stochRsiKVal!==null && stochRsiKPrev!==null && stochRsiKPrev<=20 && stochRsiKVal>20;
+  const stochRsiCrossDown = stochRsiKVal!==null && stochRsiKPrev!==null && stochRsiKPrev>=80 && stochRsiKVal<80;
+
+  const adxResult = adx(candles,14);
+  const divergence = detectDivergence(closes, rsiArr, 40, 2);
 
   const atrVal = atr(candles,14);
   const atrPct = Number.isFinite(atrVal) ? (atrVal/price)*100 : NaN;
@@ -3714,7 +3884,11 @@ async function computeMetrics(symbol, interval, ticker){
     ema20, ema50, ema200, emaCrossUp, emaCrossDown,
     priceAboveEma200: ema200!==null ? price>ema200 : null,
     atrPct, bbWidthPct: bb.widthPct, volRatio,
-    nearHighPct, nearLowPct, spark
+    nearHighPct, nearLowPct, spark,
+    adx: adxResult.adx, plusDI: adxResult.plusDI, minusDI: adxResult.minusDI,
+    stochRsiK: stochRsiKVal, stochRsiCrossUp, stochRsiCrossDown,
+    bullishDivergence: divergence.bullish, bearishDivergence: divergence.bearish,
+    fundingRate: null, oiChangePct: null // filled in by runScan (bulk/derivatives data, not per-symbol candles)
   };
 }
 
@@ -3733,6 +3907,12 @@ const METRICS = [
   { key:'volRatio', label:'Volume vs 20-bar avg', group:'Market data', unit:'×', ops:['>'], def:2 },
   { key:'nearHighPct', label:'Distance from 24h High', group:'Market data', unit:'%', ops:['<'], def:1 },
   { key:'nearLowPct', label:'Distance from 24h Low', group:'Market data', unit:'%', ops:['<'], def:1 },
+  { key:'adx', label:'Trend Strength (ADX)', group:'Technicals', unit:'', ops:['>','<'], def:25 },
+  { key:'stochRsiK', label:'Stochastic RSI %K', group:'Technicals', unit:'', ops:['<20 (oversold)','>80 (overbought)','crossed up (from oversold)','crossed down (from overbought)'], noValue:true },
+  { key:'bullishDivergence', label:'Bullish Divergence (RSI vs price)', group:'Technicals', unit:'', ops:['detected'], noValue:true },
+  { key:'bearishDivergence', label:'Bearish Divergence (RSI vs price)', group:'Technicals', unit:'', ops:['detected'], noValue:true },
+  { key:'fundingRate', label:'Funding Rate', group:'Derivatives', unit:'%', ops:['<','>'], def:0 },
+  { key:'oiChangePct', label:'Open Interest Change (~24h)', group:'Derivatives', unit:'%', ops:['>','<'], def:15 },
 ];
 const METRIC_BY_KEY = Object.fromEntries(METRICS.map(m=>[m.key,m]));
 
@@ -3809,6 +3989,16 @@ function evalCondition(metrics, cond){
     case 'priceVsEma200':
       if(metrics.priceAboveEma200===null) return false;
       return cond.operator==='above' ? metrics.priceAboveEma200 : !metrics.priceAboveEma200;
+    case 'stochRsiK':
+      if(cond.operator==='<20 (oversold)') return v!==null && v<20;
+      if(cond.operator==='>80 (overbought)') return v!==null && v>80;
+      if(cond.operator==='crossed up (from oversold)') return !!metrics.stochRsiCrossUp;
+      if(cond.operator==='crossed down (from overbought)') return !!metrics.stochRsiCrossDown;
+      return false;
+    case 'bullishDivergence':
+      return !!metrics.bullishDivergence;
+    case 'bearishDivergence':
+      return !!metrics.bearishDivergence;
     default:
       if(v===null || v===undefined || !Number.isFinite(v)) return false;
       if(cond.operator==='>') return v > cond.value;
@@ -3828,26 +4018,80 @@ function evaluateAll(metrics){
    Presets
    ========================================================================= */
 const PRESETS = [
-  { id:'oversold', icon:'↺', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Oversold reversal', desc:'RSI under 30 while price still holds above EMA200',
+  // ---- Momentum / reversal ----
+  { id:'oversold', cat:'Momentum', icon:'↺', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Oversold reversal', desc:'RSI under 30 while price still holds above EMA200',
     conds:[{metric:'rsi',operator:'<',value:30},{metric:'priceVsEma200',operator:'above',value:null}], mode:'all' },
-  { id:'breakout', icon:'⚡', color:'linear-gradient(135deg,#ff8a4c,#c2501a)', title:'Momentum breakout', desc:'24h move over 5% backed by a 2× volume surge',
+  { id:'overbought', cat:'Momentum', icon:'↻', color:'linear-gradient(135deg,#ff8a4c,#c2501a)', title:'Overbought reversal', desc:'RSI over 70 while price still sits below EMA200',
+    conds:[{metric:'rsi',operator:'>',value:70},{metric:'priceVsEma200',operator:'below',value:null}], mode:'all' },
+  { id:'gainers', cat:'Momentum', icon:'▲', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Top gainers (24h)', desc:'24h change above 3% — this session\'s strongest movers',
+    conds:[{metric:'change24h',operator:'>',value:3}], mode:'all' },
+  { id:'losers', cat:'Momentum', icon:'▼', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Top losers (24h)', desc:'24h change below -3% — this session\'s weakest movers',
+    conds:[{metric:'change24h',operator:'<',value:-3}], mode:'all' },
+  { id:'bigmove', cat:'Momentum', icon:'⇕', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Big movers (either direction)', desc:'24h move beyond ±7% — outsized moves worth a look either way',
+    conds:[{metric:'change24h',operator:'>',value:7},{metric:'change24h',operator:'<',value:-7}], mode:'any' },
+  { id:'stochbull', cat:'Momentum', icon:'⤴', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Stoch RSI bullish cross', desc:'Stochastic RSI just crossed up out of oversold (<20)',
+    conds:[{metric:'stochRsiK',operator:'crossed up (from oversold)',value:null}], mode:'all' },
+  { id:'stochbear', cat:'Momentum', icon:'⤵', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Stoch RSI bearish cross', desc:'Stochastic RSI just crossed down out of overbought (>80)',
+    conds:[{metric:'stochRsiK',operator:'crossed down (from overbought)',value:null}], mode:'all' },
+  { id:'bulldiv', cat:'Momentum', icon:'⌇', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Bullish RSI divergence', desc:'Price prints a lower low while RSI prints a higher low',
+    conds:[{metric:'bullishDivergence',operator:'detected',value:null}], mode:'all' },
+  { id:'beardiv', cat:'Momentum', icon:'⌇', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Bearish RSI divergence', desc:'Price prints a higher high while RSI prints a lower high',
+    conds:[{metric:'bearishDivergence',operator:'detected',value:null}], mode:'all' },
+  // ---- Trend / structure ----
+  { id:'breakout', cat:'Trend', icon:'⚡', color:'linear-gradient(135deg,#ff8a4c,#c2501a)', title:'Momentum breakout', desc:'24h move over 5% backed by a 2× volume surge',
     conds:[{metric:'change24h',operator:'>',value:5},{metric:'volRatio',operator:'>',value:2}], mode:'all' },
-  { id:'golden', icon:'✕', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Golden cross', desc:'EMA20 has just crossed above EMA50',
+  { id:'golden', cat:'Trend', icon:'✕', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Golden cross', desc:'EMA20 has just crossed above EMA50',
     conds:[{metric:'emaTrend',operator:'just crossed up',value:null}], mode:'all' },
-  { id:'squeeze', icon:'▭', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Volatility squeeze', desc:'Bollinger width under 4% — coiling before a move',
+  { id:'death', cat:'Trend', icon:'╳', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Death cross', desc:'EMA20 has just crossed below EMA50',
+    conds:[{metric:'emaTrend',operator:'just crossed down',value:null}], mode:'all' },
+  { id:'trending', cat:'Trend', icon:'➤', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Strong trend (ADX)', desc:'ADX above 25 — a real trend, not just chop',
+    conds:[{metric:'adx',operator:'>',value:25}], mode:'all' },
+  // ---- Volatility ----
+  { id:'squeeze', cat:'Volatility', icon:'▭', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Volatility squeeze', desc:'Bollinger width under 4% — coiling before a move',
     conds:[{metric:'bbWidthPct',operator:'<',value:4}], mode:'all' },
-  { id:'surge', icon:'▲', color:'linear-gradient(135deg,#5b8cff,#2b4fb0)', title:'Volume surge', desc:'Current bar trading at 3× its 20-bar average volume',
+  { id:'squeezebreak', cat:'Volatility', icon:'◫', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Squeeze breakout', desc:'Still tight (BB width <6%) but volume already surging 2×',
+    conds:[{metric:'bbWidthPct',operator:'<',value:6},{metric:'volRatio',operator:'>',value:2}], mode:'all' },
+  // ---- Volume ----
+  { id:'surge', cat:'Volume', icon:'▲', color:'linear-gradient(135deg,#5b8cff,#2b4fb0)', title:'Volume surge', desc:'Current bar trading at 3× its 20-bar average volume',
     conds:[{metric:'volRatio',operator:'>',value:3}], mode:'all' },
-  { id:'nearhigh', icon:'◆', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Near 24h high', desc:'Trading within 1% of its 24h high — strength',
+  { id:'nearhigh', cat:'Volume', icon:'◆', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Near 24h high', desc:'Trading within 1% of its 24h high — strength',
     conds:[{metric:'nearHighPct',operator:'<',value:1}], mode:'all' },
+  { id:'nearlow', cat:'Volume', icon:'◇', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Near 24h low', desc:'Trading within 1% of its 24h low — potential capitulation',
+    conds:[{metric:'nearLowPct',operator:'<',value:1}], mode:'all' },
+  // ---- Derivatives (funding / open interest) ----
+  { id:'shortsqueeze', cat:'Derivatives', icon:'⇑', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Short squeeze setup', desc:'Negative funding (shorts paying) + RSI under 35',
+    conds:[{metric:'fundingRate',operator:'<',value:0},{metric:'rsi',operator:'<',value:35}], mode:'all' },
+  { id:'overheated', cat:'Derivatives', icon:'⇓', color:'linear-gradient(135deg,#ff8a4c,#c2501a)', title:'Overheated longs', desc:'Funding rate above 0.05% — crowded longs, squeeze-down risk',
+    conds:[{metric:'fundingRate',operator:'>',value:0.05}], mode:'all' },
+  { id:'oisurge', cat:'Derivatives', icon:'⬆', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Open interest surge', desc:'Open interest up 15%+ over ~24h — fresh capital entering',
+    conds:[{metric:'oiChangePct',operator:'>',value:15}], mode:'all' },
+  { id:'oiprice', cat:'Derivatives', icon:'⬈', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Fresh positioning', desc:'Open interest rising 10%+ alongside a positive 24h price move',
+    conds:[{metric:'oiChangePct',operator:'>',value:10},{metric:'change24h',operator:'>',value:0}], mode:'all' },
 ];
+const PRESET_CATEGORY_ORDER = ['Momentum','Trend','Volatility','Volume','Derivatives'];
 function renderPresets(){
-  document.getElementById('scnPresetGrid').innerHTML = PRESETS.map(p => `
-    <div class="preset-card" id="preset-${p.id}" onclick="Scanner.applyPreset('${p.id}')">
-      <div class="pc-icon" style="background:${p.color};color:#04140F;">${p.icon}</div>
-      <div class="pc-title">${p.title}</div>
-      <div class="pc-desc">${p.desc}</div>
-    </div>`).join('');
+  let html = '';
+  for(const cat of PRESET_CATEGORY_ORDER){
+    const items = PRESETS.filter(p=>p.cat===cat);
+    if(!items.length) continue;
+    html += `
+      <details class="preset-group" id="preset-group-${cat}">
+        <summary>
+          <span class="pg-name">${cat}</span>
+          <span class="pg-count">${items.length}</span>
+          <span class="pg-chevron">▾</span>
+        </summary>
+        <div class="preset-cards-grid">
+          ${items.map(p => `
+            <div class="preset-card" id="preset-${p.id}" onclick="Scanner.applyPreset('${p.id}')">
+              <div class="pc-icon" style="background:${p.color};color:#04140F;">${p.icon}</div>
+              <div class="pc-title">${p.title}</div>
+              <div class="pc-desc">${p.desc}</div>
+            </div>`).join('')}
+        </div>
+      </details>`;
+  }
+  document.getElementById('scnPresetGrid').innerHTML = html;
 }
 function applyPreset(id){
   const preset = PRESETS.find(p=>p.id===id);
@@ -3857,6 +4101,8 @@ function applyPreset(id){
   setMatchMode(preset.mode);
   renderChips();
   document.getElementById(`preset-${id}`).classList.add('active');
+  const group = document.getElementById(`preset-group-${preset.cat}`);
+  if(group) group.open = true;
 }
 
 /* =========================================================================
@@ -3866,12 +4112,14 @@ function setStatus(msg){ document.getElementById('scnStatusText').textContent = 
 function showError(msg){ const b=document.getElementById('scnErrorBox'); b.style.display='block'; b.innerHTML=msg; }
 function hideError(){ document.getElementById('scnErrorBox').style.display='none'; }
 
+const SCN_DEFAULT_VOLUME_BY_TF = { '1h':3000000, '4h':3000000, '1d':10000000, '1w':10000000 };
 document.getElementById('scnTfToggle').addEventListener('click', (e)=>{
   const btn = e.target.closest('button[data-tf]');
   if(!btn) return;
   document.querySelectorAll('#scnTfToggle button').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   currentInterval = btn.dataset.tf;
+  document.getElementById('scnMinVolume').value = SCN_DEFAULT_VOLUME_BY_TF[currentInterval] ?? 3000000;
 });
 
 async function runScan(){
@@ -3894,12 +4142,21 @@ async function runScan(){
     document.getElementById('scnTbUniverse').textContent = symbols.length;
     setStatus('Fetching 24h tickers…');
     const tickers = await get24hTickers();
+    setStatus('Fetching funding rates…');
+    const fundingMap = await getAllFundingRates().catch(()=>({}));
+    // Open interest has no bulk endpoint — only pay for it (one extra call per
+    // symbol) when a condition actually needs it.
+    const needsOi = conditions.some(c => c.metric === 'oiChangePct');
 
     setStatus(`Scanning all ${symbols.length} USDT-M perpetuals…`);
 
     const raw = await runPool(symbols, async (symbol) => {
       const ticker = tickers[symbol];
       const metrics = await computeMetrics(symbol, currentInterval, ticker);
+      const funding = fundingMap[symbol];
+      metrics.fundingRate = funding ? funding.rate : null;
+      metrics.fundingNextTime = funding ? funding.nextFundingTime : null;
+      if(needsOi) metrics.oiChangePct = await getOiChangePct(symbol);
       const { passed, matched } = evaluateAll(metrics);
       const volumeOk = (metrics.quoteVolume24h ?? 0) >= minVol;
       return { ...metrics, passed: passed && volumeOk, matched };
@@ -4056,7 +4313,7 @@ function renderRow(r){
 
 function exportCSV(){
   if(!allResults.length) return;
-  const cols = ['symbol','price','change24h','rsi','macdHist','volRatio','bbWidthPct','atrPct','matched'];
+  const cols = ['symbol','price','change24h','rsi','stochRsiK','macdHist','adx','volRatio','bbWidthPct','atrPct','fundingRate','oiChangePct','matched'];
   const lines = [cols.join(',')].concat(allResults.map(r => cols.map(c => {
     if(c==='matched') return `"${r.matched.join(' | ')}"`;
     const v = r[c];
