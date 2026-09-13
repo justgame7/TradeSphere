@@ -419,6 +419,7 @@
   .price-action-link{display:block;width:100%;margin-top:10px;background:rgba(53,224,192,.08);border:1px solid rgba(53,224,192,.3);color:var(--accent);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border-radius:7px;padding:8px 10px;cursor:pointer;text-align:left;}
   .price-action-link:hover{background:rgba(53,224,192,.16);border-color:var(--accent);}
   .decision-price-action{display:block;width:100%;margin:12px 0 0;text-align:center;}
+  .screen-match-link{text-align:center;margin-top:8px;}
   .analysis-dialog{width:min(1100px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:0 22px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
   /* .analysis-dialog itself is the scrolling container (overflow:auto), so the
      sticky header pins relative to IT, not the page - stays visible while
@@ -472,6 +473,43 @@
   .tf-switch-link:hover{text-decoration:underline;}
   @media(max-width:700px){.analysis-grid{grid-template-columns:1fr;}.chart-wrap{height:340px;}}
   .analysis-cell{display:flex;align-items:center;gap:6px;}
+
+  /* ---------------- Scanner screens matched popover ---------------- */
+  .screen-match-subtitle{margin:2px 0 0;color:var(--faint);font:11px var(--font-mono);}
+  .screen-match-status{padding:26px 4px;text-align:center;color:var(--muted);font:12px var(--font-mono);}
+  .screen-match-summary{
+    display:flex;align-items:center;gap:12px;margin:14px 0 16px;padding:13px 15px;
+    background:var(--panel2);border:1px solid var(--border);border-radius:12px;
+  }
+  .screen-match-summary .smc-count{font:800 24px var(--font-display);color:var(--accent);line-height:1;}
+  .screen-match-summary .smc-copy{display:flex;flex-direction:column;gap:2px;}
+  .screen-match-summary .smc-label{font-size:11.5px;color:var(--text);font-weight:600;}
+  .screen-match-summary .smc-sub{font:10.5px var(--font-mono);color:var(--faint);}
+  .screen-match-group-name{
+    font:700 10px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+    margin:16px 0 7px;
+  }
+  .screen-match-group:first-of-type .screen-match-group-name{margin-top:0;}
+  .screen-match-list{display:flex;flex-direction:column;gap:6px;}
+  .screen-match-row{
+    position:relative;overflow:hidden;display:flex;align-items:center;gap:10px;
+    padding:9px 11px;border-radius:11px;border:1px solid var(--border);
+    background:var(--panel2);opacity:.5;transition:opacity .15s,border-color .15s,background .15s;
+  }
+  .screen-match-row.matched{
+    opacity:1;border-color:color-mix(in srgb,var(--sm-color,var(--accent)) 45%,transparent);
+    background:linear-gradient(155deg,color-mix(in srgb,var(--sm-color,var(--accent)) 10%,var(--panel2)),var(--panel2));
+  }
+  .screen-match-row .smr-icon{
+    width:26px;height:26px;border-radius:8px;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:#04140F;
+  }
+  .screen-match-row .smr-title{flex:1;min-width:0;font-weight:600;font-size:12px;color:var(--text);}
+  .screen-match-row .smr-badge{
+    flex:none;font:700 9.5px var(--font-mono);letter-spacing:.04em;text-transform:uppercase;
+    padding:3px 8px;border-radius:20px;color:var(--faint);background:rgba(255,255,255,.04);
+  }
+  .screen-match-row.matched .smr-badge{color:var(--sm-color,var(--accent));background:color-mix(in srgb,var(--sm-color,var(--accent)) 16%,transparent);}
   .info-btn{width:28px;height:28px;flex:0 0 28px;padding:0;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-family:var(--font-mono);font-weight:700;font-size:12px;font-style:italic;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:none;}
   .info-btn:hover{border-color:var(--accent);color:var(--accent);transform:none;}
   .twitter-btn{font-style:normal;font-size:13px;margin-left:6px;}
@@ -880,9 +918,9 @@
 
 <div class="header-row">
   <div>
-    <div class="eyebrow"><span class="dot"></span><span id="mainEyebrowText">Ichimoku Breakout Screener</span></div>
+    <div class="eyebrow"><span class="dot"></span><span id="mainEyebrowText">Ichimoku Breakout</span></div>
     <div class="title-row">
-      <h1 id="mainTitleText">Binance USDT-M Futures Scanner</h1>
+      <h1 id="mainTitleText">Screener</h1>
       <span class="live-tag">● Live market data</span>
     </div>
   </div>
@@ -1008,6 +1046,7 @@
     <p class="analysis-status" id="analysisStatus">Loading Binance candles...</p>
     <div class="chart-wrap"><canvas id="analysisChart"></canvas></div>
     <button type="button" class="price-action-link decision-price-action" onclick="openPriceAction(event)">Price action & ICT analysis →</button>
+    <button type="button" class="price-action-link screen-match-link" onclick="Scanner.openScreenMatch(event)">Scanner screens matched →</button>
     <div id="analysisDetails"></div>
   </div>
 </div>
@@ -1020,6 +1059,20 @@
       <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="closePriceAction()">×</button></div>
     </div>
     <div id="priceActionDetails" class="analysis-grid"></div>
+  </div>
+</div>
+<div class="analysis-modal price-action-modal" id="screenMatchModal" onclick="Scanner.closeScreenMatch(event)">
+  <div class="analysis-dialog" style="width:min(640px,100%);" role="dialog" aria-modal="true" aria-labelledby="screenMatchTitle" onclick="event.stopPropagation()">
+    <div class="trade-head" style="position:static;">
+      <div class="header-title-wrap">
+        <div>
+          <h2 id="screenMatchTitle">Scanner screens matched</h2>
+          <p class="screen-match-subtitle" id="screenMatchSubtitle">—</p>
+        </div>
+      </div>
+      <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="Scanner.closeScreenMatch()">×</button></div>
+    </div>
+    <div id="screenMatchBody"></div>
   </div>
 </div>
 <div class="coininfo-modal" id="coinInfoModal" onclick="closeCoinInfo(event)">
@@ -1185,6 +1238,10 @@ let currentExchangeSymbol = null;
 // re-deriving it from allResults, which only reflects the main screener's
 // currently selected timeframe.
 let currentAnalysisRow = null;
+// The exact interval currently shown in the analysis modal (Daily/4H/etc.),
+// tracked independently of currentAnalysisRow since that can be null when
+// the coin has no active Ichimoku setup.
+let currentAnalysisInterval = null;
 const PORTFOLIO_STORAGE_KEY = 'crypto-screener-portfolio-usdt';
 const TRADING_SETTINGS_KEY = 'crypto-screener-trading-settings';
 const DEFAULT_PORTFOLIO = 1000;
@@ -2677,6 +2734,7 @@ async function openAnalysis(symbol, intervalOverride){
   // intervalOverride lets the Daily<->4-Hour switch link on the Levels card
   // reopen this same symbol on the other timeframe.
   const interval = intervalOverride || row.interval || analysisInterval();
+  currentAnalysisInterval = interval;
   const symbolLink = document.getElementById('analysisSymbolLink');
   symbolLink.textContent = symbol;
   symbolLink.href = tradingViewChartUrl(symbol, interval, source);
@@ -3582,7 +3640,7 @@ function switchAppView(view){
   scannerPane.style.display = isScanner ? '' : 'none';
   screenerBtn.classList.toggle('active', !isScanner);
   scannerBtn.classList.toggle('active', isScanner);
-  document.getElementById('mainTitleText').textContent = isScanner ? 'Scanner' : 'Binance USDT-M Futures Scanner';
+  document.getElementById('mainTitleText').textContent = 'Scanner';
   document.getElementById('mainEyebrowText').textContent = isScanner ? 'Condition-Based Scanner' : 'Ichimoku Breakout Screener';
 }
 </script>
@@ -3631,6 +3689,21 @@ async function getUSDTPerpetualSymbols(){
 async function getKlines(symbol, interval, limit){
   const raw = await fetchJSON(`/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
   return raw.map(k => ({ open:parseFloat(k[1]), high:parseFloat(k[2]), low:parseFloat(k[3]), close:parseFloat(k[4]), volume:parseFloat(k[5]) }));
+}
+async function get24hTickerSingle(symbol){
+  const t = await fetchJSON(`/fapi/v1/ticker/24hr?symbol=${symbol}`);
+  return {
+    priceChangePercent: parseFloat(t.priceChangePercent),
+    lastPrice: parseFloat(t.lastPrice),
+    quoteVolume: parseFloat(t.quoteVolume),
+    highPrice: parseFloat(t.highPrice),
+    lowPrice: parseFloat(t.lowPrice)
+  };
+}
+async function getFundingRateSingle(symbol){
+  const data = await fetchJSON(`/fapi/v1/premiumIndex?symbol=${symbol}`);
+  const rate = parseFloat(data.lastFundingRate);
+  return Number.isFinite(rate) ? rate*100 : null;
 }
 async function get24hTickers(){
   const data = await fetchJSON(`/fapi/v1/ticker/24hr`);
@@ -4215,6 +4288,88 @@ function applyPreset(id){
 }
 
 /* =========================================================================
+   "Scanner screens matched" — checks a single coin (opened from the
+   Screener's analysis modal) against all 23 Scanner presets, independent of
+   whichever conditions/preset happen to be active in the Scanner tab.
+   ========================================================================= */
+function evalPresetAgainstMetrics(metrics, preset){
+  const flags = preset.conds.map(c => evalCondition(metrics, c));
+  return preset.mode === 'all' ? flags.every(Boolean) : flags.some(Boolean);
+}
+async function openScreenMatch(event){
+  if(event) event.stopPropagation();
+  const symbol = currentExchangeSymbol;
+  if(!symbol) return;
+  const modal = document.getElementById('screenMatchModal');
+  const body = document.getElementById('screenMatchBody');
+  document.getElementById('screenMatchSubtitle').textContent = symbol;
+  body.innerHTML = `<div class="screen-match-status">Checking ${symbol} against all ${PRESETS.length} scanner screens…</div>`;
+  modal.classList.add('open');
+  try{
+    const interval = currentAnalysisInterval || '4h';
+    const ticker = await get24hTickerSingle(symbol);
+    const metrics = await computeMetrics(symbol, interval, ticker);
+    const [fundingRate, oiChangePct, athProximityAtr] = await Promise.all([
+      getFundingRateSingle(symbol).catch(()=>null),
+      getOiChangePct(symbol).catch(()=>null),
+      getAthProximityAtr(symbol, metrics.price).catch(()=>null),
+    ]);
+    metrics.fundingRate = fundingRate;
+    metrics.oiChangePct = oiChangePct;
+    metrics.athProximityAtr = athProximityAtr;
+    renderScreenMatches(symbol, interval, metrics);
+  }catch(e){
+    body.innerHTML = `<div class="screen-match-status">Couldn't check scanner screens for ${symbol}: ${e.message}</div>`;
+  }
+}
+function closeScreenMatch(event){
+  if(event && event.target !== document.getElementById('screenMatchModal')) return;
+  document.getElementById('screenMatchModal').classList.remove('open');
+}
+function renderScreenMatches(symbol, interval, metrics){
+  const results = PRESETS.map(p => ({ preset: p, matched: evalPresetAgainstMetrics(metrics, p) }));
+  const matchedCount = results.filter(r => r.matched).length;
+
+  const rowHtml = ({preset:p, matched}) => `
+    <div class="screen-match-row${matched?' matched':''}" style="--sm-color:${p.color};">
+      <div class="smr-icon" style="background:${p.color};">${p.icon}</div>
+      <div class="smr-title">${p.title}</div>
+      <div class="smr-badge">${matched?'Match':'—'}</div>
+    </div>`;
+
+  // Matched screens across every category, pulled to the very top so the
+  // headline result doesn't require scrolling through unmatched screens.
+  const matchedResults = results.filter(r => r.matched);
+  const matchedHtml = matchedResults.length ? `
+      <div class="screen-match-group">
+        <div class="screen-match-group-name">Matched</div>
+        <div class="screen-match-list">${matchedResults.map(rowHtml).join('')}</div>
+      </div>` : '';
+
+  let groupsHtml = '';
+  for(const cat of PRESET_CATEGORY_ORDER){
+    const items = results.filter(r => r.preset.cat === cat).sort((a,b)=> (b.matched-a.matched));
+    if(!items.length) continue;
+    groupsHtml += `
+      <div class="screen-match-group">
+        <div class="screen-match-group-name">${cat}</div>
+        <div class="screen-match-list">${items.map(rowHtml).join('')}</div>
+      </div>`;
+  }
+
+  document.getElementById('screenMatchBody').innerHTML = `
+    <div class="screen-match-summary">
+      <span class="smc-count">${matchedCount}/${PRESETS.length}</span>
+      <div class="smc-copy">
+        <span class="smc-label">${symbol} matches ${matchedCount} scanner screen${matchedCount===1?'':'s'}</span>
+        <span class="smc-sub">Checked on the ${timeframeLabel(interval)} timeframe</span>
+      </div>
+    </div>
+    ${matchedHtml}
+    ${groupsHtml}`;
+}
+
+/* =========================================================================
    Scan execution
    ========================================================================= */
 function setStatus(msg){ document.getElementById('scnStatusText').textContent = msg; }
@@ -4450,7 +4605,7 @@ renderPresets();
 applyPreset('breakout');
 
 
-window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, applyPreset, setSort, addToWatchlist };
+window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch };
 })();
 
 </script>
