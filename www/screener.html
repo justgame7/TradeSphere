@@ -3623,6 +3623,22 @@ async function getOiChangePct(symbol){
     return ((last-first)/first)*100;
   }catch(e){ return null; }
 }
+// All-time high, measured in ATR units so "at ATH" allows a small tolerance
+// band rather than requiring an exact tick match against the recorded peak.
+// Always pulled from the daily chart (1500 bars ≈ full history for almost
+// every USDT-M perpetual) regardless of the scan's own selected timeframe,
+// since "all-time high" only means something on a long lookback.
+async function getAthProximityAtr(symbol, currentPrice){
+  try{
+    const candles = await getKlines(symbol, '1d', 1500);
+    if(candles.length < 30) return null;
+    const historicalHigh = Math.max(...candles.map(c=>c.high));
+    const allTimeHigh = Math.max(historicalHigh, currentPrice);
+    const atrVal = atr(candles.slice(-100), 14);
+    if(!Number.isFinite(atrVal) || atrVal<=0) return null;
+    return (allTimeHigh - currentPrice) / atrVal;
+  }catch(e){ return null; }
+}
 
 /* ---------------- Concurrency-limited queue ---------------- */
 async function runPool(items, worker, concurrency, onProgress){
@@ -3888,7 +3904,7 @@ async function computeMetrics(symbol, interval, ticker){
     adx: adxResult.adx, plusDI: adxResult.plusDI, minusDI: adxResult.minusDI,
     stochRsiK: stochRsiKVal, stochRsiCrossUp, stochRsiCrossDown,
     bullishDivergence: divergence.bullish, bearishDivergence: divergence.bearish,
-    fundingRate: null, oiChangePct: null // filled in by runScan (bulk/derivatives data, not per-symbol candles)
+    fundingRate: null, oiChangePct: null, athProximityAtr: null // filled in by runScan (bulk/derivatives data, not per-symbol candles)
   };
 }
 
@@ -3913,6 +3929,7 @@ const METRICS = [
   { key:'bearishDivergence', label:'Bearish Divergence (RSI vs price)', group:'Technicals', unit:'', ops:['detected'], noValue:true },
   { key:'fundingRate', label:'Funding Rate', group:'Derivatives', unit:'%', ops:['<','>'], def:0 },
   { key:'oiChangePct', label:'Open Interest Change (~24h)', group:'Derivatives', unit:'%', ops:['>','<'], def:15 },
+  { key:'athProximityAtr', label:'Distance from All-Time High', group:'Technicals', unit:'× ATR', ops:['<','>'], def:0.5 },
 ];
 const METRIC_BY_KEY = Object.fromEntries(METRICS.map(m=>[m.key,m]));
 
@@ -4037,6 +4054,8 @@ const PRESETS = [
     conds:[{metric:'bullishDivergence',operator:'detected',value:null}], mode:'all' },
   { id:'beardiv', cat:'Momentum', icon:'⌇', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Bearish RSI divergence', desc:'Price prints a higher high while RSI prints a lower high',
     conds:[{metric:'bearishDivergence',operator:'detected',value:null}], mode:'all' },
+  { id:'ath', cat:'Momentum', icon:'★', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'At all-time high', desc:'Within 0.5× ATR of its all-time high (from full daily history) — strongest possible trend location',
+    conds:[{metric:'athProximityAtr',operator:'<',value:0.5}], mode:'all' },
   // ---- Trend / structure ----
   { id:'breakout', cat:'Trend', icon:'⚡', color:'linear-gradient(135deg,#ff8a4c,#c2501a)', title:'Momentum breakout', desc:'24h move over 5% backed by a 2× volume surge',
     conds:[{metric:'change24h',operator:'>',value:5},{metric:'volRatio',operator:'>',value:2}], mode:'all' },
@@ -4147,8 +4166,13 @@ async function runScan(){
     // Open interest has no bulk endpoint — only pay for it (one extra call per
     // symbol) when a condition actually needs it.
     const needsOi = conditions.some(c => c.metric === 'oiChangePct');
+    // ATH lookup pulls a full 1500-bar daily history per symbol — the heaviest
+    // optional fetch, so it's likewise gated behind an active condition.
+    const needsAth = conditions.some(c => c.metric === 'athProximityAtr');
 
-    setStatus(`Scanning all ${symbols.length} USDT-M perpetuals…`);
+    setStatus(needsAth
+      ? `Scanning all ${symbols.length} USDT-M perpetuals (fetching full daily history for ATH)…`
+      : `Scanning all ${symbols.length} USDT-M perpetuals…`);
 
     const raw = await runPool(symbols, async (symbol) => {
       const ticker = tickers[symbol];
@@ -4157,6 +4181,7 @@ async function runScan(){
       metrics.fundingRate = funding ? funding.rate : null;
       metrics.fundingNextTime = funding ? funding.nextFundingTime : null;
       if(needsOi) metrics.oiChangePct = await getOiChangePct(symbol);
+      if(needsAth) metrics.athProximityAtr = await getAthProximityAtr(symbol, metrics.price);
       const { passed, matched } = evaluateAll(metrics);
       const volumeOk = (metrics.quoteVolume24h ?? 0) >= minVol;
       return { ...metrics, passed: passed && volumeOk, matched };
@@ -4313,7 +4338,7 @@ function renderRow(r){
 
 function exportCSV(){
   if(!allResults.length) return;
-  const cols = ['symbol','price','change24h','rsi','stochRsiK','macdHist','adx','volRatio','bbWidthPct','atrPct','fundingRate','oiChangePct','matched'];
+  const cols = ['symbol','price','change24h','rsi','stochRsiK','macdHist','adx','volRatio','bbWidthPct','atrPct','fundingRate','oiChangePct','athProximityAtr','matched'];
   const lines = [cols.join(',')].concat(allResults.map(r => cols.map(c => {
     if(c==='matched') return `"${r.matched.join(' | ')}"`;
     const v = r[c];
