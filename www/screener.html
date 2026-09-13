@@ -476,6 +476,14 @@
 
   /* ---------------- Scanner screens matched popover ---------------- */
   .screen-match-subtitle{margin:2px 0 0;color:var(--faint);font:11px var(--font-mono);}
+  .screen-match-ict-toggle{
+    display:flex;align-items:center;gap:7px;margin:12px 0 0;cursor:pointer;user-select:none;
+    font:600 11.5px var(--font-mono);color:var(--muted);
+  }
+  .screen-match-ict-toggle:hover{color:var(--text);}
+  .screen-match-ict-toggle input[type="checkbox"]{
+    width:15px;height:15px;flex:none;margin:0;accent-color:var(--accent);cursor:pointer;
+  }
   .screen-match-status{padding:26px 4px;text-align:center;color:var(--muted);font:12px var(--font-mono);}
   .screen-match-summary{
     display:flex;align-items:center;gap:12px;margin:14px 0 16px;padding:13px 15px;
@@ -1072,6 +1080,10 @@
       </div>
       <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="Scanner.closeScreenMatch()">×</button></div>
     </div>
+    <label class="screen-match-ict-toggle" for="screenMatchIctToggle">
+      <input type="checkbox" id="screenMatchIctToggle" onchange="Scanner.setIncludeIct(this.checked)">
+      <span>Include ICT screens</span>
+    </label>
     <div id="screenMatchBody"></div>
   </div>
 </div>
@@ -3966,6 +3978,214 @@ function detectDivergence(closes, rsiArr, lookback=40, span=2){
 }
 
 /* =========================================================================
+   ICT / Smart Money Concepts
+   Swing structure, Fair Value Gaps, liquidity sweeps, BOS/CHoCH,
+   displacement, OTE, order blocks/breakers, equal highs-lows,
+   premium/discount. All derived from the same candle array already
+   fetched for RSI/EMA/etc — no extra API calls except NDOG/NWOG, which is
+   gated the same way as Open Interest / ATH (see runScan).
+
+   NOTE ON SCOPE: "Order block" and "breaker block" here are a confluence
+   of the atomic signals below (sweep + FVG + structure break landing in
+   the same short window), not a literal persistent zone tracked candle by
+   candle. That's a deliberate simplification for a per-scan snapshot —
+   good enough to flag "this just happened", not meant to draw the zone.
+   ========================================================================= */
+
+// Swing highs/lows: same "N bars lower/higher on both sides" pivot logic as
+// findPivots() above, but run over the high/low series separately (ICT
+// swing points are wick-based, not closing-price based like RSI pivots).
+function findSwingPoints(candles, span=3){
+  const highs = candles.map(c=>c.high);
+  const lows = candles.map(c=>c.low);
+  const swingHighs = [], swingLows = [];
+  for(let i=span;i<candles.length-span;i++){
+    let isHigh=true, isLow=true;
+    for(let j=i-span;j<=i+span;j++){
+      if(j===i) continue;
+      if(highs[j]>=highs[i]) isHigh=false;
+      if(lows[j]<=lows[i]) isLow=false;
+    }
+    if(isHigh) swingHighs.push({ idx:i, price:highs[i] });
+    if(isLow) swingLows.push({ idx:i, price:lows[i] });
+  }
+  return { swingHighs, swingLows };
+}
+
+// Fair Value Gaps — classic ICT 3-candle imbalance: candle[i] and candle[i-2]
+// don't overlap, leaving candle[i-1]'s body as a void.
+//   Bullish FVG: low[i]  > high[i-2]  (price gapped up and left a hole below)
+//   Bearish FVG: high[i] < low[i-2]   (price gapped down and left a hole above)
+// "Mitigated" = a later candle has already traded back into that gap zone.
+function findFVGs(candles, lookback=60){
+  const start = Math.max(2, candles.length-lookback);
+  const fvgs = [];
+  for(let i=start;i<candles.length;i++){
+    const c0 = candles[i-2], c2 = candles[i];
+    if(c2.low > c0.high) fvgs.push({ type:'bull', top:c2.low, bottom:c0.high, formedIdx:i });
+    else if(c2.high < c0.low) fvgs.push({ type:'bear', top:c0.low, bottom:c2.high, formedIdx:i });
+  }
+  for(const gap of fvgs){
+    let mitigated = false;
+    for(let k=gap.formedIdx+1;k<candles.length;k++){
+      if(candles[k].low<=gap.top && candles[k].high>=gap.bottom){ mitigated = true; break; }
+    }
+    gap.mitigated = mitigated;
+  }
+  return fvgs;
+}
+
+// Liquidity sweep: the last candle wicks beyond the most recent swing
+// high/low but closes back on the other side of it — a stop-run that traps
+// breakout traders before reversing. Only checked against the very last
+// candle so the screen reflects a sweep that just happened.
+function findLiquiditySweep(candles, swings){
+  const n = candles.length;
+  const last = candles[n-1];
+  const priorHighs = swings.swingHighs.filter(s=>s.idx < n-1);
+  const priorLows = swings.swingLows.filter(s=>s.idx < n-1);
+  let bearishSweep = false, bullishSweep = false;
+  if(priorHighs.length){
+    const level = priorHighs[priorHighs.length-1].price;
+    if(last.high>level && last.close<level) bearishSweep = true; // swept buy-side liquidity, closed back down
+  }
+  if(priorLows.length){
+    const level = priorLows[priorLows.length-1].price;
+    if(last.low<level && last.close>level) bullishSweep = true; // swept sell-side liquidity, closed back up
+  }
+  return { bullishSweep, bearishSweep };
+}
+
+// Market structure: BOS = break of the last swing point in the direction of
+// the prevailing structure (continuation). CHoCH = break against the
+// prevailing structure — the first sign of a reversal. Bias is read off the
+// last two confirmed swing highs and swing lows (higher-high+higher-low =
+// bull, lower-high+lower-low = bear); the break itself must show up in one
+// of the last 3 closes, so it reflects a shift that just happened.
+function findStructureShift(candles, swings){
+  const { swingHighs, swingLows } = swings;
+  if(swingHighs.length<2 || swingLows.length<2) return { bosUp:false, bosDown:false, chochUp:false, chochDown:false };
+  const h1 = swingHighs[swingHighs.length-2], h2 = swingHighs[swingHighs.length-1];
+  const l1 = swingLows[swingLows.length-2], l2 = swingLows[swingLows.length-1];
+  let bias = 'neutral';
+  if(h2.price>h1.price && l2.price>l1.price) bias = 'bull';
+  else if(h2.price<h1.price && l2.price<l1.price) bias = 'bear';
+  const recent = candles.slice(-3);
+  const brokeAboveLastHigh = recent.some(c=>c.close>h2.price);
+  const brokeBelowLastLow = recent.some(c=>c.close<l2.price);
+  return {
+    bosUp: bias==='bull' && brokeAboveLastHigh,
+    bosDown: bias==='bear' && brokeBelowLastLow,
+    chochUp: bias==='bear' && brokeAboveLastHigh,
+    chochDown: bias==='bull' && brokeBelowLastLow,
+  };
+}
+
+// Displacement: a candle whose body is an outsized multiple of recent ATR —
+// the large one-directional push ICT reads as institutional intent, usually
+// the same move that leaves an FVG behind it.
+function findDisplacement(candles, atrVal, mult=1.8){
+  const last = candles[candles.length-1];
+  const body = Math.abs(last.close-last.open);
+  if(!Number.isFinite(atrVal) || atrVal<=0) return { bullish:false, bearish:false, ratio:null };
+  const ratio = body/atrVal;
+  return { bullish: ratio>=mult && last.close>last.open, bearish: ratio>=mult && last.close<last.open, ratio };
+}
+
+// Optimal Trade Entry: price currently retracing into the 61.8%-79% zone of
+// the most recent completed swing leg — low-to-high for a long OTE (a
+// discount pullback in an up-leg), high-to-low for a short OTE (a premium
+// pullback in a down-leg).
+function findOteZone(candles, swings, price){
+  const { swingHighs, swingLows } = swings;
+  if(!swingHighs.length || !swingLows.length) return { bullish:false, bearish:false };
+  const lastHigh = swingHighs[swingHighs.length-1];
+  const lastLow = swingLows[swingLows.length-1];
+  let bullish=false, bearish=false;
+  if(lastLow.idx < lastHigh.idx){ // up-leg: low then high -> long OTE on the pullback
+    const range = lastHigh.price-lastLow.price;
+    if(range>0){
+      const upper = lastHigh.price-0.618*range, lower = lastHigh.price-0.79*range;
+      if(price>=lower && price<=upper) bullish = true;
+    }
+  }
+  if(lastHigh.idx < lastLow.idx){ // down-leg: high then low -> short OTE on the pullback
+    const range = lastHigh.price-lastLow.price;
+    if(range>0){
+      const lower = lastLow.price+0.618*range, upper = lastLow.price+0.79*range;
+      if(price>=lower && price<=upper) bearish = true;
+    }
+  }
+  return { bullish, bearish };
+}
+
+// Order block / breaker block — see the scope note above the section header:
+// this is a confluence of sweep + fresh FVG + structure break, not a
+// literally-tracked zone. Breaker = the sweep failed to hold and structure
+// flipped the *opposite* way instead (the failed-OB flip).
+function findOrderBlockSignals(sweep, fvgs, structure, candles){
+  const recentBullFvg = fvgs.some(f=>f.type==='bull' && f.formedIdx>=candles.length-4);
+  const recentBearFvg = fvgs.some(f=>f.type==='bear' && f.formedIdx>=candles.length-4);
+  return {
+    freshBullishOB: sweep.bullishSweep && recentBullFvg && (structure.bosUp || structure.chochUp),
+    freshBearishOB: sweep.bearishSweep && recentBearFvg && (structure.bosDown || structure.chochDown),
+    bullishBreaker: sweep.bearishSweep && structure.chochUp,
+    bearishBreaker: sweep.bullishSweep && structure.chochDown,
+  };
+}
+
+// Equal highs / equal lows — ≥2 swing points within a tight (ATR-scaled)
+// tolerance band that price hasn't traded through yet. ICT treats these
+// clusters as resting liquidity pools that price is "drawn" to.
+function findEqualLevels(swings, price, atrVal){
+  const tol = Number.isFinite(atrVal) ? atrVal*0.25 : price*0.0015;
+  function hasCluster(points, isHigh){
+    for(let i=points.length-1;i>0;i--){
+      for(let j=i-1;j>=0 && j>=i-4;j--){
+        if(Math.abs(points[i].price-points[j].price)<=tol){
+          const level = (points[i].price+points[j].price)/2;
+          const untapped = isHigh ? price<level*1.01 : price>level*0.99;
+          if(untapped) return true;
+        }
+      }
+    }
+    return false;
+  }
+  return { equalHighs: hasCluster(swings.swingHighs, true), equalLows: hasCluster(swings.swingLows, false) };
+}
+
+// Premium / Discount — where price sits inside the recent dealing range.
+// Above the midpoint = premium (ICT favors looking for shorts there); below
+// = discount (favors longs).
+function findPremiumDiscount(candles, lookback=50){
+  const window = candles.slice(-lookback);
+  const hi = Math.max(...window.map(c=>c.high)), lo = Math.min(...window.map(c=>c.low));
+  const price = candles[candles.length-1].close;
+  if(hi<=lo) return { premium:false, discount:false, pct:null };
+  const pct = ((price-lo)/(hi-lo))*100;
+  return { premium: pct>50, discount: pct<=50, pct };
+}
+
+// New Day / New Week Opening Gap — the gap between the most recent
+// daily/weekly candle's open and the prior daily/weekly candle's close.
+// "Unfilled" = price hasn't traded back into that gap since the new session
+// opened. Gated behind an active condition (see runScan), same pattern as
+// getOiChangePct/getAthProximityAtr, since it needs its own klines calls.
+async function getNdogNwog(symbol, currentPrice){
+  function gapInfo(candles){
+    if(candles.length<2) return { present:false };
+    const prev = candles[candles.length-2], curr = candles[candles.length-1];
+    if(curr.open===prev.close) return { present:false };
+    const top = Math.max(curr.open, prev.close), bottom = Math.min(curr.open, prev.close);
+    return { present:true, top, bottom, above: currentPrice>top, below: currentPrice<bottom, unfilled: currentPrice>top || currentPrice<bottom };
+  }
+  try{
+    const [daily, weekly] = await Promise.all([ getKlines(symbol,'1d',5), getKlines(symbol,'1w',5) ]);
+    return { ndog: gapInfo(daily), nwog: gapInfo(weekly) };
+  }catch(e){ return { ndog:{present:false}, nwog:{present:false} }; }
+}
+
+/* =========================================================================
    Metric extraction per symbol
    ========================================================================= */
 async function computeMetrics(symbol, interval, ticker){
@@ -4014,6 +4234,17 @@ async function computeMetrics(symbol, interval, ticker){
 
   const spark = closes.slice(-28);
 
+  // ---- ICT / Smart Money Concepts ----
+  const swings = findSwingPoints(candles, 3);
+  const fvgs = findFVGs(candles, 60);
+  const sweep = findLiquiditySweep(candles, swings);
+  const structure = findStructureShift(candles, swings);
+  const displacement = findDisplacement(candles, atrVal, 1.8);
+  const ote = findOteZone(candles, swings, price);
+  const obSignals = findOrderBlockSignals(sweep, fvgs, structure, candles);
+  const equalLevels = findEqualLevels(swings, price, atrVal);
+  const premDisc = findPremiumDiscount(candles, 50);
+
   return {
     symbol, price, change24h, quoteVolume24h,
     rsi: rsiVal, macdHist, macdHistPrev, macdCrossUp, macdCrossDown,
@@ -4024,7 +4255,19 @@ async function computeMetrics(symbol, interval, ticker){
     adx: adxResult.adx, plusDI: adxResult.plusDI, minusDI: adxResult.minusDI,
     stochRsiK: stochRsiKVal, stochRsiCrossUp, stochRsiCrossDown,
     bullishDivergence: divergence.bullish, bearishDivergence: divergence.bearish,
-    fundingRate: null, oiChangePct: null, athProximityAtr: null // filled in by runScan (bulk/derivatives data, not per-symbol candles)
+    fundingRate: null, oiChangePct: null, athProximityAtr: null, // filled in by runScan (bulk/derivatives data, not per-symbol candles)
+    // ICT / Smart Money
+    fvgBullishAny: fvgs.some(f=>f.type==='bull'), fvgBullishUnmitigated: fvgs.some(f=>f.type==='bull' && !f.mitigated),
+    fvgBearishAny: fvgs.some(f=>f.type==='bear'), fvgBearishUnmitigated: fvgs.some(f=>f.type==='bear' && !f.mitigated),
+    liquiditySweepBullish: sweep.bullishSweep, liquiditySweepBearish: sweep.bearishSweep,
+    bosUp: structure.bosUp, bosDown: structure.bosDown, chochUp: structure.chochUp, chochDown: structure.chochDown,
+    displacementUp: displacement.bullish, displacementDown: displacement.bearish, displacementRatio: displacement.ratio,
+    oteBullish: ote.bullish, oteBearish: ote.bearish,
+    freshBullishOB: obSignals.freshBullishOB, freshBearishOB: obSignals.freshBearishOB,
+    bullishBreaker: obSignals.bullishBreaker, bearishBreaker: obSignals.bearishBreaker,
+    equalHighsNearby: equalLevels.equalHighs, equalLowsNearby: equalLevels.equalLows,
+    premiumZone: premDisc.premium, discountZone: premDisc.discount,
+    ndogNwog: null // filled in by runScan when a condition needs it (extra daily/weekly fetch)
   };
 }
 
@@ -4050,6 +4293,19 @@ const METRICS = [
   { key:'fundingRate', label:'Funding Rate', group:'Derivatives', unit:'%', ops:['<','>'], def:0 },
   { key:'oiChangePct', label:'Open Interest Change (~24h)', group:'Derivatives', unit:'%', ops:['>','<'], def:15 },
   { key:'athProximityAtr', label:'Distance from All-Time High', group:'Technicals', unit:'× ATR', ops:['<','>'], def:0.5 },
+  // ---- ICT / Smart Money Concepts ----
+  { key:'fvgBullish', label:'Bullish Fair Value Gap', group:'ICT / Smart Money', unit:'', ops:['detected (any)','unmitigated only'], noValue:true },
+  { key:'fvgBearish', label:'Bearish Fair Value Gap', group:'ICT / Smart Money', unit:'', ops:['detected (any)','unmitigated only'], noValue:true },
+  { key:'liquiditySweep', label:'Liquidity Sweep', group:'ICT / Smart Money', unit:'', ops:['bullish (sell-side swept)','bearish (buy-side swept)'], noValue:true },
+  { key:'structureShift', label:'BOS / CHoCH', group:'ICT / Smart Money', unit:'', ops:['bullish BOS','bearish BOS','bullish CHoCH','bearish CHoCH'], noValue:true },
+  { key:'displacement', label:'Displacement Candle', group:'ICT / Smart Money', unit:'', ops:['bullish','bearish'], noValue:true },
+  { key:'displacementRatio', label:'Displacement Size (× ATR)', group:'ICT / Smart Money', unit:'× ATR', ops:['>'], def:1.5 },
+  { key:'oteZone', label:'Optimal Trade Entry (OTE)', group:'ICT / Smart Money', unit:'', ops:['bullish (discount, for longs)','bearish (premium, for shorts)'], noValue:true },
+  { key:'orderBlock', label:'Order Block (fresh)', group:'ICT / Smart Money', unit:'', ops:['bullish','bearish'], noValue:true },
+  { key:'breakerBlock', label:'Breaker Block', group:'ICT / Smart Money', unit:'', ops:['bullish','bearish'], noValue:true },
+  { key:'equalLevels', label:'Equal Highs/Lows (liquidity pool)', group:'ICT / Smart Money', unit:'', ops:['equal highs nearby','equal lows nearby'], noValue:true },
+  { key:'premiumDiscount', label:'Premium / Discount', group:'ICT / Smart Money', unit:'', ops:['premium (upper half)','discount (lower half)'], noValue:true },
+  { key:'ndogNwog', label:'Unfilled Opening Gap (NDOG/NWOG)', group:'ICT / Smart Money', unit:'', ops:['daily gap above','daily gap below','weekly gap above','weekly gap below'], noValue:true },
 ];
 const METRIC_BY_KEY = Object.fromEntries(METRICS.map(m=>[m.key,m]));
 
@@ -4136,6 +4392,55 @@ function evalCondition(metrics, cond){
       return !!metrics.bullishDivergence;
     case 'bearishDivergence':
       return !!metrics.bearishDivergence;
+    case 'fvgBullish':
+      if(cond.operator==='detected (any)') return !!metrics.fvgBullishAny;
+      if(cond.operator==='unmitigated only') return !!metrics.fvgBullishUnmitigated;
+      return false;
+    case 'fvgBearish':
+      if(cond.operator==='detected (any)') return !!metrics.fvgBearishAny;
+      if(cond.operator==='unmitigated only') return !!metrics.fvgBearishUnmitigated;
+      return false;
+    case 'liquiditySweep':
+      if(cond.operator==='bullish (sell-side swept)') return !!metrics.liquiditySweepBullish;
+      if(cond.operator==='bearish (buy-side swept)') return !!metrics.liquiditySweepBearish;
+      return false;
+    case 'structureShift':
+      if(cond.operator==='bullish BOS') return !!metrics.bosUp;
+      if(cond.operator==='bearish BOS') return !!metrics.bosDown;
+      if(cond.operator==='bullish CHoCH') return !!metrics.chochUp;
+      if(cond.operator==='bearish CHoCH') return !!metrics.chochDown;
+      return false;
+    case 'displacement':
+      if(cond.operator==='bullish') return !!metrics.displacementUp;
+      if(cond.operator==='bearish') return !!metrics.displacementDown;
+      return false;
+    case 'oteZone':
+      if(cond.operator==='bullish (discount, for longs)') return !!metrics.oteBullish;
+      if(cond.operator==='bearish (premium, for shorts)') return !!metrics.oteBearish;
+      return false;
+    case 'orderBlock':
+      if(cond.operator==='bullish') return !!metrics.freshBullishOB;
+      if(cond.operator==='bearish') return !!metrics.freshBearishOB;
+      return false;
+    case 'breakerBlock':
+      if(cond.operator==='bullish') return !!metrics.bullishBreaker;
+      if(cond.operator==='bearish') return !!metrics.bearishBreaker;
+      return false;
+    case 'equalLevels':
+      if(cond.operator==='equal highs nearby') return !!metrics.equalHighsNearby;
+      if(cond.operator==='equal lows nearby') return !!metrics.equalLowsNearby;
+      return false;
+    case 'premiumDiscount':
+      if(cond.operator==='premium (upper half)') return !!metrics.premiumZone;
+      if(cond.operator==='discount (lower half)') return !!metrics.discountZone;
+      return false;
+    case 'ndogNwog':
+      if(!metrics.ndogNwog) return false;
+      if(cond.operator==='daily gap above') return !!(metrics.ndogNwog.ndog?.present && metrics.ndogNwog.ndog.unfilled && metrics.ndogNwog.ndog.above);
+      if(cond.operator==='daily gap below') return !!(metrics.ndogNwog.ndog?.present && metrics.ndogNwog.ndog.unfilled && metrics.ndogNwog.ndog.below);
+      if(cond.operator==='weekly gap above') return !!(metrics.ndogNwog.nwog?.present && metrics.ndogNwog.nwog.unfilled && metrics.ndogNwog.nwog.above);
+      if(cond.operator==='weekly gap below') return !!(metrics.ndogNwog.nwog?.present && metrics.ndogNwog.nwog.unfilled && metrics.ndogNwog.nwog.below);
+      return false;
     default:
       if(v===null || v===undefined || !Number.isFinite(v)) return false;
       if(cond.operator==='>') return v > cond.value;
@@ -4206,8 +4511,53 @@ const PRESETS = [
     conds:[{metric:'oiChangePct',operator:'>',value:15}], mode:'all' },
   { id:'oiprice', cat:'Derivatives', icon:'⬈', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Fresh positioning', desc:'Open interest rising 10%+ alongside a positive 24h price move',
     conds:[{metric:'oiChangePct',operator:'>',value:10},{metric:'change24h',operator:'>',value:0}], mode:'all' },
+  // ---- ICT / Smart Money Concepts ----
+  { id:'ictFvgBull', cat:'ICT', icon:'▦', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Bullish FVG (unmitigated)', desc:'An unfilled bullish fair value gap still sits below price',
+    conds:[{metric:'fvgBullish',operator:'unmitigated only',value:null}], mode:'all' },
+  { id:'ictFvgBear', cat:'ICT', icon:'▧', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Bearish FVG (unmitigated)', desc:'An unfilled bearish fair value gap still sits above price',
+    conds:[{metric:'fvgBearish',operator:'unmitigated only',value:null}], mode:'all' },
+  { id:'ictSweepBull', cat:'ICT', icon:'⇈', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Bullish liquidity sweep', desc:'Last candle swept sell-side liquidity (wicked below a swing low) and closed back above it',
+    conds:[{metric:'liquiditySweep',operator:'bullish (sell-side swept)',value:null}], mode:'all' },
+  { id:'ictSweepBear', cat:'ICT', icon:'⇊', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Bearish liquidity sweep', desc:'Last candle swept buy-side liquidity (wicked above a swing high) and closed back below it',
+    conds:[{metric:'liquiditySweep',operator:'bearish (buy-side swept)',value:null}], mode:'all' },
+  { id:'ictBosBull', cat:'ICT', icon:'↗', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Bullish BOS', desc:'Price just closed above the last swing high, continuing an already-bullish structure',
+    conds:[{metric:'structureShift',operator:'bullish BOS',value:null}], mode:'all' },
+  { id:'ictBosBear', cat:'ICT', icon:'↘', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Bearish BOS', desc:'Price just closed below the last swing low, continuing an already-bearish structure',
+    conds:[{metric:'structureShift',operator:'bearish BOS',value:null}], mode:'all' },
+  { id:'ictChochBull', cat:'ICT', icon:'⤴', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Bullish CHoCH', desc:'Price just closed above the last swing high against a prior bearish structure — earliest reversal signal',
+    conds:[{metric:'structureShift',operator:'bullish CHoCH',value:null}], mode:'all' },
+  { id:'ictChochBear', cat:'ICT', icon:'⤵', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Bearish CHoCH', desc:'Price just closed below the last swing low against a prior bullish structure — earliest reversal signal',
+    conds:[{metric:'structureShift',operator:'bearish CHoCH',value:null}], mode:'all' },
+  { id:'ictDispBull', cat:'ICT', icon:'⚡', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Bullish displacement', desc:'Current candle body is 1.8×+ ATR to the upside — an aggressive, institutional-looking push',
+    conds:[{metric:'displacement',operator:'bullish',value:null}], mode:'all' },
+  { id:'ictDispBear', cat:'ICT', icon:'⚡', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Bearish displacement', desc:'Current candle body is 1.8×+ ATR to the downside — an aggressive, institutional-looking push',
+    conds:[{metric:'displacement',operator:'bearish',value:null}], mode:'all' },
+  { id:'ictOteBull', cat:'ICT', icon:'◐', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Bullish OTE zone', desc:'Price is retracing into the 61.8%-79% zone of the latest up-leg — classic long entry area',
+    conds:[{metric:'oteZone',operator:'bullish (discount, for longs)',value:null}], mode:'all' },
+  { id:'ictOteBear', cat:'ICT', icon:'◑', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Bearish OTE zone', desc:'Price is retracing into the 61.8%-79% zone of the latest down-leg — classic short entry area',
+    conds:[{metric:'oteZone',operator:'bearish (premium, for shorts)',value:null}], mode:'all' },
+  { id:'ictObBull', cat:'ICT', icon:'▣', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Fresh bullish order block', desc:'Sweep + fresh FVG + a bullish structure break all landed together — high-confluence long zone',
+    conds:[{metric:'orderBlock',operator:'bullish',value:null}], mode:'all' },
+  { id:'ictObBear', cat:'ICT', icon:'▤', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Fresh bearish order block', desc:'Sweep + fresh FVG + a bearish structure break all landed together — high-confluence short zone',
+    conds:[{metric:'orderBlock',operator:'bearish',value:null}], mode:'all' },
+  { id:'ictBreakerBull', cat:'ICT', icon:'⟲', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Bullish breaker block', desc:'A sell-side sweep failed to hold and structure flipped bullish instead — the failed-short flip',
+    conds:[{metric:'breakerBlock',operator:'bullish',value:null}], mode:'all' },
+  { id:'ictBreakerBear', cat:'ICT', icon:'⟳', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Bearish breaker block', desc:'A buy-side sweep failed to hold and structure flipped bearish instead — the failed-long flip',
+    conds:[{metric:'breakerBlock',operator:'bearish',value:null}], mode:'all' },
+  { id:'ictEqHighs', cat:'ICT', icon:'≡', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Equal highs nearby', desc:'A cluster of untapped equal highs sits close to price — resting buy-side liquidity',
+    conds:[{metric:'equalLevels',operator:'equal highs nearby',value:null}], mode:'all' },
+  { id:'ictEqLows', cat:'ICT', icon:'≡', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Equal lows nearby', desc:'A cluster of untapped equal lows sits close to price — resting sell-side liquidity',
+    conds:[{metric:'equalLevels',operator:'equal lows nearby',value:null}], mode:'all' },
+  { id:'ictDiscount', cat:'ICT', icon:'▼', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Discount zone (long bias)', desc:'Price sits in the lower half of its recent dealing range — ICT\'s favored zone for longs',
+    conds:[{metric:'premiumDiscount',operator:'discount (lower half)',value:null}], mode:'all' },
+  { id:'ictPremium', cat:'ICT', icon:'▲', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Premium zone (short bias)', desc:'Price sits in the upper half of its recent dealing range — ICT\'s favored zone for shorts',
+    conds:[{metric:'premiumDiscount',operator:'premium (upper half)',value:null}], mode:'all' },
+  { id:'ictGapAbove', cat:'ICT', icon:'⬒', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Unfilled opening gap above', desc:'An unfilled daily or weekly opening gap (NDOG/NWOG) sits above current price',
+    conds:[{metric:'ndogNwog',operator:'daily gap above',value:null},{metric:'ndogNwog',operator:'weekly gap above',value:null}], mode:'any' },
+  { id:'ictGapBelow', cat:'ICT', icon:'⬓', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Unfilled opening gap below', desc:'An unfilled daily or weekly opening gap (NDOG/NWOG) sits below current price',
+    conds:[{metric:'ndogNwog',operator:'daily gap below',value:null},{metric:'ndogNwog',operator:'weekly gap below',value:null}], mode:'any' },
 ];
-const PRESET_CATEGORY_ORDER = ['Momentum','Trend','Volatility','Volume','Derivatives'];
+const PRESET_CATEGORY_ORDER = ['Momentum','Trend','Volatility','Volume','Derivatives','ICT'];
 const RECENT_PRESETS_KEY = 'scn-recent-presets-v1';
 const RECENT_PRESETS_MAX = 4;
 function getRecentPresetIds(){
@@ -4289,12 +4639,26 @@ function applyPreset(id){
 
 /* =========================================================================
    "Scanner screens matched" — checks a single coin (opened from the
-   Screener's analysis modal) against all 23 Scanner presets, independent of
+   Screener's analysis modal) against all Scanner presets, independent of
    whichever conditions/preset happen to be active in the Scanner tab.
    ========================================================================= */
 function evalPresetAgainstMetrics(metrics, preset){
   const flags = preset.conds.map(c => evalCondition(metrics, c));
   return preset.mode === 'all' ? flags.every(Boolean) : flags.some(Boolean);
+}
+// Whether ICT/Smart Money screens are included in the "Scanner screens
+// matched" popover — off by default (unchecked) so the count/list starts
+// scoped to the 23 non-ICT screens; checking the box brings ICT's 22 in too
+// (45 total).
+let includeIct = false;
+// Cached inputs from the most recent successful check, so toggling the ICT
+// checkbox can re-render instantly without refetching from the exchange.
+let lastScreenMatch = null; // { symbol, interval, metrics }
+function setIncludeIct(checked){
+  includeIct = !!checked;
+  if(lastScreenMatch){
+    renderScreenMatches(lastScreenMatch.symbol, lastScreenMatch.interval, lastScreenMatch.metrics);
+  }
 }
 async function openScreenMatch(event){
   if(event) event.stopPropagation();
@@ -4303,20 +4667,25 @@ async function openScreenMatch(event){
   const modal = document.getElementById('screenMatchModal');
   const body = document.getElementById('screenMatchBody');
   document.getElementById('screenMatchSubtitle').textContent = symbol;
+  const ictToggle = document.getElementById('screenMatchIctToggle');
+  if(ictToggle) ictToggle.checked = includeIct;
   body.innerHTML = `<div class="screen-match-status">Checking ${symbol} against all ${PRESETS.length} scanner screens…</div>`;
   modal.classList.add('open');
   try{
     const interval = currentAnalysisInterval || '4h';
     const ticker = await get24hTickerSingle(symbol);
     const metrics = await computeMetrics(symbol, interval, ticker);
-    const [fundingRate, oiChangePct, athProximityAtr] = await Promise.all([
+    const [fundingRate, oiChangePct, athProximityAtr, ndogNwog] = await Promise.all([
       getFundingRateSingle(symbol).catch(()=>null),
       getOiChangePct(symbol).catch(()=>null),
       getAthProximityAtr(symbol, metrics.price).catch(()=>null),
+      getNdogNwog(symbol, metrics.price).catch(()=>null),
     ]);
     metrics.fundingRate = fundingRate;
     metrics.oiChangePct = oiChangePct;
     metrics.athProximityAtr = athProximityAtr;
+    metrics.ndogNwog = ndogNwog;
+    lastScreenMatch = { symbol, interval, metrics };
     renderScreenMatches(symbol, interval, metrics);
   }catch(e){
     body.innerHTML = `<div class="screen-match-status">Couldn't check scanner screens for ${symbol}: ${e.message}</div>`;
@@ -4327,7 +4696,12 @@ function closeScreenMatch(event){
   document.getElementById('screenMatchModal').classList.remove('open');
 }
 function renderScreenMatches(symbol, interval, metrics){
-  const results = PRESETS.map(p => ({ preset: p, matched: evalPresetAgainstMetrics(metrics, p) }));
+  // ICT/Smart Money screens are only included when the checkbox is checked —
+  // everything else (matched count, category groups, total shown as
+  // matched/total) is scoped to the presets currently in play.
+  const presets = includeIct ? PRESETS : PRESETS.filter(p => p.cat !== 'ICT');
+  const categories = includeIct ? PRESET_CATEGORY_ORDER : PRESET_CATEGORY_ORDER.filter(c => c !== 'ICT');
+  const results = presets.map(p => ({ preset: p, matched: evalPresetAgainstMetrics(metrics, p) }));
   const matchedCount = results.filter(r => r.matched).length;
 
   const rowHtml = ({preset:p, matched}) => `
@@ -4347,7 +4721,7 @@ function renderScreenMatches(symbol, interval, metrics){
       </div>` : '';
 
   let groupsHtml = '';
-  for(const cat of PRESET_CATEGORY_ORDER){
+  for(const cat of categories){
     const items = results.filter(r => r.preset.cat === cat).sort((a,b)=> (b.matched-a.matched));
     if(!items.length) continue;
     groupsHtml += `
@@ -4359,7 +4733,7 @@ function renderScreenMatches(symbol, interval, metrics){
 
   document.getElementById('screenMatchBody').innerHTML = `
     <div class="screen-match-summary">
-      <span class="smc-count">${matchedCount}/${PRESETS.length}</span>
+      <span class="smc-count">${matchedCount}/${presets.length}</span>
       <div class="smc-copy">
         <span class="smc-label">${symbol} matches ${matchedCount} scanner screen${matchedCount===1?'':'s'}</span>
         <span class="smc-sub">Checked on the ${timeframeLabel(interval)} timeframe</span>
@@ -4414,6 +4788,9 @@ async function runScan(){
     // ATH lookup pulls a full 1500-bar daily history per symbol — the heaviest
     // optional fetch, so it's likewise gated behind an active condition.
     const needsAth = conditions.some(c => c.metric === 'athProximityAtr');
+    // NDOG/NWOG needs its own daily+weekly klines call per symbol — gated the
+    // same way as OI/ATH above.
+    const needsNdog = conditions.some(c => c.metric === 'ndogNwog');
 
     setStatus(needsAth
       ? `Scanning all ${symbols.length} USDT-M perpetuals (fetching full daily history for ATH)…`
@@ -4427,6 +4804,7 @@ async function runScan(){
       metrics.fundingNextTime = funding ? funding.nextFundingTime : null;
       if(needsOi) metrics.oiChangePct = await getOiChangePct(symbol);
       if(needsAth) metrics.athProximityAtr = await getAthProximityAtr(symbol, metrics.price);
+      if(needsNdog) metrics.ndogNwog = await getNdogNwog(symbol, metrics.price);
       const { passed, matched } = evaluateAll(metrics);
       const volumeOk = (metrics.quoteVolume24h ?? 0) >= minVol;
       return { ...metrics, passed: passed && volumeOk, matched };
@@ -4605,7 +4983,7 @@ renderPresets();
 applyPreset('breakout');
 
 
-window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch };
+window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct };
 })();
 
 </script>
