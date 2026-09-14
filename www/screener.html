@@ -1095,7 +1095,7 @@
       </div>
       <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="closeCoinInfo()">×</button></div>
     </div>
-    <p class="analysis-status" id="coinInfoStatus">Loading CoinGecko data...</p>
+    <p class="analysis-status" id="coinInfoStatus">Loading CoinMarketCap data...</p>
     <div id="coinInfoDetails" style="display:none;">
       <h3 style="margin:0 0 12px;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;color:var(--faint);letter-spacing:.08em;">Overview</h3>
       <div id="coinInfoAbout" class="coininfo-about"></div>
@@ -1105,9 +1105,12 @@
         <button type="button" class="coininfo-website" id="coinInfoWebsite">—</button>
       </div>
       <div class="plan-section">
-        <h3>CoinGecko</h3>
-        <button type="button" class="coininfo-website" id="coinInfoCoingecko">—</button>
+        <h3>CoinMarketCap</h3>
+        <button type="button" class="coininfo-website" id="coinInfoCmc">—</button>
       </div>
+      <!-- Reverted-to id, kept so the commented-out CoinGecko function below
+           still finds its elements if you switch back. Not shown while CMC is active. -->
+      <button type="button" class="coininfo-website" id="coinInfoCoingecko" style="display:none;">—</button>
     </div>
   </div>
 </div>
@@ -1408,6 +1411,23 @@ async function fetchJSON(path){
 // symbol isn't found on Binance USDT-M futures) ----------------
 const BYBIT_HOST = 'https://api.bybit.com';
 const BYBIT_INTERVAL_MAP = { '1d': 'D', '1w': 'W', '4h': '240' };
+
+// Cloudflare Worker that proxies CoinMarketCap (holds the CMC_API_KEY secret
+// server-side; CMC blocks direct browser calls, so this can't be fetched
+// straight from the page). See coinmarketcap-proxy-worker.js for the Worker
+// source to deploy. Replace this with your deployed Worker URL.
+const CMC_PROXY_URL = 'https://cmc.justfagame9.workers.dev';
+// Optional user-supplied CMC key, set on the Trading Settings page and
+// stored under this same key there — lets each user use their own CMC quota
+// instead of relying on the Worker's shared CMC_API_KEY secret.
+const CMC_API_KEY_STORAGE_KEY = 'crypto-screener-cmc-api-key';
+function getUserCmcApiKey(){
+  try {
+    return (localStorage.getItem(CMC_API_KEY_STORAGE_KEY) || '').trim();
+  } catch (error) {
+    return '';
+  }
+}
 
 async function fetchBybitJSON(path){
   const res = await fetchWithTimeout(BYBIT_HOST + path);
@@ -3289,6 +3309,93 @@ async function openCoinInfo(symbol){
   const gridEl = document.getElementById('coinInfoGrid');
   const websiteEl = document.getElementById('coinInfoWebsite');
   const aboutEl = document.getElementById('coinInfoAbout');
+  const cmcEl = document.getElementById('coinInfoCmc');
+
+  titleEl.textContent = symbol;
+  subtitleEl.textContent = '';
+  statusEl.textContent = 'Loading CoinMarketCap data...';
+  statusEl.style.display = 'block';
+  detailsEl.style.display = 'none';
+  gridEl.innerHTML = '';
+  aboutEl.textContent = '';
+  websiteEl.textContent = '—';
+  websiteEl.onclick = null;
+  cmcEl.textContent = '—';
+  cmcEl.onclick = null;
+  modal.classList.add('open');
+
+  try {
+    const base = symbol.replace(/USDT$/i, '');
+    const userCmcKey = getUserCmcApiKey();
+    const res = await fetch(`${CMC_PROXY_URL}/cmc?symbol=${encodeURIComponent(base)}`, {
+      headers: userCmcKey ? { 'X-CMC-User-Key': userCmcKey } : undefined
+    });
+    if(!res.ok){
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || `proxy request failed (${res.status})`);
+    }
+    const coin = await res.json();
+    if(!coin || !coin.symbol) throw new Error('no matching coin found on CoinMarketCap');
+
+    const fmtUsd = (n) => (n === undefined || n === null) ? '—' : '$' + Number(n).toLocaleString('en-US', {maximumFractionDigits:0});
+    const fmtNum = (n) => (n === undefined || n === null) ? '—' : Number(n).toLocaleString('en-US', {maximumFractionDigits:0});
+
+    const rankText = coin.rank ? ` #${coin.rank}` : '';
+    subtitleEl.textContent = coin.name ? `${coin.name} (${(coin.symbol || '').toUpperCase()})${rankText}` : '';
+
+    aboutEl.innerHTML = formatAboutHtmlPlain(coin.description || '');
+
+    const fields = [
+      {label:'Market Cap', value: fmtUsd(coin.market_cap)},
+      {label:'Fully Diluted Valuation', value: fmtUsd(coin.fully_diluted_market_cap)},
+      {label:'24 Hour Trading Vol', value: fmtUsd(coin.volume_24h)},
+      {label:'Circulating Supply', value: fmtNum(coin.circulating_supply)},
+      {label:'Total Supply', value: fmtNum(coin.total_supply)},
+      {label:'Max Supply', value: fmtNum(coin.max_supply)},
+    ];
+    gridEl.innerHTML = fields.map(f => `<div class="plan-card"><span class="label">${f.label}</span><span class="value">${f.value}</span></div>`).join('');
+
+    if(coin.website){
+      websiteEl.textContent = coin.website;
+      websiteEl.onclick = () => openExternalLink(coin.website);
+    } else {
+      websiteEl.textContent = 'Not available';
+      websiteEl.onclick = null;
+    }
+
+    const cmcUrl = coin.cmc_url || (coin.slug ? `https://coinmarketcap.com/currencies/${coin.slug}/` : null);
+    if(cmcUrl){
+      cmcEl.textContent = cmcUrl;
+      cmcEl.onclick = () => openExternalLink(cmcUrl);
+    } else {
+      cmcEl.textContent = 'Not available';
+      cmcEl.onclick = null;
+    }
+
+    statusEl.style.display = 'none';
+    detailsEl.style.display = 'block';
+  } catch(err){
+    statusEl.textContent = `Could not load coin info from CoinMarketCap (${err.message}).`;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * REVERT PATH: original CoinGecko-backed implementation, kept commented
+ * out so this can be switched back in one step if the CMC proxy ever
+ * breaks. To revert: delete/rename the openCoinInfo() function above,
+ * uncomment this block, and change id="coinInfoCmc" back to
+ * id="coinInfoCoingecko" (and unhide it) in the modal HTML.
+ * ---------------------------------------------------------------------
+
+async function openCoinInfoCoinGecko(symbol){
+  const modal = document.getElementById('coinInfoModal');
+  const statusEl = document.getElementById('coinInfoStatus');
+  const detailsEl = document.getElementById('coinInfoDetails');
+  const titleEl = document.getElementById('coinInfoTitle');
+  const subtitleEl = document.getElementById('coinInfoSubtitle');
+  const gridEl = document.getElementById('coinInfoGrid');
+  const websiteEl = document.getElementById('coinInfoWebsite');
+  const aboutEl = document.getElementById('coinInfoAbout');
 
   titleEl.textContent = symbol;
   subtitleEl.textContent = '';
@@ -3357,6 +3464,7 @@ async function openCoinInfo(symbol){
     statusEl.textContent = `Could not load coin info from CoinGecko (${err.message}).`;
   }
 }
+--------------------------------------------------------------------- */
 
 function escapeHtml(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -3414,6 +3522,17 @@ function formatAboutHtml(raw){
     }
   });
   return html || '<p>No description available.</p>';
+}
+
+// Renders the About text returned by CoinMarketCap's /info endpoint. Unlike
+// CoinGecko, CMC descriptions are plain prose (no "## Heading" markdown), so
+// this just splits into paragraphs, keeps the first couple, and escapes them.
+function formatAboutHtmlPlain(raw){
+  if(!raw) return '<p>No description available.</p>';
+  const text = raw.replace(/\r\n/g, '\n').trim();
+  if(!text) return '<p>No description available.</p>';
+  const paras = text.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).slice(0, 3);
+  return paras.map(p => `<p>${escapeHtml(p)}</p>`).join('') || '<p>No description available.</p>';
 }
 
 function closeCoinInfo(event){
