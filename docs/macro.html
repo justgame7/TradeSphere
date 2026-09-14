@@ -392,7 +392,7 @@
   <button class="tab" data-filter="stocks">Stock indices</button>
   <button class="tab" data-filter="dollar">Dollar &amp; related</button>
   <button class="tab" data-filter="global">Global indices</button>
-  <button class="tab" data-filter="other">Other markets</button>
+  <button class="tab" data-filter="crypto">Crypto-Native Sentiment</button>
 </nav>
 
 <main id="groups"></main>
@@ -454,7 +454,11 @@
         items: [
           { id:"dxy", name:"US Dollar Index", ticker:"DXY", tag:"Inverse correlation to BTC", value:0, change:0, unit:"", live:true, symbol:"DX-Y.NYB" },
           { id:"eurusd", name:"EUR / USD", ticker:"EURUSD", tag:"Dollar strength mirror", value:0, change:0, unit:"", live:true, symbol:"EURUSD=X" },
+          { id:"usdinr", name:"USD / INR", ticker:"USDINR", tag:"Rupee vs. dollar — local FX cross-check", value:0, change:0, unit:"", live:true, symbol:"INR=X" },
           { id:"gold", name:"Gold", ticker:"XAU/USD", tag:"Competing safe-haven asset", value:0, change:0, unit:"/oz", live:true, symbol:"GC=F" },
+          { id:"silver", name:"Silver", ticker:"XAG/USD", tag:"Industrial + safe-haven metal", value:0, change:0, unit:"/oz", live:true, symbol:"SI=F" },
+          { id:"wti", name:"WTI Crude Oil", ticker:"WTI", tag:"US benchmark oil — inflation / macro liquidity", value:0, change:0, unit:"/bbl", live:true, symbol:"CL=F" },
+          { id:"brent", name:"Brent Crude", ticker:"BRENT", tag:"Global benchmark oil", value:0, change:0, unit:"/bbl", live:true, symbol:"BZ=F" },
           { id:"us10y", name:"US 10Y Treasury Yield", ticker:"US10Y", tag:"Liquidity & rate-cut pricing", value:0, change:0, unit:"%", live:true, isYield:true, symbol:"^TNX", yieldScale:0.1 }
         ]
       },
@@ -473,15 +477,18 @@
         ]
       },
       {
-        id: "other",
-        title: "Other markets",
-        note: "Crypto-native and commodity signals.",
+        id: "crypto",
+        title: "Crypto-Native Sentiment",
+        note: "Dedicated crypto gauges.",
         color: "var(--teal)",
         items: [
           { id:"btcdom", name:"Bitcoin Dominance", ticker:"BTC.D", tag:"Capital rotation within crypto", value:54.2, change:0.0, unit:"%", live:true, source:"coingecko" },
           { id:"totalmcap", name:"Total Crypto Market Cap", ticker:"TOTAL", tag:"Aggregate crypto liquidity", value:3200000000000, change:0.0, unit:"usd-compact", live:true, source:"coingecko" },
-          { id:"fng", name:"Crypto Fear & Greed", ticker:"F&G", tag:"Retail sentiment extremes", value:50, change:0.0, unit:"idx", live:true, source:"alternative" },
-          { id:"wti", name:"WTI Crude Oil", ticker:"WTI", tag:"Inflation / macro liquidity", value:0, change:0, unit:"/bbl", live:true, symbol:"CL=F" }
+          { id:"total2", name:"TOTAL2 (ex-BTC)", ticker:"TOTAL2", tag:"Is money rotating into alts?", value:0, change:0.0, unit:"usd-compact", live:true, source:"coingecko" },
+          { id:"total3", name:"TOTAL3 (ex-BTC & ETH)", ticker:"TOTAL3", tag:"Broader alt-rotation shorthand", value:0, change:0.0, unit:"usd-compact", live:true, source:"coingecko" },
+          { id:"usdtdom", name:"USDT Dominance", ticker:"USDT.D", tag:"Stablecoin share — rises when traders de-risk to cash", value:0, change:0.0, unit:"%", live:true, source:"coingecko" },
+          { id:"stabledom", name:"Stablecoin Dominance", ticker:"STABLE.D", tag:"Aggregate stablecoin share of total crypto market cap", value:0, change:0.0, unit:"%", live:true, source:"coingecko" },
+          { id:"fng", name:"Crypto Fear & Greed", ticker:"F&G", tag:"Retail sentiment extremes", value:50, change:0.0, unit:"idx", live:true, source:"alternative" }
         ]
       }
     ]
@@ -907,6 +914,29 @@
         capItem.change = g.mcapChange24h;
         updateRow(capItem);
 
+        if (typeof g.total2 === 'number'){
+          var t2Item = findItem('total2');
+          t2Item.value = g.total2;
+          t2Item.change = g.mcapChange24h;
+          updateRow(t2Item);
+        }
+        if (typeof g.total3 === 'number'){
+          var t3Item = findItem('total3');
+          t3Item.value = g.total3;
+          t3Item.change = g.mcapChange24h;
+          updateRow(t3Item);
+        }
+        if (typeof g.usdtDominance === 'number'){
+          var usdtItem = findItem('usdtdom');
+          usdtItem.value = g.usdtDominance;
+          updateRow(usdtItem);
+        }
+        if (typeof g.stableDominance === 'number'){
+          var stableItem = findItem('stabledom');
+          stableItem.value = g.stableDominance;
+          updateRow(stableItem);
+        }
+
         var domEl = document.getElementById('statDom');
         domEl.textContent = g.btcDominance.toFixed(1) + '%';
         var capEl = document.getElementById('statCap');
@@ -941,9 +971,21 @@
     return fetchCoinGeckoFirst('https://api.coingecko.com/api/v3/global?_=' + Date.now(), PROXY_TIMEOUT_MS)
       .then(function(json){
         var d = json.data;
+        var pct = d.market_cap_percentage || {};
+        var total = d.total_market_cap.usd;
+        var btcPct = pct.btc;
+        var ethPct = pct.eth;
+        var stablecoinKeys = ['usdt','usdc','dai','usde','usds','fdusd','usdd','tusd','frax','pyusd','crvusd','gusd','lusd'];
+        var stablePct = stablecoinKeys.reduce(function(sum, key){
+          return sum + (typeof pct[key] === 'number' ? pct[key] : 0);
+        }, 0);
         return {
-          totalMcap: d.total_market_cap.usd,
-          btcDominance: d.market_cap_percentage.btc,
+          totalMcap: total,
+          btcDominance: btcPct,
+          usdtDominance: pct.usdt,
+          stableDominance: stablePct,
+          total2: (typeof total === 'number' && typeof btcPct === 'number') ? total * (1 - btcPct/100) : null,
+          total3: (typeof total === 'number' && typeof btcPct === 'number' && typeof ethPct === 'number') ? total * (1 - btcPct/100 - ethPct/100) : null,
           mcapChange24h: d.market_cap_change_percentage_24h_usd
         };
       });
