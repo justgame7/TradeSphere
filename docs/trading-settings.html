@@ -132,13 +132,6 @@
     margin-top:14px;transition:opacity .15s ease;
   }
   .subfield.disabled{opacity:.45;pointer-events:none;}
-  .key-input-row{display:flex;gap:8px;}
-  .key-input-row input{flex:1 1 auto;min-width:0;}
-  .key-toggle-btn{
-    background:var(--panel-2);color:var(--text-dim);border:1px solid var(--border);
-    border-radius:10px;padding:0 14px;flex:0 0 auto;font-family:var(--font-mono);font-size:12px;font-weight:600;
-  }
-  .key-toggle-btn:hover{border-color:var(--accent);color:var(--accent);}
 </style>
 </head>
 <body>
@@ -160,15 +153,6 @@
           <option value="Binance">Binance</option>
           <option value="Bybit">Bybit</option>
         </select>
-      </div>
-
-      <div class="field">
-        <label for="cmcApiKey">CoinMarketCap API Key</label>
-        <div class="key-input-row">
-          <input id="cmcApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your CMC Pro API key (optional)" />
-          <button class="key-toggle-btn" type="button" id="cmcApiKeyToggle">Show</button>
-        </div>
-        <p class="hint" style="margin:8px 0 0;">Used by the Screener's coin-info (i) button. Get a free key at <span style="color:var(--text-dim);">coinmarketcap.com/api</span> and paste it here — it's saved only on this device and sent straight to the proxy Worker with each request. Leave blank to fall back to the Worker's own shared key, if one is configured.</p>
       </div>
 
       <div class="field">
@@ -233,10 +217,6 @@
   // this settings page's own STORAGE_KEY blob to be parsed elsewhere.
   const MOVERS_COUNT_STORAGE_KEY = 'crypto-screener-movers-count';
   const MOVERS_ENABLED_STORAGE_KEY = 'crypto-screener-movers-enabled';
-  // Shared across apps too (screener.html's coin-info modal reads this
-  // directly) so a key pasted here takes effect without needing this page's
-  // own STORAGE_KEY blob to be parsed elsewhere — same pattern as timezone.
-  const CMC_API_KEY_STORAGE_KEY = 'crypto-screener-cmc-api-key';
   const DEFAULT_TIMEZONE = 'Asia/Kolkata';
   const DEFAULT_PORTFOLIO = 1000;
   const DEFAULT_MOVERS_COUNT = 5;
@@ -253,8 +233,6 @@
   const moversCountInput = document.getElementById('moversCount');
   const moversEnabledInput = document.getElementById('moversEnabled');
   const moversCountField = document.getElementById('moversCountField');
-  const cmcApiKeyInput = document.getElementById('cmcApiKey');
-  const cmcApiKeyToggle = document.getElementById('cmcApiKeyToggle');
   const saveBtn = document.getElementById('saveBtn');
   const resetBtn = document.getElementById('resetBtn');
   const statusEl = document.getElementById('status');
@@ -449,15 +427,6 @@
       console.warn('Unable to load top movers enabled flag', error);
     }
     updateMoversCountFieldState();
-
-    // CMC API key also lives under its own key (see CMC_API_KEY_STORAGE_KEY)
-    // so screener.html can read it directly, same pattern as timezone.
-    try{
-      cmcApiKeyInput.value = localStorage.getItem(CMC_API_KEY_STORAGE_KEY) || '';
-    }catch(error){
-      cmcApiKeyInput.value = '';
-      console.warn('Unable to load CoinMarketCap API key', error);
-    }
   }
 
   function saveSettings(){
@@ -482,14 +451,6 @@
     localStorage.setItem(TIMEZONE_STORAGE_KEY, displayTimezone);
     localStorage.setItem(MOVERS_COUNT_STORAGE_KEY, String(moversCount));
     localStorage.setItem(MOVERS_ENABLED_STORAGE_KEY, String(moversEnabled));
-
-    const cmcApiKey = cmcApiKeyInput.value.trim();
-    if(cmcApiKey){
-      localStorage.setItem(CMC_API_KEY_STORAGE_KEY, cmcApiKey);
-    } else {
-      localStorage.removeItem(CMC_API_KEY_STORAGE_KEY);
-    }
-
     setStatus('Saved locally.', 'success');
   }
 
@@ -499,24 +460,14 @@
     localStorage.removeItem(TIMEZONE_STORAGE_KEY);
     localStorage.removeItem(MOVERS_COUNT_STORAGE_KEY);
     localStorage.removeItem(MOVERS_ENABLED_STORAGE_KEY);
-    localStorage.removeItem(CMC_API_KEY_STORAGE_KEY);
     portfolioValueInput.value = String(DEFAULT_PORTFOLIO);
     tradingExchangeSelect.value = 'CoinDCX';
     displayTimezoneSelect.value = DEFAULT_TIMEZONE;
     moversCountInput.value = String(DEFAULT_MOVERS_COUNT);
     moversEnabledInput.checked = true;
-    cmcApiKeyInput.value = '';
-    cmcApiKeyInput.type = 'password';
-    cmcApiKeyToggle.textContent = 'Show';
     updateMoversCountFieldState();
     setStatus('Settings cleared.', 'success');
   }
-
-  cmcApiKeyToggle.addEventListener('click', () => {
-    const showing = cmcApiKeyInput.type === 'text';
-    cmcApiKeyInput.type = showing ? 'password' : 'text';
-    cmcApiKeyToggle.textContent = showing ? 'Show' : 'Hide';
-  });
 
   saveBtn.addEventListener('click', saveSettings);
   resetBtn.addEventListener('click', resetSettings);

@@ -441,57 +441,21 @@
 // ---------------- Config ----------------
 // Add more coins here later - symbol is the clean display ticker (no USDT
 // suffix), binanceSymbol is the exact USDT-M perpetual contract on Binance
-// Futures, coingeckoId is CoinMarketCap's internal numeric id (used only for
-// market-cap rank + logo, never for price - see the note just below on why
-// the field is still named "coingeckoId"). Every coin (including the pinned ETH
-// default) can be removed via the swipe-to-delete gesture on its card -
-// except BTC, which is always kept on the watchlist and has no delete
-// option (see renderCoinRow's isBTC check and the guard in removeCoin).
-// NOTE ON THE "coingeckoId" FIELD NAME: this now holds a CoinMarketCap
-// numeric id (e.g. 1 for Bitcoin, 1027 for Ethereum), not a CoinGecko slug.
-// The field name is kept as-is (rather than renamed to "cmcId") because
-// screener.html's "+ WL" button writes a placeholder under this same key
-// when adding a custom coin to crypto-watchlist-custom-coins - renaming it
-// here would break that cross-file contract without also editing
-// screener.html. Every place below that reads/writes "coingeckoId" now
-// deals in CMC ids.
+// Futures, coingeckoId is the CoinGecko API id (used for market-cap rank +
+// logo, never for price). Every coin (including the pinned ETH default) can
+// be removed via the swipe-to-delete gesture on its card - except BTC, which
+// is always kept on the watchlist and has no delete option (see
+// renderCoinRow's isBTC check and the guard in removeCoin).
 const DEFAULT_COINS = [
-  { symbol: 'BTC', binanceSymbol: 'BTCUSDT', coingeckoId: 1,    name: 'Bitcoin',  gradient: 'linear-gradient(135deg,#f7931a,#c9761a)', pinned: true },
-  { symbol: 'ETH', binanceSymbol: 'ETHUSDT', coingeckoId: 1027, name: 'Ethereum', gradient: 'linear-gradient(135deg,#8ea9ff,#5b6fd6)', pinned: true },
+  { symbol: 'BTC', binanceSymbol: 'BTCUSDT', coingeckoId: 'bitcoin',  name: 'Bitcoin',  gradient: 'linear-gradient(135deg,#f7931a,#c9761a)', pinned: true },
+  { symbol: 'ETH', binanceSymbol: 'ETHUSDT', coingeckoId: 'ethereum', name: 'Ethereum', gradient: 'linear-gradient(135deg,#8ea9ff,#5b6fd6)', pinned: true },
 ];
-
-// Cloudflare Worker that proxies CoinMarketCap (holds the CMC_API_KEY secret
-// server-side; CMC blocks direct browser calls, so this can't be fetched
-// straight from the page). See coinmarketcap-proxy-worker.js for the Worker
-// source to deploy. Use the SAME Worker URL you set up for screener.html.
-const CMC_PROXY_URL = 'https://cmc.justfagame9.workers.dev';
-// Optional user-supplied CMC key, set on the Trading Settings page and
-// stored under this same key there — lets each user use their own CMC
-// quota instead of relying on the Worker's shared CMC_API_KEY secret. Same
-// pattern as screener.html.
-const CMC_API_KEY_STORAGE_KEY = 'crypto-screener-cmc-api-key';
-function getUserCmcApiKey(){
-  try {
-    return (localStorage.getItem(CMC_API_KEY_STORAGE_KEY) || '').trim();
-  } catch (error) {
-    return '';
-  }
-}
-function cmcHeaders(){
-  const key = getUserCmcApiKey();
-  return key ? { 'X-CMC-User-Key': key } : undefined;
-}
-// CMC's public, unauthenticated static CDN - no API key or credits needed,
-// works for any coin listed on CMC given its numeric id.
-function cmcLogoUrl(id){
-  return id ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${id}.png` : '';
-}
 
 // Coins added via screener.html's "+ WL" button live here, shared through
 // localStorage - screener.html writes to this key, this page reads it and
 // appends those coins after DEFAULT_COINS (so a newly-added coin always ends
-// up last), and resolves each one's CoinMarketCap id/name the first time it
-// loads (screener.html only knows the Binance symbol, not the CMC id).
+// up last), and resolves each one's CoinGecko id/name the first time it
+// loads (screener.html only knows the Binance symbol, not the CoinGecko id).
 const CUSTOM_COINS_KEY = 'crypto-watchlist-custom-coins';
 function loadCustomCoins(){
   try{
@@ -585,7 +549,7 @@ async function ensureBinanceProducts(){
 // first by exact trading-pair symbol, then by base asset + USDT quote as a
 // fallback. Returns null if Binance has no matching product at all (e.g. a
 // futures-only listing with no spot pair); callers should fall back to
-// CMC's best-ranked ticker match in that case.
+// CoinGecko's best-ranked ticker match in that case.
 async function findBinanceAssetName(binanceSymbol, baseSymbol){
   const products = await ensureBinanceProducts();
   if(!products.length) return null;
@@ -594,18 +558,18 @@ async function findBinanceAssetName(binanceSymbol, baseSymbol){
   return (match && match.an) ? match.an : null;
 }
 
-// Resolves CoinMarketCap id/name for any custom coin that doesn't have one
-// yet (screener.html only writes the Binance symbol when adding), then
-// persists the resolution back to localStorage so it's a one-time lookup.
+// Resolves a CoinGecko id/name for any custom coin that doesn't have one yet
+// (screener.html only writes the Binance symbol when adding), then persists
+// the resolution back to localStorage so it's a one-time lookup.
 //
-// Ticker symbols collide a lot on CMC too - dozens of unrelated/defunct
+// Ticker symbols collide a lot on CoinGecko too - dozens of unrelated/defunct
 // projects can share a 3-4 letter symbol with whatever's actually trading on
-// Binance. CMC's /v1/cryptocurrency/map (unlike CoinGecko's /search) is a
-// symbol-only lookup, not free-text - it returns every active listing for
-// that ticker, sorted by rank. Binance's own product listing knows each
-// symbol's real project name (findBinanceAssetName, above), so that name is
-// used to pick the correct entry out of the ticker matches, falling back to
-// CMC's best-ranked match if Binance has no product name for it.
+// Binance. CoinGecko's /search endpoint is free-text, so results can include
+// near-miss name matches as well as exact ticker matches; Binance's own
+// product listing knows each symbol's real project name
+// (findBinanceAssetName, above), so that name is used to pick the correct
+// entry out of the search results, falling back to CoinGecko's top (best
+// ranked) result if Binance has no product name for it.
 async function resolveCustomCoinMetadata(){
   const custom = loadCustomCoins();
   const unresolved = custom.filter(c => !c.coingeckoId);
@@ -619,21 +583,23 @@ async function resolveCustomCoinMetadata(){
       }catch(err){
         console.warn(`[watchlist] Binance name lookup failed for ${c.symbol}:`, err && err.message);
       }
-      const data = await fetchJSON(`${CMC_PROXY_URL}/cmc/map?symbol=${encodeURIComponent(c.symbol)}`, cmcHeaders());
-      const results = Array.isArray(data && data.results) ? data.results : [];
+      const data = await fetchJSON(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(c.symbol)}`);
+      const results = Array.isArray(data && data.coins) ? data.coins : [];
       let match = null;
       if(binanceName){
-        match = results.find(x => (x.name || '').toLowerCase() === binanceName.toLowerCase()) || results[0];
+        match = results.find(x => (x.name || '').toLowerCase() === binanceName.toLowerCase())
+          || results.find(x => (x.symbol || '').toLowerCase() === c.symbol.toLowerCase())
+          || results[0];
       }else{
-        match = results[0];
+        match = results.find(x => (x.symbol || '').toLowerCase() === c.symbol.toLowerCase()) || results[0];
       }
       if(match){
-        c.coingeckoId = match.id; // CMC numeric id - see note on DEFAULT_COINS above
+        c.coingeckoId = match.id; // CoinGecko slug - see note on DEFAULT_COINS above
         if(match.name) c.name = match.name;
         changed = true;
       }
     }catch(err){
-      console.warn(`[watchlist] couldn't resolve CoinMarketCap id for ${c.symbol}:`, err && err.message);
+      console.warn(`[watchlist] couldn't resolve CoinGecko id for ${c.symbol}:`, err && err.message);
     }
   }
   if(changed){
@@ -682,10 +648,9 @@ function openTradingViewChart(binanceSymbol){
 }
 
 // Same personal Cloudflare Worker used by the other pages in this app, as a
-// CORS passthrough of last resort for Binance's futures API (normally
-// directly fetchable, CORS-open). The CMC_PROXY_URL calls above always go
-// through the Worker regardless (CoinMarketCap has no CORS support at all),
-// so this fallback chain is only relevant to the fapi.binance.com calls.
+// CORS passthrough of last resort for Binance's futures API and CoinGecko
+// (both normally directly fetchable, CORS-open, so this fallback chain is
+// rarely hit in practice).
 const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
 function buildWorkerProxyUrl(u){
   return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
@@ -696,17 +661,17 @@ const CORS_PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 
-async function fetchWithTimeout(url, ms, headers){
+async function fetchWithTimeout(url, ms){
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   try{
-    return await fetch(url, { cache: 'no-store', signal: controller.signal, headers });
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
   }finally{
     clearTimeout(timer);
   }
 }
-async function fetchJSONDirect(url, headers){
-  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS, headers);
+async function fetchJSONDirect(url){
+  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
   if(!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
@@ -726,14 +691,9 @@ async function fetchJSONViaProxyChain(url){
     return await res.json();
   })()));
 }
-// `headers` only applies to the direct-fetch path — the proxy-chain
-// fallback passes the target URL as a query string to a third-party CORS
-// proxy, which can't forward custom headers. Fine in practice: the CMC
-// Worker already sends its own CORS headers, so its calls succeed direct
-// and never fall through to the proxy chain (see note above WORKER_PROXY_URL).
-async function fetchJSON(url, headers){
+async function fetchJSON(url){
   try{
-    return await fetchJSONDirect(url, headers);
+    return await fetchJSONDirect(url);
   }catch(err){
     return await fetchJSONViaProxyChain(url);
   }
@@ -753,12 +713,12 @@ async function fetchAllTickers24hr(){
 async function fetchRanks(){
   const ids = COINS.map(c => c.coingeckoId).filter(Boolean).join(',');
   if(!ids) return {};
-  const url = `${CMC_PROXY_URL}/cmc/quotes?ids=${encodeURIComponent(ids)}`;
-  const data = await fetchJSON(url, cmcHeaders());
-  const results = Array.isArray(data && data.results) ? data.results : [];
-  if(!results.length && ids) throw new Error('Unexpected CoinMarketCap response shape');
+  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(ids)}`;
+  const data = await fetchJSON(url);
+  const results = Array.isArray(data) ? data : [];
+  if(!results.length && ids) throw new Error('Unexpected CoinGecko response shape');
   const map = {};
-  results.forEach(row => { map[row.id] = { rank: row.rank, image: cmcLogoUrl(row.id) }; });
+  results.forEach(row => { map[row.id] = { rank: row.market_cap_rank, image: row.image }; });
   return map;
 }
 
@@ -833,9 +793,8 @@ function pctClass(n){
 // ---------------- Top Movers (top 100 by market cap + gainers/losers split
 // as defi.html's "Market Movers" panel, surfaced here too as its own
 // collapsible section so it's visible without leaving the watchlist).
-// Kept on CoinGecko's free tier rather than CMC - this panel refreshes every
-// 5 min and pulls a fixed top-100 list unrelated to the user's own
-// watchlist, so it doesn't need CMC's credit-metered API at all. ----------------
+// Refreshes every 5 min and pulls a fixed top-100 list unrelated to the
+// user's own watchlist. ----------------
 const TOPMOVERS_ID = 'topmovers';
 const MOVERS_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&price_change_percentage=24h&sparkline=false';
 const MOVERS_CACHE_KEY = 'crypto-watchlist-movers-cache-v1';
