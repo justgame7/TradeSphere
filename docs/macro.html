@@ -303,6 +303,31 @@
   footer .foot-grid{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:16px;}
   footer strong{color:var(--text-2);}
 
+  /* ---------- Disclaimer / about panel ---------- */
+  .notice{
+    background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px 16px;margin:26px auto 0;max-width:var(--container);font-size:12px;line-height:1.6;color:var(--text-2);
+  }
+  .notice b{color:var(--text-1);}
+  .notice-summary{display:flex;align-items:center;gap:8px;}
+  .notice-toggle{
+    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
+    background:var(--bg-row-hover);border:1px solid var(--border);color:var(--text-2);
+    font-family:var(--font-mono);font-size:13px;font-weight:700;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .notice-toggle:hover{border-color:var(--gold);color:var(--gold);}
+  .notice-toggle.open{transform:rotate(45deg);}
+  .notice-details{margin-top:10px;}
+  .notice-details[hidden]{display:none;}
+  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .src-tag{
+    display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10.5px;font-weight:600;
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--text-2);
+  }
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);}
+
   @media (max-width:480px){
     .pulse-number{font-size:52px;}
     .pulse-stats{grid-template-columns:repeat(3,1fr);}
@@ -372,8 +397,22 @@
 
 <main id="groups"></main>
 
+<div class="notice">
+  <div class="notice-summary">
+    <b>Reference data only, not a trading venue.</b>
+    <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
+  </div>
+  <div class="notice-details" id="noticeDetails" hidden>
+    Stock, dollar and global index prices are pulled from Yahoo Finance's public chart data feed via a CORS-proxy Worker, with a public-proxy fallback chain (may be delayed depending on the exchange and session hours). The US 10Y line shows the underlying yield %, not price. Crypto-native stats (BTC dominance, total market cap, Fear &amp; Greed) come from CoinGecko and Alternative.me. Composite pulse and sparklines are for orientation, not trading signals. This page doesn't place trades or hold positions. Not financial advice.
+    <div class="src-tags">
+      <span class="src-tag"><span class="dot"></span>Yahoo Finance chart data</span>
+      <span class="src-tag"><span class="dot"></span>CoinGecko /global</span>
+      <span class="src-tag"><span class="dot"></span>Alternative.me Fear &amp; Greed</span>
+    </div>
+  </div>
+</div>
+
 <footer>
-  <div>Composite pulse and sparklines are for orientation, not trading signals. <strong>Fear &amp; Greed, BTC dominance and total market cap</strong> are fetched live from CoinGecko and Alternative.me. <strong>All stock, dollar and global indices</strong> are fetched live from Yahoo Finance via a CORS-proxy Worker (with a public-proxy fallback chain). Data refreshes on open and every 5 minutes. Each row shows whether that market is currently open or closed.</div>
   <div class="foot-grid">
     <span>Built for the Riskline Android shell</span>
     <span id="footTime"></span>
@@ -943,6 +982,15 @@
 
   document.getElementById('refreshBtn').addEventListener('click', function(){
     fetchLiveData();
+  });
+
+  document.getElementById('noticeToggle').addEventListener('click', function(){
+    var btn = document.getElementById('noticeToggle');
+    var details = document.getElementById('noticeDetails');
+    var willOpen = details.hidden;
+    details.hidden = !willOpen;
+    btn.classList.toggle('open', willOpen);
+    btn.setAttribute('aria-expanded', String(willOpen));
   });
 
   /* ---------------- boot ---------------- */
