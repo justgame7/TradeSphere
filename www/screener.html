@@ -4118,6 +4118,45 @@ function findOteZone(candles, swings, price){
   return { bullish, bearish };
 }
 
+// 50% Retracement distance: how far price currently sits from the midpoint
+// of the same swing leg used for the OTE pocket above. Reported two ways —
+// in ATR units (distAtr) and as a plain percentage of current price
+// (distPct), matching the style of Distance from 24h High/Low. Unlike the
+// fixed 62-79% OTE zone, the "how close counts" threshold here is left to
+// the condition builder (default 1× ATR / 1%, editable to whatever's needed).
+function findMidpointRetracement(candles, swings, price, atrVal){
+  const { swingHighs, swingLows } = swings;
+  if(!swingHighs.length || !swingLows.length) return { distAtr:null, distPct:null, mid:null, direction:null };
+  const lastHigh = swingHighs[swingHighs.length-1];
+  const lastLow = swingLows[swingLows.length-1];
+  if(lastHigh.idx === lastLow.idx) return { distAtr:null, distPct:null, mid:null, direction:null };
+  const mid = (lastHigh.price + lastLow.price) / 2;
+  const direction = lastLow.idx < lastHigh.idx ? 'bullish' : 'bearish'; // up-leg vs down-leg, same convention as findOteZone
+  const distAtr = (Number.isFinite(atrVal) && atrVal>0) ? Math.abs(price - mid) / atrVal : null;
+  const distPct = price>0 ? Math.abs(price - mid) / price * 100 : null;
+  return { distAtr, distPct, mid, direction };
+}
+
+// 61.8% Retracement distance: same idea as the 50% version above, but
+// measured against the classic golden-ratio level of the leg instead of the
+// midpoint — high - 0.618*range for an up-leg, low + 0.618*range for a
+// down-leg (the same anchor the OTE pocket's upper edge uses). Also reported
+// both in ATR units and as a percentage of current price.
+function findFib618Retracement(candles, swings, price, atrVal){
+  const { swingHighs, swingLows } = swings;
+  if(!swingHighs.length || !swingLows.length) return { distAtr:null, distPct:null, level:null, direction:null };
+  const lastHigh = swingHighs[swingHighs.length-1];
+  const lastLow = swingLows[swingLows.length-1];
+  if(lastHigh.idx === lastLow.idx) return { distAtr:null, distPct:null, level:null, direction:null };
+  const range = lastHigh.price - lastLow.price;
+  if(range<=0) return { distAtr:null, distPct:null, level:null, direction:null };
+  const direction = lastLow.idx < lastHigh.idx ? 'bullish' : 'bearish'; // up-leg vs down-leg, same convention as findOteZone
+  const level = direction === 'bullish' ? lastHigh.price - 0.618*range : lastLow.price + 0.618*range;
+  const distAtr = (Number.isFinite(atrVal) && atrVal>0) ? Math.abs(price - level) / atrVal : null;
+  const distPct = price>0 ? Math.abs(price - level) / price * 100 : null;
+  return { distAtr, distPct, level, direction };
+}
+
 // Order block / breaker block — see the scope note above the section header:
 // this is a confluence of sweep + fresh FVG + structure break, not a
 // literally-tracked zone. Breaker = the sweep failed to hold and structure
@@ -4240,6 +4279,8 @@ async function computeMetrics(symbol, interval, ticker){
   const structure = findStructureShift(candles, swings);
   const displacement = findDisplacement(candles, atrVal, 1.8);
   const ote = findOteZone(candles, swings, price);
+  const midpointRetr = findMidpointRetracement(candles, swings, price, atrVal);
+  const fib618Retr = findFib618Retracement(candles, swings, price, atrVal);
   const obSignals = findOrderBlockSignals(sweep, fvgs, structure, candles);
   const equalLevels = findEqualLevels(swings, price, atrVal);
   const premDisc = findPremiumDiscount(candles, 50);
@@ -4262,6 +4303,8 @@ async function computeMetrics(symbol, interval, ticker){
     bosUp: structure.bosUp, bosDown: structure.bosDown, chochUp: structure.chochUp, chochDown: structure.chochDown,
     displacementUp: displacement.bullish, displacementDown: displacement.bearish, displacementRatio: displacement.ratio,
     oteBullish: ote.bullish, oteBearish: ote.bearish,
+    midpointAtrDist: midpointRetr.distAtr, midpointPctDist: midpointRetr.distPct, midpointDirection: midpointRetr.direction,
+    fib618AtrDist: fib618Retr.distAtr, fib618PctDist: fib618Retr.distPct, fib618Direction: fib618Retr.direction,
     freshBullishOB: obSignals.freshBullishOB, freshBearishOB: obSignals.freshBearishOB,
     bullishBreaker: obSignals.bullishBreaker, bearishBreaker: obSignals.bearishBreaker,
     equalHighsNearby: equalLevels.equalHighs, equalLowsNearby: equalLevels.equalLows,
@@ -4300,6 +4343,10 @@ const METRICS = [
   { key:'displacement', label:'Displacement Candle', group:'ICT / Smart Money', unit:'', ops:['bullish','bearish'], noValue:true },
   { key:'displacementRatio', label:'Displacement Size (× ATR)', group:'ICT / Smart Money', unit:'× ATR', ops:['>'], def:1.5 },
   { key:'oteZone', label:'Optimal Trade Entry (OTE)', group:'ICT / Smart Money', unit:'', ops:['bullish (discount, for longs)','bearish (premium, for shorts)'], noValue:true },
+  { key:'midpointAtrDist', label:'Distance from 50% Retracement (× ATR)', group:'ICT / Smart Money', unit:'× ATR', ops:['<','>'], def:1 },
+  { key:'midpointPctDist', label:'Distance from 50% Retracement (%)', group:'ICT / Smart Money', unit:'%', ops:['<','>'], def:1 },
+  { key:'fib618AtrDist', label:'Distance from 61.8% Retracement (× ATR)', group:'ICT / Smart Money', unit:'× ATR', ops:['<','>'], def:1 },
+  { key:'fib618PctDist', label:'Distance from 61.8% Retracement (%)', group:'ICT / Smart Money', unit:'%', ops:['<','>'], def:1 },
   { key:'orderBlock', label:'Order Block (fresh)', group:'ICT / Smart Money', unit:'', ops:['bullish','bearish'], noValue:true },
   { key:'breakerBlock', label:'Breaker Block', group:'ICT / Smart Money', unit:'', ops:['bullish','bearish'], noValue:true },
   { key:'equalLevels', label:'Equal Highs/Lows (liquidity pool)', group:'ICT / Smart Money', unit:'', ops:['equal highs nearby','equal lows nearby'], noValue:true },
@@ -4489,6 +4536,14 @@ const PRESETS = [
     conds:[{metric:'emaTrend',operator:'just crossed down',value:null}], mode:'all' },
   { id:'trending', cat:'Trend', icon:'➤', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Strong trend (ADX)', desc:'ADX above 25 — a real trend, not just chop',
     conds:[{metric:'adx',operator:'>',value:25}], mode:'all' },
+  { id:'midpointRetr', cat:'Trend', icon:'◎', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Near 50% retracement (1× ATR)', desc:'Price sits within 1 ATR of the 50% midpoint of the latest swing leg — edit the multiple (0.5, 2, etc.) in the condition builder',
+    conds:[{metric:'midpointAtrDist',operator:'<',value:1}], mode:'all' },
+  { id:'midpointRetrPct', cat:'Trend', icon:'◎', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Near 50% retracement (1%)', desc:'Price sits within 1% of the 50% midpoint of the latest swing leg — edit the percentage in the condition builder',
+    conds:[{metric:'midpointPctDist',operator:'<',value:1}], mode:'all' },
+  { id:'fib618Retr', cat:'Trend', icon:'◎', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Near 61.8% retracement (1× ATR)', desc:'Price sits within 1 ATR of the golden-ratio (61.8%) level of the latest swing leg — edit the multiple in the condition builder',
+    conds:[{metric:'fib618AtrDist',operator:'<',value:1}], mode:'all' },
+  { id:'fib618RetrPct', cat:'Trend', icon:'◎', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Near 61.8% retracement (1%)', desc:'Price sits within 1% of the golden-ratio (61.8%) level of the latest swing leg — edit the percentage in the condition builder',
+    conds:[{metric:'fib618PctDist',operator:'<',value:1}], mode:'all' },
   // ---- Volatility ----
   { id:'squeeze', cat:'Volatility', icon:'▭', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Volatility squeeze', desc:'Bollinger width under 4% — coiling before a move',
     conds:[{metric:'bbWidthPct',operator:'<',value:4}], mode:'all' },
