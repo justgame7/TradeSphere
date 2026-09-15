@@ -131,8 +131,8 @@ const ICHIMOKU_PARAMS = {
 //     still catching ones where volume was strong on the prior closed
 //     candle but has since cooled off mid-candle.
 const TIMEFRAMES = [
-  { label: '4H', resolution: '4h', historyDays: 40, minVolume: 3_000_000, ...ICHIMOKU_PARAMS },
-  { label: 'Daily', resolution: '1d', historyDays: 200, minVolume: 30_000_000, ...ICHIMOKU_PARAMS },
+  { label: '4H', resolution: '4h', historyDays: 40, minVolume: 2_000_000, ...ICHIMOKU_PARAMS },
+  { label: 'Daily', resolution: '1d', historyDays: 200, minVolume: 20_000_000, ...ICHIMOKU_PARAMS },
 ];
 
 // Weekly scan - same shape as the two above, but NOT included in TIMEFRAMES
