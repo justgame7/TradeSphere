@@ -252,6 +252,8 @@ a{color:inherit;}
 .chip-lev-low{background:var(--mint-dim); color:var(--mint);}
 .chip-lev-mid{background:var(--saffron-dim); color:var(--saffron);}
 .chip-lev-high{background:var(--coral-dim); color:var(--coral);}
+.chip-long{background:var(--mint-dim); color:var(--mint);}
+.chip-short{background:var(--coral-dim); color:var(--coral);}
 
 /* Wallet card */
 .wallet-card{margin-bottom:14px;}
@@ -790,6 +792,7 @@ async function fetchJson(url, opts){
 
 /* --------------------------- portfolio math (average-cost method) --------------------------- */
 function computeHolding(h){
+  const side = h.side === 'short' ? 'short' : 'long';
   const totalBought = h.lots.reduce((s,l)=>s+l.qty, 0);
   const totalCost = h.lots.reduce((s,l)=>s+l.qty*l.price, 0);
   const avgCost = totalBought > 0 ? totalCost/totalBought : 0;
@@ -797,14 +800,15 @@ function computeHolding(h){
   const investedValue = remainingQty * avgCost;
   const currentPrice = h.currentPrice != null ? h.currentPrice : avgCost;
   const currentValue = remainingQty * currentPrice;
-  // Buy-side fees are charged straight against this position's P&L the moment
-  // the coin is added, rather than being drawn from the wallet's cash balance.
+  // Entry-side fees are charged straight against this position's P&L the moment
+  // the trade is added, rather than being drawn from the wallet's cash balance.
   const totalFees = h.lots.reduce((s,l)=>s+(l.fee||0), 0);
-  const pnl = currentValue - investedValue - totalFees;
+  // Long profits as price rises above entry; short profits as price falls below entry.
+  const pnl = (side==='short' ? (investedValue - currentValue) : (currentValue - investedValue)) - totalFees;
   const pnlPct = investedValue > 0 ? (pnl/investedValue)*100 : 0;
   const leverage = h.leverage || 1;
   const margin = investedValue / leverage;
-  return { totalBought, avgCost, remainingQty, investedValue, currentValue, currentPrice, pnl, pnlPct, leverage, margin, totalFees };
+  return { side, totalBought, avgCost, remainingQty, investedValue, currentValue, currentPrice, pnl, pnlPct, leverage, margin, totalFees };
 }
 // How much *additional* margin a buy of `qty` @ `price` locks up at the chosen
 // `leverage`. When averaging into an existing position, leverage applies to
@@ -824,10 +828,15 @@ function marginDeltaForAdd(existingCalc, qty, price, leverage){
 }
 function marketTotals(key){
   const m = state.markets[key];
-  let invested=0, value=0, realized=0, lockedMargin=0, fees=0;
-  m.holdings.forEach(h=>{ const c = computeHolding(h); invested += c.investedValue; value += c.currentValue; lockedMargin += c.margin; fees += c.totalFees; });
+  let invested=0, value=0, realized=0, lockedMargin=0, fees=0, unrealized=0;
+  m.holdings.forEach(h=>{
+    const c = computeHolding(h);
+    invested += c.investedValue; value += c.currentValue; lockedMargin += c.margin; fees += c.totalFees;
+    // Summed per-holding so mixed long/short positions net out correctly
+    // (a plain value-minus-invested total would be wrong for shorts).
+    unrealized += c.pnl;
+  });
   m.realized.forEach(r=> realized += r.pnl);
-  const unrealized = value - invested - fees;
   const cashBalance = m.cashBalance || 0;
   const availableCash = cashBalance - lockedMargin;
   return { invested, value, unrealized, realized, pnl: unrealized, pnlPct: invested>0 ? (unrealized/invested)*100 : 0, lockedMargin, cashBalance, availableCash };
@@ -988,7 +997,8 @@ function renderOverview(){
   state.markets.crypto.holdings.forEach(h=>{
     const c = computeHolding(h);
     cryptoVal += c.currentValue;
-    if(h.change24h != null) dayChangeValue += c.currentValue * (h.change24h/100);
+    // A price rise helps a long but hurts a short, so flip the sign for shorts.
+    if(h.change24h != null) dayChangeValue += c.currentValue * ((c.side==='short'?-h.change24h:h.change24h)/100);
   });
   const dayChangePct = cryptoVal > 0 ? (dayChangeValue/cryptoVal)*100 : 0;
   const dcEl = document.getElementById('ovDayChange');
@@ -1129,6 +1139,7 @@ function renderMarket(key){
         <div class="avatar" style="${avatarStyle(h.symbol)}">${initials(h.symbol)}</div>
         <div class="holding-id">
           <div class="holding-sym">${escapeHtml(h.symbol.replace('USDT',''))}
+            <span class="chip ${c.side==='short'?'chip-short':'chip-long'}">${c.side==='short'?'short':'long'}</span>
             ${meta.priceLive ? `<span class="chip chip-live">live</span>` : `<span class="chip chip-manual">manual</span>`}
             ${isCrypto ? `<span class="chip ${leverageChipClass(c.leverage)}">${c.leverage}x</span>` : ''}
             ${targetHit ? `<span class="target-chip">🎯 target</span>` : ''}
@@ -1339,12 +1350,12 @@ function openLeveragePrompt(market, id){
 /* --------------------------- ADD MODAL --------------------------- */
 const modalAdd = document.getElementById('modalAdd');
 const addModalBody = document.getElementById('addModalBody');
-let addState = { market:null, mode:'amount', selected:null, feeType:'maker', leverage:1 };
+let addState = { market:null, mode:'amount', selected:null, feeType:'maker', leverage:1, side:'long' };
 let coinDropdownOutsideHandler = null;
 let coinDropdownRepositionHandler = null;
 
 function openAddModal(market, prefillSymbol){
-  addState = { market, mode:'amount', selected:null, feeType:'maker', leverage:1 };
+  addState = { market, mode:'amount', selected:null, feeType:'maker', leverage:1, side:'long' };
   document.getElementById('addModalTitle').textContent = 'Add ' + (market==='crypto'?'coin':'stock');
   const meta = MARKET_META[market];
 
@@ -1510,10 +1521,24 @@ function renderAddFields(){
   // current leverage is the honest starting point (dragging the slider then
   // re-levers the whole thing, same as the standalone Leverage control).
   addState.leverage = existing ? Math.min(existing.leverage || 1, MAX_LEVERAGE) : (addState.leverage || 1);
+  // Direction is fixed for the life of a position — averaging in only makes
+  // sense against the same side, so lock it once a holding already exists.
+  addState.side = existing ? (existing.side || 'long') : (addState.side || 'long');
 
   wrap.innerHTML = `
     <div class="field">
-      <label>${isCrypto ? 'Buy price (USDT)' : `Buy price (${meta.symbol})`}</label>
+      <label>Direction</label>
+      ${existing ? `
+        <div class="preview-box" style="background:${addState.side==='short'?'var(--coral-dim)':'var(--mint-dim)'};border-color:transparent;color:${addState.side==='short'?'var(--coral)':'var(--mint)'}">This is an existing <b>${addState.side==='short'?'SHORT':'LONG'}</b> position — new trades average into the same direction.</div>
+      ` : `
+        <div class="toggle-group" id="sideToggle">
+          <button data-side="long" class="${addState.side!=='short'?'active':''}">Long</button>
+          <button data-side="short" class="${addState.side==='short'?'active':''}">Short</button>
+        </div>
+      `}
+    </div>
+    <div class="field">
+      <label>${isCrypto ? 'Entry price (USDT)' : `Entry price (${meta.symbol})`}</label>
       <input type="number" class="input mono" id="fPrice" inputmode="decimal" placeholder="0.00" value="${livePrice!=null?livePrice:''}">
     </div>
     <div class="toggle-group" id="qtyModeToggle">
@@ -1570,6 +1595,16 @@ function renderAddFields(){
     syncFields();
   });
 
+  const sideToggle = document.getElementById('sideToggle');
+  if(sideToggle){
+    sideToggle.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button'); if(!btn) return;
+      addState.side = btn.dataset.side;
+      sideToggle.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b===btn));
+      updatePreview();
+    });
+  }
+
   const feeTypeToggle = document.getElementById('feeTypeToggle');
   if(feeTypeToggle){
     feeTypeToggle.addEventListener('click', (e)=>{
@@ -1624,7 +1659,8 @@ function renderAddFields(){
       const newAvg = newTotalCost/newTotalQty;
       preview.innerHTML = `<div class="preview-box">Your average will move from <b>${fmtMoney(existingCalc.avgCost, isCrypto?'$':meta.prefix)}</b> to <b>${fmtMoney(newAvg, isCrypto?'$':meta.prefix)}</b> across ${trimNum(newTotalQty)} total.${marginLine}${feeLine}</div>`;
     }else{
-      preview.innerHTML = `<div class="preview-box">New position: ${trimNum(qty)} @ ${fmtMoney(price, isCrypto?'$':meta.prefix)} = ${fmtMoney(qty*price, isCrypto?'$':meta.prefix)} invested.${marginLine}${feeLine}</div>`;
+      const sideLabel = addState.side==='short' ? 'SHORT' : 'LONG';
+      preview.innerHTML = `<div class="preview-box">New ${sideLabel} position: ${trimNum(qty)} @ ${fmtMoney(price, isCrypto?'$':meta.prefix)} = ${fmtMoney(qty*price, isCrypto?'$':meta.prefix)} invested.${marginLine}${feeLine}</div>`;
     }
   }
   priceEl.addEventListener('input', syncFields);
@@ -1667,8 +1703,10 @@ function submitAdd(existing){
   const name = addState.selected.name || symbol;
   let holding = existing;
   if(!holding){
-    holding = { id:uid(), symbol, name, lots:[], soldQty:0, currentPrice:null, change24h:null, priceUpdated:null, targetPrice:null };
+    holding = { id:uid(), symbol, name, side: addState.side==='short'?'short':'long', lots:[], soldQty:0, currentPrice:null, change24h:null, priceUpdated:null, targetPrice:null };
     state.markets[market].holdings.push(holding);
+  }else if(!holding.side){
+    holding.side = 'long'; // migrate pre-existing holdings saved before long/short existed
   }
   holding.lots.push({ id:uid(), qty, price, date, fee, feeType: isCrypto ? addState.feeType : undefined });
 
@@ -1718,10 +1756,10 @@ function openReduceModal(market, holdingId, closeOnly){
 
   document.getElementById('reduceModalBody').innerHTML = `
     <div class="preview-box" style="background:var(--panel-2);border-color:var(--border);color:var(--text-dim)">
-      You hold <b style="color:var(--text)">${trimNum(c.remainingQty)} ${h.symbol.replace('USDT','')}</b> at an average cost of <b style="color:var(--text)">${fmtMoney(c.avgCost, prefix)}</b>.
+      You hold a <b style="color:${c.side==='short'?'var(--coral)':'var(--mint)'}">${c.side==='short'?'SHORT':'LONG'}</b> of <b style="color:var(--text)">${trimNum(c.remainingQty)} ${h.symbol.replace('USDT','')}</b> at an average entry of <b style="color:var(--text)">${fmtMoney(c.avgCost, prefix)}</b>.
     </div>
     <div class="field">
-      <label>Quantity to sell</label>
+      <label>Quantity to ${c.side==='short'?'buy back':'sell'}</label>
       <div style="display:flex;gap:8px">
         <input type="number" class="input mono" id="rQty" inputmode="decimal" placeholder="0.00" style="flex:1" value="${closeOnly?c.remainingQty:''}" ${closeOnly?'readonly':''}>
         ${closeOnly ? '' : '<button class="btn btn-ghost btn-sm" id="rMax">Max</button>'}
@@ -1729,7 +1767,7 @@ function openReduceModal(market, holdingId, closeOnly){
       ${closeOnly ? `<div class="hint">Closing the full position. Use "Reduce / sell" instead to close part of it.</div>` : ''}
     </div>
     <div class="field">
-      <label>Price to close (${prefix})</label>
+      <label>Exit price (${prefix})</label>
       <input type="number" class="input mono" id="rPrice" inputmode="decimal" placeholder="0.00" value="${c.currentPrice||''}">
     </div>
     ${market==='crypto' ? `
@@ -1767,7 +1805,7 @@ function openReduceModal(market, holdingId, closeOnly){
     if(q > c.remainingQty + 0.0000001){ box.innerHTML = `<div class="preview-box" style="background:var(--coral-dim);border-color:transparent;color:var(--coral)">You only hold ${trimNum(c.remainingQty)}.</div>`; return; }
     const feeRate = market==='crypto' ? FEE_RATES[reduceFeeType] : 0;
     const fee = q * p * feeRate;
-    const gross = q*(p-c.avgCost);
+    const gross = c.side==='short' ? q*(c.avgCost-p) : q*(p-c.avgCost);
     const net = gross - fee;
     const feeLine = market==='crypto' ? ` ${reduceFeeType==='maker'?'Maker':'Taker'} fee: <b>${fmtMoney(fee, prefix)}</b>.` : '';
     box.innerHTML = `<div class="preview-box" style="${net>=0?'':'background:var(--coral-dim);border-color:transparent;color:var(--coral)'}">Realized ${net>=0?'gain':'loss'} after fees: <b>${(net>=0?'+':'')+fmtMoney(net, prefix)}</b>.${feeLine} ${closeOnly ? 'Position will be fully closed and moved to history.' : 'Remaining position: '+trimNum(c.remainingQty-q)+'.'}</div>`;
@@ -1781,10 +1819,10 @@ function openReduceModal(market, holdingId, closeOnly){
     if(q > c.remainingQty + 0.0000001){ toast('You don\'t hold that much', 'error'); return; }
     const feeRate = market==='crypto' ? FEE_RATES[reduceFeeType] : 0;
     const fee = q * p * feeRate;
-    const gross = q*(p-c.avgCost);
+    const gross = c.side==='short' ? q*(c.avgCost-p) : q*(p-c.avgCost);
     const net = gross - fee;
     h.soldQty = (h.soldQty||0) + q;
-    state.markets[market].realized.push({ id:uid(), symbol:h.symbol, qty:q, avgCost:c.avgCost, sellPrice:p, pnl:net, fee, date:Date.now() });
+    state.markets[market].realized.push({ id:uid(), symbol:h.symbol, side:c.side, qty:q, avgCost:c.avgCost, sellPrice:p, pnl:net, fee, date:Date.now() });
     if(state.markets[market].cashBalance !== undefined){
       state.markets[market].cashBalance += net;
     }
@@ -1818,7 +1856,7 @@ function renderHistory(key){
   listEl.innerHTML = list.map(r=>`
     <div class="history-row" data-history-id="${r.id}" data-market="${key}">
       <div>
-        <div class="history-sym">${escapeHtml(r.symbol.replace('USDT',''))}</div>
+        <div class="history-sym">${escapeHtml(r.symbol.replace('USDT',''))} <span class="chip ${r.side==='short'?'chip-short':'chip-long'}" style="margin-left:4px">${r.side==='short'?'short':'long'}</span></div>
         <div class="history-meta">${trimNum(r.qty)} @ ${fmtMoney(r.sellPrice, prefix)} · avg ${fmtMoney(r.avgCost, prefix)} · ${new Date(r.date).toLocaleDateString()}</div>
       </div>
       <div style="display:flex;align-items:center">
@@ -1855,13 +1893,21 @@ function openEditHistoryModal(market, historyId){
   const meta = MARKET_META[market];
   const prefix = market==='crypto' ? '$' : meta.prefix;
 
+  let ehSide = r.side === 'short' ? 'short' : 'long';
   document.getElementById('editHistoryModalBody').innerHTML = `
     <div class="preview-box" style="background:var(--panel-2);border-color:var(--border);color:var(--text-dim)">
-      Editing closed trade for <b style="color:var(--text)">${escapeHtml(r.symbol.replace('USDT',''))}</b>. Fix the quantity or price if there's a mismatch.
+      Editing closed trade for <b style="color:var(--text)">${escapeHtml(r.symbol.replace('USDT',''))}</b>. Fix the direction, quantity or price if there's a mismatch.
+    </div>
+    <div class="field">
+      <label>Direction</label>
+      <div class="toggle-group" id="ehSideToggle">
+        <button data-side="long" class="${ehSide!=='short'?'active':''}">Long</button>
+        <button data-side="short" class="${ehSide==='short'?'active':''}">Short</button>
+      </div>
     </div>
     <div class="field"><label>Quantity</label><input type="number" class="input mono" id="ehQty" inputmode="decimal" value="${r.qty}"></div>
-    <div class="field"><label>Average buy price (${prefix})</label><input type="number" class="input mono" id="ehAvg" inputmode="decimal" value="${r.avgCost}"></div>
-    <div class="field"><label>Close price (${prefix})</label><input type="number" class="input mono" id="ehSell" inputmode="decimal" value="${r.sellPrice}"></div>
+    <div class="field"><label>Average entry price (${prefix})</label><input type="number" class="input mono" id="ehAvg" inputmode="decimal" value="${r.avgCost}"></div>
+    <div class="field"><label>Exit price (${prefix})</label><input type="number" class="input mono" id="ehSell" inputmode="decimal" value="${r.sellPrice}"></div>
     <div class="field"><label>Date</label><input type="date" class="input" id="ehDate" value="${new Date(r.date).toISOString().slice(0,10)}"></div>
     <div id="ehPreview"></div>
     <button class="btn btn-primary btn-block" id="submitEditHistory">Save changes</button>
@@ -1869,11 +1915,18 @@ function openEditHistoryModal(market, historyId){
   const qtyEl = document.getElementById('ehQty');
   const avgEl = document.getElementById('ehAvg');
   const sellEl = document.getElementById('ehSell');
+  const ehSideToggle = document.getElementById('ehSideToggle');
+  ehSideToggle.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button'); if(!btn) return;
+    ehSide = btn.dataset.side;
+    ehSideToggle.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b===btn));
+    updatePreview();
+  });
   function updatePreview(){
     const q = parseFloat(qtyEl.value), a = parseFloat(avgEl.value), s = parseFloat(sellEl.value);
     const box = document.getElementById('ehPreview');
     if(!q || q<=0 || isNaN(a) || isNaN(s)){ box.innerHTML=''; return; }
-    const pnl = q*(s-a);
+    const pnl = ehSide==='short' ? q*(a-s) : q*(s-a);
     box.innerHTML = `<div class="preview-box" style="${pnl>=0?'':'background:var(--coral-dim);border-color:transparent;color:var(--coral)'}">Realized ${pnl>=0?'gain':'loss'}: <b>${(pnl>=0?'+':'')+fmtMoney(pnl, prefix)}</b></div>`;
   }
   [qtyEl, avgEl, sellEl].forEach(el=>el.addEventListener('input', updatePreview));
@@ -1884,7 +1937,7 @@ function openEditHistoryModal(market, historyId){
     const dateVal = document.getElementById('ehDate').value;
     if(!q || q<=0 || isNaN(a) || a<0 || isNaN(s) || s<0){ toast('Enter valid values', 'error'); return; }
     const oldPnl = r.pnl;
-    r.qty = q; r.avgCost = a; r.sellPrice = s; r.pnl = q*(s-a);
+    r.qty = q; r.avgCost = a; r.sellPrice = s; r.side = ehSide; r.pnl = ehSide==='short' ? q*(a-s) : q*(s-a);
     if(dateVal) r.date = new Date(dateVal).getTime();
     if(state.markets[market].cashBalance !== undefined){
       state.markets[market].cashBalance += (r.pnl - oldPnl);
