@@ -1132,7 +1132,6 @@ function renderMarket(key){
 
   listEl.innerHTML = sorted.map(h=>{
     const c = computeHolding(h);
-    const targetHit = h.targetPrice && c.currentPrice >= h.targetPrice;
     return `
     <div class="holding" data-holding-id="${h.id}" data-market="${key}">
       <div class="holding-main" data-action="toggle">
@@ -1142,14 +1141,12 @@ function renderMarket(key){
             <span class="chip ${c.side==='short'?'chip-short':'chip-long'}">${c.side==='short'?'short':'long'}</span>
             ${meta.priceLive ? `<span class="chip chip-live">live</span>` : `<span class="chip chip-manual">manual</span>`}
             ${isCrypto ? `<span class="chip ${leverageChipClass(c.leverage)}">${c.leverage}x</span>` : ''}
-            ${targetHit ? `<span class="target-chip">🎯 target</span>` : ''}
           </div>
-          <div class="holding-qty">avg ${fmtMoney(c.avgCost, prefix)}</div>
           <div class="holding-ltp">LTP <b>${fmtMoney(c.currentPrice, prefix)}</b>${h.change24h!=null ? ` <span style="color:${h.change24h>=0?'var(--mint)':'var(--coral)'}">${fmtPct(h.change24h)}</span>` : ''}</div>
         </div>
         <div class="holding-figures">
-          <div class="holding-value">${fmtCompact(c.currentValue, prefix)}</div>
-          <div class="holding-pnl" style="color:${c.pnl>=0?'var(--mint)':'var(--coral)'}">${(c.pnl>=0?'+':'')+fmtCompact(c.pnl, prefix)} · ${fmtPct(c.pnlPct)}</div>
+          <div class="holding-value" style="color:${c.pnl>=0?'var(--mint)':'var(--coral)'}">${(c.pnl>=0?'+':'')+fmtCompact(c.pnl, prefix)}</div>
+          <div class="holding-pnl" style="color:${c.pnl>=0?'var(--mint)':'var(--coral)'}">${fmtPct(c.pnlPct)}</div>
         </div>
         <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       </div>
@@ -1158,11 +1155,10 @@ function renderMarket(key){
           <div class="detail-grid">
             <div class="detail-stat"><div class="k">Total quantity</div><div class="v">${trimNum(c.remainingQty)}</div></div>
             <div class="detail-stat"><div class="k">Current price</div><div class="v">${fmtMoney(c.currentPrice, prefix)} ${h.change24h!=null?`<span style="color:${h.change24h>=0?'var(--mint)':'var(--coral)'};font-size:11px">(${fmtPct(h.change24h)})</span>`:''}</div></div>
-            <div class="detail-stat"><div class="k">Invested</div><div class="v">${fmtMoney(c.investedValue, prefix)}</div></div>
+            <div class="detail-stat"><div class="k">Average</div><div class="v">${fmtMoney(c.avgCost, prefix)}</div></div>
+            <div class="detail-stat"><div class="k">Position size</div><div class="v">${fmtMoney(c.investedValue, prefix)}</div></div>
             <div class="detail-stat"><div class="k">P&amp;L</div><div class="v" style="color:${c.pnl>=0?'var(--mint)':'var(--coral)'}">${(c.pnl>=0?'+':'')+fmtMoney(c.pnl, prefix)}</div></div>
-            ${isCrypto
-              ? `<div class="detail-stat"><div class="k">Margin used (${c.leverage}x)</div><div class="v">${fmtMoney(c.margin, prefix)}</div></div>`
-              : `<div class="detail-stat"><div class="k">Last updated</div><div class="v" style="font-family:inherit;font-weight:500;font-size:12px">${meta.priceLive ? timeAgo(h.priceUpdated) : (h.priceUpdated?timeAgo(h.priceUpdated):'not set')}</div></div>`}
+            <div class="detail-stat"><div class="k">Margin used${isCrypto?` (${c.leverage}x)`:''}</div><div class="v">${fmtMoney(c.margin, prefix)}</div></div>
           </div>
           <div class="detail-actions">
             <button class="btn btn-ghost btn-sm" data-action="add-more">+ Add more</button>
@@ -1244,6 +1240,7 @@ function deleteLot(market, holdingId, lotId){
   if(!h) return;
   const lot = h.lots.find(l=>l.id===lotId);
   if(!lot) return;
+  if(!confirm('Remove this trade from the history? This can\'t be undone.')) return;
   const remainingAfter = h.lots.reduce((s,l)=>s+(l.id===lotId?0:l.qty),0) - (h.soldQty||0);
   if(remainingAfter < -0.0000001){
     toast('Can\'t remove — you\'ve already sold more than that would leave', 'error');
@@ -1563,14 +1560,6 @@ function renderAddFields(){
       <input type="range" class="leverage-slider" id="fLeverage" min="1" max="${MAX_LEVERAGE}" step="1" value="${addState.leverage}">
       <div class="leverage-marks"><span>1x</span><span>7x</span><span>13x</span><span>19x</span><span>25x</span></div>
     </div>` : ''}
-    ${isCrypto ? `
-    <div class="field">
-      <label>Fee <span style="font-weight:400;color:var(--text-faint)">— Binance USDT-M</span></label>
-      <div class="toggle-group" id="feeTypeToggle">
-        <button data-fee="maker" class="${addState.feeType==='maker'?'active':''}">Maker (${(FEE_RATES.maker*100).toFixed(2)}%)</button>
-        <button data-fee="taker" class="${addState.feeType==='taker'?'active':''}">Taker (${(FEE_RATES.taker*100).toFixed(2)}%)</button>
-      </div>
-    </div>` : ''}
     <div class="field">
       <label>Date</label>
       <input type="date" class="input" id="fDate" value="${new Date().toISOString().slice(0,10)}">
@@ -1605,16 +1594,6 @@ function renderAddFields(){
     });
   }
 
-  const feeTypeToggle = document.getElementById('feeTypeToggle');
-  if(feeTypeToggle){
-    feeTypeToggle.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button'); if(!btn) return;
-      addState.feeType = btn.dataset.fee;
-      feeTypeToggle.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b===btn));
-      updatePreview();
-    });
-  }
-
   const leverageEl = document.getElementById('fLeverage');
   const leverageValueEl = document.getElementById('fLevValue');
   if(leverageEl){
@@ -1645,9 +1624,9 @@ function renderAddFields(){
     const qty = parseFloat(qtyEl.value);
     const preview = document.getElementById('avgPreview');
     if(!price || !qty || price<=0 || qty<=0){ preview.innerHTML=''; return; }
-    const feeRate = isCrypto ? FEE_RATES[addState.feeType] : 0;
+    const feeRate = isCrypto ? FEE_RATES.maker : 0;
     const fee = qty * price * feeRate;
-    const feeLine = isCrypto ? ` ${addState.feeType==='maker'?'Maker':'Taker'} fee: <b>${fmtMoney(fee, '$')}</b>, deducted immediately from this position's P&amp;L.` : '';
+    const feeLine = isCrypto ? ` Fee: <b>${fmtMoney(fee, '$')}</b>, deducted immediately from this position's P&amp;L.` : '';
     let marginLine = '';
     if(isCrypto){
       const marginDelta = marginDeltaForAdd(existingCalc, qty, price, addState.leverage || 1);
@@ -1686,7 +1665,7 @@ function submitAdd(existing){
   let fee = 0;
   if(isCrypto){
     const leverage = addState.leverage || 1;
-    const feeRate = FEE_RATES[addState.feeType];
+    const feeRate = FEE_RATES.maker;
     fee = qty * price * feeRate;
     const existingCalcNow = existing ? computeHolding(existing) : null;
     const marginDelta = marginDeltaForAdd(existingCalcNow, qty, price, leverage);
@@ -1708,7 +1687,7 @@ function submitAdd(existing){
   }else if(!holding.side){
     holding.side = 'long'; // migrate pre-existing holdings saved before long/short existed
   }
-  holding.lots.push({ id:uid(), qty, price, date, fee, feeType: isCrypto ? addState.feeType : undefined });
+  holding.lots.push({ id:uid(), qty, price, date, fee, feeType: isCrypto ? 'maker' : undefined });
 
   if(isCrypto){
     holding.currentPrice = addState.selected.price != null ? addState.selected.price : price;
@@ -1770,14 +1749,6 @@ function openReduceModal(market, holdingId, closeOnly){
       <label>Exit price (${prefix})</label>
       <input type="number" class="input mono" id="rPrice" inputmode="decimal" placeholder="0.00" value="${c.currentPrice||''}">
     </div>
-    ${market==='crypto' ? `
-    <div class="field">
-      <label>Fee <span style="font-weight:400;color:var(--text-faint)">— Binance USDT-M</span></label>
-      <div class="toggle-group" id="reduceFeeToggle">
-        <button data-fee="maker" class="active">Maker (${(FEE_RATES.maker*100).toFixed(2)}%)</button>
-        <button data-fee="taker">Taker (${(FEE_RATES.taker*100).toFixed(2)}%)</button>
-      </div>
-    </div>` : ''}
     <div id="reducePreview"></div>
     <button class="btn btn-primary btn-block" id="submitReduce">${closeOnly ? 'Confirm close' : 'Confirm sale'}</button>
   `;
@@ -1786,28 +1757,17 @@ function openReduceModal(market, holdingId, closeOnly){
   document.getElementById('rQty').addEventListener('input', updateReducePreview);
   document.getElementById('rPrice').addEventListener('input', updateReducePreview);
 
-  let reduceFeeType = 'maker';
-  const reduceFeeToggle = document.getElementById('reduceFeeToggle');
-  if(reduceFeeToggle){
-    reduceFeeToggle.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button'); if(!btn) return;
-      reduceFeeType = btn.dataset.fee;
-      reduceFeeToggle.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b===btn));
-      updateReducePreview();
-    });
-  }
-
   function updateReducePreview(){
     const q = closeOnly ? c.remainingQty : parseFloat(document.getElementById('rQty').value);
     const p = parseFloat(document.getElementById('rPrice').value);
     const box = document.getElementById('reducePreview');
     if(!q || !p || q<=0 || p<=0){ box.innerHTML=''; return; }
     if(q > c.remainingQty + 0.0000001){ box.innerHTML = `<div class="preview-box" style="background:var(--coral-dim);border-color:transparent;color:var(--coral)">You only hold ${trimNum(c.remainingQty)}.</div>`; return; }
-    const feeRate = market==='crypto' ? FEE_RATES[reduceFeeType] : 0;
+    const feeRate = market==='crypto' ? FEE_RATES.maker : 0;
     const fee = q * p * feeRate;
     const gross = c.side==='short' ? q*(c.avgCost-p) : q*(p-c.avgCost);
     const net = gross - fee;
-    const feeLine = market==='crypto' ? ` ${reduceFeeType==='maker'?'Maker':'Taker'} fee: <b>${fmtMoney(fee, prefix)}</b>.` : '';
+    const feeLine = market==='crypto' ? ` Fee: <b>${fmtMoney(fee, prefix)}</b>.` : '';
     box.innerHTML = `<div class="preview-box" style="${net>=0?'':'background:var(--coral-dim);border-color:transparent;color:var(--coral)'}">Realized ${net>=0?'gain':'loss'} after fees: <b>${(net>=0?'+':'')+fmtMoney(net, prefix)}</b>.${feeLine} ${closeOnly ? 'Position will be fully closed and moved to history.' : 'Remaining position: '+trimNum(c.remainingQty-q)+'.'}</div>`;
   }
   updateReducePreview();
@@ -1817,7 +1777,7 @@ function openReduceModal(market, holdingId, closeOnly){
     const p = parseFloat(document.getElementById('rPrice').value);
     if(!q || !p || q<=0 || p<=0){ toast('Enter a valid quantity and price', 'error'); return; }
     if(q > c.remainingQty + 0.0000001){ toast('You don\'t hold that much', 'error'); return; }
-    const feeRate = market==='crypto' ? FEE_RATES[reduceFeeType] : 0;
+    const feeRate = market==='crypto' ? FEE_RATES.maker : 0;
     const fee = q * p * feeRate;
     const gross = c.side==='short' ? q*(c.avgCost-p) : q*(p-c.avgCost);
     const net = gross - fee;
