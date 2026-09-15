@@ -415,8 +415,8 @@ a{color:inherit;}
   </header>
 
   <nav class="tabs" role="tablist">
-    <button class="tab" data-tab="overview">Overview</button>
     <button class="tab active" data-tab="crypto"><span class="dot" style="background:var(--violet)"></span>Crypto</button>
+    <button class="tab" data-tab="overview">Overview</button>
     <button class="tab" data-tab="stocksIN"><span class="dot" style="background:var(--saffron)"></span>IN Stocks</button>
     <button class="tab" data-tab="stocksUS"><span class="dot" style="background:var(--azure)"></span>US Stocks</button>
   </nav>
@@ -1111,6 +1111,7 @@ function renderMarket(key){
         <h3>No positions yet</h3>
         <p>Add your first ${key==='crypto'?'coin':'stock'} to start tracking your average cost and P&amp;L.</p>
       </div>`;
+    renderHistory(key);
     return;
   }
 
