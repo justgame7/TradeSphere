@@ -596,6 +596,17 @@ a{color:inherit;}
   </div>
 </div>
 
+<div class="modal-overlay" id="modalLeverage">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-head">
+      <div class="modal-title" id="leverageModalTitle">Set leverage</div>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div id="leverageModalBody"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modalEditHistory">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -630,6 +641,7 @@ const AUTO_REFRESH_MS = 45000;
 // taker for orders that take it immediately (market orders). Defaults to
 // maker since that's the common case for planned entries/exits.
 const FEE_RATES = { maker: 0.0002, taker: 0.0005 };
+const MAX_LEVERAGE = 25;
 
 const MARKET_META = {
   crypto:   { label:'Crypto',     symbol:'USDT', chip:'chip-crypto', accent:'var(--violet)', priceLive:true,  prefix:'' },
@@ -785,11 +797,14 @@ function computeHolding(h){
   const investedValue = remainingQty * avgCost;
   const currentPrice = h.currentPrice != null ? h.currentPrice : avgCost;
   const currentValue = remainingQty * currentPrice;
-  const pnl = currentValue - investedValue;
+  // Buy-side fees are charged straight against this position's P&L the moment
+  // the coin is added, rather than being drawn from the wallet's cash balance.
+  const totalFees = h.lots.reduce((s,l)=>s+(l.fee||0), 0);
+  const pnl = currentValue - investedValue - totalFees;
   const pnlPct = investedValue > 0 ? (pnl/investedValue)*100 : 0;
   const leverage = h.leverage || 1;
   const margin = investedValue / leverage;
-  return { totalBought, avgCost, remainingQty, investedValue, currentValue, currentPrice, pnl, pnlPct, leverage, margin };
+  return { totalBought, avgCost, remainingQty, investedValue, currentValue, currentPrice, pnl, pnlPct, leverage, margin, totalFees };
 }
 // How much *additional* margin a buy of `qty` @ `price` locks up at the chosen
 // `leverage`. When averaging into an existing position, leverage applies to
@@ -809,10 +824,10 @@ function marginDeltaForAdd(existingCalc, qty, price, leverage){
 }
 function marketTotals(key){
   const m = state.markets[key];
-  let invested=0, value=0, realized=0, lockedMargin=0;
-  m.holdings.forEach(h=>{ const c = computeHolding(h); invested += c.investedValue; value += c.currentValue; lockedMargin += c.margin; });
+  let invested=0, value=0, realized=0, lockedMargin=0, fees=0;
+  m.holdings.forEach(h=>{ const c = computeHolding(h); invested += c.investedValue; value += c.currentValue; lockedMargin += c.margin; fees += c.totalFees; });
   m.realized.forEach(r=> realized += r.pnl);
-  const unrealized = value - invested;
+  const unrealized = value - invested - fees;
   const cashBalance = m.cashBalance || 0;
   const availableCash = cashBalance - lockedMargin;
   return { invested, value, unrealized, realized, pnl: unrealized, pnlPct: invested>0 ? (unrealized/invested)*100 : 0, lockedMargin, cashBalance, availableCash };
@@ -1261,23 +1276,63 @@ function openTargetPrompt(market, id){
 function openLeveragePrompt(market, id){
   const h = state.markets[market].holdings.find(x=>x.id===id);
   if(!h) return;
-  const val = prompt(`Set leverage for ${h.symbol.replace('USDT','')} (1x – 100x)`, h.leverage || 1);
-  if(val === null) return;
-  const num = Math.round(parseFloat(val));
-  if(isNaN(num) || num < 1 || num > 100){ toast('Enter a leverage between 1x and 100x', 'error'); return; }
-
-  const totals = marketTotals(market);
   const c = computeHolding(h);
-  const newMargin = c.investedValue / num;
-  const marginDelta = newMargin - c.margin;
-  if(marginDelta > totals.availableCash + 1e-9){
-    toast(`Lowering to ${num}x needs ${fmtMoney(marginDelta - totals.availableCash, '$')} more cash than you have available`, 'error');
-    return;
-  }
+  const totals = marketTotals(market);
+  const startLev = Math.min(h.leverage || 1, MAX_LEVERAGE);
 
-  h.leverage = num;
-  saveState(); renderMarket(market); renderOverview();
-  toast(`Leverage set to ${num}x`);
+  document.getElementById('leverageModalTitle').textContent = `Leverage — ${h.symbol.replace('USDT','')}`;
+  document.getElementById('leverageModalBody').innerHTML = `
+    <div class="field">
+      <div class="leverage-row">
+        <label style="margin-bottom:0">Leverage <span style="font-weight:400;color:var(--text-faint)">— applies to the whole position</span></label>
+        <span class="leverage-value" id="hLevValue" style="background:${leverageBadgeColors(startLev).bg};color:${leverageBadgeColors(startLev).fg}">${startLev}x</span>
+      </div>
+      <input type="range" class="leverage-slider" id="hLeverage" min="1" max="${MAX_LEVERAGE}" step="1" value="${startLev}">
+      <div class="leverage-marks"><span>1x</span><span>7x</span><span>13x</span><span>19x</span><span>25x</span></div>
+    </div>
+    <div id="hLevPreview"></div>
+    <button class="btn btn-primary btn-block" id="submitLeverage">Set leverage</button>
+  `;
+
+  const sliderEl = document.getElementById('hLeverage');
+  const valueEl = document.getElementById('hLevValue');
+  const previewEl = document.getElementById('hLevPreview');
+
+  function marginDeltaFor(num){
+    const newMargin = c.investedValue / num;
+    return newMargin - c.margin;
+  }
+  function updatePreview(){
+    const num = parseInt(sliderEl.value, 10);
+    const colors = leverageBadgeColors(num);
+    valueEl.textContent = num + 'x';
+    valueEl.style.background = colors.bg;
+    valueEl.style.color = colors.fg;
+    const marginDelta = marginDeltaFor(num);
+    if(marginDelta > totals.availableCash + 1e-9){
+      previewEl.innerHTML = `<div class="preview-box" style="background:var(--coral-dim);border-color:transparent;color:var(--coral)">Needs ${fmtMoney(marginDelta - totals.availableCash, '$')} more cash than you have available.</div>`;
+    }else{
+      const newMargin = c.investedValue / num;
+      previewEl.innerHTML = `<div class="preview-box">Margin at ${num}x: <b>${fmtMoney(newMargin, '$')}</b>${Math.abs(marginDelta)>0.005?` (${marginDelta>=0?'+':''}${fmtMoney(marginDelta, '$')} vs current)`:''}.</div>`;
+    }
+  }
+  sliderEl.addEventListener('input', updatePreview);
+  updatePreview();
+
+  document.getElementById('submitLeverage').addEventListener('click', ()=>{
+    const num = parseInt(sliderEl.value, 10);
+    const marginDelta = marginDeltaFor(num);
+    if(marginDelta > totals.availableCash + 1e-9){
+      toast(`Lowering to ${num}x needs ${fmtMoney(marginDelta - totals.availableCash, '$')} more cash than you have available`, 'error');
+      return;
+    }
+    h.leverage = num;
+    saveState(); renderMarket(market); renderOverview();
+    closeModal(document.getElementById('modalLeverage'));
+    toast(`Leverage set to ${num}x`);
+  });
+
+  document.getElementById('modalLeverage').classList.add('open');
 }
 
 /* --------------------------- ADD MODAL --------------------------- */
@@ -1453,7 +1508,7 @@ function renderAddFields(){
   // Leverage applies to the whole position, so once a holding exists its
   // current leverage is the honest starting point (dragging the slider then
   // re-levers the whole thing, same as the standalone Leverage control).
-  addState.leverage = existing ? (existing.leverage || 1) : (addState.leverage || 1);
+  addState.leverage = existing ? Math.min(existing.leverage || 1, MAX_LEVERAGE) : (addState.leverage || 1);
 
   wrap.innerHTML = `
     <div class="field">
@@ -1479,8 +1534,8 @@ function renderAddFields(){
         <label style="margin-bottom:0">Leverage${existing ? ' <span style="font-weight:400;color:var(--text-faint)">— applies to the whole position</span>' : ''}</label>
         <span class="leverage-value" id="fLevValue" style="background:${leverageBadgeColors(addState.leverage).bg};color:${leverageBadgeColors(addState.leverage).fg}">${addState.leverage}x</span>
       </div>
-      <input type="range" class="leverage-slider" id="fLeverage" min="1" max="100" step="1" value="${addState.leverage}">
-      <div class="leverage-marks"><span>1x</span><span>25x</span><span>50x</span><span>75x</span><span>100x</span></div>
+      <input type="range" class="leverage-slider" id="fLeverage" min="1" max="${MAX_LEVERAGE}" step="1" value="${addState.leverage}">
+      <div class="leverage-marks"><span>1x</span><span>7x</span><span>13x</span><span>19x</span><span>25x</span></div>
     </div>` : ''}
     ${isCrypto ? `
     <div class="field">
@@ -1556,7 +1611,7 @@ function renderAddFields(){
     if(!price || !qty || price<=0 || qty<=0){ preview.innerHTML=''; return; }
     const feeRate = isCrypto ? FEE_RATES[addState.feeType] : 0;
     const fee = qty * price * feeRate;
-    const feeLine = isCrypto ? ` ${addState.feeType==='maker'?'Maker':'Taker'} fee: <b>${fmtMoney(fee, '$')}</b>, deducted from your wallet balance.` : '';
+    const feeLine = isCrypto ? ` ${addState.feeType==='maker'?'Maker':'Taker'} fee: <b>${fmtMoney(fee, '$')}</b>, deducted immediately from this position's P&amp;L.` : '';
     let marginLine = '';
     if(isCrypto){
       const marginDelta = marginDeltaForAdd(existingCalc, qty, price, addState.leverage || 1);
@@ -1598,10 +1653,11 @@ function submitAdd(existing){
     fee = qty * price * feeRate;
     const existingCalcNow = existing ? computeHolding(existing) : null;
     const marginDelta = marginDeltaForAdd(existingCalcNow, qty, price, leverage);
-    const totalNeeded = marginDelta + fee;
+    // Fee is charged against this position's P&L, not drawn from wallet cash,
+    // so only the margin needs to be covered by available cash.
     const availableCash = marketTotals('crypto').availableCash;
-    if(totalNeeded > availableCash + 1e-9){
-      toast(`Needs ${fmtMoney(totalNeeded, '$')} (incl. ${fmtMoney(fee, '$')} ${addState.feeType} fee) at ${leverage}x — only ${fmtMoney(availableCash, '$')} available`, 'error');
+    if(marginDelta > availableCash + 1e-9){
+      toast(`Needs ${fmtMoney(marginDelta, '$')} margin at ${leverage}x — only ${fmtMoney(availableCash, '$')} available`, 'error');
       return;
     }
   }
@@ -1619,7 +1675,6 @@ function submitAdd(existing){
     holding.currentPrice = addState.selected.price != null ? addState.selected.price : price;
     holding.priceUpdated = Date.now();
     holding.leverage = addState.leverage || 1;
-    state.markets.crypto.cashBalance = (state.markets.crypto.cashBalance || 0) - fee;
     state.markets.crypto.feesPaid = (state.markets.crypto.feesPaid || 0) + fee;
   }else{
     const curPriceInput = document.getElementById('fCurrentPrice');
@@ -1632,7 +1687,7 @@ function submitAdd(existing){
   closeModal(modalAdd);
   renderMarket(market);
   renderOverview();
-  toast(fee > 0 ? `Trade saved — ${fmtMoney(fee, '$')} fee charged` : 'Trade saved', 'success');
+  toast(fee > 0 ? `Trade saved — ${fmtMoney(fee, '$')} fee applied to P&L` : 'Trade saved', 'success');
   if(isCrypto) refreshCryptoPrices(true).then(()=>renderMarket('crypto'));
 }
 
