@@ -72,6 +72,7 @@
     outline:none;
   }
   input:focus, select:focus{ border-color:var(--accent); }
+  input[readonly]{ opacity:.6; cursor:not-allowed; }
   select{
     appearance:none;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%238B93A3' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -144,6 +145,11 @@
       <div class="field">
         <label for="portfolioValue">Portfolio Value (USDT)</label>
         <input id="portfolioValue" type="number" min="0" step="any" placeholder="15000" />
+        <div class="checkbox-field" style="margin-top:10px;">
+          <input type="checkbox" id="syncMeridian" />
+          <label for="syncMeridian">Sync with Meridian wallet balance</label>
+        </div>
+        <p class="hint" id="syncMeridianHint" style="margin:8px 0 0;"></p>
       </div>
 
       <div class="field">
@@ -219,6 +225,13 @@
   const MOVERS_ENABLED_STORAGE_KEY = 'crypto-screener-movers-enabled';
   const DEFAULT_TIMEZONE = 'Asia/Kolkata';
   const DEFAULT_PORTFOLIO = 1000;
+  // Meridian (the standalone portfolio/wallet app) keeps its own state under
+  // this key. When "Sync with Meridian wallet balance" is on, we read that
+  // state directly (same-origin localStorage, shared across the iframed apps)
+  // and use Meridian's total net worth in USD as the Portfolio Value here,
+  // instead of a manually-typed number.
+  const MERIDIAN_STORAGE_KEY = 'meridian-portfolio-v1';
+  const MERIDIAN_FALLBACK_USDINR = 88.5;
   const DEFAULT_MOVERS_COUNT = 5;
   const MOVERS_COUNT_MIN = 3;
   const MOVERS_COUNT_MAX = 8;
@@ -228,6 +241,8 @@
     Bybit: 'https://www.bybit.com/en/trade/usdt/'
   };
   const portfolioValueInput = document.getElementById('portfolioValue');
+  const syncMeridianInput = document.getElementById('syncMeridian');
+  const syncMeridianHint = document.getElementById('syncMeridianHint');
   const tradingExchangeSelect = document.getElementById('tradingExchange');
   const displayTimezoneSelect = document.getElementById('displayTimezone');
   const moversCountInput = document.getElementById('moversCount');
@@ -251,6 +266,73 @@
     statusEl.textContent = message;
     statusEl.className = 'status' + (type ? ` ${type}` : '');
   }
+
+  // --- Meridian sync -----------------------------------------------------
+  // Mirrors the net-worth math in portfolio.html (Meridian) closely enough
+  // to reproduce its Overview total in USD: for crypto (margin-traded) net
+  // worth is wallet cash + unrealized P&L, not full notional value; Indian
+  // stocks convert to USD via the stored FX rate; US stocks are already USD.
+  function meridianHoldingValues(h){
+    const totalBought = (h.lots||[]).reduce((s,l)=>s+l.qty, 0);
+    const totalCost = (h.lots||[]).reduce((s,l)=>s+l.qty*l.price, 0);
+    const avgCost = totalBought > 0 ? totalCost/totalBought : 0;
+    const remainingQty = Math.max(0, totalBought - (h.soldQty||0));
+    const investedValue = remainingQty * avgCost;
+    const currentPrice = h.currentPrice != null ? h.currentPrice : avgCost;
+    const currentValue = remainingQty * currentPrice;
+    return { investedValue, currentValue };
+  }
+  function getMeridianNetWorthUSD(){
+    try{
+      const raw = localStorage.getItem(MERIDIAN_STORAGE_KEY);
+      if(!raw) return null;
+      const meridian = JSON.parse(raw);
+      const markets = meridian.markets || {};
+      const usdinr = (meridian.fx && meridian.fx.usdinr) || MERIDIAN_FALLBACK_USDINR;
+      let total = 0;
+
+      const crypto = markets.crypto || {};
+      let cInvested = 0, cValue = 0;
+      (crypto.holdings||[]).forEach(h => { const c = meridianHoldingValues(h); cInvested += c.investedValue; cValue += c.currentValue; });
+      total += (crypto.cashBalance || 0) + (cValue - cInvested);
+
+      const stocksUS = markets.stocksUS || {};
+      (stocksUS.holdings||[]).forEach(h => { total += meridianHoldingValues(h).currentValue; });
+
+      const stocksIN = markets.stocksIN || {};
+      let inValue = 0;
+      (stocksIN.holdings||[]).forEach(h => { inValue += meridianHoldingValues(h).currentValue; });
+      if(usdinr > 0) total += inValue / usdinr;
+
+      return Number.isFinite(total) ? total : null;
+    }catch(error){
+      console.warn('Unable to read Meridian portfolio for sync', error);
+      return null;
+    }
+  }
+  function updateSyncFieldState(){
+    portfolioValueInput.readOnly = syncMeridianInput.checked;
+  }
+  function applyMeridianSync(){
+    if(!syncMeridianInput.checked) return;
+    const netWorth = getMeridianNetWorthUSD();
+    if(netWorth != null && netWorth > 0){
+      portfolioValueInput.value = String(Math.round(netWorth * 100) / 100);
+      syncMeridianHint.textContent = "Synced from Meridian's wallet — updates automatically as your balance there changes.";
+    } else {
+      syncMeridianHint.textContent = "Open the Meridian app at least once to start syncing — using the last known value until then.";
+    }
+  }
+  syncMeridianInput.addEventListener('change', () => {
+    updateSyncFieldState();
+    applyMeridianSync();
+  });
+  // Meridian runs in its own iframe/tab but shares localStorage (same origin),
+  // so when it saves new state while this settings page is open, pick it up
+  // immediately rather than waiting for a manual refresh.
+  window.addEventListener('storage', (e) => {
+    if(e.key === MERIDIAN_STORAGE_KEY) applyMeridianSync();
+  });
 
   // A reasonably complete fallback list (every UTC offset, one representative
   // city each, plus the other major regional zones) for browsers old enough
@@ -372,6 +454,7 @@
       if(!raw) {
         portfolioValueInput.value = String(DEFAULT_PORTFOLIO);
         tradingExchangeSelect.value = 'CoinDCX';
+        syncMeridianInput.checked = false;
       } else {
         const settings = JSON.parse(raw);
         if(typeof settings.portfolioValue === 'number' && Number.isFinite(settings.portfolioValue) && settings.portfolioValue > 0){
@@ -384,12 +467,15 @@
         } else {
           tradingExchangeSelect.value = 'CoinDCX';
         }
+        syncMeridianInput.checked = !!settings.syncMeridian;
       }
     } catch (error) {
       portfolioValueInput.value = String(DEFAULT_PORTFOLIO);
       tradingExchangeSelect.value = 'CoinDCX';
       console.warn('Unable to load trading settings', error);
     }
+    updateSyncFieldState();
+    applyMeridianSync();
 
     // Timezone lives under its own key (see TIMEZONE_STORAGE_KEY) so other
     // apps can read just this value without parsing the full settings blob.
@@ -430,6 +516,11 @@
   }
 
   function saveSettings(){
+    // When synced, re-pull the latest Meridian balance right before saving
+    // rather than trusting whatever's currently sitting in the (read-only)
+    // input, in case it changed since the field was last refreshed.
+    if(syncMeridianInput.checked) applyMeridianSync();
+
     const portfolioValue = parseFloat(portfolioValueInput.value);
     const tradingExchange = tradingExchangeSelect.value;
     const displayTimezone = displayTimezoneSelect.value;
@@ -437,13 +528,16 @@
     const moversCount = clampMoversCount(parseInt(moversCountInput.value, 10));
 
     if(!Number.isFinite(portfolioValue) || portfolioValue <= 0){
-      setStatus('Enter a valid portfolio value above 0.', 'error');
+      setStatus(syncMeridianInput.checked
+        ? 'No Meridian balance found yet — open the Meridian app first, or turn off sync and enter a value.'
+        : 'Enter a valid portfolio value above 0.', 'error');
       return;
     }
 
     const settings = {
       portfolioValue,
-      tradingExchange
+      tradingExchange,
+      syncMeridian: syncMeridianInput.checked
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
@@ -465,7 +559,10 @@
     displayTimezoneSelect.value = DEFAULT_TIMEZONE;
     moversCountInput.value = String(DEFAULT_MOVERS_COUNT);
     moversEnabledInput.checked = true;
+    syncMeridianInput.checked = false;
     updateMoversCountFieldState();
+    updateSyncFieldState();
+    syncMeridianHint.textContent = '';
     setStatus('Settings cleared.', 'success');
   }
 

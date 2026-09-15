@@ -542,6 +542,7 @@
   .home-card[data-page="season"] .home-icon{background:linear-gradient(135deg,#f5a623,#35e0c0);}
   .home-card[data-page="pulse"] .home-icon{background:linear-gradient(135deg,#5b8cff,#35e0c0);}
   .home-card[data-page="settings"] .home-icon{background:linear-gradient(135deg,#9aa5b8,#5b6478);}
+  .home-card[data-page="meridian"] .home-icon{background:linear-gradient(135deg,#E7B454,#9186E8);}
 </style>
 </head>
 <body>
@@ -653,6 +654,11 @@
     <div class="nav-item" data-page="sizing">
       <span class="nav-icon">🧮</span>
       <span class="nav-label">Position Sizing<small>Risk-based quantity calculator</small></span>
+    </div>
+
+    <div class="nav-item" data-page="meridian">
+      <span class="nav-icon">🧭</span>
+      <span class="nav-label">Meridian<small>Portfolio & wallet manager</small></span>
     </div>
     </div>
 
@@ -806,6 +812,10 @@
                 <span class="home-icon">⚙️</span>
                 <span><span class="home-title">Trading Settings</span><span class="home-desc">Portfolio, exchange & YouTube channels</span></span>
               </button>
+              <button class="home-card" type="button" data-page="meridian">
+                <span class="home-icon">🧭</span>
+                <span><span class="home-title">Meridian</span><span class="home-desc">Portfolio & wallet manager</span></span>
+              </button>
             </div>
           </div>
         </div>
@@ -900,6 +910,11 @@
       <div class="page-loading" id="loading-settings">Loading settings…</div>
       <iframe id="iframe-settings" data-src="trading-settings.html"></iframe>
     </div>
+    <div class="page" data-page="meridian">
+      <div class="page-loading" id="loading-meridian">Loading Meridian…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-meridian" data-src="portfolio.html"></iframe>
+    </div>
   </div>
 </div>
 
@@ -923,7 +938,8 @@ const PAGE_TITLES = {
   'fear-greed': 'Fear & Greed Index',
   'btc-returns': 'Bitcoin Returns',
   season: 'Season Index',
-  settings: 'Trading Settings'
+  settings: 'Trading Settings',
+  meridian: 'Meridian'
 };
 
 const hamburgerBtn = document.getElementById('hamburgerBtn');
