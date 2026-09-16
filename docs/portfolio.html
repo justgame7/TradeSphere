@@ -159,6 +159,49 @@ a{color:inherit;}
 .alloc-foot b{font-family:'IBM Plex Mono', monospace; color:var(--text-dim); font-weight:600;}
 .legend-sub{font-size:10.5px; color:var(--text-faint); font-family:'IBM Plex Mono', monospace;}
 
+/* Allocation card controls: mode + chart-style toggle, expand button */
+.alloc-controls{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+.alloc-controls .toggle-group{margin-bottom:0;}
+.alloc-controls #allocMode{flex:1 1 auto; min-width:0;}
+.mini-toggle{flex:0 0 auto;}
+.mini-toggle button{padding:6px 9px; display:flex; align-items:center; justify-content:center;}
+.mini-toggle svg{width:14px; height:14px; display:block;}
+.expand-btn{
+  width:28px; height:28px; flex:0 0 auto; border-radius:8px; border:1px solid var(--border);
+  background:var(--panel-2); color:var(--text-dim); display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:background .15s var(--ease), color .15s var(--ease), transform .15s var(--ease);
+}
+.expand-btn:hover{background:var(--panel-hover); color:var(--text);}
+.expand-btn:active{transform:scale(.92);}
+.expand-btn svg{width:14px; height:14px;}
+
+/* Allocation bar-chart rows (compact, in-card) */
+.alloc-bar-rows{display:none; flex-direction:column; gap:9px; margin-top:14px;}
+.bar-row{display:flex; align-items:center; gap:10px;}
+.bar-row-label{width:56px; flex:0 0 auto; font-size:11.5px; font-weight:600; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.bar-row-label .legend-sub{margin-left:3px;}
+.bar-track{flex:1; height:8px; border-radius:6px; background:var(--panel-2); overflow:hidden; min-width:0;}
+.bar-fill{height:100%; border-radius:6px; transition:width .3s var(--ease); min-width:2px;}
+.bar-row-val{flex:0 0 auto; min-width:72px; text-align:right; font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:11.5px; color:var(--text);}
+
+/* Allocation expand modal */
+.modal-wide{max-width:460px;}
+@media (min-width:600px){ .modal-wide{max-width:560px;} }
+.expand-total{font-size:12.5px; color:var(--text-faint); line-height:1.6; margin-bottom:14px;}
+.expand-total b{font-family:'IBM Plex Mono', monospace; color:var(--text-dim); font-weight:600;}
+.expand-style-toggle{margin-bottom:14px;}
+.expand-style-toggle button{padding:7px 6px; font-size:11px;}
+.expand-chart-area{max-height:56vh; overflow-y:auto; overflow-x:auto; padding-right:14px;}
+.expand-chart-area .alloc-bar-rows{display:flex; margin-top:0;}
+.expand-chart-area .bar-row-label{width:66px;}
+.vbar-axis{fill:var(--text-faint); font-size:9px; font-family:'IBM Plex Mono', monospace;}
+.alloc-table{width:100%; border-collapse:collapse; font-size:12px;}
+.alloc-table th{text-align:right; font-size:10.5px; color:var(--text-faint); font-weight:600; padding:0 0 8px; border-bottom:1px solid var(--border-soft);}
+.alloc-table th:first-child, .alloc-table td:first-child{text-align:left;}
+.alloc-table td{padding:8px 0; border-bottom:1px solid var(--border-soft); font-family:'IBM Plex Mono', monospace; text-align:right;}
+.alloc-table td:first-child{font-family:'Public Sans', sans-serif; font-weight:600; color:var(--text);}
+.alloc-table tr:last-child td{border-bottom:none;}
+
 /* Realized P&L performance card */
 .card-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px;}
 .perf-total{font-family:'Fraunces', serif; font-size:22px; font-weight:600; line-height:1;}
@@ -241,7 +284,7 @@ a{color:inherit;}
 .history-head{display:flex; align-items:center; justify-content:space-between; cursor:pointer;}
 .history-head .chevron{width:16px;height:16px;}
 .history-body{max-height:0; overflow:hidden; transition:max-height .3s var(--ease);}
-.history-card.expanded .history-body{max-height:2000px;}
+.history-card.expanded .history-body{max-height:560px; overflow-y:auto; overscroll-behavior:contain;}
 .history-card.expanded .history-head .chevron{transform:rotate(180deg);}
 .history-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-top:1px solid var(--border-soft);}
 .history-row:first-child{border-top:none;}
@@ -508,15 +551,29 @@ a{color:inherit;}
       <div class="card full">
         <div class="card-head" style="align-items:center">
           <p class="card-label" style="margin:0">Crypto allocation</p>
+          <button class="expand-btn" id="btnAllocExpand" aria-label="Expand — view all coins" title="View all coins">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+          </button>
         </div>
-        <div class="toggle-group toggle-group-sm" id="allocMode">
-          <button type="button" data-mode="current" class="active">Current</button>
-          <button type="button" data-mode="closed">Closed / completed</button>
+        <div class="alloc-controls">
+          <div class="toggle-group toggle-group-sm" id="allocMode">
+            <button type="button" data-mode="current" class="active">Current</button>
+            <button type="button" data-mode="closed">Closed / completed</button>
+          </div>
+          <div class="toggle-group toggle-group-sm mini-toggle" id="allocChartStyle">
+            <button type="button" data-style="bar" class="active" aria-label="Bar chart" title="Bar chart">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 20V10"/><path d="M12 20V4"/><path d="M18 20v-7"/></svg>
+            </button>
+            <button type="button" data-style="donut" aria-label="Donut chart" title="Donut chart">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.6"/></svg>
+            </button>
+          </div>
         </div>
-        <div class="donut-row">
+        <div class="donut-row" id="donutRow">
           <div id="donutWrap"></div>
           <div class="donut-legend" id="ovLegend"></div>
         </div>
+        <div class="alloc-bar-rows" id="allocBarWrap"></div>
         <div class="alloc-foot" id="allocFoot"></div>
       </div>
     </div>
@@ -657,6 +714,22 @@ a{color:inherit;}
       <button class="modal-close" data-close>&times;</button>
     </div>
     <div id="editHistoryModalBody"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAllocExpand">
+  <div class="modal modal-wide">
+    <div class="modal-handle"></div>
+    <div class="modal-head">
+      <div class="modal-title" id="expandModalTitle">All coins</div>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div class="expand-total" id="expandTotal"></div>
+    <div class="toggle-group toggle-group-sm expand-style-toggle" id="expandChartStyle">
+      <button type="button" data-style="hbar" class="active">Horizontal bars</button>
+      <button type="button" data-style="list">List</button>
+    </div>
+    <div class="expand-chart-area" id="expandChartArea"></div>
   </div>
 </div>
 
@@ -1241,12 +1314,14 @@ function drawPerfChart(buckets, trades, prefix){
    one. The two answer different questions and are never summed together.
    =========================================================================== */
 let allocMode = 'current';
-const ALLOC_TOP_N = 6;
+let allocChartStyle = 'bar';    // 'bar' | 'donut' — in-card representation, bar is default
+let allocExpandStyle = 'hbar';  // 'hbar' | 'list' — layout used in the "all coins" expand modal
+const ALLOC_TOP_N_DONUT = 6;
+const ALLOC_TOP_N_BAR = 8;
 
 function cryptoAllocRows(mode){
   const map = new Map();
   const add = (symbol, value, pnl)=>{
-    if(!(value > 0)) return;
     const e = map.get(symbol) || { symbol, value:0, trades:0, pnl:0 };
     e.value += value; e.trades += 1; e.pnl += pnl;
     map.set(symbol, e);
@@ -1254,16 +1329,66 @@ function cryptoAllocRows(mode){
   if(mode === 'closed'){
     // Cost basis of each closed leg: quantity sold x the average cost it was
     // carried at. Absolute value so shorts count as deployed capital too.
+    // Trades imported without qty/avgCost (e.g. exchange P&L exports) still
+    // count here — the closed-mode chart sizes slices by pnl, not by value,
+    // so a $0 cost basis shouldn't drop the trade from the breakdown.
     (state.markets.crypto.realized || []).forEach(r=>{
       add(r.symbol, Math.abs((r.qty || 0) * (r.avgCost || 0)), r.pnl || 0);
     });
   }else{
     state.markets.crypto.holdings.forEach(h=>{
       const c = computeHolding(h);
+      if(!(c.currentValue > 0)) return;
       add(h.symbol, c.currentValue, c.pnl);
     });
   }
-  return Array.from(map.values()).sort((a,b)=>b.value - a.value);
+  const list = Array.from(map.values());
+  return mode === 'closed'
+    ? list.sort((a,b)=>Math.abs(b.pnl) - Math.abs(a.pnl))
+    : list.sort((a,b)=>b.value - a.value);
+}
+
+// Turns raw allocation rows into display segments, optionally folding
+// everything past topN into a single "Other" segment. Pass topN=null to
+// keep every row (used by the "view all coins" expand modal).
+function buildAllocItems(rows, mode, topN){
+  const metric = r => mode === 'closed' ? Math.abs(r.pnl) : r.value;
+  const mapRow = r => ({
+    label:r.symbol, value:metric(r), trades:r.trades, pnl:r.pnl,
+    color: mode === 'closed'
+      ? (r.pnl >= 0 ? '#4ED8B0' : '#F2697A')
+      : `hsl(${hueForSymbol(r.symbol)} 68% 64%)`
+  });
+  if(topN == null || rows.length <= topN) return rows.map(mapRow);
+  const top = rows.slice(0, topN).map(mapRow);
+  const rest = rows.slice(topN);
+  const restPnl = rest.reduce((s,x)=>s+x.pnl,0);
+  top.push({
+    label:'Other',
+    color: mode === 'closed' ? (restPnl >= 0 ? '#4ED8B0' : '#F2697A') : '#4A4468',
+    value: mode === 'closed' ? Math.abs(restPnl) : rest.reduce((s,x)=>s+x.value,0),
+    trades: rest.reduce((s,x)=>s+x.trades,0),
+    pnl: restPnl
+  });
+  return top;
+}
+
+// Compact horizontal bar rows shared by the in-card bar view and the
+// "view all coins" expand modal's horizontal-bar layout.
+function renderAllocBarRows(items, mode, prefix){
+  if(!items.length) return '';
+  const max = Math.max(...items.map(s=>s.value), 0.0001);
+  return items.map(s=>{
+    const pct = Math.max(1, (s.value/max)*100);
+    const valTxt = mode === 'closed'
+      ? (s.pnl >= 0 ? '+' : '') + fmtMoney(toDisplay(s.pnl, 'crypto'), prefix)
+      : fmtMoney(toDisplay(s.value, 'crypto'), prefix);
+    return `<div class="bar-row">
+      <div class="bar-row-label" title="${escapeHtml(s.label)}">${escapeHtml(s.label)}${mode === 'closed' && s.trades ? `<span class="legend-sub">${s.trades}x</span>` : ''}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct.toFixed(1)}%; background:${s.color}"></div></div>
+      <div class="bar-row-val" style="${mode === 'closed' ? `color:${s.pnl >= 0 ? 'var(--mint)' : 'var(--coral)'}` : ''}">${valTxt}</div>
+    </div>`;
+  }).join('');
 }
 
 function renderAllocation(){
@@ -1271,28 +1396,28 @@ function renderAllocation(){
   document.querySelectorAll('#allocMode button').forEach(b=>{
     b.classList.toggle('active', b.dataset.mode === allocMode);
   });
+  document.querySelectorAll('#allocChartStyle button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.style === allocChartStyle);
+  });
 
   const rows = cryptoAllocRows(allocMode);
-  const total = rows.reduce((s,x)=>s + x.value, 0);
-  const segs = rows.slice(0, ALLOC_TOP_N).map(r=>({
-    label:r.symbol, value:r.value, trades:r.trades, pnl:r.pnl,
-    color:`hsl(${hueForSymbol(r.symbol)} 68% 64%)`
-  }));
-  if(rows.length > ALLOC_TOP_N){
-    const rest = rows.slice(ALLOC_TOP_N);
-    segs.push({
-      label:'Other', color:'#4A4468',
-      value: rest.reduce((s,x)=>s+x.value,0),
-      trades: rest.reduce((s,x)=>s+x.trades,0),
-      pnl: rest.reduce((s,x)=>s+x.pnl,0)
-    });
-  }
+  // "Current" sizes each slice by exposure; "closed" sizes it by how much
+  // P&L that coin swung (magnitude, since a donut slice can't go negative),
+  // colored green/red by the sign of that swing.
+  const metric = r => allocMode === 'closed' ? Math.abs(r.pnl) : r.value;
+  const total = rows.reduce((s,x)=>s + metric(x), 0);
+  const topN = allocChartStyle === 'donut' ? ALLOC_TOP_N_DONUT : ALLOC_TOP_N_BAR;
+  const segs = buildAllocItems(rows, allocMode, topN);
 
-  document.getElementById('donutWrap').innerHTML = renderDonut(segs.map(s=>({ value:s.value, color:s.color })));
+  const donutRow = document.getElementById('donutRow');
+  const barWrap = document.getElementById('allocBarWrap');
   const legend = document.getElementById('ovLegend');
   const foot = document.getElementById('allocFoot');
 
   if(!segs.length){
+    donutRow.style.display = 'flex';
+    barWrap.style.display = 'none';
+    document.getElementById('donutWrap').innerHTML = renderDonut([]);
     legend.innerHTML = `<div style="font-size:12.5px;color:var(--text-faint)">${
       allocMode === 'closed'
         ? 'No closed crypto trades yet — completed positions break down here once you book one.'
@@ -1302,21 +1427,135 @@ function renderAllocation(){
     return;
   }
 
-  legend.innerHTML = segs.map(s=>`
-    <div class="legend-item">
-      <span class="legend-key">
-        <span class="legend-swatch" style="background:${s.color}"></span>${escapeHtml(s.label)}
-        ${allocMode === 'closed' ? `<span class="legend-sub">${s.trades}x</span>` : ''}
-      </span>
-      <span class="legend-val">${((s.value/total)*100).toFixed(1)}%</span>
-    </div>`).join('');
+  if(allocChartStyle === 'donut'){
+    donutRow.style.display = 'flex';
+    barWrap.style.display = 'none';
+    document.getElementById('donutWrap').innerHTML = renderDonut(segs.map(s=>({ value:s.value, color:s.color })));
+    legend.innerHTML = segs.map(s=>`
+      <div class="legend-item">
+        <span class="legend-key">
+          <span class="legend-swatch" style="background:${s.color}"></span>${escapeHtml(s.label)}
+        </span>
+        <span class="legend-val" style="${allocMode === 'closed' ? `color:${s.pnl >= 0 ? 'var(--mint)' : 'var(--coral)'}` : ''}">${
+          allocMode === 'closed'
+            ? (s.pnl >= 0 ? '+' : '') + fmtMoney(toDisplay(s.pnl, 'crypto'), prefix)
+            : ((s.value/total)*100).toFixed(1)+'%'
+        }</span>
+      </div>`).join('');
+  }else{
+    donutRow.style.display = 'none';
+    barWrap.style.display = 'flex';
+    barWrap.innerHTML = renderAllocBarRows(segs, allocMode, prefix);
+  }
 
-  const totalDisp = fmtMoney(toDisplay(total, 'crypto'), prefix);
   const pnlSum = segs.reduce((s,x)=>s + x.pnl, 0);
   const pnlDisp = (pnlSum >= 0 ? '+' : '') + fmtMoney(toDisplay(pnlSum, 'crypto'), prefix);
-  foot.innerHTML = allocMode === 'closed'
-    ? `Cumulative capital deployed across closed trades <b>${totalDisp}</b> · realized <b class="${pnlClass(pnlSum)}">${pnlDisp}</b>`
-    : `Live position value across open positions <b>${totalDisp}</b> · unrealized <b class="${pnlClass(pnlSum)}">${pnlDisp}</b>`;
+  if(allocMode === 'closed'){
+    foot.innerHTML = `Realized <b class="${pnlClass(pnlSum)}">${pnlDisp}</b>`;
+  }else{
+    const totalDisp = fmtMoney(toDisplay(total, 'crypto'), prefix);
+    foot.innerHTML = `Live position value across open positions <b>${totalDisp}</b> · unrealized <b class="${pnlClass(pnlSum)}">${pnlDisp}</b>`;
+  }
+}
+
+/* --------------------------- allocation "view all coins" expand modal --------------------------- */
+function openAllocExpand(){
+  document.getElementById('modalAllocExpand').classList.add('open');
+  renderAllocExpand();
+}
+
+function renderAllocExpand(){
+  const prefix = state.settings.displayCurrency === 'INR' ? '₹' : '$';
+  document.getElementById('expandModalTitle').textContent =
+    allocMode === 'closed' ? 'All coins — closed P&L' : 'All coins — current exposure';
+  document.querySelectorAll('#expandChartStyle button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.style === allocExpandStyle);
+  });
+
+  const rows = cryptoAllocRows(allocMode);
+  const totalEl = document.getElementById('expandTotal');
+  const area = document.getElementById('expandChartArea');
+
+  if(!rows.length){
+    totalEl.textContent = '';
+    area.innerHTML = `<div style="font-size:12.5px;color:var(--text-faint);padding:8px 0 4px;">${
+      allocMode === 'closed'
+        ? 'No closed crypto trades yet — completed positions break down here once you book one.'
+        : 'No open crypto positions — add one to see today’s exposure.'
+    }</div>`;
+    return;
+  }
+
+  const totalPnl = rows.reduce((s,x)=>s+x.pnl,0);
+  const totalVal = rows.reduce((s,x)=>s+x.value,0);
+  const pnlDisp = (totalPnl >= 0 ? '+' : '') + fmtMoney(toDisplay(totalPnl, 'crypto'), prefix);
+  const valDisp = fmtMoney(toDisplay(totalVal, 'crypto'), prefix);
+  totalEl.innerHTML = allocMode === 'closed'
+    ? `Total realized <b class="${pnlClass(totalPnl)}">${pnlDisp}</b> across <b>${rows.length}</b> coin${rows.length===1?'':'s'}`
+    : `Live value <b>${valDisp}</b> · unrealized <b class="${pnlClass(totalPnl)}">${pnlDisp}</b> across <b>${rows.length}</b> coin${rows.length===1?'':'s'}`;
+
+  const items = buildAllocItems(rows, allocMode, null); // every coin, nothing folded into "Other"
+
+  if(allocExpandStyle === 'vbar'){
+    area.innerHTML = drawAllocVBarChart(items, allocMode, prefix);
+  }else if(allocExpandStyle === 'hbar'){
+    area.innerHTML = `<div class="alloc-bar-rows">${renderAllocBarRows(items, allocMode, prefix)}</div>`;
+  }else{
+    area.innerHTML = renderAllocListTable(items, allocMode, prefix);
+  }
+}
+
+// Full vertical bar chart across every coin — bars grow from a zero baseline,
+// scrolls horizontally past a comfortable per-bar width instead of squeezing.
+function drawAllocVBarChart(items, mode, prefix){
+  const n = items.length;
+  const barW = 22, gap = 16, padL = 8, padR = 8, padTop = 10, plotH = 190, padBottom = 34;
+  const innerW = n * barW + (n - 1) * gap;
+  const chartW = Math.max(innerW + padL + padR, 260);
+  const values = items.map(s => mode === 'closed' ? s.pnl : s.value);
+  const maxV = Math.max(...values, 0);
+  const minV = mode === 'closed' ? Math.min(...values, 0) : 0;
+  const span = (maxV - minV) || 1;
+  const yFor = v => padTop + plotH - ((v - minV) / span) * plotH;
+  const zeroY = yFor(0);
+
+  const bars = items.map((s,i)=>{
+    const v = values[i];
+    const x = padL + i * (barW + gap);
+    const yv = yFor(v);
+    const top = Math.min(yv, zeroY);
+    const h = Math.max(1.5, Math.abs(yv - zeroY));
+    const valTxt = mode === 'closed'
+      ? (s.pnl >= 0 ? '+' : '') + fmtMoney(toDisplay(s.pnl, 'crypto'), prefix)
+      : fmtMoney(toDisplay(s.value, 'crypto'), prefix);
+    return `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" rx="4" fill="${s.color}" opacity=".9"><title>${escapeHtml(s.label)} · ${valTxt}</title></rect>`
+      + `<text x="${(x+barW/2).toFixed(1)}" y="${(padTop+plotH+13).toFixed(1)}" text-anchor="middle" class="vbar-axis">${escapeHtml((s.label||'').replace('USDT','').slice(0,5))}</text>`;
+  }).join('');
+
+  const totalH = padTop + plotH + padBottom;
+  return `<svg width="${chartW}" height="${totalH}" viewBox="0 0 ${chartW} ${totalH}" role="img" aria-label="Cumulative profit and loss by coin">
+    <line x1="0" y1="${zeroY.toFixed(1)}" x2="${chartW}" y2="${zeroY.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
+    ${bars}
+  </svg>`;
+}
+
+// Plain sortable-by-eye table: one row per coin, values right-aligned.
+function renderAllocListTable(items, mode, prefix){
+  const rows = items.map(s=>{
+    const valTxt = mode === 'closed'
+      ? (s.pnl >= 0 ? '+' : '') + fmtMoney(toDisplay(s.pnl, 'crypto'), prefix)
+      : fmtMoney(toDisplay(s.value, 'crypto'), prefix);
+    const color = mode === 'closed' ? (s.pnl >= 0 ? 'var(--mint)' : 'var(--coral)') : 'var(--text)';
+    return `<tr>
+      <td>${escapeHtml(s.label)}</td>
+      <td>${s.trades || 0}</td>
+      <td style="color:${color}">${valTxt}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="alloc-table">
+    <thead><tr><th>Coin</th><th>Trades</th><th>${mode === 'closed' ? 'Realized P&L' : 'Value'}</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 function renderDonut(segs){
@@ -2394,6 +2633,17 @@ document.getElementById('allocMode').addEventListener('click', (e)=>{
   const btn = e.target.closest('button'); if(!btn) return;
   allocMode = btn.dataset.mode;
   renderAllocation();
+});
+document.getElementById('allocChartStyle').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  allocChartStyle = btn.dataset.style;
+  renderAllocation();
+});
+document.getElementById('btnAllocExpand').addEventListener('click', openAllocExpand);
+document.getElementById('expandChartStyle').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  allocExpandStyle = btn.dataset.style;
+  renderAllocExpand();
 });
 // The chart is drawn at the container's measured width, so a viewport change
 // (rotation, desktop resize) needs a redraw rather than a CSS rescale.
