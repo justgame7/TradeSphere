@@ -420,6 +420,9 @@
   .price-action-link:hover{background:rgba(53,224,192,.16);border-color:var(--accent);}
   .decision-price-action{display:block;width:100%;margin:12px 0 0;text-align:center;}
   .screen-match-link{text-align:center;margin-top:8px;}
+  /* Opens the same full technical breakdown the Coin Lookup search shows,
+     for whichever symbol the analysis modal is currently on. */
+  .tech-breakdown-link{text-align:center;margin-top:8px;}
   .analysis-dialog{width:min(1100px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:0 22px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
   /* .analysis-dialog itself is the scrolling container (overflow:auto), so the
      sticky header pins relative to IT, not the page - stays visible while
@@ -1237,6 +1240,7 @@
     <div class="chart-wrap"><canvas id="analysisChart"></canvas></div>
     <button type="button" class="price-action-link decision-price-action" onclick="openPriceAction(event)">Price action & ICT analysis →</button>
     <button type="button" class="price-action-link screen-match-link" onclick="Scanner.openScreenMatch(event)">Custom screens matched →</button>
+    <button type="button" class="price-action-link tech-breakdown-link" onclick="openTechBreakdown(event)">Technical breakdown →</button>
     <div id="analysisDetails"></div>
   </div>
 </div>
@@ -3454,6 +3458,20 @@ function openPriceAction(event){
 function closePriceAction(event){
   if(event && event.target !== document.getElementById('priceActionModal')) return;
   document.getElementById('priceActionModal').classList.remove('open');
+}
+
+// "Technical breakdown" link in the analysis window - opens the same full
+// value breakdown the Coin Lookup search shows on the Custom Screens tab,
+// for whichever symbol the analysis window is currently on. The overlay sits
+// above this modal (z-index 50 vs 11), so closing it returns here.
+// The breakdown opens on the timeframe the row was screened on (4H or 1D)
+// rather than always defaulting to daily; anything else falls back to daily.
+function openTechBreakdown(event){
+  if(event) event.stopPropagation();
+  const symbol = currentExchangeSymbol;
+  if(!symbol || !window.TechAnalysis) return;
+  const tf = (currentAnalysisInterval === '4h' || currentAnalysisInterval === '1w') ? currentAnalysisInterval : '1d';
+  window.TechAnalysis.openSymbol(symbol, tf);
 }
 
 // Levels-card link: closes the Daily analysis window and reopens the same
@@ -6400,15 +6418,21 @@ function open(){
 }
 /* Entry point for anything outside the lookup box — the 🔎 button on each scan
    result row hands the symbol straight in, no typing. */
-function openSymbol(raw){
+function openSymbol(raw, tf){
   const symbol = normalizeSymbol(raw);
   if(!symbol) return;
   const input = el('taCoinSearchInput');
   if(input) input.value = symbol.replace(/USDT$/,'');
-  openFor(symbol);
+  openFor(symbol, tf);
 }
-function openFor(symbol){
-  if(symbol !== currentSymbol){        // a fresh coin always opens on the daily
+/* tfWanted is optional. The Cloud Breakout analysis window passes the
+   timeframe its row was screened on so the breakdown matches what's on
+   screen; without it a fresh coin still opens on the daily. */
+function openFor(symbol, tfWanted){
+  if(tfWanted && BYBIT_TF[tfWanted]){
+    currentTf = tfWanted;
+    document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===currentTf));
+  } else if(symbol !== currentSymbol){  // a fresh coin always opens on the daily
     currentTf = '1d';
     document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf==='1d'));
   }
