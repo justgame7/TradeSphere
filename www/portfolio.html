@@ -485,7 +485,7 @@ a{color:inherit;}
         <div class="card-head">
           <div>
             <p class="card-label" style="margin:0">Realized P&amp;L</p>
-            <div class="perf-meta" style="margin:2px 0 0">Closed trades only</div>
+            <div class="perf-meta" style="margin:2px 0 0">Closed trades only — open positions excluded</div>
           </div>
           <div class="perf-total" id="perfTotal">$0</div>
         </div>
@@ -1101,6 +1101,12 @@ function niceStep(range){
   const mult = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
   return mult*mag;
 }
+// Short "+120" / "-1.2k" style label for per-bar P&L callouts — same
+// abbreviation rules as axisNum, with an explicit sign and currency prefix.
+function axisSigned(v, prefix){
+  const sign = v > 0 ? '+' : (v < 0 ? '-' : '');
+  return sign + prefix + axisNum(Math.abs(v));
+}
 function axisNum(v){
   const a = Math.abs(v);
   if(a >= 1e6) return (v/1e6).toFixed(a >= 1e7 ? 0 : 1)+'M';
@@ -1145,10 +1151,10 @@ function renderPerfCard(){
     ? `No trades closed in the last ${perfRange} days`
     : `${trades} closed trade${trades===1?'':'s'} · ${shortDate(from, yr)} – ${shortDate(buckets[buckets.length-1].to - DAY_MS, yr)} · ${grain} bars`;
 
-  drawPerfChart(buckets, trades);
+  drawPerfChart(buckets, trades, prefix);
 }
 
-function drawPerfChart(buckets, trades){
+function drawPerfChart(buckets, trades, prefix){
   const host = document.getElementById('perfChart');
   if(!host) return;
   if(trades === 0){
@@ -1164,7 +1170,10 @@ function drawPerfChart(buckets, trades){
   const fallback = appEl ? appEl.clientWidth - 64 : 320;
   const w = Math.max(260, Math.floor(host.clientWidth || fallback || 320));
   const h = 210;
-  const padL = 46, padR = 12, padT = 12, padB = 26;
+  // The 7d view prints each bar's amount above/below it, so it gets extra
+  // top/bottom breathing room the other ranges don't need.
+  const showBarLabels = perfRange === 7;
+  const padL = 46, padR = 12, padT = showBarLabels ? 26 : 12, padB = showBarLabels ? 34 : 26;
   const plotW = w - padL - padR, plotH = h - padT - padB;
 
   const all = buckets.map(b=>b.pnl).concat([0]);
@@ -1195,11 +1204,32 @@ function drawPerfChart(buckets, trades){
     return `<rect x="${(cx(i)-barW/2).toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${hgt.toFixed(1)}" rx="${Math.min(3, barW/2).toFixed(1)}" fill="${b.pnl >= 0 ? '#4ED8B0' : '#F2697A'}" opacity=".85"><title>${shortDate(b.from)} · ${b.trades} trade${b.trades===1?'':'s'}</title></rect>`;
   }).join('');
 
+  let valueLabels = '';
+  if(showBarLabels){
+    // Size the font off the widest label so it's guaranteed to fit within
+    // one bar's slot (bw) even on a narrow phone screen — that's what keeps
+    // neighboring labels from touching, since each is centered on its own
+    // bar and never wider than the slot it's centered in.
+    const texts = buckets.map(b => Math.abs(b.pnl) < 1e-9 ? '' : axisSigned(b.pnl, prefix));
+    const maxChars = texts.reduce((m,t)=>Math.max(m, t.length), 0);
+    const fontSize = maxChars > 0
+      ? Math.min(10.5, Math.max(7, (bw*0.9)/(maxChars*0.62)))
+      : 9;
+    valueLabels = buckets.map((b,i)=>{
+      if(Math.abs(b.pnl) < 1e-9) return '';
+      const y0 = y(0), y1 = y(b.pnl);
+      const top = Math.min(y0,y1), bottom = Math.max(y0,y1);
+      const positive = b.pnl >= 0;
+      const ly = positive ? Math.max(padT - 8, top - 6) : Math.min(h - padB + 20, bottom + 12);
+      return `<text x="${cx(i).toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="${fontSize.toFixed(1)}" font-family="'IBM Plex Mono', monospace" font-weight="600" fill="${positive ? '#4ED8B0' : '#F2697A'}">${texts[i]}</text>`;
+    }).join('');
+  }
+
   const yr = perfRange >= 180;
   const xLabels = `<text x="${padL}" y="${h-7}" class="pc-axis">${shortDate(buckets[0].from, yr)}</text>`
                 + `<text x="${w-padR}" y="${h-7}" text-anchor="end" class="pc-axis">${shortDate(buckets[buckets.length-1].to - DAY_MS, yr)}</text>`;
 
-  host.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Realized profit and loss per period">${grid}${bars}${xLabels}</svg>`;
+  host.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Realized profit and loss per period">${grid}${bars}${valueLabels}${xLabels}</svg>`;
 }
 
 /* ===========================================================================
