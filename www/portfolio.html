@@ -87,6 +87,8 @@ a{color:inherit;}
 .icon-btn svg{width:17px; height:17px;}
 .icon-btn.spinning svg{animation:spin 1s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.icon-btn.icon-btn-primary{background:linear-gradient(135deg, var(--gold-soft), var(--gold)); color:#241A05; border:none;}
+.icon-btn.icon-btn-primary:hover{filter:brightness(1.06); background:linear-gradient(135deg, var(--gold-soft), var(--gold)); color:#241A05;}
 
 /* Tabs */
 .tabs{
@@ -407,6 +409,9 @@ a{color:inherit;}
       <div class="brand-word">Meridian<span>.</span></div>
     </div>
     <div class="header-actions">
+      <button class="icon-btn icon-btn-primary" id="btnAddCoin" data-add="crypto" aria-label="Add coin" title="Add coin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
       <button class="icon-btn" id="btnRefresh" aria-label="Refresh prices" title="Refresh prices">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.3 6.4L3 16m0 5v-5h5"/></svg>
       </button>
@@ -482,9 +487,6 @@ a{color:inherit;}
   <!-- ======================= CRYPTO ======================= -->
   <section class="view active" id="view-crypto">
     <div class="stat-strip" id="cryptoStats"></div>
-    <div class="toolbar" style="justify-content:center">
-      <button class="btn btn-primary" data-add="crypto">+ Add coin</button>
-    </div>
     <div class="holdings-list" id="cryptoHoldings"></div>
     <div class="card wallet-card">
       <div class="wallet-head">
