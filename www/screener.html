@@ -888,6 +888,14 @@
 #scannerPane tbody tr:hover{background:rgba(255,255,255,0.02);}
 #scannerPane tbody tr:last-child td{border-bottom:none;}
 #scannerPane .sym-cell{display:flex;align-items:center;gap:10px;}
+  #scannerPane .sym-cell-btn{
+    background:none;border:none;padding:2px 4px 2px 2px;margin:-2px 0 -2px -4px;
+    border-radius:10px;cursor:pointer;text-align:left;font-family:inherit;color:inherit;
+    transition:background .12s;
+  }
+  #scannerPane .sym-cell-btn:hover,#scannerPane .sym-cell-btn:focus-visible{background:rgba(53,224,192,0.08);}
+  #scannerPane .sym-cell-btn:hover .sym-badge,#scannerPane .sym-cell-btn:focus-visible .sym-badge{box-shadow:0 0 0 2px var(--accent-dim);}
+  #scannerPane .sym-cell-btn:focus-visible{outline:none;}
 #scannerPane .sym-badge{width:30px;height:30px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font:700 10.5px var(--font-mono);color:#fff;}
 #scannerPane .sym-name{font-weight:700;font-size:13px;}
 #scannerPane .sym-sub{font:500 10px var(--font-mono);color:var(--faint);}
@@ -908,6 +916,7 @@
   }
 #scannerPane .icon-btn:hover{border-color:var(--border-strong);color:var(--text);}
 #scannerPane .icon-btn.added{color:var(--accent);border-color:rgba(53,224,192,0.35);}
+  #scannerPane .icon-btn.lookup{color:var(--accent);border-color:rgba(53,224,192,0.3);}
 #scannerPane .empty-state{
     text-align:center;padding:60px 20px;color:var(--faint);
   }
@@ -5162,7 +5171,7 @@ function renderTable(rows){
         <th>MACD</th>
         ${headCell('volRatio','Vol ×')}
         ${headCell('matchCount','Matched')}
-        <th>WL</th>
+        <th>Actions</th>
       </tr></thead>
       <tbody>
         ${rows.map(r => renderRow(r)).join('')}
@@ -5179,10 +5188,10 @@ function renderRow(r){
   const tvUrl = `https://www.tradingview.com/chart/?symbol=BINANCE:${r.symbol}.P`;
   const already = isInWatchlist(r.symbol);
   return `<tr>
-    <td><div class="sym-cell">
+    <td><button type="button" class="sym-cell sym-cell-btn" onclick="TechAnalysis.openSymbol('${r.symbol}')" title="Technical breakdown for ${base}">
       <div class="sym-badge" style="background:linear-gradient(135deg,${color},#151821);">${base.slice(0,4)}</div>
       <div><div class="sym-name">${base}</div><div class="sym-sub">USDT-M PERP</div></div>
-    </div></td>
+    </button></td>
     <td class="mono">${fmtPrice(r.price)}</td>
     <td class="mono ${up?'chg-pos':'chg-neg'}">${up?'+':''}${fmtNum(r.change24h,2)}%</td>
     <td>${trendBadge}</td>
@@ -6387,6 +6396,18 @@ function open(){
   const input = el('taCoinSearchInput');
   const symbol = normalizeSymbol(input.value);
   if(!symbol){ input.focus(); return; }
+  openFor(symbol);
+}
+/* Entry point for anything outside the lookup box — the 🔎 button on each scan
+   result row hands the symbol straight in, no typing. */
+function openSymbol(raw){
+  const symbol = normalizeSymbol(raw);
+  if(!symbol) return;
+  const input = el('taCoinSearchInput');
+  if(input) input.value = symbol.replace(/USDT$/,'');
+  openFor(symbol);
+}
+function openFor(symbol){
   if(symbol !== currentSymbol){        // a fresh coin always opens on the daily
     currentTf = '1d';
     document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf==='1d'));
@@ -6457,7 +6478,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-window.TechAnalysis = { open, close, setTf, refresh, copyValues, GROUPS, _compute: computeValues };
+window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, GROUPS, _compute: computeValues };
 })();
 </script>
 
