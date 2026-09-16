@@ -207,6 +207,11 @@ a{color:inherit;}
 .perf-total{font-family:'Fraunces', serif; font-size:22px; font-weight:600; line-height:1;}
 .toggle-group-sm{margin-bottom:8px; border-radius:999px; padding:3px;}
 .toggle-group-sm button{padding:6px 4px; font-size:11.5px; border-radius:999px;}
+/* Bars-view period row in the expand modal mixes day ranges with financial
+   years, which can run to 9 buttons — too many for a single pill row, so it
+   wraps onto a second line with squared segments instead. */
+.expand-period-toggle{flex-wrap:wrap; row-gap:6px; border-radius:12px;}
+.expand-period-toggle button{flex:0 0 auto; border-radius:8px; padding:6px 10px;}
 .perf-meta{font-size:11.5px; color:var(--text-faint); margin-bottom:6px;}
 .perf-chart{width:100%; overflow:hidden;}
 .perf-chart svg{display:block;}
@@ -501,17 +506,6 @@ a{color:inherit;}
         </div>
       </div>
 
-      <div class="card stat-card">
-        <p class="card-label">Total P&amp;L</p>
-        <div class="stat-value" id="ovPnlPct">0.0%</div>
-        <div class="stat-sub" id="ovPnlAbs">$0 all-time</div>
-      </div>
-      <div class="card stat-card">
-        <p class="card-label">Crypto 24h</p>
-        <div class="stat-value" id="ovDayChange">0.0%</div>
-        <div class="stat-sub" id="ovDayChangeAbs">on live holdings</div>
-      </div>
-
       <div class="card wallet-card full">
         <div class="wallet-head">
           <p class="card-label" style="margin:0">Wallet</p>
@@ -530,15 +524,18 @@ a{color:inherit;}
             <p class="card-label" style="margin:0">Realized P&amp;L</p>
             <div class="perf-meta" style="margin:2px 0 0">Closed trades only</div>
           </div>
-          <div class="perf-total" id="perfTotal">$0</div>
+          <div style="display:flex; align-items:center; gap:8px">
+            <div class="perf-total" id="perfTotal">$0</div>
+            <button class="expand-btn" id="btnPerfExpand" aria-label="Expand — performance over time" title="Expand">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+            </button>
+          </div>
         </div>
         <div class="toggle-group toggle-group-sm" id="perfRange">
           <button type="button" data-range="7" class="active">7d</button>
           <button type="button" data-range="30">30d</button>
-          <button type="button" data-range="60">60d</button>
           <button type="button" data-range="90">90d</button>
           <button type="button" data-range="180">180d</button>
-          <button type="button" data-range="360">360d</button>
         </div>
         <div class="perf-meta" id="perfMeta">—</div>
         <div class="perf-chart" id="perfChart"></div>
@@ -730,6 +727,24 @@ a{color:inherit;}
       <button type="button" data-style="list">List</button>
     </div>
     <div class="expand-chart-area" id="expandChartArea"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalPerfExpand">
+  <div class="modal modal-wide">
+    <div class="modal-handle"></div>
+    <div class="modal-head">
+      <div class="modal-title">Realized P&amp;L over time</div>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div class="toggle-group toggle-group-sm expand-style-toggle" id="perfExpandStyle">
+      <button type="button" data-style="bars" class="active">Bars</button>
+      <button type="button" data-style="line">Line (financial year)</button>
+    </div>
+    <div class="toggle-group toggle-group-sm expand-period-toggle" id="perfExpandBarsPeriod" style="margin-top:8px; display:none"></div>
+    <div class="toggle-group toggle-group-sm" id="perfExpandFY" style="margin-top:8px; display:none"></div>
+    <div class="perf-meta" id="perfExpandMeta" style="margin-top:8px">—</div>
+    <div class="expand-chart-area" id="perfExpandChartArea"></div>
   </div>
 </div>
 
@@ -1100,27 +1115,6 @@ function renderOverview(){
   pnlEl.textContent = (totalPnl>=0?'+':'') + fmtCompact(totalPnl, prefix);
   pnlEl.className = pnlClass(totalPnl);
 
-  const pctEl = document.getElementById('ovPnlPct');
-  pctEl.textContent = fmtPct(totalPnlPct);
-  pctEl.className = 'stat-value ' + pnlClass(totalPnlPct);
-  document.getElementById('ovPnlAbs').textContent = fmtCompact(totalPnl, prefix) + ' all-time';
-
-  // crypto 24h aggregate (only market with live day-change data)
-  let dayChangeValue = 0, cryptoVal = 0;
-  state.markets.crypto.holdings.forEach(h=>{
-    const c = computeHolding(h);
-    cryptoVal += c.currentValue;
-    // A price rise helps a long but hurts a short, so flip the sign for shorts.
-    if(h.change24h != null) dayChangeValue += c.currentValue * ((c.side==='short'?-h.change24h:h.change24h)/100);
-  });
-  const dayChangePct = cryptoVal > 0 ? (dayChangeValue/cryptoVal)*100 : 0;
-  const dcEl = document.getElementById('ovDayChange');
-  dcEl.textContent = state.markets.crypto.holdings.length ? fmtPct(dayChangePct) : '—';
-  dcEl.className = 'stat-value ' + pnlClass(dayChangePct);
-  document.getElementById('ovDayChangeAbs').textContent = state.markets.crypto.holdings.length
-    ? fmtCompact(toDisplay(dayChangeValue,'crypto'), prefix) + ' today'
-    : 'add crypto to track';
-
   renderPerfCard();
   renderAllocation();
 }
@@ -1164,6 +1158,23 @@ function buildBuckets(days){
   return out;
 }
 
+// Calendar-month buckets aligned to a financial year (1 Apr - 31 Mar), used
+// by the bars view when a financial year is picked instead of a rolling day
+// window. Stops adding a month once it hasn't started yet, so an in-progress
+// FY doesn't reserve empty bars for months still to come.
+function buildFYBuckets(fyStartYear){
+  const { end } = fyBounds(fyStartYear);
+  const domainEnd = Math.min(Date.now(), end);
+  const out = [];
+  for(let m = 0; m < 12; m++){
+    const from = new Date(fyStartYear, 3 + m, 1).getTime();
+    if(from >= domainEnd) break;
+    const to = new Date(fyStartYear, 3 + m + 1, 1).getTime();
+    out.push({ from, to, pnl:0, trades:0 });
+  }
+  return out;
+}
+
 // Round a raw axis interval up to a 1/2/2.5/5/10 x 10^n step so gridline
 // labels land on readable numbers instead of things like 137.42.
 function niceStep(range){
@@ -1187,6 +1198,16 @@ function axisNum(v){
   if(a >= 100) return v.toFixed(0);
   if(a >= 1)   return v.toFixed(1);
   return v === 0 ? '0' : v.toFixed(2);
+}
+// Human label for one bar's period, used by the hover tooltip — a single
+// date for daily bars, a range for weekly, and just the month for the
+// ~30-day buckets (rolling 30-day windows and FY-aligned calendar months
+// both land here, so it reads as "Apr 2026" either way).
+function bucketLabel(b, withYear){
+  const days = Math.round((b.to - b.from)/DAY_MS);
+  if(days <= 1) return shortDate(b.from, withYear);
+  if(days <= 10) return `${shortDate(b.from, withYear)} – ${shortDate(b.to - DAY_MS, withYear)}`;
+  return new Date(b.from).toLocaleDateString(undefined, { month:'short', year:'numeric' });
 }
 // Long windows cross a year boundary, so those labels carry the year to keep
 // "Sep 22 - Sep 16" from reading as a backwards range.
@@ -1224,16 +1245,24 @@ function renderPerfCard(){
     ? `No trades closed in the last ${perfRange} days`
     : `${trades} closed trade${trades===1?'':'s'} · ${shortDate(from, yr)} – ${shortDate(buckets[buckets.length-1].to - DAY_MS, yr)} · ${grain} bars`;
 
-  drawPerfChart(buckets, trades, prefix);
+  drawPerfChart(buckets, trades, prefix, undefined, { showBarLabels: perfRange === 7, withYear: perfRange >= 180 });
 }
 
-function drawPerfChart(buckets, trades, prefix){
-  const host = document.getElementById('perfChart');
+// opts.showBarLabels prints each bar's amount above/below it (only worth it
+// on a handful of bars); opts.withYear carries the year in axis/tooltip
+// dates for windows long enough to cross a year boundary. Both are decided
+// by the caller rather than read off a global, since this same function
+// draws the main card, the expand modal's day-range bars, and its
+// financial-year bars, each with its own idea of "current range".
+function drawPerfChart(buckets, trades, prefix, hostEl, opts){
+  const host = hostEl || document.getElementById('perfChart');
   if(!host) return;
   if(trades === 0){
     host.innerHTML = `<div class="perf-empty">Close a trade and the booked P&amp;L will plot here.</div>`;
     return;
   }
+  const showBarLabels = !!(opts && opts.showBarLabels);
+  const withYear = !!(opts && opts.withYear);
 
   // Drawn at the container's real pixel width rather than scaled from a fixed
   // viewBox, so axis text stays the same size on a phone and on a desktop.
@@ -1243,9 +1272,6 @@ function drawPerfChart(buckets, trades, prefix){
   const fallback = appEl ? appEl.clientWidth - 64 : 320;
   const w = Math.max(260, Math.floor(host.clientWidth || fallback || 320));
   const h = 210;
-  // The 7d view prints each bar's amount above/below it, so it gets extra
-  // top/bottom breathing room the other ranges don't need.
-  const showBarLabels = perfRange === 7;
   const padL = 46, padR = 12, padT = showBarLabels ? 26 : 12, padB = showBarLabels ? 34 : 26;
   const plotW = w - padL - padR, plotH = h - padT - padB;
 
@@ -1274,7 +1300,7 @@ function drawPerfChart(buckets, trades, prefix){
     const y0 = y(0), y1 = y(b.pnl);
     const top = Math.min(y0, y1);
     const hgt = Math.max(1.5, Math.abs(y1 - y0));
-    return `<rect x="${(cx(i)-barW/2).toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${hgt.toFixed(1)}" rx="${Math.min(3, barW/2).toFixed(1)}" fill="${b.pnl >= 0 ? '#4ED8B0' : '#F2697A'}" opacity=".85"><title>${shortDate(b.from)} · ${b.trades} trade${b.trades===1?'':'s'}</title></rect>`;
+    return `<rect x="${(cx(i)-barW/2).toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${hgt.toFixed(1)}" rx="${Math.min(3, barW/2).toFixed(1)}" fill="${b.pnl >= 0 ? '#4ED8B0' : '#F2697A'}" opacity=".85"/>`;
   }).join('');
 
   let valueLabels = '';
@@ -1298,11 +1324,376 @@ function drawPerfChart(buckets, trades, prefix){
     }).join('');
   }
 
-  const yr = perfRange >= 180;
-  const xLabels = `<text x="${padL}" y="${h-7}" class="pc-axis">${shortDate(buckets[0].from, yr)}</text>`
-                + `<text x="${w-padR}" y="${h-7}" text-anchor="end" class="pc-axis">${shortDate(buckets[buckets.length-1].to - DAY_MS, yr)}</text>`;
+  const xLabels = `<text x="${padL}" y="${h-7}" class="pc-axis">${shortDate(buckets[0].from, withYear)}</text>`
+                + `<text x="${w-padR}" y="${h-7}" text-anchor="end" class="pc-axis">${shortDate(buckets[buckets.length-1].to - DAY_MS, withYear)}</text>`;
 
-  host.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Realized profit and loss per period">${grid}${bars}${valueLabels}${xLabels}</svg>`;
+  // Crosshair layer: hidden until the pointer lands on a bar, then a
+  // highlighted column + floating label show that bar's period (day, week
+  // or month) and its exact P&L — the same pattern used on the FY line
+  // chart's hover, so both charts behave the same way under your finger.
+  const hoverLayer = `<g id="pcHover" visibility="hidden">
+      <rect id="pcHoverCol" y="${padT}" height="${plotH}" fill="#ffffff" opacity=".05"/>
+      <rect id="pcHoverBoxBg" rx="5" ry="5" fill="#171325" stroke="#3A3555" stroke-width="1"/>
+      <text id="pcHoverDate" class="pc-axis"></text>
+      <text id="pcHoverVal" class="pc-axis" font-weight="600"></text>
+    </g>`;
+  const captureRect = `<rect id="pcHoverCapture" x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="transparent"/>`;
+
+  host.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Realized profit and loss per period" style="touch-action:pan-y">${grid}${bars}${valueLabels}${xLabels}${hoverLayer}${captureRect}</svg>`;
+
+  wirePerfHover(host, buckets, y, prefix, { padL, padT, plotW, plotH, bw, withYear, svgW: w });
+}
+
+// Tracks pointer/touch position over the bar chart's capture rect, maps it
+// to whichever bucket column the pointer is over, and shows that bucket's
+// period label and P&L in a floating box — mirrors wireFYHover's approach
+// on the line chart, but snaps to a whole bar instead of interpolating.
+function wirePerfHover(host, buckets, y, prefix, geo){
+  const { padL, padT, plotW, plotH, bw, withYear, svgW } = geo;
+  const svg = host.querySelector('svg');
+  const capture = host.querySelector('#pcHoverCapture');
+  const hover = host.querySelector('#pcHover');
+  const col = host.querySelector('#pcHoverCol');
+  const boxBg = host.querySelector('#pcHoverBoxBg');
+  const dateText = host.querySelector('#pcHoverDate');
+  const valText = host.querySelector('#pcHoverVal');
+  if(!svg || !capture || buckets.length === 0) return;
+
+  function move(clientX){
+    const rect = svg.getBoundingClientRect();
+    if(rect.width === 0) return;
+    const scale = svgW/rect.width;
+    let px = (clientX - rect.left)*scale;
+    px = Math.max(padL, Math.min(padL + plotW - 0.01, px));
+    const idx = Math.max(0, Math.min(buckets.length - 1, Math.floor((px - padL)/bw)));
+    const b = buckets[idx];
+    const color = b.pnl > 0 ? '#4ED8B0' : (b.pnl < 0 ? '#F2697A' : '#8B87A8');
+
+    col.setAttribute('x', (padL + bw*idx).toFixed(1));
+    col.setAttribute('width', bw.toFixed(1));
+
+    dateText.textContent = bucketLabel(b, withYear);
+    valText.textContent = b.trades === 0 ? 'No trades' : axisSigned(b.pnl, prefix);
+    valText.setAttribute('fill', color);
+
+    const dW = dateText.getComputedTextLength ? dateText.getComputedTextLength() : 60;
+    const vW = valText.getComputedTextLength ? valText.getComputedTextLength() : 60;
+    const boxW = Math.max(dW, vW) + 16;
+    const boxH = 34;
+    const barCenterX = padL + bw*(idx + 0.5);
+    const boxX = Math.max(padL, Math.min(padL + plotW - boxW, barCenterX - boxW/2));
+    const topY = y(Math.max(b.pnl, 0));
+    const boxY = Math.max(padT, topY - boxH - 8);
+
+    boxBg.setAttribute('x', boxX.toFixed(1));
+    boxBg.setAttribute('y', boxY.toFixed(1));
+    boxBg.setAttribute('width', boxW.toFixed(1));
+    boxBg.setAttribute('height', boxH.toFixed(1));
+    dateText.setAttribute('x', (boxX + 8).toFixed(1));
+    dateText.setAttribute('y', (boxY + 13).toFixed(1));
+    valText.setAttribute('x', (boxX + 8).toFixed(1));
+    valText.setAttribute('y', (boxY + 27).toFixed(1));
+
+    hover.setAttribute('visibility', 'visible');
+  }
+  function hide(){ hover.setAttribute('visibility', 'hidden'); }
+
+  capture.addEventListener('pointermove', e => move(e.clientX));
+  capture.addEventListener('pointerdown', e => move(e.clientX));
+  capture.addEventListener('pointerleave', hide);
+  capture.addEventListener('pointerup', hide);
+}
+
+/* ===========================================================================
+   Realized P&L — expand modal
+
+   "Bars" gets its own period picker: the same 7/30/60/90/180/360-day ranges
+   as the card, plus a financial year — either as a rolling window (daily/
+   weekly/30-day bars, same as the card) or as calendar-month bars aligned to
+   1 Apr - 31 Mar. "Line" plots cumulative realized P&L across one financial
+   year, anchored at zero on 1 April. Both FY pickers only ever offer years
+   that actually have closed trades in them, plus the current FY always,
+   even if it's empty so far — so with a fresh import you'll just see the
+   current FY until older data exists.
+   =========================================================================== */
+let perfExpandStyle = 'bars'; // 'bars' | 'line'
+let perfExpandFYStart = null; // set when the modal opens — drives the "Line" FY picker
+let perfExpandBarsPeriod = 7; // number of days, or 'fy:<startYear>' — drives the "Bars" period picker
+
+// April (month index 3) starts the Indian financial year: dates in Jan-Mar
+// belong to the FY that began the previous April.
+function fyStartYearForDate(d){
+  return d.getMonth() < 3 ? d.getFullYear() - 1 : d.getFullYear();
+}
+function fyBounds(startYear){
+  return {
+    start: new Date(startYear, 3, 1, 0, 0, 0, 0).getTime(),
+    end: new Date(startYear + 1, 3, 1, 0, 0, 0, 0).getTime()
+  };
+}
+function fyLabel(startYear){
+  return `FY ${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`;
+}
+// Current FY, plus up to the two prior FYs but only the ones that actually
+// have a closed trade in them — otherwise there's nothing there to plot.
+function availableFYStartYears(){
+  const curStart = fyStartYearForDate(new Date());
+  const rows = collectRealized();
+  const years = [curStart];
+  for(let back = 1; back <= 2; back++){
+    const y = curStart - back;
+    const { start, end } = fyBounds(y);
+    if(rows.some(r => r.date >= start && r.date < end)) years.push(y);
+  }
+  return years;
+}
+
+function openPerfExpand(){
+  perfExpandFYStart = fyStartYearForDate(new Date());
+  perfExpandBarsPeriod = perfRange;
+  document.getElementById('modalPerfExpand').classList.add('open');
+  renderPerfExpand();
+}
+
+function renderPerfExpand(){
+  document.querySelectorAll('#perfExpandStyle button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.style === perfExpandStyle);
+  });
+  const fyRow = document.getElementById('perfExpandFY');
+  const barsRow = document.getElementById('perfExpandBarsPeriod');
+  const area = document.getElementById('perfExpandChartArea');
+  const meta = document.getElementById('perfExpandMeta');
+  const prefix = state.settings.displayCurrency === 'INR' ? '₹' : '$';
+
+  if(perfExpandStyle === 'line'){
+    barsRow.style.display = 'none';
+    const years = availableFYStartYears();
+    if(!years.includes(perfExpandFYStart)) perfExpandFYStart = years[0];
+    fyRow.style.display = 'flex';
+    fyRow.innerHTML = years.map(y=>`<button type="button" data-fy="${y}" class="${y === perfExpandFYStart ? 'active' : ''}">${fyLabel(y)}</button>`).join('');
+    drawFYLineChart(perfExpandFYStart, meta, area);
+  }else{
+    fyRow.style.display = 'none';
+    barsRow.style.display = 'flex';
+
+    // Period picker mixes day ranges with financial years — only years that
+    // actually have closed trades (plus the current one) get a button.
+    const fyYears = availableFYStartYears();
+    const isFY = typeof perfExpandBarsPeriod === 'string' && perfExpandBarsPeriod.startsWith('fy:');
+    if(isFY && !fyYears.includes(Number(perfExpandBarsPeriod.slice(3)))) perfExpandBarsPeriod = 7;
+
+    const dayOpts = [7, 30, 60, 90, 180, 360];
+    barsRow.innerHTML = dayOpts.map(d=>`<button type="button" data-days="${d}" class="${perfExpandBarsPeriod === d ? 'active' : ''}">${d}d</button>`).join('')
+      + fyYears.map(y=>`<button type="button" data-fy="${y}" class="${perfExpandBarsPeriod === ('fy:'+y) ? 'active' : ''}">${fyLabel(y)}</button>`).join('');
+
+    let buckets, trades = 0, withYear, showBarLabels;
+
+    if(typeof perfExpandBarsPeriod === 'number'){
+      const step = perfBucketDays(perfExpandBarsPeriod);
+      buckets = buildBuckets(perfExpandBarsPeriod);
+      const from = buckets[0].from;
+      collectRealized().forEach(r=>{
+        const idx = Math.floor((r.date - from)/(step*DAY_MS));
+        if(idx < 0 || idx >= buckets.length) return;
+        buckets[idx].pnl += r.pnl;
+        buckets[idx].trades++;
+        trades++;
+      });
+      withYear = perfExpandBarsPeriod >= 180;
+      showBarLabels = perfExpandBarsPeriod === 7;
+      const grain = step === 1 ? 'daily' : step === 7 ? 'weekly' : '30-day';
+      meta.textContent = trades === 0
+        ? `No trades closed in the last ${perfExpandBarsPeriod} days`
+        : `${trades} closed trade${trades===1?'':'s'} · ${shortDate(from, withYear)} – ${shortDate(buckets[buckets.length-1].to - DAY_MS, withYear)} · ${grain} bars`;
+    }else{
+      const fyYear = Number(perfExpandBarsPeriod.slice(3));
+      buckets = buildFYBuckets(fyYear);
+      withYear = true;
+      showBarLabels = false;
+      buckets.forEach(b=>{
+        collectRealized().forEach(r=>{
+          if(r.date >= b.from && r.date < b.to){ b.pnl += r.pnl; b.trades++; trades++; }
+        });
+      });
+      meta.textContent = buckets.length === 0
+        ? `${fyLabel(fyYear)} hasn't started yet.`
+        : trades === 0
+          ? `No trades closed in ${fyLabel(fyYear)} so far`
+          : `${trades} closed trade${trades===1?'':'s'} · ${shortDate(buckets[0].from, true)} – ${shortDate(Math.min(Date.now(), buckets[buckets.length-1].to) - DAY_MS, true)} · ${fyLabel(fyYear)} · monthly bars`;
+    }
+
+    if(trades === 0){
+      area.innerHTML = `<div class="perf-empty">Close a trade and the booked P&amp;L will plot here.</div>`;
+    }else{
+      drawPerfChart(buckets, trades, prefix, area, { showBarLabels, withYear });
+    }
+  }
+}
+
+// Cumulative realized P&L across one financial year, starting the line at
+// zero on 1 April. The x-axis is scaled to whatever's actually happened —
+// 1 Apr through today for the current (unfinished) FY, the full year for a
+// completed one — so the line always reaches the right edge with no blank
+// run of future days.
+function drawFYLineChart(fyStartYear, metaEl, areaEl){
+  const prefix = state.settings.displayCurrency === 'INR' ? '₹' : '$';
+  const { start, end } = fyBounds(fyStartYear);
+  const now = Date.now();
+  const domainEnd = Math.min(now, end);
+
+  if(domainEnd <= start){
+    metaEl.textContent = `${fyLabel(fyStartYear)} hasn't started yet.`;
+    areaEl.innerHTML = '';
+    return;
+  }
+
+  const rows = collectRealized().filter(r => r.date >= start && r.date < domainEnd).sort((a,b)=>a.date-b.date);
+  let cum = 0;
+  const points = [{ date:start, pnl:0 }];
+  rows.forEach(r=>{ cum += r.pnl; points.push({ date:r.date, pnl:cum }); });
+  points.push({ date:domainEnd, pnl:cum });
+
+  metaEl.textContent = `${rows.length} closed trade${rows.length===1?'':'s'} · ${shortDate(start,true)} – ${shortDate(domainEnd,true)} · ${fyLabel(fyStartYear)}`;
+
+  const w = Math.max(280, Math.floor(areaEl.clientWidth || 320));
+  const h = 260;
+  const padL = 52, padR = 16, padT = 16, padB = 28;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+
+  const vals = points.map(p=>p.pnl);
+  let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  if(hi - lo < 1e-9) hi = lo + 1;
+  const stepY = niceStep(hi - lo);
+  const yMin = Math.floor(lo/stepY)*stepY, yMax = Math.ceil(hi/stepY)*stepY;
+  const y = v => padT + plotH - ((v - yMin)/(yMax - yMin))*plotH;
+  // X spans only the data that actually exists — 1 Apr through today for an
+  // in-progress FY, or the full year once it's finished — so the line always
+  // runs edge-to-edge instead of leaving blank space for months that haven't
+  // happened yet.
+  const x = t => padL + ((t - start)/(domainEnd - start))*plotW;
+
+  let grid = '';
+  for(let v = yMin; v <= yMax + stepY/2; v += stepY){
+    const yy = y(v);
+    const isZero = Math.abs(v) < stepY/1000;
+    grid += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${w-padR}" y2="${yy.toFixed(1)}" stroke="${isZero ? '#3F3A5E' : '#242038'}" stroke-width="1"/>`
+         +  `<text x="${padL-7}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" class="pc-axis">${axisNum(v)}</text>`;
+  }
+
+  const pathD = points.map((p,i)=>`${i===0?'M':'L'}${x(p.date).toFixed(1)} ${y(p.pnl).toFixed(1)}`).join(' ');
+  const last = points[points.length-1];
+  const dotColor = last.pnl >= 0 ? '#4ED8B0' : '#F2697A';
+  const dot = `<circle cx="${x(last.date).toFixed(1)}" cy="${y(last.pnl).toFixed(1)}" r="3.5" fill="${dotColor}"/>`;
+
+  // Right label reads the last real day in the domain: 31 Mar once the FY is
+  // complete (domainEnd lands on the exclusive 1 Apr boundary), otherwise
+  // today's date.
+  const rightLabelTs = Math.min(domainEnd, end - DAY_MS);
+  const xLabels = `<text x="${padL}" y="${h-7}" class="pc-axis">${shortDate(start, true)}</text>`
+                + `<text x="${w-padR}" y="${h-7}" text-anchor="end" class="pc-axis">${shortDate(rightLabelTs, true)}</text>`;
+
+  // Crosshair layer: hidden until the pointer lands on the chart, then a
+  // vertical guide + dot track the pointer's x position while a small label
+  // shows the date (x-axis) and the interpolated P&L (y-axis) under it.
+  // A transparent rect over the plot area is what actually catches the
+  // pointer/touch events — everything else here just reacts to it.
+  const hoverLayer = `<g id="fyHover" visibility="hidden">
+      <line id="fyHoverLine" x1="0" y1="${padT}" x2="0" y2="${padT + plotH}" stroke="#4A4568" stroke-width="1" stroke-dasharray="3,3"/>
+      <circle id="fyHoverDot" r="4" fill="var(--gold)" stroke="#0A0C10" stroke-width="1.5"/>
+      <rect id="fyHoverBoxBg" rx="5" ry="5" fill="#171325" stroke="#3A3555" stroke-width="1"/>
+      <text id="fyHoverDate" class="pc-axis"></text>
+      <text id="fyHoverVal" class="pc-axis" font-weight="600"></text>
+    </g>`;
+  const captureRect = `<rect id="fyHoverCapture" x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="transparent"/>`;
+
+  areaEl.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Cumulative realized profit and loss across the financial year" style="touch-action:pan-y">
+    ${grid}
+    <path d="${pathD}" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"/>
+    ${dot}
+    ${xLabels}
+    ${hoverLayer}
+    ${captureRect}
+  </svg>`;
+
+  wireFYHover(areaEl, points, y, prefix, { padL, padT, plotW, plotH, svgW: w });
+}
+
+// Tracks pointer/touch position over the FY line chart's capture rect,
+// linearly interpolates the P&L value at that instant between the two
+// surrounding trade points (matching what the straight-line segments
+// actually show), and positions the crosshair + floating label accordingly.
+function wireFYHover(areaEl, points, y, prefix, geo){
+  const { padL, padT, plotW, plotH, svgW } = geo;
+  const svg = areaEl.querySelector('svg');
+  const capture = areaEl.querySelector('#fyHoverCapture');
+  const hover = areaEl.querySelector('#fyHover');
+  const hLine = areaEl.querySelector('#fyHoverLine');
+  const hDot = areaEl.querySelector('#fyHoverDot');
+  const boxBg = areaEl.querySelector('#fyHoverBoxBg');
+  const dateText = areaEl.querySelector('#fyHoverDate');
+  const valText = areaEl.querySelector('#fyHoverVal');
+  if(!svg || !capture) return;
+
+  const domainStart = points[0].date, domainEnd = points[points.length - 1].date;
+
+  function valueAt(t){
+    if(t <= points[0].date) return points[0].pnl;
+    for(let i = 1; i < points.length; i++){
+      if(t <= points[i].date){
+        const p0 = points[i-1], p1 = points[i];
+        const frac = p1.date === p0.date ? 0 : (t - p0.date)/(p1.date - p0.date);
+        return p0.pnl + (p1.pnl - p0.pnl)*frac;
+      }
+    }
+    return points[points.length-1].pnl;
+  }
+
+  function move(clientX){
+    const rect = svg.getBoundingClientRect();
+    if(rect.width === 0) return;
+    const scale = svgW/rect.width;
+    let px = (clientX - rect.left)*scale;
+    px = Math.max(padL, Math.min(padL + plotW, px));
+    const t = domainStart + ((px - padL)/plotW)*(domainEnd - domainStart);
+    const val = valueAt(t);
+    const py = y(val);
+    const color = val >= 0 ? '#4ED8B0' : '#F2697A';
+
+    hLine.setAttribute('x1', px.toFixed(1));
+    hLine.setAttribute('x2', px.toFixed(1));
+    hDot.setAttribute('cx', px.toFixed(1));
+    hDot.setAttribute('cy', py.toFixed(1));
+    hDot.setAttribute('fill', color);
+
+    dateText.textContent = shortDate(t, true);
+    valText.textContent = axisSigned(val, prefix);
+    valText.setAttribute('fill', color);
+
+    const dW = dateText.getComputedTextLength ? dateText.getComputedTextLength() : 44;
+    const vW = valText.getComputedTextLength ? valText.getComputedTextLength() : 44;
+    const boxW = Math.max(dW, vW) + 16;
+    const boxH = 34;
+    let boxX = px + 10;
+    if(boxX + boxW > padL + plotW) boxX = px - boxW - 10;
+    const boxY = Math.max(padT, Math.min(padT + plotH - boxH, py - boxH - 8));
+
+    boxBg.setAttribute('x', boxX.toFixed(1));
+    boxBg.setAttribute('y', boxY.toFixed(1));
+    boxBg.setAttribute('width', boxW.toFixed(1));
+    boxBg.setAttribute('height', boxH.toFixed(1));
+    dateText.setAttribute('x', (boxX + 8).toFixed(1));
+    dateText.setAttribute('y', (boxY + 13).toFixed(1));
+    valText.setAttribute('x', (boxX + 8).toFixed(1));
+    valText.setAttribute('y', (boxY + 27).toFixed(1));
+
+    hover.setAttribute('visibility', 'visible');
+  }
+  function hide(){ hover.setAttribute('visibility', 'hidden'); }
+
+  capture.addEventListener('pointermove', e => move(e.clientX));
+  capture.addEventListener('pointerdown', e => move(e.clientX));
+  capture.addEventListener('pointerleave', hide);
+  capture.addEventListener('pointerup', hide);
 }
 
 /* ===========================================================================
@@ -2625,6 +3016,28 @@ document.getElementById('expandChartStyle').addEventListener('click', (e)=>{
   const btn = e.target.closest('button'); if(!btn) return;
   allocExpandStyle = btn.dataset.style;
   renderAllocExpand();
+});
+document.getElementById('btnPerfExpand').addEventListener('click', openPerfExpand);
+document.getElementById('perfExpandStyle').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  perfExpandStyle = btn.dataset.style;
+  renderPerfExpand();
+});
+// FY picker buttons are rendered dynamically (only years with data appear),
+// so this listener is delegated on the row rather than bound per-button.
+document.getElementById('perfExpandFY').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  perfExpandFYStart = Number(btn.dataset.fy);
+  renderPerfExpand();
+});
+// Bars-view period row mixes day-range buttons (data-days) with financial
+// year buttons (data-fy), also rendered dynamically, so it's one delegated
+// listener that branches on which kind of button was tapped.
+document.getElementById('perfExpandBarsPeriod').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  if(btn.dataset.days) perfExpandBarsPeriod = Number(btn.dataset.days);
+  else if(btn.dataset.fy) perfExpandBarsPeriod = 'fy:' + btn.dataset.fy;
+  renderPerfExpand();
 });
 // The chart is drawn at the container's measured width, so a viewport change
 // (rotation, desktop resize) needs a redraw rather than a CSS rescale.
