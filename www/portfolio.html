@@ -2514,15 +2514,6 @@ function openSettings(){
       <div><div class="sr-label">Auto-refresh crypto prices</div><div class="sr-sub">Every 45 seconds while the app is open</div></div>
       <div class="switch ${state.settings.autoRefresh?'on':''}" id="swAutoRefresh"></div>
     </div>
-    <div class="section-title" style="margin-top:18px">Tabs</div>
-    <div class="settings-row">
-      <div><div class="sr-label">Show Indian Stocks tab</div><div class="sr-sub">Adds it back to the top tab bar</div></div>
-      <div class="switch ${state.settings.showStocksIN?'on':''}" id="swStocksIN"></div>
-    </div>
-    <div class="settings-row">
-      <div><div class="sr-label">Show US Stocks tab</div><div class="sr-sub">Adds it back to the top tab bar</div></div>
-      <div class="switch ${state.settings.showStocksUS?'on':''}" id="swStocksUS"></div>
-    </div>
     <div class="section-title" style="margin-top:18px">Backup</div>
     <p style="font-size:12.5px;color:var(--text-dim);margin:0 0 12px;line-height:1.5">Your portfolio lives only in this browser's storage. Export a backup before clearing site data or switching devices.</p>
     <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -2538,25 +2529,15 @@ function openSettings(){
     saveState();
     toast(state.settings.autoRefresh ? 'Auto-refresh on' : 'Auto-refresh off');
   });
-  document.getElementById('swStocksIN').addEventListener('click', (e)=>{
-    state.settings.showStocksIN = !state.settings.showStocksIN;
-    e.currentTarget.classList.toggle('on', state.settings.showStocksIN);
-    saveState();
-    applyTabVisibility();
-    toast(state.settings.showStocksIN ? 'IN Stocks tab shown' : 'IN Stocks tab hidden');
-  });
-  document.getElementById('swStocksUS').addEventListener('click', (e)=>{
-    state.settings.showStocksUS = !state.settings.showStocksUS;
-    e.currentTarget.classList.toggle('on', state.settings.showStocksUS);
-    saveState();
-    applyTabVisibility();
-    toast(state.settings.showStocksUS ? 'US Stocks tab shown' : 'US Stocks tab hidden');
-  });
   document.getElementById('btnExport').addEventListener('click', exportData);
   document.getElementById('btnImport').addEventListener('click', ()=>document.getElementById('importFile').click());
   document.getElementById('btnClearAll').addEventListener('click', ()=>{
-    if(!confirm('This deletes every position, trade and setting on this device. This can\'t be undone. Continue?')) return;
-    if(!confirm('Really clear everything? Consider exporting a backup first.')) return;
+    const typed = prompt('This deletes every position, trade and setting on this device. This can\'t be undone.\n\nType danger-zone-clear-all-data to confirm:');
+    if(typed === null) return;
+    if(typed.trim() !== 'danger-zone-clear-all-data'){
+      toast('Not cleared — text didn\'t match', 'error');
+      return;
+    }
     state = defaultState();
     saveState();
     applyTabVisibility();
