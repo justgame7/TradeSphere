@@ -155,13 +155,25 @@ a{color:inherit;}
 .legend-swatch{width:8px; height:8px; border-radius:2px;}
 .legend-val{font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--text);}
 
-/* Movers */
-.mover-row{display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border-soft);}
-.mover-row:last-child{border-bottom:none;}
-.mover-left{display:flex; align-items:center; gap:10px;}
-.mover-name{font-size:13.5px; font-weight:600;}
-.mover-market{font-size:11px; color:var(--text-faint);}
-.mover-pct{font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:13px; padding:3px 8px; border-radius:8px;}
+.alloc-foot{margin-top:12px; padding-top:10px; border-top:1px solid var(--border-soft); font-size:11.5px; color:var(--text-faint); line-height:1.5;}
+.alloc-foot b{font-family:'IBM Plex Mono', monospace; color:var(--text-dim); font-weight:600;}
+.legend-sub{font-size:10.5px; color:var(--text-faint); font-family:'IBM Plex Mono', monospace;}
+
+/* Realized P&L performance card */
+.card-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px;}
+.perf-total{font-family:'Fraunces', serif; font-size:22px; font-weight:600; line-height:1;}
+.toggle-group-sm{margin-bottom:8px; border-radius:999px; padding:3px;}
+.toggle-group-sm button{padding:6px 4px; font-size:11.5px; border-radius:999px;}
+.perf-meta{font-size:11.5px; color:var(--text-faint); margin-bottom:6px;}
+.perf-chart{width:100%; overflow:hidden;}
+.perf-chart svg{display:block;}
+.pc-axis{fill:var(--text-faint); font-size:10px; font-family:'IBM Plex Mono', monospace;}
+.perf-empty{padding:26px 4px; text-align:center; font-size:12.5px; color:var(--text-faint);}
+.perf-key{display:flex; gap:16px; margin-top:8px; font-size:11px; color:var(--text-faint);}
+.perf-key span{display:flex; align-items:center; gap:6px;}
+.perf-key i{display:inline-block; border-radius:2px;}
+.perf-key i.k-bar{width:9px; height:9px; background:linear-gradient(135deg, var(--mint), var(--coral));}
+.perf-key i.k-line{width:14px; height:2px; background:var(--gold); border-radius:2px;}
 
 /* Market stat bar */
 .stat-strip{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px;}
@@ -470,16 +482,42 @@ a{color:inherit;}
       </div>
 
       <div class="card full">
-        <p class="card-label">Movers to watch</p>
-        <div id="ovMovers"></div>
+        <div class="card-head">
+          <div>
+            <p class="card-label" style="margin:0">Realized P&amp;L</p>
+            <div class="perf-meta" style="margin:2px 0 0">Closed trades only — open positions excluded</div>
+          </div>
+          <div class="perf-total" id="perfTotal">$0</div>
+        </div>
+        <div class="toggle-group toggle-group-sm" id="perfRange">
+          <button type="button" data-range="7" class="active">7d</button>
+          <button type="button" data-range="30">30d</button>
+          <button type="button" data-range="60">60d</button>
+          <button type="button" data-range="90">90d</button>
+          <button type="button" data-range="180">180d</button>
+          <button type="button" data-range="360">360d</button>
+        </div>
+        <div class="perf-meta" id="perfMeta">—</div>
+        <div class="perf-chart" id="perfChart"></div>
+        <div class="perf-key">
+          <span><i class="k-bar"></i>P&amp;L booked per bar</span>
+          <span><i class="k-line"></i>Cumulative</span>
+        </div>
       </div>
 
       <div class="card full">
-        <p class="card-label">Allocation</p>
+        <div class="card-head" style="align-items:center">
+          <p class="card-label" style="margin:0">Crypto allocation</p>
+        </div>
+        <div class="toggle-group toggle-group-sm" id="allocMode">
+          <button type="button" data-mode="current" class="active">Current</button>
+          <button type="button" data-mode="closed">Closed / completed</button>
+        </div>
         <div class="donut-row">
           <div id="donutWrap"></div>
           <div class="donut-legend" id="ovLegend"></div>
         </div>
+        <div class="alloc-foot" id="allocFoot"></div>
       </div>
     </div>
   </section>
@@ -1010,53 +1048,245 @@ function renderOverview(){
     ? fmtCompact(toDisplay(dayChangeValue,'crypto'), prefix) + ' today'
     : 'add crypto to track';
 
-  // allocation donut
-  const segs = [
-    { label:'Crypto', value: toDisplay(totals.crypto.value,'crypto'), color:'var(--violet)' },
-    { label:'Indian Stocks', value: toDisplay(totals.stocksIN.value,'stocksIN'), color:'var(--saffron)' },
-    { label:'US Stocks', value: toDisplay(totals.stocksUS.value,'stocksUS'), color:'var(--azure)' }
-  ].filter(s=>s.value > 0.01);
-  document.getElementById('donutWrap').innerHTML = renderDonut(segs);
-  const legend = document.getElementById('ovLegend');
-  if(segs.length === 0){
-    legend.innerHTML = `<div style="font-size:12.5px;color:var(--text-faint)">Add a position in any market to see your allocation.</div>`;
-  }else{
-    const sum = segs.reduce((s,x)=>s+x.value,0);
-    legend.innerHTML = segs.map(s=>`
-      <div class="legend-item">
-        <span class="legend-key"><span class="legend-swatch" style="background:${s.color}"></span>${s.label}</span>
-        <span class="legend-val">${((s.value/sum)*100).toFixed(0)}%</span>
-      </div>`).join('');
-  }
+  renderPerfCard();
+  renderAllocation();
+}
 
-  // movers
-  const allHoldings = [];
+/* ===========================================================================
+   Realized P&L performance card
+
+   Only closed trades feed this card. Open positions and their unrealized
+   P&L are deliberately excluded, so every bar is money actually booked and
+   the cumulative line can never move just because a price ticked.
+   =========================================================================== */
+let perfRange = 7;
+const DAY_MS = 86400000;
+
+// Bars stay readable by widening the bucket as the window grows: daily up to
+// a month, weekly up to a quarter, monthly beyond that.
+function perfBucketDays(days){ return days <= 30 ? 1 : (days <= 90 ? 7 : 30); }
+
+// Every market's closed trades, normalised into the Overview display currency.
+function collectRealized(){
+  const rows = [];
   Object.keys(MARKET_META).forEach(k=>{
-    state.markets[k].holdings.forEach(h=>{
-      const c = computeHolding(h);
-      if(c.investedValue > 0) allHoldings.push({ symbol:h.symbol, name:h.name, market:k, pct:c.pnlPct });
+    (state.markets[k].realized || []).forEach(r=>{
+      if(!r.date) return;
+      rows.push({ date:r.date, pnl: toDisplay(r.pnl || 0, k) });
     });
   });
-  allHoldings.sort((a,b)=>b.pct-a.pct);
-  const top = allHoldings.slice(0,3);
-  const bottom = allHoldings.slice(-3).reverse().filter(x=>!top.includes(x));
-  const moversEl = document.getElementById('ovMovers');
-  const moverList = [...top, ...bottom];
-  if(moverList.length === 0){
-    moversEl.innerHTML = `<div style="font-size:12.5px;color:var(--text-faint)">Once you add positions, your best and worst performers will show up here.</div>`;
-  }else{
-    moversEl.innerHTML = moverList.map(m=>`
-      <div class="mover-row">
-        <div class="mover-left">
-          <div class="avatar" style="width:28px;height:28px;font-size:10px;${avatarStyle(m.symbol)}">${initials(m.symbol)}</div>
-          <div>
-            <div class="mover-name">${escapeHtml(m.name||m.symbol)}</div>
-            <div class="mover-market">${MARKET_META[m.market].label}</div>
-          </div>
-        </div>
-        <div class="mover-pct" style="background:${m.pct>=0?'var(--mint-dim)':'var(--coral-dim)'};color:${m.pct>=0?'var(--mint)':'var(--coral)'}">${fmtPct(m.pct)}</div>
-      </div>`).join('');
+  return rows;
+}
+
+function buildBuckets(days){
+  const step = perfBucketDays(days);
+  const count = Math.max(1, Math.round(days/step));
+  const midnight = new Date(); midnight.setHours(0,0,0,0);
+  const endMs = midnight.getTime() + DAY_MS;   // exclusive: end of today
+  const out = [];
+  for(let i=0;i<count;i++){
+    const from = endMs - (count-i)*step*DAY_MS;
+    out.push({ from, to: from + step*DAY_MS, pnl:0, trades:0 });
   }
+  return out;
+}
+
+// Round a raw axis interval up to a 1/2/2.5/5/10 x 10^n step so gridline
+// labels land on readable numbers instead of things like 137.42.
+function niceStep(range){
+  if(!(range > 0)) return 1;
+  const raw = range/4;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw/mag;
+  const mult = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  return mult*mag;
+}
+function axisNum(v){
+  const a = Math.abs(v);
+  if(a >= 1e6) return (v/1e6).toFixed(a >= 1e7 ? 0 : 1)+'M';
+  if(a >= 1e3) return (v/1e3).toFixed(a >= 1e4 ? 0 : 1)+'k';
+  if(a >= 100) return v.toFixed(0);
+  if(a >= 1)   return v.toFixed(1);
+  return v === 0 ? '0' : v.toFixed(2);
+}
+// Long windows cross a year boundary, so those labels carry the year to keep
+// "Sep 22 - Sep 16" from reading as a backwards range.
+function shortDate(ts, withYear){
+  return new Date(ts).toLocaleDateString(undefined,
+    withYear ? { day:'2-digit', month:'short', year:'2-digit' } : { day:'2-digit', month:'short' });
+}
+
+function renderPerfCard(){
+  const prefix = state.settings.displayCurrency === 'INR' ? '₹' : '$';
+  document.querySelectorAll('#perfRange button').forEach(b=>{
+    b.classList.toggle('active', Number(b.dataset.range) === perfRange);
+  });
+
+  const step = perfBucketDays(perfRange);
+  const buckets = buildBuckets(perfRange);
+  const from = buckets[0].from;
+  let total = 0, trades = 0;
+  collectRealized().forEach(r=>{
+    const idx = Math.floor((r.date - from)/(step*DAY_MS));
+    if(idx < 0 || idx >= buckets.length) return;
+    buckets[idx].pnl += r.pnl;
+    buckets[idx].trades++;
+    total += r.pnl;
+    trades++;
+  });
+
+  const totalEl = document.getElementById('perfTotal');
+  totalEl.textContent = (total >= 0 ? '+' : '') + fmtMoney(total, prefix);
+  totalEl.className = 'perf-total ' + pnlClass(total);
+
+  const grain = step === 1 ? 'daily' : step === 7 ? 'weekly' : '30-day';
+  const yr = perfRange >= 180;
+  document.getElementById('perfMeta').textContent = trades === 0
+    ? `No trades closed in the last ${perfRange} days`
+    : `${trades} closed trade${trades===1?'':'s'} · ${shortDate(from, yr)} – ${shortDate(buckets[buckets.length-1].to - DAY_MS, yr)} · ${grain} bars`;
+
+  drawPerfChart(buckets, trades);
+}
+
+function drawPerfChart(buckets, trades){
+  const host = document.getElementById('perfChart');
+  if(!host) return;
+  if(trades === 0){
+    host.innerHTML = `<div class="perf-empty">Close a trade and the booked P&amp;L will plot here.</div>`;
+    return;
+  }
+
+  // Drawn at the container's real pixel width rather than scaled from a fixed
+  // viewBox, so axis text stays the same size on a phone and on a desktop.
+  // The Overview section is display:none until its tab is opened, so fall back
+  // to the app column width; the tab switch re-renders at the real width.
+  const appEl = document.getElementById('app');
+  const fallback = appEl ? appEl.clientWidth - 64 : 320;
+  const w = Math.max(260, Math.floor(host.clientWidth || fallback || 320));
+  const h = 210;
+  const padL = 46, padR = 12, padT = 12, padB = 26;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+
+  const all = buckets.map(b=>b.pnl).concat([0]);
+  let lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+  if(hi - lo < 1e-9){ hi = lo + 1; }
+  const stepY = niceStep(hi - lo);
+  const yMin = Math.floor(lo/stepY)*stepY;
+  const yMax = Math.ceil(hi/stepY)*stepY;
+  const y = v => padT + plotH - ((v - yMin)/(yMax - yMin))*plotH;
+
+  const bw = plotW/buckets.length;
+  const barW = Math.max(2, Math.min(26, bw*0.6));
+  const cx = i => padL + bw*(i + 0.5);
+
+  let grid = '';
+  for(let v = yMin; v <= yMax + stepY/2; v += stepY){
+    const yy = y(v);
+    const isZero = Math.abs(v) < stepY/1000;
+    grid += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${w-padR}" y2="${yy.toFixed(1)}" stroke="${isZero ? '#3F3A5E' : '#242038'}" stroke-width="1"/>`
+         +  `<text x="${padL-7}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" class="pc-axis">${axisNum(v)}</text>`;
+  }
+
+  const bars = buckets.map((b,i)=>{
+    if(Math.abs(b.pnl) < 1e-9) return '';
+    const y0 = y(0), y1 = y(b.pnl);
+    const top = Math.min(y0, y1);
+    const hgt = Math.max(1.5, Math.abs(y1 - y0));
+    return `<rect x="${(cx(i)-barW/2).toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${hgt.toFixed(1)}" rx="${Math.min(3, barW/2).toFixed(1)}" fill="${b.pnl >= 0 ? '#4ED8B0' : '#F2697A'}" opacity=".85"><title>${shortDate(b.from)} · ${b.trades} trade${b.trades===1?'':'s'}</title></rect>`;
+  }).join('');
+
+  const yr = perfRange >= 180;
+  const xLabels = `<text x="${padL}" y="${h-7}" class="pc-axis">${shortDate(buckets[0].from, yr)}</text>`
+                + `<text x="${w-padR}" y="${h-7}" text-anchor="end" class="pc-axis">${shortDate(buckets[buckets.length-1].to - DAY_MS, yr)}</text>`;
+
+  host.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Realized profit and loss per period">${grid}${bars}${xLabels}</svg>`;
+}
+
+/* ===========================================================================
+   Crypto allocation — two views off the same card
+
+   "Current" is live exposure across open positions. "Closed / completed" is
+   the cumulative capital each coin has had deployed through it across every
+   closed trade, so a coin traded five times shows the full run, not the last
+   one. The two answer different questions and are never summed together.
+   =========================================================================== */
+let allocMode = 'current';
+const ALLOC_TOP_N = 6;
+
+function cryptoAllocRows(mode){
+  const map = new Map();
+  const add = (symbol, value, pnl)=>{
+    if(!(value > 0)) return;
+    const e = map.get(symbol) || { symbol, value:0, trades:0, pnl:0 };
+    e.value += value; e.trades += 1; e.pnl += pnl;
+    map.set(symbol, e);
+  };
+  if(mode === 'closed'){
+    // Cost basis of each closed leg: quantity sold x the average cost it was
+    // carried at. Absolute value so shorts count as deployed capital too.
+    (state.markets.crypto.realized || []).forEach(r=>{
+      add(r.symbol, Math.abs((r.qty || 0) * (r.avgCost || 0)), r.pnl || 0);
+    });
+  }else{
+    state.markets.crypto.holdings.forEach(h=>{
+      const c = computeHolding(h);
+      add(h.symbol, c.currentValue, c.pnl);
+    });
+  }
+  return Array.from(map.values()).sort((a,b)=>b.value - a.value);
+}
+
+function renderAllocation(){
+  const prefix = state.settings.displayCurrency === 'INR' ? '₹' : '$';
+  document.querySelectorAll('#allocMode button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.mode === allocMode);
+  });
+
+  const rows = cryptoAllocRows(allocMode);
+  const total = rows.reduce((s,x)=>s + x.value, 0);
+  const segs = rows.slice(0, ALLOC_TOP_N).map(r=>({
+    label:r.symbol, value:r.value, trades:r.trades, pnl:r.pnl,
+    color:`hsl(${hueForSymbol(r.symbol)} 68% 64%)`
+  }));
+  if(rows.length > ALLOC_TOP_N){
+    const rest = rows.slice(ALLOC_TOP_N);
+    segs.push({
+      label:'Other', color:'#4A4468',
+      value: rest.reduce((s,x)=>s+x.value,0),
+      trades: rest.reduce((s,x)=>s+x.trades,0),
+      pnl: rest.reduce((s,x)=>s+x.pnl,0)
+    });
+  }
+
+  document.getElementById('donutWrap').innerHTML = renderDonut(segs.map(s=>({ value:s.value, color:s.color })));
+  const legend = document.getElementById('ovLegend');
+  const foot = document.getElementById('allocFoot');
+
+  if(!segs.length){
+    legend.innerHTML = `<div style="font-size:12.5px;color:var(--text-faint)">${
+      allocMode === 'closed'
+        ? 'No closed crypto trades yet — completed positions break down here once you book one.'
+        : 'No open crypto positions — add one to see today’s exposure.'
+    }</div>`;
+    foot.textContent = '';
+    return;
+  }
+
+  legend.innerHTML = segs.map(s=>`
+    <div class="legend-item">
+      <span class="legend-key">
+        <span class="legend-swatch" style="background:${s.color}"></span>${escapeHtml(s.label)}
+        ${allocMode === 'closed' ? `<span class="legend-sub">${s.trades}x</span>` : ''}
+      </span>
+      <span class="legend-val">${((s.value/total)*100).toFixed(1)}%</span>
+    </div>`).join('');
+
+  const totalDisp = fmtMoney(toDisplay(total, 'crypto'), prefix);
+  const pnlSum = segs.reduce((s,x)=>s + x.pnl, 0);
+  const pnlDisp = (pnlSum >= 0 ? '+' : '') + fmtMoney(toDisplay(pnlSum, 'crypto'), prefix);
+  foot.innerHTML = allocMode === 'closed'
+    ? `Cumulative capital deployed across closed trades <b>${totalDisp}</b> · realized <b class="${pnlClass(pnlSum)}">${pnlDisp}</b>`
+    : `Live position value across open positions <b>${totalDisp}</b> · unrealized <b class="${pnlClass(pnlSum)}">${pnlDisp}</b>`;
 }
 
 function renderDonut(segs){
@@ -2122,6 +2352,27 @@ document.getElementById('ovCurrencyToggle').addEventListener('click', (e)=>{
   state.settings.displayCurrency = btn.dataset.cur;
   saveState();
   renderOverview();
+});
+
+/* --------------------------- performance range + allocation mode --------------------------- */
+document.getElementById('perfRange').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  perfRange = Number(btn.dataset.range);
+  renderPerfCard();
+});
+document.getElementById('allocMode').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  allocMode = btn.dataset.mode;
+  renderAllocation();
+});
+// The chart is drawn at the container's measured width, so a viewport change
+// (rotation, desktop resize) needs a redraw rather than a CSS rescale.
+let perfResizeTimer = null;
+window.addEventListener('resize', ()=>{
+  clearTimeout(perfResizeTimer);
+  perfResizeTimer = setTimeout(()=>{
+    if(document.getElementById('view-overview').classList.contains('active')) renderPerfCard();
+  }, 150);
 });
 
 /* --------------------------- refresh button --------------------------- */
