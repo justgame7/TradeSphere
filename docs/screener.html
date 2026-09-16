@@ -1056,7 +1056,15 @@
     .analysis-row-value.val-load{animation:none;}
   }
 
-  .analysis-row-val-wrap{display:flex;align-items:center;gap:7px;min-width:0;justify-content:flex-end;}
+  /* Row layout: label column flexes and wraps, value column stays pinned to the
+     right edge on every width so the numbers form a single readable column. */
+  .analysis-row{align-items:flex-start;gap:12px;flex-wrap:nowrap;}
+  .analysis-row-label{flex:1 1 auto;min-width:0;line-height:1.35;}
+  .analysis-row-val-wrap{
+    flex:0 1 auto;max-width:62%;display:flex;flex-wrap:wrap;align-items:center;
+    justify-content:flex-end;gap:6px;text-align:right;
+  }
+  .analysis-row-value{white-space:normal;}
   .analysis-row-sub{
     font:600 9.5px var(--font-mono);color:var(--faint);
     background:var(--panel);border:1px solid var(--border-soft);border-radius:6px;
@@ -1073,8 +1081,16 @@
   }
   @keyframes taShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
   @media(max-width:520px){
-    .analysis-row{flex-wrap:wrap;row-gap:2px;}
-    .analysis-row-val-wrap{width:100%;justify-content:flex-start;}
+    .analysis-group-card{padding:12px 12px 6px;}
+    .analysis-row{gap:8px;padding:8px 2px;}
+    .analysis-row-label{font-size:11.5px;}
+    .analysis-row-value{font-size:11.5px;}
+    .analysis-row-sub{font-size:9px;padding:1px 4px;}
+    .analysis-row-val-wrap{max-width:58%;}
+  }
+  @media(max-width:360px){
+    .analysis-row-label{font-size:11px;}
+    .analysis-row-value{font-size:11px;}
   }
 </style>
 </head>
