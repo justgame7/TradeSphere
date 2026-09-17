@@ -97,7 +97,22 @@
   .refresh-btn svg{width:15px;height:15px;transition:transform .5s ease;}
   .refresh-btn.spinning svg{animation:spin 0.8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
-  .updated-at{font-size:11px;color:var(--text-3);font-family:var(--font-mono);}
+
+  .collapse-all-btn{
+    display:flex;align-items:center;justify-content:center;
+    background:var(--bg-elev);
+    border:1px solid var(--border);
+    color:var(--text-1);
+    width:32px;height:32px;
+    padding:0;
+    border-radius:999px;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .collapse-all-btn:hover{border-color:var(--gold);}
+  .collapse-all-btn:active{background:var(--bg-row-hover);}
+  .collapse-all-btn svg{width:15px;height:15px;transition:transform .25s ease;}
+  .collapse-all-btn.all-collapsed svg{transform:rotate(180deg);}
 
   /* ---------- Hero: Risk Pulse ---------- */
   .hero{
@@ -228,6 +243,9 @@
     justify-content:space-between;
     padding:15px 16px 13px;
     border-bottom:1px solid var(--border-soft);
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    gap:12px;
   }
   .group-head .gtitle{
     display:flex;align-items:center;gap:9px;
@@ -236,7 +254,23 @@
     font-weight:600;
   }
   .group-head .gtitle .chip{width:8px;height:8px;border-radius:2px;flex:none;}
+  .group-head .ghead-right{display:flex;align-items:center;gap:10px;flex:none;}
   .group-head .gnote{font-size:11.5px;color:var(--text-3);max-width:150px;text-align:right;line-height:1.4;}
+  .group-toggle{
+    display:flex;align-items:center;justify-content:center;
+    flex:none;width:22px;height:22px;padding:0;
+    background:transparent;
+    border:1px solid var(--border);
+    border-radius:7px;
+    color:var(--text-2);
+    cursor:pointer;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  .group-toggle:hover{border-color:var(--gold);color:var(--gold);}
+  .group-toggle svg{width:13px;height:13px;transition:transform .25s ease;}
+  .group.collapsed .group-toggle svg{transform:rotate(-90deg);}
+  .group-body{overflow:hidden;}
+  .group.collapsed .group-body{display:none;}
 
   .row{
     display:grid;
@@ -348,7 +382,9 @@
     <div class="mark"><span class="dot"></span>Riskline</div>
   </div>
   <div class="status-cluster">
-    <div class="updated-at" id="updatedAt">loading…</div>
+    <button class="collapse-all-btn" id="collapseAllBtn" aria-label="Collapse all sections" title="Collapse all sections">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20V4M7 4l-3 3M7 4l3 3"/><path d="M17 4v16M17 20l3-3M17 20l-3-3"/></svg>
+    </button>
     <button class="refresh-btn" id="refreshBtn" aria-label="Refresh data" title="Refresh data">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
     </button>
@@ -391,6 +427,7 @@
   <button class="tab active" data-filter="all">All groups</button>
   <button class="tab" data-filter="stocks">Stock indices</button>
   <button class="tab" data-filter="dollar">Dollar &amp; related</button>
+  <button class="tab" data-filter="commodities">Commodities</button>
   <button class="tab" data-filter="global">Global indices</button>
   <button class="tab" data-filter="crypto">Crypto-Native Sentiment</button>
 </nav>
@@ -455,11 +492,21 @@
           { id:"dxy", name:"US Dollar Index", ticker:"DXY", tag:"Inverse correlation to BTC", value:0, change:0, unit:"", live:true, symbol:"DX-Y.NYB" },
           { id:"eurusd", name:"EUR / USD", ticker:"EURUSD", tag:"Dollar strength mirror", value:0, change:0, unit:"", live:true, symbol:"EURUSD=X" },
           { id:"usdinr", name:"USD / INR", ticker:"USDINR", tag:"Rupee vs. dollar — local FX cross-check", value:0, change:0, unit:"", live:true, symbol:"INR=X" },
+          { id:"us10y", name:"US 10Y Treasury Yield", ticker:"US10Y", tag:"Liquidity & rate-cut pricing", value:0, change:0, unit:"%", live:true, isYield:true, symbol:"^TNX", yieldScale:0.1 }
+        ]
+      },
+      {
+        id: "commodities",
+        title: "Commodities",
+        note: "Real assets and inflation-sensitive raw materials.",
+        color: "var(--coral)",
+        items: [
           { id:"gold", name:"Gold", ticker:"XAU/USD", tag:"Competing safe-haven asset", value:0, change:0, unit:"/oz", live:true, symbol:"GC=F" },
           { id:"silver", name:"Silver", ticker:"XAG/USD", tag:"Industrial + safe-haven metal", value:0, change:0, unit:"/oz", live:true, symbol:"SI=F" },
+          { id:"copper", name:"Copper", ticker:"HG", tag:"Industrial growth barometer", value:0, change:0, unit:"/lb", live:true, symbol:"HG=F" },
           { id:"wti", name:"WTI Crude Oil", ticker:"WTI", tag:"US benchmark oil — inflation / macro liquidity", value:0, change:0, unit:"/bbl", live:true, symbol:"CL=F" },
           { id:"brent", name:"Brent Crude", ticker:"BRENT", tag:"Global benchmark oil", value:0, change:0, unit:"/bbl", live:true, symbol:"BZ=F" },
-          { id:"us10y", name:"US 10Y Treasury Yield", ticker:"US10Y", tag:"Liquidity & rate-cut pricing", value:0, change:0, unit:"%", live:true, isYield:true, symbol:"^TNX", yieldScale:0.1 }
+          { id:"natgas", name:"Natural Gas", ticker:"NG", tag:"Energy demand & inflation signal", value:0, change:0, unit:"/mmbtu", live:true, symbol:"NG=F" }
         ]
       },
       {
@@ -517,7 +564,7 @@
     if (item.unit === "usd-compact") return fmtCompactUSD(item.value);
     if (item.unit === "idx") return fmtNum(item.value, {decimals:0});
     if (item.unit === "%") return fmtNum(item.value, {decimals:2}) + "%";
-    if (item.unit === "/oz" || item.unit === "/bbl") return "$" + fmtNum(item.value, {decimals:2}) + item.unit;
+    if (item.unit === "/oz" || item.unit === "/bbl" || item.unit === "/lb" || item.unit === "/mmbtu") return "$" + fmtNum(item.value, {decimals:2}) + item.unit;
     if (item.unit === "pt" || item.unit === "") return fmtNum(item.value);
     return fmtNum(item.value);
   }
@@ -627,8 +674,16 @@
       head.className = 'group-head';
       head.innerHTML =
         '<div class="gtitle"><span class="chip" style="background:'+group.color+'"></span>' + group.title + '</div>' +
-        '<div class="gnote">' + group.note + '</div>';
+        '<div class="ghead-right">' +
+          '<div class="gnote">' + group.note + '</div>' +
+          '<button class="group-toggle" type="button" aria-expanded="true" aria-label="Collapse ' + group.title + '">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+          '</button>' +
+        '</div>';
       sec.appendChild(head);
+
+      var body = document.createElement('div');
+      body.className = 'group-body';
 
       group.items.forEach(function(item){
         var row = document.createElement('div');
@@ -645,9 +700,10 @@
             '<div class="val" data-val="'+item.id+'">' + formatValue(item) + '</div>' +
             '<div class="chg ' + changeClass(item.change) + '" data-chg="'+item.id+'">' + formatChange(item) + '</div>' +
           '</div>';
-        sec.appendChild(row);
+        body.appendChild(row);
       });
 
+      sec.appendChild(body);
       main.appendChild(sec);
     });
 
@@ -656,7 +712,7 @@
       CONFIG.groups.forEach(function(group){
         group.items.forEach(function(item){
           var c = document.querySelector('[data-spark="'+item.id+'"]');
-          if (c) drawSpark(c, buildSpark(item), item.change >= 0);
+          if (c && c.clientWidth > 0) drawSpark(c, buildSpark(item), item.change >= 0);
         });
       });
     });
@@ -672,7 +728,7 @@
     }
     updateBadge(item);
     var c = document.querySelector('[data-spark="'+item.id+'"]');
-    if (c) drawSpark(c, buildSpark(item), item.change >= 0);
+    if (c && c.clientWidth > 0) drawSpark(c, buildSpark(item), item.change >= 0);
   }
 
   function findItem(id){
@@ -818,6 +874,49 @@
     return { text:'CLOSED', cls:'closed' };
   }
 
+  // Yahoo's v8 chart `meta.chartPreviousClose` is NOT "yesterday's close" —
+  // for a range=1mo request it's the reference price from *before the whole
+  // 1-month window* (i.e. ~a month old). Using it as "previous close" silently
+  // computes a ~monthly % change and mislabels it as the daily change, which is
+  // why every Yahoo-sourced row (stocks, dollar, commodities, global indices,
+  // the 10Y yield) was showing an inflated/wrong Change %. `meta.previousClose`
+  // (the correct field) is only populated by Yahoo when range=1d, so instead we
+  // derive the true previous-session close from the daily candle series itself:
+  // the second-to-last close if the last bar is today's (still-forming) session,
+  // or the last close if today's bar hasn't been added to the series yet.
+  function derivePrevClose(result, meta, price){
+    var timestamps = result.timestamp || [];
+    var q = result.indicators && result.indicators.quote && result.indicators.quote[0];
+    var rawCloses = (q && q.close) || [];
+    var gmtoffset = (typeof meta.gmtoffset === 'number') ? meta.gmtoffset : 0;
+    function localDateKey(epochSec){
+      var d = new Date((epochSec + gmtoffset) * 1000);
+      return d.getUTCFullYear() + '-' + d.getUTCMonth() + '-' + d.getUTCDate();
+    }
+    var pairs = [];
+    for (var i = 0; i < rawCloses.length; i++){
+      var c = rawCloses[i];
+      if (typeof c === 'number' && isFinite(c)){
+        pairs.push({ t: timestamps[i], c: c });
+      }
+    }
+    if (!pairs.length) return null;
+    var nowKey = localDateKey(Date.now() / 1000);
+    var lastPair = pairs[pairs.length - 1];
+    var lastIsToday = (typeof lastPair.t === 'number') && (localDateKey(lastPair.t) === nowKey);
+    if (lastIsToday){
+      // Last bar is today's in-progress/just-closed session — the bar before
+      // it is the true previous close. If there's no earlier bar, fall back
+      // to meta.previousClose (only reliable on range=1d, but better than
+      // nothing) or the current price (0% change) as a last resort.
+      if (pairs.length >= 2) return pairs[pairs.length - 2].c;
+      return (typeof meta.previousClose === 'number') ? meta.previousClose : price;
+    }
+    // Today's bar isn't in the series yet (pre-market / not yet fetched) —
+    // the last completed bar IS the previous close.
+    return lastPair.c;
+  }
+
   function fetchYahoo(symbol){
     var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(symbol) + '?range=1mo&interval=1d';
     return fetchJSONDirect(url).catch(function(){
@@ -827,10 +926,10 @@
       if (!result || !result.meta) throw new Error('no data for ' + symbol);
       var meta = result.meta;
       var price = meta.regularMarketPrice;
-      var prevClose = (typeof meta.chartPreviousClose === 'number') ? meta.chartPreviousClose
-        : (typeof meta.previousClose === 'number' ? meta.previousClose : price);
-      if (typeof price !== 'number' || typeof prevClose !== 'number' || !prevClose) {
-        throw new Error('bad price for ' + symbol);
+      if (typeof price !== 'number') throw new Error('bad price for ' + symbol);
+      var prevClose = derivePrevClose(result, meta, price);
+      if (typeof prevClose !== 'number' || !prevClose) {
+        prevClose = (typeof meta.previousClose === 'number') ? meta.previousClose : price;
       }
       var closes = [];
       var q = result.indicators && result.indicators.quote && result.indicators.quote[0];
@@ -840,7 +939,7 @@
       var status = getMarketStatus(meta);
       return {
         price: price,
-        changePct: ((price - prevClose) / prevClose) * 100,
+        prevClose: prevClose,
         statusText: status.text,
         statusCls: status.cls,
         closes: closes
@@ -858,7 +957,16 @@
             var d = res.value;
             var scale = item.yieldScale || 1;
             item.value = d.price * scale;
-            item.change = d.changePct;
+            // Treasury yield: Yahoo's ^TNX price is the yield x10, so the
+            // scaled value is already a percentage-point yield. The
+            // meaningful "change" there is the yield move in basis points
+            // (100 bps = 1 percentage point), not a % change of the index
+            // price — computing it as a plain % change (like every other
+            // row) produced a number that didn't match what the "bps day"
+            // label claimed.
+            item.change = item.isYield
+              ? (d.price - d.prevClose) * scale * 100
+              : ((d.price - d.prevClose) / d.prevClose) * 100;
             item.statusText = d.statusText;
             item.statusCls = d.statusCls;
             item.spark = d.closes;
@@ -1002,11 +1110,9 @@
   }
 
   function renderUpdatedAt(){
-    var el = document.getElementById('updatedAt');
     var footTime = document.getElementById('footTime');
-    if (!state.lastUpdated){ el.textContent = 'loading…'; return; }
+    if (!state.lastUpdated) return;
     var t = state.lastUpdated.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-    el.textContent = 'Updated ' + t;
     footTime.textContent = 'Last sync ' + t;
   }
 
@@ -1024,6 +1130,50 @@
 
   document.getElementById('refreshBtn').addEventListener('click', function(){
     fetchLiveData();
+  });
+
+  /* ---------------- section collapse / expand ---------------- */
+  function redrawGroupSparks(sec){
+    var groupId = sec.dataset.group;
+    var group = CONFIG.groups.filter(function(g){ return g.id === groupId; })[0];
+    if (!group) return;
+    requestAnimationFrame(function(){
+      group.items.forEach(function(item){
+        var c = document.querySelector('[data-spark="'+item.id+'"]');
+        if (c && c.clientWidth > 0) drawSpark(c, buildSpark(item), item.change >= 0);
+      });
+    });
+  }
+
+  function setGroupCollapsed(sec, collapsed){
+    sec.classList.toggle('collapsed', collapsed);
+    var btn = sec.querySelector('.group-toggle');
+    if (btn) btn.setAttribute('aria-expanded', String(!collapsed));
+    if (!collapsed) redrawGroupSparks(sec);
+  }
+
+  document.getElementById('groups').addEventListener('click', function(e){
+    var head = e.target.closest('.group-head');
+    if (!head) return;
+    var sec = head.closest('.group');
+    setGroupCollapsed(sec, !sec.classList.contains('collapsed'));
+    syncCollapseAllBtn();
+  });
+
+  function syncCollapseAllBtn(){
+    var groups = document.querySelectorAll('.group');
+    var allCollapsed = groups.length > 0 && Array.prototype.every.call(groups, function(g){ return g.classList.contains('collapsed'); });
+    var btn = document.getElementById('collapseAllBtn');
+    btn.classList.toggle('all-collapsed', allCollapsed);
+    btn.setAttribute('aria-label', allCollapsed ? 'Expand all sections' : 'Collapse all sections');
+    btn.title = allCollapsed ? 'Expand all sections' : 'Collapse all sections';
+  }
+
+  document.getElementById('collapseAllBtn').addEventListener('click', function(){
+    var groups = document.querySelectorAll('.group');
+    var anyExpanded = Array.prototype.some.call(groups, function(g){ return !g.classList.contains('collapsed'); });
+    groups.forEach(function(g){ setGroupCollapsed(g, anyExpanded); });
+    syncCollapseAllBtn();
   });
 
   document.getElementById('noticeToggle').addEventListener('click', function(){
@@ -1045,7 +1195,7 @@
     CONFIG.groups.forEach(function(group){
       group.items.forEach(function(item){
         var c = document.querySelector('[data-spark="'+item.id+'"]');
-        if (c) drawSpark(c, buildSpark(item), item.change >= 0);
+        if (c && c.clientWidth > 0) drawSpark(c, buildSpark(item), item.change >= 0);
       });
     });
   });
