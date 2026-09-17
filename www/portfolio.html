@@ -2135,8 +2135,6 @@ function renderMarket(key){
             <div class="detail-stat"><div class="k">Margin used${isCrypto?` (${c.leverage}x)`:''}</div><div class="v">${fmtMoney(c.margin, prefix)}</div></div>
           </div>
           <div class="detail-actions">
-            <button class="btn btn-ghost btn-sm" data-action="add-more">+ Add more</button>
-            <button class="btn btn-ghost btn-sm" data-action="reduce">− Reduce / sell</button>
             <button class="btn btn-ghost btn-sm" data-action="close">✕ Close trade</button>
             ${!meta.priceLive ? `<button class="btn btn-ghost btn-sm" data-action="update-price">Update price</button>` : ''}
             ${isCrypto ? `<button class="btn btn-ghost btn-sm" data-action="edit-lot">✎ Edit</button>` : ''}
@@ -2190,9 +2188,7 @@ document.addEventListener('click', (e)=>{
   const h = state.markets[market].holdings.find(x=>x.id===id);
   if(!h) return;
 
-  if(action === 'add-more') openAddModal(market, h.symbol);
-  else if(action === 'reduce') openReduceModal(market, id);
-  else if(action === 'close') openReduceModal(market, id, true);
+  if(action === 'close') openReduceModal(market, id, true);
   else if(action === 'delete') confirmDeleteHolding(market, id);
   else if(action === 'update-price') openQuickPriceUpdate(market, id);
   else if(action === 'target') openTargetPrompt(market, id);
@@ -2275,6 +2271,7 @@ function openEditLotPrompt(market, id){
   document.getElementById('editLotModalBody').innerHTML = `
     <div class="field"><label>Quantity</label><input type="number" class="input mono" id="elQty" inputmode="decimal" value="${lot.qty}"></div>
     <div class="field"><label>Price (${prefix})</label><input type="number" class="input mono" id="elPrice" inputmode="decimal" value="${lot.price}"></div>
+    <div class="field"><label>Position size (${prefix}) <span style="font-weight:400;color:var(--text-faint)">— editing this adjusts quantity, price stays fixed</span></label><input type="number" class="input mono" id="elPosSize" inputmode="decimal" value="${(lot.qty*lot.price).toFixed(2)}"></div>
     <div class="field"><label>Date</label><input type="date" class="input" id="elDate" value="${new Date(lot.date).toISOString().slice(0,10)}"></div>
     ${isCrypto ? `
     <div class="field">
@@ -2291,9 +2288,11 @@ function openEditLotPrompt(market, id){
 
   const qtyEl = document.getElementById('elQty');
   const priceEl = document.getElementById('elPrice');
+  const posSizeEl = document.getElementById('elPosSize');
   const sliderEl = isCrypto ? document.getElementById('elLeverage') : null;
   const valueEl = isCrypto ? document.getElementById('elLevValue') : null;
   const previewEl = document.getElementById('elPreview');
+  let syncing = false;
 
   // Recomputes the whole position with this lot's qty/price swapped in, so
   // the margin preview (and the cash check on save) reflects the edit —
@@ -2327,7 +2326,27 @@ function openEditLotPrompt(market, id){
       previewEl.innerHTML = `<div class="preview-box">${isCrypto ? `Margin at ${lev}x: <b>${fmtMoney(proj.margin, '$')}</b>` : `Position size: <b>${fmtMoney(proj.investedValue, prefix)}</b>`}${Math.abs(marginDelta)>0.005?` (${marginDelta>=0?'+':''}${fmtMoney(marginDelta, '$')} vs current)`:''}.</div>`;
     }
   }
-  [qtyEl, priceEl].forEach(el=>el.addEventListener('input', updatePreview));
+  // Quantity/price and position size are two views of the same lot, kept in
+  // sync both ways: editing qty or price recomputes the size readout;
+  // editing size backs out a new quantity at the current price (price is
+  // the fixed reference — this mirrors "notional vs quantity" entry in most
+  // trading UIs). `syncing` just guards against the two listeners looping.
+  function syncFromQtyPrice(){
+    if(syncing) return;
+    syncing = true;
+    const q = parseFloat(qtyEl.value), p = parseFloat(priceEl.value);
+    if(q>=0 && p>=0 && !isNaN(q) && !isNaN(p)) posSizeEl.value = (q*p).toFixed(2);
+    syncing = false;
+  }
+  function syncFromPosSize(){
+    if(syncing) return;
+    syncing = true;
+    const size = parseFloat(posSizeEl.value), p = parseFloat(priceEl.value);
+    if(size>=0 && p>0 && !isNaN(size)) qtyEl.value = (size/p).toFixed(8).replace(/\.?0+$/,'') || '0';
+    syncing = false;
+  }
+  [qtyEl, priceEl].forEach(el=>el.addEventListener('input', ()=>{ syncFromQtyPrice(); updatePreview(); }));
+  posSizeEl.addEventListener('input', ()=>{ syncFromPosSize(); updatePreview(); });
   if(sliderEl) sliderEl.addEventListener('input', updatePreview);
   updatePreview();
 
@@ -2753,7 +2772,7 @@ function openReduceModal(market, holdingId, closeOnly){
         <input type="number" class="input mono" id="rQty" inputmode="decimal" placeholder="0.00" style="flex:1" value="${closeOnly?c.remainingQty:''}" ${closeOnly?'readonly':''}>
         ${closeOnly ? '' : '<button class="btn btn-ghost btn-sm" id="rMax">Max</button>'}
       </div>
-      ${closeOnly ? `<div class="hint">Closing the full position. Use "Reduce / sell" instead to close part of it.</div>` : ''}
+      ${closeOnly ? `<div class="hint">Closing the full position.</div>` : ''}
     </div>
     <div class="field">
       <label>Exit price (${prefix})</label>
