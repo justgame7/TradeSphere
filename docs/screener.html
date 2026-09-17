@@ -1017,7 +1017,7 @@
     padding:14px 15px 8px;
     box-shadow:0 1px 0 0 rgba(255,255,255,.03) inset;
   }
-  .analysis-group-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border-soft);}
+  .analysis-group-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border-soft);cursor:pointer;user-select:none;}
   .analysis-group-icon{
     width:28px;height:28px;border-radius:9px;flex:none;
     background:color-mix(in srgb,var(--grp-color,var(--accent)) 18%,transparent);
@@ -1026,6 +1026,19 @@
   }
   .analysis-group-title{font-weight:700;font-size:13.5px;letter-spacing:-.01em;flex:1;}
   .analysis-group-count{font:600 11px var(--font-mono);color:var(--faint);background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:2px 8px;}
+  .analysis-group-chevron{
+    flex:none;width:22px;height:22px;padding:0;border:none;background:transparent;
+    color:var(--faint);font-size:12px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:transform .18s ease,color .15s;
+  }
+  .analysis-group-head:hover .analysis-group-chevron{color:var(--accent);}
+  .analysis-group-card.collapsed .analysis-group-chevron{transform:rotate(-90deg);}
+  .analysis-group-card.collapsed .analysis-group-head{margin-bottom:0;padding-bottom:10px;}
+  .analysis-group-card.collapsed{padding-bottom:4px;}
+  .analysis-group-body{overflow:hidden;}
+  .analysis-group-card.collapsed .analysis-group-body{display:none;}
+  .analysis-toggle-all .taa-chevron{display:inline-block;transition:transform .18s ease;}
+  .analysis-toggle-all.all-collapsed .taa-chevron{transform:rotate(-90deg);}
   .analysis-row{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
     padding:7px 2px;border-bottom:1px dashed var(--border-soft);
@@ -5276,6 +5289,7 @@ window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, remov
           <button type="button" data-tf="1w">1W</button>
         </div>
         <button type="button" class="analysis-icon-btn" id="taCopyBtn" title="Copy all values" aria-label="Copy all values" onclick="TechAnalysis.copyValues()">⧉</button>
+        <button type="button" class="analysis-icon-btn analysis-toggle-all" id="taToggleAllBtn" title="Collapse all sections" aria-label="Collapse all sections" onclick="TechAnalysis.toggleAll()"><span class="taa-chevron">⌄</span></button>
         <button type="button" class="analysis-icon-btn" id="taRefreshBtn" title="Reload values" aria-label="Reload values" onclick="TechAnalysis.refresh()">↻</button>
         <button type="button" class="analysis-close" id="taCloseBtn" aria-label="Close" onclick="TechAnalysis.close()">✕</button>
       </div>
@@ -5596,7 +5610,7 @@ function stochRsi(values, rsiLen=14, stochLen=14, k=3, d=3){
   const dArr=[]; for(let i=d-1;i<kArr.length;i++) dArr.push(smaAt(kArr,d,i));
   return { k:last(kArr), d:last(dArr) };
 }
-function cci(c, len=20){
+function cci(c, len=34){
   const n=c.length;
   if(n<len) return NaN;
   const tp = c.map(x=>(x.high+x.low+x.close)/3);
@@ -5980,6 +5994,15 @@ const dist = (level, price) => { if(!Number.isFinite(level) || !price) return nu
    Group taxonomy. Keys map 1:1 to the value map built by computeValues().
    --------------------------------------------------------------------------- */
 const GROUPS = [
+  { key:'ict', name:'ICT / Smart Money', icon:'🧠', color:'#FF5470', members:[
+    ['fvgBull','Fair Value Gap (Bullish)'],['fvgBear','Fair Value Gap (Bearish)'],
+    ['obBull','Order Block (Bullish)'],['obBear','Order Block (Bearish)'],
+    ['breaker','Breaker Block'],
+    ['sweepBsl','Liquidity Sweep (BSL)'],['sweepSsl','Liquidity Sweep (SSL)'],
+    ['bos','Break of Structure'],['choch','Change of Character'],
+    ['eqh','Equal Highs'],['eql','Equal Lows'],
+    ['pdZone','Premium / Discount Zone'],['displacement','Displacement']
+  ]},
   { key:'trend', name:'Trend', icon:'📈', color:'var(--accent)', members:[
     ['ema20','EMA 20'],['ema50','EMA 50'],['ema100','EMA 100'],['ema200','EMA 200'],
     ['sma50','SMA 50'],['sma200','SMA 200'],
@@ -5988,14 +6011,10 @@ const GROUPS = [
     ['supertrend','Supertrend'],['psar','Parabolic SAR'],
     ['aroonUp','Aroon Up'],['aroonDown','Aroon Down']
   ]},
-  { key:'ichimoku', name:'Ichimoku Cloud', icon:'☁️', color:'var(--blue)', members:[
-    ['tenkan','Tenkan-sen'],['kijun','Kijun-sen'],['spanA','Senkou Span A'],['spanB','Senkou Span B'],
-    ['chikou','Chikou Span'],['cloudPos','Cloud Position'],['cloudTop','Cloud Top'],['cloudBot','Cloud Bottom']
-  ]},
   { key:'momentum', name:'Momentum', icon:'⚡', color:'var(--gold)', members:[
     ['rsi','RSI (14)'],['srsiK','Stoch RSI %K'],['srsiD','Stoch RSI %D'],
     ['stochK','Stochastic %K'],['stochD','Stochastic %D'],
-    ['cci','CCI (20)'],['willr','Williams %R'],['mfi','MFI (14)'],['roc','ROC (12)']
+    ['cci','CCI (34)'],['willr','Williams %R'],['mfi','MFI (14)'],['roc','ROC (12)']
   ]},
   { key:'volatility', name:'Volatility', icon:'🌊', color:'var(--violet)', members:[
     ['atr','ATR (14)'],['atrPct','ATR %'],
@@ -6005,20 +6024,15 @@ const GROUPS = [
     ['dcHigh','Donchian High'],['dcLow','Donchian Low'],
     ['hv','Historical Volatility']
   ]},
+  { key:'ichimoku', name:'Ichimoku Cloud', icon:'☁️', color:'var(--blue)', members:[
+    ['tenkan','Tenkan-sen'],['kijun','Kijun-sen'],['spanA','Senkou Span A'],['spanB','Senkou Span B'],
+    ['chikou','Chikou Span'],['cloudPos','Cloud Position'],['cloudTop','Cloud Top'],['cloudBot','Cloud Bottom']
+  ]},
   { key:'volume', name:'Volume', icon:'📊', color:'var(--orange)', members:[
     ['vol24h','24h Volume'],['volMa','Volume MA (20)'],['volRatio','Volume Ratio'],
     ['obv','OBV'],['vwap','VWAP'],['cvd','CVD'],
     ['poc','Volume Profile POC'],['vah','Value Area High'],['val','Value Area Low'],
     ['cmf','Chaikin Money Flow'],['adl','A/D Line']
-  ]},
-  { key:'ict', name:'ICT / Smart Money', icon:'🧠', color:'#FF5470', members:[
-    ['fvgBull','Fair Value Gap (Bullish)'],['fvgBear','Fair Value Gap (Bearish)'],
-    ['obBull','Order Block (Bullish)'],['obBear','Order Block (Bearish)'],
-    ['breaker','Breaker Block'],
-    ['sweepBsl','Liquidity Sweep (BSL)'],['sweepSsl','Liquidity Sweep (SSL)'],
-    ['bos','Break of Structure'],['choch','Change of Character'],
-    ['eqh','Equal Highs'],['eql','Equal Lows'],
-    ['pdZone','Premium / Discount Zone'],['displacement','Displacement']
   ]},
   { key:'structure', name:'Market Structure', icon:'🏗️', color:'#5B8CFF', members:[
     ['bias','Structure Trend'],['swingHigh','Last Swing High'],['swingLow','Last Swing Low'],
@@ -6307,15 +6321,24 @@ const tfLabel = tf => tf==='4h' ? '4 Hour' : tf==='1w' ? 'Weekly' : 'Daily';
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
 
+// Which groups are collapsed, by index into GROUPS. Persists across refreshes
+// and timeframe switches (re-renders reuse it) so the user's layout choice
+// sticks until they explicitly toggle a section or Expand/Collapse All.
+let collapsedGroups = new Set();
+
 function renderGroups(values){
   const grid = el('taGroupsGrid');
-  grid.innerHTML = GROUPS.map(g=>`
-    <div class="analysis-group-card" style="--grp-color:${g.color}">
+  grid.innerHTML = GROUPS.map((g,idx)=>{
+    const collapsed = collapsedGroups.has(idx);
+    return `
+    <div class="analysis-group-card${collapsed ? ' collapsed' : ''}" style="--grp-color:${g.color}" data-idx="${idx}">
       <div class="analysis-group-head">
         <div class="analysis-group-icon">${g.icon}</div>
         <div class="analysis-group-title">${g.name}</div>
         <div class="analysis-group-count">${g.members.length}</div>
+        <button type="button" class="analysis-group-chevron" aria-label="Toggle ${esc(g.name)} section" aria-expanded="${collapsed ? 'false' : 'true'}">⌄</button>
       </div>
+      <div class="analysis-group-body">
       ${g.members.map(([key,label])=>{
         const d = values ? values[key] : null;
         const v = d ? d.v : '—';
@@ -6326,8 +6349,44 @@ function renderGroups(values){
           <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-value${cls}">${esc(v)}</span></span>
         </div>`;
       }).join('')}
+      </div>
     </div>
-  `).join('');
+  `}).join('');
+  updateToggleAllBtn();
+}
+
+function toggleGroup(idx){
+  if(collapsedGroups.has(idx)) collapsedGroups.delete(idx);
+  else collapsedGroups.add(idx);
+  const card = grid_card(idx);
+  if(card){
+    const collapsed = collapsedGroups.has(idx);
+    card.classList.toggle('collapsed', collapsed);
+    const chev = card.querySelector('.analysis-group-chevron');
+    if(chev) chev.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
+  updateToggleAllBtn();
+}
+function grid_card(idx){ return document.querySelector(`.analysis-group-card[data-idx="${idx}"]`); }
+
+function toggleAllGroups(){
+  const collapseAll = collapsedGroups.size < GROUPS.length;
+  collapsedGroups = new Set(collapseAll ? GROUPS.map((_,i)=>i) : []);
+  document.querySelectorAll('#taGroupsGrid .analysis-group-card').forEach(card=>{
+    card.classList.toggle('collapsed', collapseAll);
+    const chev = card.querySelector('.analysis-group-chevron');
+    if(chev) chev.setAttribute('aria-expanded', collapseAll ? 'false' : 'true');
+  });
+  updateToggleAllBtn();
+}
+function updateToggleAllBtn(){
+  const btn = el('taToggleAllBtn');
+  if(!btn) return;
+  const allCollapsed = GROUPS.length > 0 && collapsedGroups.size >= GROUPS.length;
+  btn.classList.toggle('all-collapsed', allCollapsed);
+  const label = allCollapsed ? 'Expand all sections' : 'Collapse all sections';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
 }
 
 function setStatus(text, state){
@@ -6494,6 +6553,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const btn = e.target.closest('button[data-tf]');
     if(btn) setTf(btn.dataset.tf);
   });
+  el('taGroupsGrid').addEventListener('click', e=>{
+    const head = e.target.closest('.analysis-group-head');
+    if(!head) return;
+    const card = head.closest('.analysis-group-card');
+    if(!card) return;
+    toggleGroup(parseInt(card.dataset.idx, 10));
+  });
   el('analysisOverlay').addEventListener('click', e=>{
     if(e.target.id==='analysisOverlay') close();
   });
@@ -6502,7 +6568,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, GROUPS, _compute: computeValues };
+window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, toggleAll: toggleAllGroups, GROUPS, _compute: computeValues };
 })();
 </script>
 
