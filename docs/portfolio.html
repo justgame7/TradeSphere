@@ -34,6 +34,7 @@
   --saffron-dim:rgba(234,138,69,.15);
   --azure:#5C93F0;
   --azure-dim:rgba(92,147,240,.15);
+  --blue:#5B8CFF;
   --radius-s:10px;
   --radius-m:16px;
   --radius-l:22px;
@@ -243,6 +244,8 @@ a{color:inherit;}
 .btn-block{width:100%; justify-content:center;}
 .btn-sm{padding:7px 11px; font-size:12.5px; border-radius:9px;}
 .btn-danger-text{background:transparent; color:var(--coral); border:1px solid transparent;}
+.btn-ghost.btn-analysis{color:var(--blue);}
+.btn-ghost.btn-viewchart{color:var(--gold);}
 
 .refresh-info{margin-left:auto; font-size:11px; color:var(--text-faint); text-align:right; line-height:1.3;}
 
@@ -408,6 +411,23 @@ a{color:inherit;}
 .modal-title{font-family:'Fraunces', serif; font-weight:600; font-size:19px;}
 .modal-close{background:var(--panel); border:1px solid var(--border); width:32px; height:32px; border-radius:10px; color:var(--text-dim); cursor:pointer;}
 
+/* Analysis overlay — embeds screener.html's own analysis view for a coin */
+.analysis-overlay{
+  position:fixed; inset:0; background:rgba(8,7,14,.86); z-index:999;
+  display:none; align-items:stretch; justify-content:center;
+}
+.analysis-overlay.open{display:flex;}
+.analysis-overlay-inner{position:relative; width:100%; height:100%; background:var(--bg);}
+.analysis-overlay-close{
+  position:absolute; top:12px; right:12px; z-index:2;
+  width:34px; height:34px; border-radius:10px;
+  background:var(--panel); border:1px solid var(--border); color:var(--text);
+  font-family:'IBM Plex Mono', monospace; font-weight:700; font-size:16px; line-height:1; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.analysis-overlay-close:hover{border-color:var(--coral); color:var(--coral);}
+.analysis-overlay-frame{width:100%; height:100%; border:0; display:block;}
+
 /* Toasts */
 .toast-container{position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:200; display:flex; flex-direction:column; gap:8px; width:calc(100% - 32px); max-width:420px;}
 .toast{
@@ -456,6 +476,13 @@ a{color:inherit;}
 </style>
 </head>
 <body>
+
+<div class="analysis-overlay" id="analysisOverlay">
+  <div class="analysis-overlay-inner">
+    <button class="analysis-overlay-close" id="analysisOverlayClose" type="button" aria-label="Close analysis">×</button>
+    <iframe class="analysis-overlay-frame" id="analysisOverlayFrame" title="Coin analysis" src="about:blank"></iframe>
+  </div>
+</div>
 
 <div id="app">
 
@@ -692,14 +719,14 @@ a{color:inherit;}
   </div>
 </div>
 
-<div class="modal-overlay" id="modalLeverage">
+<div class="modal-overlay" id="modalEditLot">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-head">
-      <div class="modal-title" id="leverageModalTitle">Set leverage</div>
+      <div class="modal-title" id="editLotModalTitle">Edit order</div>
       <button class="modal-close" data-close>&times;</button>
     </div>
-    <div id="leverageModalBody"></div>
+    <div id="editLotModalBody"></div>
   </div>
 </div>
 
@@ -772,6 +799,61 @@ const AUTO_REFRESH_MS = 45000;
 // maker since that's the common case for planned entries/exits.
 const FEE_RATES = { maker: 0.0002, taker: 0.0005 };
 const MAX_LEVERAGE = 25;
+
+// Same TradingView app-linking setup as watchlist.html / screener.html's
+// analysis modal, so "View chart" and "Analysis" behave identically here.
+const TRADINGVIEW_APP_PACKAGE = 'com.tradingview.tradingviewapp';
+function tradingViewChartUrl(binanceSymbol){
+  const tvSymbol = `BINANCE:${binanceSymbol}.P`;
+  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`;
+}
+// window.open()/target="_blank" gets handed off to the phone's default
+// browser by the WebView, which is why this used to open Chrome instead of
+// the TradingView app. An Android "intent://" URL explicitly names the
+// target app's package, so Android launches that app directly if it's
+// installed, and only falls back to the browser (via S.browser_fallback_url)
+// if it isn't. Non-Android contexts (desktop testing, iOS) just get a
+// normal new-tab open since intent:// is an Android-only scheme.
+//
+// IMPORTANT: this must go through window.open(), not window.location.href -
+// this page runs inside an iframe within index.html's shell, and only
+// window.open() actually escapes the iframe out to the OS intent resolver.
+function openExternalLink(webUrl, androidPackage){
+  const isAndroid = /Android/i.test(navigator.userAgent || '');
+  if(isAndroid && androidPackage){
+    const hostAndPath = webUrl.replace(/^https?:\/\//, '');
+    const intentUrl = `intent://${hostAndPath}#Intent;scheme=https;package=${androidPackage};S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+    window.open(intentUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  window.open(webUrl, '_blank', 'noopener,noreferrer');
+}
+function openTradingViewChart(binanceSymbol){
+  openExternalLink(tradingViewChartUrl(binanceSymbol), TRADINGVIEW_APP_PACKAGE);
+}
+
+// Embeds screener.html's own analysis modal (via its ?symbol= deep link) as
+// a full-window overlay, so "Analysis" opens straight into it without
+// leaving this page or losing portfolio state underneath.
+function openAnalysisOverlay(binanceSymbol){
+  if(!binanceSymbol) return;
+  const frame = document.getElementById('analysisOverlayFrame');
+  frame.src = `screener.html?symbol=${encodeURIComponent(binanceSymbol)}`;
+  document.getElementById('analysisOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeAnalysisOverlay(){
+  document.getElementById('analysisOverlay').classList.remove('open');
+  document.getElementById('analysisOverlayFrame').src = 'about:blank';
+  document.body.style.overflow = '';
+}
+document.getElementById('analysisOverlayClose').addEventListener('click', closeAnalysisOverlay);
+document.getElementById('analysisOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'analysisOverlay') closeAnalysisOverlay();
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape' && document.getElementById('analysisOverlay').classList.contains('open')) closeAnalysisOverlay();
+});
 
 const MARKET_META = {
   crypto:   { label:'Crypto',     symbol:'USDT', chip:'chip-crypto', accent:'var(--violet)', priceLive:true,  prefix:'' },
@@ -2057,8 +2139,10 @@ function renderMarket(key){
             <button class="btn btn-ghost btn-sm" data-action="reduce">− Reduce / sell</button>
             <button class="btn btn-ghost btn-sm" data-action="close">✕ Close trade</button>
             ${!meta.priceLive ? `<button class="btn btn-ghost btn-sm" data-action="update-price">Update price</button>` : ''}
-            ${isCrypto ? `<button class="btn btn-ghost btn-sm" data-action="leverage">⚡ Leverage</button>` : ''}
-            <button class="btn btn-danger-text btn-sm" data-action="delete">Delete</button>
+            ${isCrypto ? `<button class="btn btn-ghost btn-sm" data-action="edit-lot">✎ Edit</button>` : ''}
+            ${isCrypto ? `<button class="btn btn-ghost btn-sm btn-analysis" data-action="analysis">Analysis</button>` : ''}
+            ${isCrypto ? `<button class="btn btn-ghost btn-sm btn-viewchart" data-action="view-chart">View chart ↗</button>` : ''}
+            ${!isCrypto ? `<button class="btn btn-danger-text btn-sm" data-action="delete">Delete</button>` : ''}
           </div>
           <div class="lot-list">
             <div class="lot-list-title">Trade history (${h.lots.length} ${h.lots.length===1?'entry':'entries'})</div>
@@ -2112,7 +2196,9 @@ document.addEventListener('click', (e)=>{
   else if(action === 'delete') confirmDeleteHolding(market, id);
   else if(action === 'update-price') openQuickPriceUpdate(market, id);
   else if(action === 'target') openTargetPrompt(market, id);
-  else if(action === 'leverage') openLeveragePrompt(market, id);
+  else if(action === 'edit-lot') openEditLotPrompt(market, id);
+  else if(action === 'analysis') openAnalysisOverlay(h.symbol);
+  else if(action === 'view-chart') openTradingViewChart(h.symbol);
   else if(action === 'del-lot'){
     const lotRow = e.target.closest('.lot-row');
     const lotId = lotRow.dataset.lotId;
@@ -2174,66 +2260,98 @@ function openTargetPrompt(market, id){
   saveState(); renderMarket(market);
   toast(h.targetPrice ? 'Target set' : 'Target cleared');
 }
-function openLeveragePrompt(market, id){
+function openEditLotPrompt(market, id){
   const h = state.markets[market].holdings.find(x=>x.id===id);
-  if(!h) return;
+  if(!h || !h.lots.length) return;
+  const isCrypto = market === 'crypto';
+  const meta = MARKET_META[market];
+  const prefix = isCrypto ? '$' : meta.prefix;
+  const lot = h.lots[h.lots.length - 1];
   const c = computeHolding(h);
   const totals = marketTotals(market);
   const startLev = Math.min(h.leverage || 1, MAX_LEVERAGE);
 
-  document.getElementById('leverageModalTitle').textContent = `Leverage — ${h.symbol.replace('USDT','')}`;
-  document.getElementById('leverageModalBody').innerHTML = `
+  document.getElementById('editLotModalTitle').textContent = `Edit order — ${h.symbol.replace('USDT','')}`;
+  document.getElementById('editLotModalBody').innerHTML = `
+    <div class="field"><label>Quantity</label><input type="number" class="input mono" id="elQty" inputmode="decimal" value="${lot.qty}"></div>
+    <div class="field"><label>Price (${prefix})</label><input type="number" class="input mono" id="elPrice" inputmode="decimal" value="${lot.price}"></div>
+    <div class="field"><label>Date</label><input type="date" class="input" id="elDate" value="${new Date(lot.date).toISOString().slice(0,10)}"></div>
+    ${isCrypto ? `
     <div class="field">
       <div class="leverage-row">
         <label style="margin-bottom:0">Leverage <span style="font-weight:400;color:var(--text-faint)">— applies to the whole position</span></label>
-        <span class="leverage-value" id="hLevValue" style="background:${leverageBadgeColors(startLev).bg};color:${leverageBadgeColors(startLev).fg}">${startLev}x</span>
+        <span class="leverage-value" id="elLevValue" style="background:${leverageBadgeColors(startLev).bg};color:${leverageBadgeColors(startLev).fg}">${startLev}x</span>
       </div>
-      <input type="range" class="leverage-slider" id="hLeverage" min="1" max="${MAX_LEVERAGE}" step="1" value="${startLev}">
+      <input type="range" class="leverage-slider" id="elLeverage" min="1" max="${MAX_LEVERAGE}" step="1" value="${startLev}">
       <div class="leverage-marks"><span>1x</span><span>7x</span><span>13x</span><span>19x</span><span>25x</span></div>
-    </div>
-    <div id="hLevPreview"></div>
-    <button class="btn btn-primary btn-block" id="submitLeverage">Set leverage</button>
+    </div>` : ''}
+    <div id="elPreview"></div>
+    <button class="btn btn-primary btn-block" id="submitEditLot">Save changes</button>
   `;
 
-  const sliderEl = document.getElementById('hLeverage');
-  const valueEl = document.getElementById('hLevValue');
-  const previewEl = document.getElementById('hLevPreview');
+  const qtyEl = document.getElementById('elQty');
+  const priceEl = document.getElementById('elPrice');
+  const sliderEl = isCrypto ? document.getElementById('elLeverage') : null;
+  const valueEl = isCrypto ? document.getElementById('elLevValue') : null;
+  const previewEl = document.getElementById('elPreview');
 
-  function marginDeltaFor(num){
-    const newMargin = c.investedValue / num;
-    return newMargin - c.margin;
+  // Recomputes the whole position with this lot's qty/price swapped in, so
+  // the margin preview (and the cash check on save) reflects the edit —
+  // not just the leverage change on top of the old numbers.
+  function projected(q, p, lev){
+    const otherBought = c.totalBought - lot.qty;
+    const otherCost = (c.totalBought*c.avgCost) - (lot.qty*lot.price);
+    const totalBought = otherBought + q;
+    const totalCost = otherCost + q*p;
+    const avgCost = totalBought > 0 ? totalCost/totalBought : 0;
+    const remainingQty = Math.max(0, totalBought - (h.soldQty||0));
+    const investedValue = remainingQty * avgCost;
+    const margin = isCrypto ? investedValue / lev : investedValue;
+    return { investedValue, margin };
   }
   function updatePreview(){
-    const num = parseInt(sliderEl.value, 10);
-    const colors = leverageBadgeColors(num);
-    valueEl.textContent = num + 'x';
-    valueEl.style.background = colors.bg;
-    valueEl.style.color = colors.fg;
-    const marginDelta = marginDeltaFor(num);
-    if(marginDelta > totals.availableCash + 1e-9){
+    const q = parseFloat(qtyEl.value), p = parseFloat(priceEl.value);
+    const lev = sliderEl ? parseInt(sliderEl.value, 10) : 1;
+    if(sliderEl){
+      const colors = leverageBadgeColors(lev);
+      valueEl.textContent = lev + 'x';
+      valueEl.style.background = colors.bg;
+      valueEl.style.color = colors.fg;
+    }
+    if(!q || q<=0 || isNaN(p) || p<0){ previewEl.innerHTML=''; return; }
+    const proj = projected(q, p, lev);
+    const marginDelta = proj.margin - c.margin;
+    if(isCrypto && marginDelta > totals.availableCash + 1e-9){
       previewEl.innerHTML = `<div class="preview-box" style="background:var(--coral-dim);border-color:transparent;color:var(--coral)">Needs ${fmtMoney(marginDelta - totals.availableCash, '$')} more cash than you have available.</div>`;
     }else{
-      const newMargin = c.investedValue / num;
-      previewEl.innerHTML = `<div class="preview-box">Margin at ${num}x: <b>${fmtMoney(newMargin, '$')}</b>${Math.abs(marginDelta)>0.005?` (${marginDelta>=0?'+':''}${fmtMoney(marginDelta, '$')} vs current)`:''}.</div>`;
+      previewEl.innerHTML = `<div class="preview-box">${isCrypto ? `Margin at ${lev}x: <b>${fmtMoney(proj.margin, '$')}</b>` : `Position size: <b>${fmtMoney(proj.investedValue, prefix)}</b>`}${Math.abs(marginDelta)>0.005?` (${marginDelta>=0?'+':''}${fmtMoney(marginDelta, '$')} vs current)`:''}.</div>`;
     }
   }
-  sliderEl.addEventListener('input', updatePreview);
+  [qtyEl, priceEl].forEach(el=>el.addEventListener('input', updatePreview));
+  if(sliderEl) sliderEl.addEventListener('input', updatePreview);
   updatePreview();
 
-  document.getElementById('submitLeverage').addEventListener('click', ()=>{
-    const num = parseInt(sliderEl.value, 10);
-    const marginDelta = marginDeltaFor(num);
-    if(marginDelta > totals.availableCash + 1e-9){
-      toast(`Lowering to ${num}x needs ${fmtMoney(marginDelta - totals.availableCash, '$')} more cash than you have available`, 'error');
+  document.getElementById('submitEditLot').addEventListener('click', ()=>{
+    const q = parseFloat(qtyEl.value), p = parseFloat(priceEl.value);
+    const dateVal = document.getElementById('elDate').value;
+    const lev = sliderEl ? parseInt(sliderEl.value, 10) : (h.leverage || 1);
+    if(!q || q<=0 || isNaN(p) || p<0){ toast('Enter valid values', 'error'); return; }
+    const proj = projected(q, p, lev);
+    const marginDelta = proj.margin - c.margin;
+    if(isCrypto && marginDelta > totals.availableCash + 1e-9){
+      toast(`Needs ${fmtMoney(marginDelta - totals.availableCash, '$')} more cash than you have available`, 'error');
       return;
     }
-    h.leverage = num;
+    lot.qty = q; lot.price = p;
+    if(dateVal) lot.date = new Date(dateVal).getTime();
+    if(isCrypto) lot.fee = q * p * FEE_RATES.maker;
+    if(isCrypto) h.leverage = lev;
     saveState(); renderMarket(market); renderOverview();
-    closeModal(document.getElementById('modalLeverage'));
-    toast(`Leverage set to ${num}x`);
+    closeModal(document.getElementById('modalEditLot'));
+    toast('Order updated');
   });
 
-  document.getElementById('modalLeverage').classList.add('open');
+  document.getElementById('modalEditLot').classList.add('open');
 }
 
 /* --------------------------- ADD MODAL --------------------------- */
