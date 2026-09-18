@@ -750,6 +750,7 @@ a{color:inherit;}
       <button class="modal-close" data-close>&times;</button>
     </div>
     <div class="expand-total" id="expandTotal"></div>
+    <div class="toggle-group toggle-group-sm" id="expandClosedFY" style="display:none"></div>
     <div class="toggle-group toggle-group-sm expand-style-toggle" id="expandChartStyle">
       <button type="button" data-style="hbar" class="active">Horizontal bars</button>
       <button type="button" data-style="list">List</button>
@@ -2044,6 +2045,20 @@ function renderAllocExpand(){
     b.classList.toggle('active', b.dataset.style === allocExpandStyle);
   });
 
+  const expandFyRow = document.getElementById('expandClosedFY');
+  if(allocMode === 'closed'){
+    const options = realizedFYOptions(state.markets.crypto.realized || []);
+    if(options.length > 1){
+      expandFyRow.style.display = 'flex';
+      expandFyRow.innerHTML = options.map(y=>`<button type="button" data-fy="${y}" class="${expandFySel===y?'active':''}">${fyLabel(y)}</button>`).join('')
+        + `<button type="button" data-fy="all" class="${expandFySel==='all'?'active':''}">All time</button>`;
+    }else{
+      expandFyRow.style.display = 'none';
+    }
+  }else{
+    expandFyRow.style.display = 'none';
+  }
+
   const rows = cryptoAllocRows(allocMode);
   const totalEl = document.getElementById('expandTotal');
   const area = document.getElementById('expandChartArea');
@@ -2972,6 +2987,13 @@ function renderHistory(key){
 }
 
 document.addEventListener('click', (e)=>{
+  const expandFyBtn = e.target.closest('#expandClosedFY [data-fy]');
+  if(expandFyBtn){
+    const val = expandFyBtn.dataset.fy === 'all' ? 'all' : Number(expandFyBtn.dataset.fy);
+    setRealizedFYFilter('crypto', val);
+    renderAllocExpand();
+    return;
+  }
   const allocFyBtn = e.target.closest('#allocClosedFY [data-fy]');
   if(allocFyBtn){
     const val = allocFyBtn.dataset.fy === 'all' ? 'all' : Number(allocFyBtn.dataset.fy);
