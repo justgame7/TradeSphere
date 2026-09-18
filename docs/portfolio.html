@@ -593,6 +593,7 @@ a{color:inherit;}
             </button>
           </div>
         </div>
+        <div class="toggle-group toggle-group-sm" id="allocClosedFY" style="display:none"></div>
         <div class="donut-row" id="donutRow">
           <div id="donutWrap"></div>
           <div class="donut-legend" id="ovLegend"></div>
@@ -622,7 +623,7 @@ a{color:inherit;}
         <p class="card-label" style="margin:0">Closed trades <span class="chip chip-manual" id="cryptoHistoryCount">0</span></p>
         <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       </div>
-      <div class="history-body"><div id="cryptoHistoryList"></div></div>
+      <div class="history-body"><div class="toggle-group toggle-group-sm history-fy-filter" id="cryptoHistoryFYFilter"></div><div id="cryptoHistoryList"></div></div>
     </div>
   </section>
 
@@ -639,7 +640,7 @@ a{color:inherit;}
         <p class="card-label" style="margin:0">Closed trades <span class="chip chip-manual" id="stocksINHistoryCount">0</span></p>
         <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       </div>
-      <div class="history-body"><div id="stocksINHistoryList"></div></div>
+      <div class="history-body"><div class="toggle-group toggle-group-sm history-fy-filter" id="stocksINHistoryFYFilter"></div><div id="stocksINHistoryList"></div></div>
     </div>
   </section>
 
@@ -656,7 +657,7 @@ a{color:inherit;}
         <p class="card-label" style="margin:0">Closed trades <span class="chip chip-manual" id="stocksUSHistoryCount">0</span></p>
         <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       </div>
-      <div class="history-body"><div id="stocksUSHistoryList"></div></div>
+      <div class="history-body"><div class="toggle-group toggle-group-sm history-fy-filter" id="stocksUSHistoryFYFilter"></div><div id="stocksUSHistoryList"></div></div>
     </div>
   </section>
 
@@ -888,6 +889,48 @@ function mergeMarkets(base, parsed){
   return out;
 }
 
+// Used specifically by "Import backup": adds a backup file's positions and
+// closed trades ON TOP of what's already on this device, instead of wiping
+// it. Every holding and realized trade carries a unique `id` from uid(), so
+// dedup is exact — importing the same backup twice (or a backup that's a
+// subset of what's already here) adds nothing new. cashBalance/feesPaid are
+// running per-device totals, not list data, so they can't be summed
+// wholesale without double-counting; instead they're nudged by exactly what
+// the newly-added closed trades and lots contributed, which is the one
+// adjustment that's always correct regardless of overlap between the two files.
+function mergeImportedMarkets(base, parsed){
+  const out = {};
+  let addedHoldings = 0, addedRealized = 0;
+  Object.keys(base).forEach(key=>{
+    const b = base[key] || {};
+    const p = (parsed && parsed[key]) || {};
+    const merged = Object.assign({}, b);
+
+    const localHoldingIds = new Set((b.holdings||[]).map(h=>h.id));
+    const newHoldings = (p.holdings||[]).filter(h=>h && h.id && !localHoldingIds.has(h.id));
+    merged.holdings = (b.holdings||[]).concat(newHoldings);
+    addedHoldings += newHoldings.length;
+
+    const localRealizedIds = new Set((b.realized||[]).map(r=>r.id));
+    const newRealized = (p.realized||[]).filter(r=>r && r.id && !localRealizedIds.has(r.id));
+    merged.realized = (b.realized||[]).concat(newRealized);
+    addedRealized += newRealized.length;
+
+    if('cashBalance' in b || 'cashBalance' in p){
+      const addedFromRealized = newRealized.reduce((s,r)=>s + (r.pnl||0), 0);
+      merged.cashBalance = (b.cashBalance||0) + addedFromRealized;
+    }
+    if('feesPaid' in b || 'feesPaid' in p){
+      const feesFromNewHoldings = newHoldings.reduce((s,h)=>s + (h.lots||[]).reduce((s2,l)=>s2+(l.fee||0),0), 0);
+      const feesFromNewRealized = newRealized.reduce((s,r)=>s + (r.fee||0), 0);
+      merged.feesPaid = (b.feesPaid||0) + feesFromNewHoldings + feesFromNewRealized;
+    }
+
+    out[key] = merged;
+  });
+  return { markets: out, addedHoldings, addedRealized };
+}
+
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1046,7 +1089,7 @@ function marketTotals(key){
     // (a plain value-minus-invested total would be wrong for shorts).
     unrealized += c.pnl;
   });
-  m.realized.forEach(r=> realized += r.pnl);
+  filterRealizedByFY(m.realized, key).forEach(r=> realized += r.pnl);
   const cashBalance = m.cashBalance || 0;
   const availableCash = cashBalance - lockedMargin;
   return { invested, value, unrealized, realized, pnl: unrealized, pnlPct: invested>0 ? (unrealized/invested)*100 : 0, lockedMargin, cashBalance, availableCash };
@@ -1530,6 +1573,41 @@ function availableFYStartYears(){
   return years;
 }
 
+// Per-market "which financial year's closed trades to show" selection, used
+// by the Realized stat, the Closed trades history card, and the crypto
+// Closed/completed allocation view. Defaults to the current FY the first
+// time a market is touched; 'all' lifts the filter entirely. This is a
+// view-only preference (like perfRange / allocMode) — it isn't saved.
+let realizedFYFilter = {};
+function getRealizedFYFilter(market){
+  if(!(market in realizedFYFilter)) realizedFYFilter[market] = fyStartYearForDate(new Date());
+  return realizedFYFilter[market];
+}
+function setRealizedFYFilter(market, value){
+  realizedFYFilter[market] = value;
+  renderMarket(market);
+  renderOverview();
+}
+function filterRealizedByFY(rows, market){
+  const sel = getRealizedFYFilter(market);
+  if(sel === 'all') return rows;
+  const { start, end } = fyBounds(sel);
+  return (rows||[]).filter(r=> r.date >= start && r.date < end);
+}
+// FY years worth offering as quick-filter buttons for one market's closed
+// trades — current FY always appears (even empty), older ones only if they
+// actually have a closed trade in them.
+function realizedFYOptions(rows){
+  const curStart = fyStartYearForDate(new Date());
+  const years = [curStart];
+  for(let back=1; back<=4; back++){
+    const y = curStart - back;
+    const { start, end } = fyBounds(y);
+    if((rows||[]).some(r=>r.date>=start && r.date<end)) years.push(y);
+  }
+  return years;
+}
+
 function openPerfExpand(){
   perfExpandFYStart = fyStartYearForDate(new Date());
   perfExpandBarsPeriod = perfRange;
@@ -1806,7 +1884,7 @@ function cryptoAllocRows(mode){
     // Trades imported without qty/avgCost (e.g. exchange P&L exports) still
     // count here — the closed-mode chart sizes slices by pnl, not by value,
     // so a $0 cost basis shouldn't drop the trade from the breakdown.
-    (state.markets.crypto.realized || []).forEach(r=>{
+    filterRealizedByFY(state.markets.crypto.realized || [], 'crypto').forEach(r=>{
       add(r.symbol, Math.abs((r.qty || 0) * (r.avgCost || 0)), r.pnl || 0);
     });
   }else{
@@ -1874,6 +1952,21 @@ function renderAllocation(){
     b.classList.toggle('active', b.dataset.style === allocChartStyle);
   });
 
+  const closedFYRow = document.getElementById('allocClosedFY');
+  if(allocMode === 'closed'){
+    const options = realizedFYOptions(state.markets.crypto.realized || []);
+    const sel = getRealizedFYFilter('crypto');
+    if(options.length > 1){
+      closedFYRow.style.display = 'flex';
+      closedFYRow.innerHTML = options.map(y=>`<button type="button" data-fy="${y}" class="${sel===y?'active':''}">${fyLabel(y)}</button>`).join('')
+        + `<button type="button" data-fy="all" class="${sel==='all'?'active':''}">All time</button>`;
+    }else{
+      closedFYRow.style.display = 'none';
+    }
+  }else{
+    closedFYRow.style.display = 'none';
+  }
+
   const rows = cryptoAllocRows(allocMode);
   // "Current" sizes each slice by exposure; "closed" sizes it by how much
   // P&L that coin swung (magnitude, since a donut slice can't go negative),
@@ -1925,7 +2018,9 @@ function renderAllocation(){
   const pnlSum = segs.reduce((s,x)=>s + x.pnl, 0);
   const pnlDisp = (pnlSum >= 0 ? '+' : '') + fmtMoney(toDisplay(pnlSum, 'crypto'), prefix);
   if(allocMode === 'closed'){
-    foot.innerHTML = `Realized <b class="${pnlClass(pnlSum)}">${pnlDisp}</b>`;
+    const fySel = getRealizedFYFilter('crypto');
+    const fySuffix = fySel === 'all' ? '' : ` <span style="color:var(--text-faint)">· ${fyLabel(fySel)}</span>`;
+    foot.innerHTML = `Realized <b class="${pnlClass(pnlSum)}">${pnlDisp}</b>${fySuffix}`;
   }else{
     const totalDisp = fmtMoney(toDisplay(total, 'crypto'), prefix);
     foot.innerHTML = `Live position value across open positions <b>${totalDisp}</b> · unrealized <b class="${pnlClass(pnlSum)}">${pnlDisp}</b>`;
@@ -1940,8 +2035,11 @@ function openAllocExpand(){
 
 function renderAllocExpand(){
   const prefix = state.settings.displayCurrency === 'INR' ? '₹' : '$';
+  const expandFySel = getRealizedFYFilter('crypto');
   document.getElementById('expandModalTitle').textContent =
-    allocMode === 'closed' ? 'All coins — closed P&L' : 'All coins — current exposure';
+    allocMode === 'closed'
+      ? `All coins — closed P&L${expandFySel === 'all' ? '' : ` (${fyLabel(expandFySel)})`}`
+      : 'All coins — current exposure';
   document.querySelectorAll('#expandChartStyle button').forEach(b=>{
     b.classList.toggle('active', b.dataset.style === allocExpandStyle);
   });
@@ -2068,12 +2166,18 @@ function renderMarket(key){
   const totals = marketTotals(key);
   const prefix = meta.prefix;
 
+  const fySel = getRealizedFYFilter(key);
+  const realizedLabel = fySel === 'all' ? 'Realized' : `Realized <span style="font-weight:400;color:var(--text-faint)">· ${fyLabel(fySel)}</span>`;
+  const unrealizedCell = holdings.length > 0
+    ? `<div class="v" style="color:${totals.unrealized>=0?'var(--mint)':'var(--coral)'}">${fmtCompact(totals.unrealized, prefix)}</div>`
+    : `<div class="v" style="color:var(--text-faint)">—</div>`;
+
   const statsEl = document.getElementById(key+'Stats');
   statsEl.innerHTML = `
     <div class="strip-item"><div class="k">Invested</div><div class="v">${fmtCompact(totals.invested, prefix)}</div></div>
     <div class="strip-item"><div class="k">Value</div><div class="v">${fmtCompact(totals.value, prefix)}</div></div>
-    <div class="strip-item"><div class="k">Unrealized</div><div class="v" style="color:${totals.unrealized>=0?'var(--mint)':'var(--coral)'}">${fmtCompact(totals.unrealized, prefix)}</div></div>
-    <div class="strip-item"><div class="k">Realized</div><div class="v" style="color:${totals.realized>=0?'var(--mint)':'var(--coral)'}">${fmtCompact(totals.realized, prefix)}</div></div>
+    <div class="strip-item"><div class="k">Unrealized</div>${unrealizedCell}</div>
+    <div class="strip-item"><div class="k">${realizedLabel}</div><div class="v" style="color:${totals.realized>=0?'var(--mint)':'var(--coral)'}">${fmtCompact(totals.realized, prefix)}</div></div>
   `;
 
   if(key === 'crypto'){
@@ -2836,11 +2940,19 @@ function openReduceModal(market, holdingId, closeOnly){
 function renderHistory(key){
   const meta = MARKET_META[key];
   const prefix = key==='crypto' ? '$' : meta.prefix;
-  const list = state.markets[key].realized.slice().sort((a,b)=>b.date-a.date);
+  const all = state.markets[key].realized || [];
+  const sel = getRealizedFYFilter(key);
+  const fyRow = document.getElementById(key+'HistoryFYFilter');
+  if(fyRow){
+    const options = realizedFYOptions(all);
+    fyRow.innerHTML = options.map(y=>`<button type="button" data-fy="${y}" class="${sel===y?'active':''}">${fyLabel(y)}</button>`).join('')
+      + `<button type="button" data-fy="all" class="${sel==='all'?'active':''}">All time</button>`;
+  }
+  const list = filterRealizedByFY(all, key).slice().sort((a,b)=>b.date-a.date);
   document.getElementById(key+'HistoryCount').textContent = list.length;
   const listEl = document.getElementById(key+'HistoryList');
   if(list.length === 0){
-    listEl.innerHTML = `<div class="history-empty">No closed trades yet.</div>`;
+    listEl.innerHTML = `<div class="history-empty">${all.length === 0 ? 'No closed trades yet.' : `No closed trades in ${sel==='all'?'range':fyLabel(sel)} — try All time.`}</div>`;
     return;
   }
   listEl.innerHTML = list.map(r=>`
@@ -2860,6 +2972,20 @@ function renderHistory(key){
 }
 
 document.addEventListener('click', (e)=>{
+  const allocFyBtn = e.target.closest('#allocClosedFY [data-fy]');
+  if(allocFyBtn){
+    const val = allocFyBtn.dataset.fy === 'all' ? 'all' : Number(allocFyBtn.dataset.fy);
+    setRealizedFYFilter('crypto', val);
+    return;
+  }
+  const fyBtn = e.target.closest('.history-fy-filter [data-fy]');
+  if(fyBtn){
+    const card = fyBtn.closest('.history-card');
+    const market = card.id.replace('HistoryCard', '');
+    const val = fyBtn.dataset.fy === 'all' ? 'all' : Number(fyBtn.dataset.fy);
+    setRealizedFYFilter(market, val);
+    return;
+  }
   const toggleEl = e.target.closest('[data-history-toggle]');
   if(toggleEl){
     toggleEl.closest('.history-card').classList.toggle('expanded');
@@ -3095,19 +3221,19 @@ document.getElementById('importFile').addEventListener('change', (e)=>{
     try{
       const parsed = JSON.parse(reader.result);
       if(!parsed.markets) throw new Error('bad shape');
-      if(!confirm('Import will replace your current portfolio on this device. Continue?')) return;
-      const base = defaultState();
-      state = Object.assign(base, parsed, {
-        settings: Object.assign(base.settings, parsed.settings||{}),
-        fx: Object.assign(base.fx, parsed.fx||{}),
-        markets: mergeMarkets(base.markets, parsed.markets)
-      });
+      if(!confirm('Import will add this backup\'s positions and closed trades to what\'s already on this device. Existing data is kept — anything already here is skipped, not duplicated. Continue?')) return;
+      const { markets, addedHoldings, addedRealized } = mergeImportedMarkets(state.markets, parsed.markets);
+      state.markets = markets;
       saveState();
       applyTabVisibility();
       renderAll();
       closeModal(modalSettings);
-      toast('Backup imported', 'success');
+      const parts = [];
+      if(addedHoldings) parts.push(`${addedHoldings} open position${addedHoldings===1?'':'s'}`);
+      if(addedRealized) parts.push(`${addedRealized} closed trade${addedRealized===1?'':'s'}`);
+      toast(parts.length ? `Backup merged — added ${parts.join(' and ')}` : 'Backup merged — nothing new in it', 'success');
     }catch(err){
+      console.error('Import failed', err);
       toast('That file doesn\'t look like a Meridian backup', 'error');
     }
   };
