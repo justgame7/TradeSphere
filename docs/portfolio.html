@@ -2548,11 +2548,11 @@ function renderMarket(key){
             <div class="detail-stat"><div class="k">Margin used${isCrypto?` (${c.leverage}x)`:''}</div><div class="v">${fmtMoney(c.margin, prefix)}</div></div>
           </div>
           <div class="detail-actions">
-            <button class="btn btn-ghost btn-sm" data-action="close">✕ Close trade</button>
+            <button class="btn btn-ghost btn-sm" data-action="close">✕ Close</button>
             ${!meta.priceLive ? `<button class="btn btn-ghost btn-sm" data-action="update-price">Update price</button>` : ''}
             ${isCrypto ? `<button class="btn btn-ghost btn-sm" data-action="edit-lot">✎ Edit</button>` : ''}
             ${isCrypto ? `<button class="btn btn-ghost btn-sm btn-analysis" data-action="analysis">Analysis</button>` : ''}
-            ${isCrypto ? `<button class="btn btn-ghost btn-sm btn-viewchart" data-action="view-chart">View chart ↗</button>` : ''}
+            ${isCrypto ? `<button class="btn btn-ghost btn-sm btn-viewchart" data-action="view-chart">Chart <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg></button>` : ''}
             ${!isCrypto ? `<button class="btn btn-danger-text btn-sm" data-action="delete">Delete</button>` : ''}
           </div>
           <div class="lot-list">
