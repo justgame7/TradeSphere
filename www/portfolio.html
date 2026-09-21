@@ -2548,9 +2548,9 @@ function openEditLotPrompt(market, id){
 
   document.getElementById('editLotModalTitle').textContent = `Edit order — ${h.symbol.replace('USDT','')}`;
   document.getElementById('editLotModalBody').innerHTML = `
-    <div class="field"><label>Quantity</label><input type="number" class="input mono" id="elQty" inputmode="decimal" value="${lot.qty}"></div>
-    <div class="field"><label>Price (${prefix})</label><input type="number" class="input mono" id="elPrice" inputmode="decimal" value="${lot.price}"></div>
     <div class="field"><label>Position size (${prefix}) <span style="font-weight:400;color:var(--text-faint)">— editing this adjusts quantity, price stays fixed</span></label><input type="number" class="input mono" id="elPosSize" inputmode="decimal" value="${(lot.qty*lot.price).toFixed(2)}"></div>
+    <div class="field"><label>Price (${prefix})</label><input type="number" class="input mono" id="elPrice" inputmode="decimal" value="${lot.price}"></div>
+    <div class="field"><label>Quantity</label><input type="number" class="input mono" id="elQty" inputmode="decimal" value="${lot.qty}"></div>
     <div class="field"><label>Date</label><input type="date" class="input" id="elDate" value="${new Date(lot.date).toISOString().slice(0,10)}"></div>
     ${isCrypto ? `
     <div class="field">
@@ -2656,12 +2656,12 @@ function openEditLotPrompt(market, id){
 /* --------------------------- ADD MODAL --------------------------- */
 const modalAdd = document.getElementById('modalAdd');
 const addModalBody = document.getElementById('addModalBody');
-let addState = { market:null, mode:'amount', selected:null, feeType:'maker', leverage:1, side:'long' };
+let addState = { market:null, mode:'qty', selected:null, feeType:'maker', leverage:1, side:'long' };
 let coinDropdownOutsideHandler = null;
 let coinDropdownRepositionHandler = null;
 
 function openAddModal(market, prefillSymbol){
-  addState = { market, mode:'amount', selected:null, feeType:'maker', leverage:1, side:'long' };
+  addState = { market, mode:'qty', selected:null, feeType:'maker', leverage:1, side:'long' };
   document.getElementById('addModalTitle').textContent = 'Add ' + (market==='crypto'?'coin':'stock');
   const meta = MARKET_META[market];
 
@@ -2849,14 +2849,14 @@ function renderAddFields(){
       <input type="number" class="input mono" id="fPrice" inputmode="decimal" placeholder="0.00" value="${livePrice!=null?livePrice:''}">
     </div>
     <div class="toggle-group" id="qtyModeToggle">
-      <button data-mode="amount" class="active">By ${meta.symbol} amount</button>
-      <button data-mode="qty">By quantity</button>
+      <button data-mode="qty" class="${addState.mode==='qty'?'active':''}">By quantity</button>
+      <button data-mode="amount" class="${addState.mode==='amount'?'active':''}">By ${meta.symbol} amount</button>
     </div>
-    <div class="field" id="qtyField" style="display:none">
+    <div class="field" id="qtyField" style="display:${addState.mode==='qty'?'block':'none'}">
       <label>Quantity</label>
       <input type="number" class="input mono" id="fQty" inputmode="decimal" placeholder="0.00">
     </div>
-    <div class="field" id="amountField">
+    <div class="field" id="amountField" style="display:${addState.mode==='amount'?'block':'none'}">
       <label>Amount to invest (${meta.symbol})</label>
       <input type="number" class="input mono" id="fAmount" inputmode="decimal" placeholder="0.00">
     </div>
