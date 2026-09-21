@@ -1922,7 +1922,7 @@ function openAddToPortfolio(binanceSymbol){
     image: rankInfo && rankInfo.image ? rankInfo.image : null,
     gradient: coin.gradient,
     letter: coin.symbol[0],
-    mode: 'amount',
+    mode: 'qty',
     side: 'long',
     leverage: 1
   };
@@ -1987,14 +1987,14 @@ function pfRenderFields(){
       <input type="number" class="pf-input" id="pfPrice" inputmode="decimal" step="any" placeholder="0.00" value="${pfAdd.price != null ? pfAdd.price : ''}">
     </div>
     <div class="pf-toggle" id="pfModeToggle">
-      <button type="button" data-mode="amount" class="active">By USDT amount</button>
-      <button type="button" data-mode="qty">By quantity</button>
+      <button type="button" data-mode="qty" class="${pfAdd.mode === 'qty' ? 'active' : ''}">By quantity</button>
+      <button type="button" data-mode="amount" class="${pfAdd.mode === 'amount' ? 'active' : ''}">By USDT amount</button>
     </div>
-    <div class="pf-field" id="pfQtyField" style="display:none">
+    <div class="pf-field" id="pfQtyField" style="display:${pfAdd.mode === 'qty' ? 'block' : 'none'}">
       <label>Quantity</label>
       <input type="number" class="pf-input" id="pfQty" inputmode="decimal" step="any" placeholder="0.00">
     </div>
-    <div class="pf-field" id="pfAmountField">
+    <div class="pf-field" id="pfAmountField" style="display:${pfAdd.mode === 'amount' ? 'block' : 'none'}">
       <label>Amount to invest (USDT)</label>
       <input type="number" class="pf-input" id="pfAmount" inputmode="decimal" step="any" placeholder="0.00">
     </div>
