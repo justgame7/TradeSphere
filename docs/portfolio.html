@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ============================= TOKENS ============================= */
 :root{
@@ -473,6 +474,36 @@ a{color:inherit;}
   .hero-value{font-size:32px;}
   .stat-strip{grid-template-columns:repeat(2,1fr);}
 }
+
+/* ===== Crypto tab typography =====
+   Matches watchlist.html: Space Grotesk for UI text, JetBrains Mono for figures.
+   Scoped to #view-crypto so Overview, IN Stocks and US Stocks keep their own fonts.
+   To revert, delete this block (and the extra Google Fonts <link> in <head>). ===== */
+#view-crypto{font-family:'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;}
+#view-crypto .strip-item .v,
+#view-crypto .holding-qty,
+#view-crypto .holding-ltp,
+#view-crypto .holding-value,
+#view-crypto .holding-pnl,
+#view-crypto .detail-stat .v,
+#view-crypto .lot-row .lot-price,
+#view-crypto .history-meta,
+#view-crypto .history-pnl,
+#view-crypto .wallet-figure .v{font-family:'JetBrains Mono', monospace;}
+#view-crypto .avatar,
+#view-crypto .empty-state h3{font-family:'Space Grotesk', sans-serif;}
+
+/* Crypto pop-ups (Add coin, Edit order, Close trade, Edit closed trade).
+   The shared modals get .crypto-typo from setCryptoTypo() only when opened for the crypto market. */
+.crypto-typo{font-family:'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;}
+.crypto-typo .modal-title,
+.crypto-typo .avatar{font-family:'Space Grotesk', sans-serif;}
+.crypto-typo .input.mono,
+.crypto-typo .search-item .si-price,
+.crypto-typo .selected-coin .sc-price,
+.crypto-typo .leverage-value{font-family:'JetBrains Mono', monospace;}
+/* Close button of the Analysis / chart overlay (only opened from crypto holdings) */
+.analysis-overlay-close{font-family:'JetBrains Mono', monospace;}
 </style>
 </head>
 <body>
@@ -2490,6 +2521,7 @@ function openEditLotPrompt(market, id){
     toast('Order updated');
   });
 
+  setCryptoTypo(document.getElementById('modalEditLot'), market);
   document.getElementById('modalEditLot').classList.add('open');
 }
 
@@ -2628,6 +2660,7 @@ function openAddModal(market, prefillSymbol){
       renderAddFields();
     }
   }
+  setCryptoTypo(modalAdd, market);
   modalAdd.classList.add('open');
 }
 
@@ -2948,6 +2981,7 @@ function openReduceModal(market, holdingId, closeOnly){
     toast(fee > 0 ? `${closeOnly ? 'Trade closed' : 'Sale recorded'} — ${fmtMoney(fee, prefix)} fee charged` : (closeOnly ? 'Trade closed — moved to history' : 'Sale recorded'), 'success');
   });
 
+  setCryptoTypo(modalReduce, market);
   modalReduce.classList.add('open');
 }
 
@@ -3088,6 +3122,7 @@ function openEditHistoryModal(market, historyId){
     toast('Closed trade updated', 'success');
   });
 
+  setCryptoTypo(modalEditHistory, market);
   modalEditHistory.classList.add('open');
 }
 function deleteHistoryEntry(market, historyId){
@@ -3265,6 +3300,8 @@ document.getElementById('importFile').addEventListener('change', (e)=>{
 
 /* --------------------------- modal plumbing --------------------------- */
 function closeModal(el){ el.classList.remove('open'); }
+// Tags a shared pop-up so the crypto typography (see .crypto-typo in the CSS) applies only when it is opened for the crypto market.
+function setCryptoTypo(overlay, market){ overlay.classList.toggle('crypto-typo', market === 'crypto'); }
 document.querySelectorAll('.modal-overlay').forEach(ov=>{
   ov.addEventListener('click', (e)=>{ if(e.target===ov) closeModal(ov); });
   ov.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', ()=>closeModal(ov)));
