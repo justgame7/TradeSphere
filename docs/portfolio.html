@@ -3480,9 +3480,21 @@ function openCashModal(){
   setTimeout(()=>amountInput.focus(), 50);
 }
 
+// Distinct financial years (start-year form, most recent first) that crypto
+// has closed trades in. Used only to decide whether "Clear data" needs a
+// scope picker — a single year (or none) means "all data" and "that year"
+// would be identical, so the picker is skipped entirely.
+function clearDataAvailableYears(){
+  const years = new Set();
+  (state.markets.crypto.realized || []).forEach(r => years.add(fyStartYearForDate(new Date(r.date))));
+  return Array.from(years).sort((a,b) => b - a);
+}
+
 const modalSettings = document.getElementById('modalSettings');
 document.getElementById('btnSettings').addEventListener('click', openSettings);
 function openSettings(){
+  const fyYears = clearDataAvailableYears();
+  const showScopePicker = fyYears.length > 1;
   document.getElementById('settingsBody').innerHTML = `
     <div class="settings-row">
       <div><div class="sr-label">Auto-refresh crypto prices</div><div class="sr-sub">Every 45 seconds while the app is open</div></div>
@@ -3495,7 +3507,15 @@ function openSettings(){
       <button class="btn btn-ghost btn-block" id="btnImport">Import backup</button>
     </div>
     <div class="section-title">Danger zone</div>
-    <button class="btn btn-block" style="background:var(--coral-dim);color:var(--coral)" id="btnClearAll">Clear all data</button>
+    ${showScopePicker ? `
+    <div class="field" style="margin-bottom:10px">
+      <label>Scope</label>
+      <select class="input" id="clearDataScope">
+        <option value="all">All data</option>
+        ${fyYears.map(y=>`<option value="fy:${y}">${fyLabel(y)} closed trades only</option>`).join('')}
+      </select>
+    </div>` : ''}
+    <button class="btn btn-block" style="background:var(--coral-dim);color:var(--coral)" id="btnClearAll">Clear data</button>
   `;
   document.getElementById('swAutoRefresh').addEventListener('click', (e)=>{
     state.settings.autoRefresh = !state.settings.autoRefresh;
@@ -3506,18 +3526,42 @@ function openSettings(){
   document.getElementById('btnExport').addEventListener('click', exportData);
   document.getElementById('btnImport').addEventListener('click', ()=>document.getElementById('importFile').click());
   document.getElementById('btnClearAll').addEventListener('click', ()=>{
-    const typed = prompt('This deletes every position, trade and setting on this device. This can\'t be undone.\n\nType danger-zone-clear-all-data to confirm:');
+    const scopeEl = document.getElementById('clearDataScope');
+    const scope = scopeEl ? scopeEl.value : 'all';
+
+    if(scope === 'all'){
+      const typed = prompt('This deletes every position, trade and setting on this device. This can\'t be undone.\n\nType danger-zone-clear-all-data to confirm:');
+      if(typed === null) return;
+      if(typed.trim() !== 'danger-zone-clear-all-data'){
+        toast('Not cleared — text didn\'t match', 'error');
+        return;
+      }
+      state = defaultState();
+      saveState();
+      applyTabVisibility();
+      renderAll();
+      closeModal(modalSettings);
+      toast('All data cleared');
+      return;
+    }
+
+    // Scoped to one financial year: only that year's closed crypto trades
+    // are removed. Open holdings and cash balance are left exactly as they
+    // are — this only purges historical log entries, not live positions.
+    const fyYear = Number(scope.slice(3));
+    const label = fyLabel(fyYear);
+    const typed = prompt(`This deletes every closed crypto trade recorded in ${label}. Open positions and your cash balance are not affected. This can't be undone.\n\nType danger-zone-clear-all-data to confirm:`);
     if(typed === null) return;
     if(typed.trim() !== 'danger-zone-clear-all-data'){
       toast('Not cleared — text didn\'t match', 'error');
       return;
     }
-    state = defaultState();
+    const { start, end } = fyBounds(fyYear);
+    state.markets.crypto.realized = (state.markets.crypto.realized || []).filter(r => !(r.date >= start && r.date < end));
     saveState();
-    applyTabVisibility();
     renderAll();
     closeModal(modalSettings);
-    toast('All data cleared');
+    toast(`${label} data cleared`);
   });
   modalSettings.classList.add('open');
 }
