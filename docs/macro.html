@@ -227,6 +227,10 @@
     font-weight:600;
   }
   .tab:not(.active):hover{border-color:var(--text-3);color:var(--text-1);}
+  /* Compact tabs: section colour swatch + initial (matches the group-head chip) */
+  .tab-mini{display:inline-flex;align-items:center;gap:7px;}
+  .tab-mini .tab-dot{width:8px;height:8px;border-radius:2px;flex:none;}
+  .tab-mini.active .tab-dot{box-shadow:0 0 0 1.5px #0B1120;}
 
   /* ---------- Groups ---------- */
   main{max-width:var(--container);margin:0 auto;padding:14px 18px 0;}
@@ -425,11 +429,11 @@
 
 <nav class="tabs" id="tabs">
   <button class="tab active" data-filter="all">All groups</button>
-  <button class="tab" data-filter="stocks">Stock indices</button>
-  <button class="tab" data-filter="dollar">Dollar &amp; related</button>
-  <button class="tab" data-filter="commodities">Commodities</button>
-  <button class="tab" data-filter="global">Global indices</button>
-  <button class="tab" data-filter="crypto">Crypto-Native Sentiment</button>
+  <button class="tab tab-mini" data-filter="stocks" title="Stock indices" aria-label="Stock indices"><span class="tab-dot" style="background:var(--gold)"></span>S</button>
+  <button class="tab tab-mini" data-filter="dollar" title="Dollar &amp; related" aria-label="Dollar &amp; related"><span class="tab-dot" style="background:var(--blue)"></span>D</button>
+  <button class="tab tab-mini" data-filter="commodities" title="Commodities" aria-label="Commodities"><span class="tab-dot" style="background:var(--coral)"></span>C</button>
+  <button class="tab tab-mini" data-filter="global" title="Global indices" aria-label="Global indices"><span class="tab-dot" style="background:var(--violet)"></span>G</button>
+  <button class="tab tab-mini" data-filter="crypto" title="Crypto-Native Sentiment" aria-label="Crypto-Native Sentiment"><span class="tab-dot" style="background:var(--teal)"></span>C</button>
 </nav>
 
 <main id="groups"></main>
