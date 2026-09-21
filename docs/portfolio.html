@@ -541,6 +541,7 @@ a{color:inherit;}
 
 .moon-body{padding:2px 16px 16px; animation:moonReveal .25s ease;}
 .moon-body[hidden]{display:none;}
+.moon-body > .moon-name{margin:6px 0 8px;}
 @keyframes moonReveal{from{opacity:0; transform:translateY(-4px);} to{opacity:1; transform:none;}}
 
 /* cycle bar: blue first half (waxing), white second half (waning) */
@@ -556,7 +557,6 @@ a{color:inherit;}
 .moon-tick{position:absolute; top:14px; font:500 9.5px var(--font-mono, 'IBM Plex Mono', monospace); color:var(--text-faint, var(--faint)); white-space:nowrap; transform:translateX(-50%);}
 .moon-tick.first{transform:none;}
 .moon-tick.last{transform:translateX(-100%);}
-.moon-tick.q{opacity:.55;}   /* quarter moons: not plotted by TradingView */
 .moon-stats{font-size:12px; color:var(--text-dim, var(--muted)); margin:0 0 12px;}
 .moon-stats b{font-family:var(--font-mono, 'IBM Plex Mono', monospace); font-weight:600; color:var(--text);}
 .moon-stats + .moon-sec{margin-top:2px;}
@@ -580,7 +580,6 @@ a{color:inherit;}
 .moon-up:first-of-type{border-top:0;}
 .moon-up-name{flex:1 1 auto; min-width:0; color:var(--text); font-weight:600; white-space:nowrap;}
 .moon-up-name small{display:block; margin-top:1px; font-size:10px; font-weight:500; line-height:1.3; color:var(--text-faint, var(--faint)); white-space:normal;}
-.moon-up.q{opacity:.6;}
 .moon-up-when{flex:0 0 auto; white-space:nowrap; font:500 11.5px var(--font-mono, 'IBM Plex Mono', monospace); color:var(--text-dim, var(--muted));}
 .moon-up-rel{flex:0 0 auto; white-space:nowrap; font-size:11px; color:var(--text-faint, var(--faint)); min-width:58px; text-align:right;}
 .moon-foot{margin:12px 0 0; font-size:10.5px; color:var(--text-faint, var(--faint)); line-height:1.5;}
@@ -797,7 +796,6 @@ a{color:inherit;}
       <span class="moon-icon" id="moonIcon"></span>
       <span class="moon-head-text">
         <span class="moon-eyebrow">Moon phase</span>
-        <span class="moon-name" id="moonName">&mdash;</span>
         <span class="moon-sub" id="moonSub"></span>
       </span>
       <span class="moon-head-right">
@@ -806,13 +804,12 @@ a{color:inherit;}
       </span>
     </button>
     <div class="moon-body" id="moonBody" hidden>
+      <div class="moon-name" id="moonName">&mdash;</div>
       <div class="moon-cycle" aria-hidden="true">
         <div class="moon-track"><i class="wax"></i><i class="wan"></i></div>
         <span class="moon-marker" id="moonMarker"></span>
         <span class="moon-tick first" style="left:0">New</span>
-        <span class="moon-tick q" style="left:25%">1st Qtr</span>
         <span class="moon-tick" style="left:50%">Full</span>
-        <span class="moon-tick q" style="left:75%">Last Qtr</span>
         <span class="moon-tick last" style="left:100%">New</span>
       </div>
       <p class="moon-stats" id="moonStats"></p>
@@ -825,7 +822,7 @@ a{color:inherit;}
         <svg class="moon-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       </button>
       <div class="moon-info" id="moonInfo" hidden>
-        <p><b>What it shows.</b> TradingView&rsquo;s <i>Moon Phases</i> indicator plots each new moon as a circle above the bar (the &ldquo;dark&rdquo; one) and each full moon as a circle below it (the &ldquo;bright&rdquo; one). Bars in between are shaded blue while the moon is waxing (new &rarr; full) and white while it is waning (full &rarr; new). First and last quarters aren&rsquo;t plotted.</p>
+        <p><b>What it shows.</b> TradingView&rsquo;s <i>Moon Phases</i> indicator plots each new moon as a circle above the bar (the &ldquo;dark&rdquo; one) and each full moon as a circle below it (the &ldquo;bright&rdquo; one). Bars in between are shaded blue while the moon is waxing (new &rarr; full) and white while it is waning (full &rarr; new).</p>
         <p><b>Why traders watch it.</b> Some traders believe lunar cycles nudge markets through subtle gravitational effects on Earth and on market participants. That is a belief, not a proven edge &mdash; treat it as background context next to your other signals, not a signal on its own.</p>
         <p><b>Match your chart.</b> In TradingView, add <i>Moon Phases</i> from Indicators. Inputs sets the Waxing Moon and Waning Moon colours (blue and white here); Style switches the New Moon and Full Moon circles and the Background Color on or off. It isn&rsquo;t supported on the Monthly timeframe.</p>
         <p><b>Reading the timing.</b> The circle sits on the bar that contains the exact moment. Crypto trades 24/7, so on a daily chart that is the UTC candle (00:00&ndash;24:00 UTC), which can be a different date from your local time above. On stocks it lands on the next available bar. TradingView&rsquo;s script uses a simplified formula, so a phase that falls right on a candle boundary could land one candle over compared with this card.</p>
@@ -3655,8 +3652,9 @@ document.getElementById('btnRefresh').addEventListener('click', async (e)=>{
 
    Mirrors TradingView's built-in "Moon Phases" indicator: it plots only
    new moons (circle ABOVE the bar, waxing colour) and full moons (circle
-   BELOW the bar, waning colour) and tints the bars between them. First /
-   last quarters are shown here for reference but are not on the chart.
+   BELOW the bar, waning colour) and tints the bars between them. Only
+   new and full moons are listed; the quarter times are used internally
+   for the cycle position and illumination, never displayed.
    ===================================================================== */
 (function(){
   const card = document.getElementById('moonCard');
@@ -3675,10 +3673,10 @@ document.getElementById('btnRefresh').addEventListener('click', async (e)=>{
   // ---- how each phase appears on TradingView's Moon Phases indicator ----
   const TV_HELP_URL = 'https://www.tradingview.com/support/solutions/43000599884-moon-phases/';
   const TV_MARK = {   // only new (0) and full (2) moons are plotted
-    0: 'Circle above the bar \u00B7 blue shading until the full moon',
-    2: 'Circle below the bar \u00B7 white shading until the new moon'
+    0: 'Circle above the bar \u00B7 Expect Bearishness during this period (NFA)',
+    2: 'Circle below the bar \u00B7 Expect Bullishness during this period (NFA)'
   };
-  const TV_TAG = ['above bar', 'not plotted', 'below bar', 'not plotted'];   // per primary phase
+  const TV_TAG = { 0:'above bar', 2:'below bar' };   // where each listed phase is drawn
 
   // ---- Meeus ch. 49: instant of a primary phase, returned as epoch ms (UTC) ----
   // n = whole lunation count since 2000-01-06; q = 0 new, 1 first qtr, 2 full, 3 last qtr
@@ -3750,7 +3748,7 @@ document.getElementById('btnRefresh').addEventListener('click', async (e)=>{
     const p = (cur.q + frac) / 4;                          // cycle position: 0 new, .5 full, 1 new
     const half = HALF_OF[cur.q];
     const sincePrimary = now - cur.t < PRIMARY_WINDOW;
-    const name = sincePrimary ? PRIMARY[cur.q] : NAME_OF[cur.q];
+    const name = (sincePrimary && (cur.q === 0 || cur.q === 2)) ? PRIMARY[cur.q] : NAME_OF[cur.q];
     const illum = (1 - Math.cos(2 * Math.PI * p)) / 2;
     // The waxing / waning half began at the last new moon / full moon...
     const halfStartQ = half === 'waxing' ? 0 : 2;
@@ -3766,7 +3764,7 @@ document.getElementById('btnRefresh').addEventListener('click', async (e)=>{
       p, half, name, illum,
       ageDays: lastNew ? (now - lastNew.t) / DAY : null,
       halfStart, nextHalf,
-      upcoming: ev.slice(i + 1, i + 5)
+      upcoming: ev.slice(i + 1).filter(e => e.q === 0 || e.q === 2).slice(0, 2)
     };
   }
 
@@ -3846,8 +3844,7 @@ document.getElementById('btnRefresh').addEventListener('click', async (e)=>{
 
     $('moonUpcoming').innerHTML = m.upcoming.map(e => {
       const col = COL[HALF_OF[e.q]];
-      const onChart = e.q === 0 || e.q === 2;
-      return `<div class="moon-up${onChart ? '' : ' q'}">${moonSvg(e.q / 4, col, 22)}`
+      return `<div class="moon-up">${moonSvg(e.q / 4, col, 22)}`
         + `<span class="moon-up-name">${PRIMARY[e.q]}<small>${TV_TAG[e.q]}</small></span>`
         + `<span class="moon-up-when">${fmtWhen(e.t, true)}</span>`
         + `<span class="moon-up-rel">in ${fmtSpan(e.t - now)}</span></div>`;
