@@ -209,11 +209,15 @@ a{color:inherit;}
 .perf-total{font-family:'Fraunces', serif; font-size:22px; font-weight:600; line-height:1;}
 .toggle-group-sm{margin-bottom:8px; border-radius:999px; padding:3px;}
 .toggle-group-sm button{padding:6px 4px; font-size:11.5px; border-radius:999px;}
-/* Bars-view period row in the expand modal mixes day ranges with financial
-   years, which can run to 9 buttons — too many for a single pill row, so it
-   wraps onto a second line with squared segments instead. */
-.expand-period-toggle{flex-wrap:wrap; row-gap:6px; border-radius:12px;}
-.expand-period-toggle button{flex:0 0 auto; border-radius:8px; padding:6px 10px;}
+/* Bars-view period picker in the expand modal is two stacked rows inside one
+   pill: rolling day ranges (7D-1Y) on top, every financial year underneath.
+   Each row is its own flex line so the buttons share the width evenly and
+   an FY label never has to wrap onto two lines. */
+.expand-period-toggle{flex-direction:column; gap:6px; border-radius:12px;}
+.expand-period-toggle .period-row{display:flex; gap:2px; width:100%;}
+.expand-period-toggle button{flex:1 1 0; min-width:0; white-space:nowrap; border-radius:8px; padding:6px 4px;}
+/* Realized P&L total for whichever period/FY is selected in the expand modal */
+.perf-expand-summary{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-top:14px;}
 .perf-meta{font-size:11.5px; color:var(--text-faint); margin-bottom:6px;}
 .perf-chart{width:100%; overflow:hidden;}
 .perf-chart svg{display:block;}
@@ -803,6 +807,13 @@ a{color:inherit;}
     </div>
     <div class="toggle-group toggle-group-sm expand-period-toggle" id="perfExpandBarsPeriod" style="margin-top:8px; display:none"></div>
     <div class="toggle-group toggle-group-sm" id="perfExpandFY" style="margin-top:8px; display:none"></div>
+    <div class="perf-expand-summary">
+      <div>
+        <p class="card-label" style="margin:0">Realized P&amp;L</p>
+        <div class="perf-meta" id="perfExpandPeriodLabel" style="margin:2px 0 0">—</div>
+      </div>
+      <div class="perf-total" id="perfExpandTotal">$0</div>
+    </div>
     <div class="perf-meta" id="perfExpandMeta" style="margin-top:8px">—</div>
     <div class="expand-chart-area" id="perfExpandChartArea"></div>
   </div>
@@ -1663,7 +1674,8 @@ function renderPerfExpand(){
     if(!years.includes(perfExpandFYStart)) perfExpandFYStart = years[0];
     fyRow.style.display = 'flex';
     fyRow.innerHTML = years.map(y=>`<button type="button" data-fy="${y}" class="${y === perfExpandFYStart ? 'active' : ''}">${fyLabel(y)}</button>`).join('');
-    drawFYLineChart(perfExpandFYStart, meta, area);
+    const fyTotal = drawFYLineChart(perfExpandFYStart, meta, area);
+    setPerfExpandSummary(fyTotal, fyLabel(perfExpandFYStart), prefix);
   }else{
     fyRow.style.display = 'none';
     barsRow.style.display = 'flex';
@@ -1676,10 +1688,15 @@ function renderPerfExpand(){
 
     const dayOpts = [7, 30, 60, 90, 180, 360];
     const dayOptLabels = { 7:'7D', 30:'30D', 60:'2M', 90:'3M', 180:'6M', 360:'1Y' };
-    barsRow.innerHTML = dayOpts.map(d=>`<button type="button" data-days="${d}" class="${perfExpandBarsPeriod === d ? 'active' : ''}">${dayOptLabels[d]}</button>`).join('')
-      + fyYears.map(y=>`<button type="button" data-fy="${y}" class="${perfExpandBarsPeriod === ('fy:'+y) ? 'active' : ''}">${fyLabel(y)}</button>`).join('');
+    const dayOptFull = { 7:'Last 7 days', 30:'Last 30 days', 60:'Last 2 months', 90:'Last 3 months', 180:'Last 6 months', 360:'Last 1 year' };
+    // Two stacked rows: day ranges on top, every financial year below.
+    barsRow.innerHTML = '<div class="period-row">'
+      + dayOpts.map(d=>`<button type="button" data-days="${d}" class="${perfExpandBarsPeriod === d ? 'active' : ''}">${dayOptLabels[d]}</button>`).join('')
+      + '</div><div class="period-row">'
+      + fyYears.map(y=>`<button type="button" data-fy="${y}" class="${perfExpandBarsPeriod === ('fy:'+y) ? 'active' : ''}">${fyLabel(y)}</button>`).join('')
+      + '</div>';
 
-    let buckets, trades = 0, withYear, showBarLabels;
+    let buckets, trades = 0, total = 0, withYear, showBarLabels, periodLabel;
 
     if(typeof perfExpandBarsPeriod === 'number'){
       const step = perfBucketDays(perfExpandBarsPeriod);
@@ -1691,7 +1708,9 @@ function renderPerfExpand(){
         buckets[idx].pnl += r.pnl;
         buckets[idx].trades++;
         trades++;
+        total += r.pnl;
       });
+      periodLabel = dayOptFull[perfExpandBarsPeriod];
       withYear = perfExpandBarsPeriod >= 180;
       showBarLabels = perfExpandBarsPeriod === 7;
       const grain = step === 1 ? 'daily' : step === 7 ? 'weekly' : '30-day';
@@ -1700,12 +1719,13 @@ function renderPerfExpand(){
         : `${trades} closed trade${trades===1?'':'s'} · ${shortDate(from, withYear)} – ${shortDate(buckets[buckets.length-1].to - DAY_MS, withYear)} · ${grain} bars`;
     }else{
       const fyYear = Number(perfExpandBarsPeriod.slice(3));
+      periodLabel = fyLabel(fyYear);
       buckets = buildFYBuckets(fyYear);
       withYear = true;
       showBarLabels = false;
       buckets.forEach(b=>{
         collectRealized().forEach(r=>{
-          if(r.date >= b.from && r.date < b.to){ b.pnl += r.pnl; b.trades++; trades++; }
+          if(r.date >= b.from && r.date < b.to){ b.pnl += r.pnl; b.trades++; trades++; total += r.pnl; }
         });
       });
       meta.textContent = buckets.length === 0
@@ -1720,7 +1740,20 @@ function renderPerfExpand(){
     }else{
       drawPerfChart(buckets, trades, prefix, area, { showBarLabels, withYear });
     }
+    setPerfExpandSummary(total, periodLabel, prefix);
   }
+}
+
+// Realized P&L total for the period / financial year currently shown in the
+// expand modal — same figure the main card shows for its own range, coloured
+// by sign. The Bars tab passes the sum of every closed trade in the window;
+// the Line tab passes the cumulative value at the right-hand end of the line.
+function setPerfExpandSummary(total, label, prefix){
+  if(Math.abs(total) < 0.005) total = 0;
+  const totalEl = document.getElementById('perfExpandTotal');
+  totalEl.textContent = (total > 0 ? '+' : '') + fmtMoney(total, prefix);
+  totalEl.className = 'perf-total ' + pnlClass(total);
+  document.getElementById('perfExpandPeriodLabel').textContent = label || '—';
 }
 
 // Cumulative realized P&L across one financial year, starting the line at
@@ -1737,7 +1770,7 @@ function drawFYLineChart(fyStartYear, metaEl, areaEl){
   if(domainEnd <= start){
     metaEl.textContent = `${fyLabel(fyStartYear)} hasn't started yet.`;
     areaEl.innerHTML = '';
-    return;
+    return 0;
   }
 
   const rows = collectRealized().filter(r => r.date >= start && r.date < domainEnd).sort((a,b)=>a.date-b.date);
@@ -1809,6 +1842,7 @@ function drawFYLineChart(fyStartYear, metaEl, areaEl){
   </svg>`;
 
   wireFYHover(areaEl, points, y, prefix, { padL, padT, plotW, plotH, svgW: w });
+  return cum;   // cumulative realized P&L at the end of the plotted range
 }
 
 // Tracks pointer/touch position over the FY line chart's capture rect,
