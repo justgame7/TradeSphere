@@ -329,6 +329,111 @@
   }
   .group-ungrouped-toggle span{font:600 11.5px var(--font-mono);color:var(--muted);line-height:1.5;}
 
+  /* ---- "+" add-to-portfolio icon (left of Analysis) and its trade window.
+     The window mirrors portfolio.html's "Add coin" form field-for-field, restyled
+     in this page's tokens. ---- */
+  .add-icon-btn{
+    background:none;border:none;padding:0;margin:0;color:var(--accent);cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
+  }
+  .add-icon-btn svg{width:15px;height:15px;}
+  .add-icon-btn:hover{color:var(--gold);}
+  .pf-overlay{
+    position:fixed;inset:0;background:rgba(5,6,9,.78);backdrop-filter:blur(3px);
+    z-index:1000;display:none;align-items:flex-end;justify-content:center;
+  }
+  .pf-overlay.open{display:flex;}
+  .pf-modal{
+    background:var(--bg);border:1px solid var(--border);border-radius:22px 22px 0 0;
+    width:100%;max-width:640px;max-height:96vh;overflow-y:auto;padding:18px 18px 26px;
+    animation:pfSlideUp .28s cubic-bezier(.22,1,.36,1);
+  }
+  @media(min-width:680px){
+    .pf-overlay{align-items:center;}
+    .pf-modal{border-radius:22px;max-width:460px;}
+  }
+  @keyframes pfSlideUp{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .pf-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 16px;}
+  .pf-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .pf-title{font:700 18px var(--font-display);}
+  .pf-close{
+    background:var(--panel);border:1px solid var(--border);width:32px;height:32px;border-radius:9px;
+    color:var(--muted);font-size:18px;line-height:1;cursor:pointer;
+  }
+  .pf-close:hover{border-color:var(--red);color:var(--red);}
+  .pf-coin{
+    display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);
+    border-radius:12px;padding:10px 12px;margin-bottom:14px;
+  }
+  .pf-avatar{
+    width:34px;height:34px;border-radius:50%;flex-shrink:0;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;color:#fff;font:700 14px var(--font-display);
+  }
+  .pf-avatar img{width:100%;height:100%;display:block;object-fit:cover;}
+  .pf-coin-info{flex:1;min-width:0;}
+  .pf-coin-sym{font:700 14px var(--font-display);}
+  .pf-coin-sym span{color:var(--faint);font-weight:500;}
+  .pf-coin-price{font:12px var(--font-mono);color:var(--muted);}
+  .pf-field{margin-bottom:14px;}
+  .pf-field > label{display:block;font:600 12px var(--font-display);color:var(--muted);margin-bottom:6px;}
+  .pf-field > label small{font-weight:400;color:var(--faint);font-size:inherit;}
+  .pf-input{
+    width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:12px;
+    padding:12px 13px;color:var(--text);font:500 14.5px var(--font-mono);outline:none;
+    transition:border-color .15s;color-scheme:dark;
+  }
+  .pf-input:focus{border-color:var(--gold);}
+  .pf-input.pf-date{font-family:var(--font-display);}
+  .pf-toggle{display:flex;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:3px;margin-bottom:14px;}
+  .pf-field .pf-toggle{margin-bottom:0;}
+  .pf-toggle button{
+    flex:1;border:none;background:transparent;color:var(--faint);padding:9px;border-radius:9px;
+    font:700 12.5px var(--font-display);cursor:pointer;transition:all .15s;
+  }
+  .pf-toggle button.active{background:var(--border);color:var(--text);}
+  .pf-preview{
+    background:rgba(240,194,75,.12);border:1px solid rgba(240,194,75,.3);border-radius:12px;padding:11px 13px;
+    font:12.5px/1.55 var(--font-display);color:#F5D98A;margin-bottom:14px;
+  }
+  .pf-preview.long{background:rgba(53,224,192,.12);border-color:transparent;color:var(--accent);}
+  .pf-preview.short{background:rgba(255,84,112,.12);border-color:transparent;color:var(--red);}
+  .pf-lev-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .pf-lev-row label{font:600 12px var(--font-display);color:var(--muted);}
+  .pf-lev-row label small{font-weight:400;color:var(--faint);font-size:inherit;}
+  .pf-lev-value{font:700 14px var(--font-mono);padding:2px 9px;border-radius:999px;}
+  .pf-slider{
+    width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:99px;
+    background:var(--panel2);border:1px solid var(--border);outline:none;cursor:pointer;
+  }
+  .pf-slider::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;
+    background:var(--gold);border:3px solid var(--bg);box-shadow:0 0 0 1px var(--gold);cursor:pointer;
+  }
+  .pf-slider::-moz-range-thumb{
+    width:20px;height:20px;border-radius:50%;background:var(--gold);
+    border:3px solid var(--bg);box-shadow:0 0 0 1px var(--gold);cursor:pointer;
+  }
+  .pf-lev-marks{display:flex;justify-content:space-between;font:10.5px var(--font-mono);color:var(--faint);margin-top:4px;}
+  .pf-save{
+    width:100%;border:none;border-radius:12px;padding:13px 16px;cursor:pointer;
+    background:linear-gradient(135deg,#F7D783,var(--gold));color:#2A1E04;font:700 14px var(--font-display);
+    transition:transform .12s,filter .15s;
+  }
+  .pf-save:hover{filter:brightness(1.06);}
+  .pf-save:active{transform:scale(.98);}
+  .pf-toasts{
+    position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1100;
+    display:flex;flex-direction:column;gap:8px;width:calc(100% - 32px);max-width:420px;pointer-events:none;
+  }
+  .pf-toast{
+    background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:11px 14px;
+    font:600 12.5px/1.45 var(--font-display);box-shadow:0 12px 32px rgba(0,0,0,.5);
+    animation:pfToastIn .25s cubic-bezier(.22,1,.36,1);
+  }
+  .pf-toast.success{border-color:rgba(53,224,192,.45);}
+  .pf-toast.error{border-color:rgba(255,84,112,.45);}
+  @keyframes pfToastIn{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
+
   /* ---- Analysis overlay (embeds screener.html's own analysis modal, over this page) ---- */
   .analysis-overlay{
     position:fixed;inset:0;background:rgba(5,6,9,.82);z-index:999;
@@ -396,6 +501,19 @@
     <iframe class="analysis-overlay-frame" id="analysisOverlayFrame" title="Coin analysis" src="about:blank"></iframe>
   </div>
 </div>
+
+<!-- Add-to-portfolio window (opened by the "+" icon on each coin card) -->
+<div class="pf-overlay" id="pfOverlay">
+  <div class="pf-modal" role="dialog" aria-modal="true" aria-labelledby="pfTitle">
+    <div class="pf-handle"></div>
+    <div class="pf-head">
+      <div class="pf-title" id="pfTitle">Add coin to portfolio</div>
+      <button class="pf-close" id="pfClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div id="pfBody"></div>
+  </div>
+</div>
+<div class="pf-toasts" id="pfToasts"></div>
 
 <div class="wrap">
 
@@ -1330,6 +1448,7 @@ function renderCoinRow(coin, ticker, rankInfo){
             <span class="watch-asof">${closeTime ? 'Vol ' + formatVolume(quoteVolume) : ''}</span>
             <span class="watch-foot-links">
               ${renderGroupIcon(coin)}
+              <button class="add-icon-btn" type="button" title="Add ${coin.symbol} to portfolio" aria-label="Add ${coin.symbol} to portfolio" onclick="event.preventDefault(); event.stopPropagation(); openAddToPortfolio('${coin.binanceSymbol}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></button>
               <button class="analysis-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); openAnalysisOverlay('${coin.binanceSymbol}')">Analysis</button>
               <a class="watch-link" href="${tradingViewChartUrl(coin.binanceSymbol)}" rel="noopener" onclick="event.preventDefault(); event.stopPropagation(); openTradingViewChart('${coin.binanceSymbol}')">View chart ↗</a>
             </span>
@@ -1701,6 +1820,338 @@ document.getElementById('analysisOverlay').addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape' && document.getElementById('analysisOverlay').classList.contains('open')) closeAnalysisOverlay();
+});
+
+// ---------------- Add to portfolio (buy straight from the watchlist) ----------------
+// The "+" icon left of "Analysis" opens the same Add-coin form as portfolio.html's
+// crypto "Add coin" window (direction, entry price, amount/quantity, leverage, date,
+// average/margin/fee preview) with the coin already selected, and saves the trade
+// into portfolio.html's own localStorage record. The two pages share one origin, so
+// no server or messaging is involved. portfolio.html listens for the 'storage' event
+// and reloads itself, so a trade saved here shows up there without a manual refresh.
+//
+// The math below (computeHolding, marginDeltaForAdd, fee rate, max leverage, the
+// holding/lot shape) is deliberately identical to portfolio.html's - if those change
+// there, change them here too.
+const PORTFOLIO_STORAGE_KEY = 'meridian-portfolio-v1';
+const PF_FEE_MAKER = 0.0002;   // = FEE_RATES.maker in portfolio.html
+const PF_MAX_LEVERAGE = 25;    // = MAX_LEVERAGE in portfolio.html
+
+function pfUid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function pfFmtMoney(value, prefix){
+  const abs = Math.abs(value);
+  const maxFrac = abs !== 0 && abs < 1 ? 4 : 2;
+  const n = new Intl.NumberFormat('en-IN', { minimumFractionDigits:0, maximumFractionDigits:maxFrac }).format(value);
+  return (value < 0 ? '-' : '') + prefix + n.replace('-','');
+}
+function pfTrimNum(n){
+  if(n == null) return '0';
+  const s = n.toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
+  return s === '' ? '0' : s;
+}
+function pfLeverageColors(lev){
+  if(lev <= 3)  return { bg:'rgba(53,224,192,.14)', fg:'var(--accent)' };
+  if(lev <= 10) return { bg:'rgba(255,138,76,.15)', fg:'var(--orange)' };
+  return { bg:'rgba(255,84,112,.15)', fg:'var(--red)' };
+}
+
+// Returns the whole portfolio record (every field preserved, so nothing portfolio.html
+// stores is lost on write-back) with markets.crypto guaranteed to exist. Returns null
+// only when a saved record exists but can't be parsed - in that case we refuse to
+// write rather than overwrite data we couldn't read.
+function pfReadPortfolio(){
+  let parsed = {};
+  try{
+    const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
+    if(raw) parsed = JSON.parse(raw);
+  }catch(err){ return null; }
+  if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  if(!parsed.markets || typeof parsed.markets !== 'object') parsed.markets = {};
+  const crypto = parsed.markets.crypto = Object.assign({ holdings:[], realized:[], cashBalance:0, feesPaid:0 }, parsed.markets.crypto || {});
+  if(!Array.isArray(crypto.holdings)) crypto.holdings = [];
+  return parsed;
+}
+function pfComputeHolding(h){
+  const side = h.side === 'short' ? 'short' : 'long';
+  const totalBought = h.lots.reduce((s,l)=>s+l.qty, 0);
+  const totalCost = h.lots.reduce((s,l)=>s+l.qty*l.price, 0);
+  const avgCost = totalBought > 0 ? totalCost/totalBought : 0;
+  const remainingQty = Math.max(0, totalBought - (h.soldQty||0));
+  const investedValue = remainingQty * avgCost;
+  const leverage = h.leverage || 1;
+  return { side, totalBought, avgCost, remainingQty, investedValue, leverage, margin: investedValue / leverage };
+}
+function pfMarginDeltaForAdd(existingCalc, qty, price, leverage){
+  if(existingCalc){
+    const newTotalQty = existingCalc.totalBought + qty;
+    const newTotalCost = (existingCalc.totalBought*existingCalc.avgCost) + (qty*price);
+    const newAvg = newTotalCost / newTotalQty;
+    const newRemainingQty = existingCalc.remainingQty + qty;
+    return (newRemainingQty * newAvg) / leverage - existingCalc.margin;
+  }
+  return (qty * price) / leverage;
+}
+function pfAvailableCash(crypto){
+  const locked = crypto.holdings.reduce((s,h)=> s + pfComputeHolding(h).margin, 0);
+  return (crypto.cashBalance || 0) - locked;
+}
+
+function pfToast(msg, type){
+  const el = document.createElement('div');
+  el.className = 'pf-toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  document.getElementById('pfToasts').appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0'; el.style.transform = 'translateY(-8px)'; el.style.transition = 'all .25s ease';
+    setTimeout(() => el.remove(), 260);
+  }, type === 'error' ? 4200 : 2600);
+}
+
+let pfAdd = null; // { symbol, base, price, image, gradient, letter, mode, side, leverage }
+
+function openAddToPortfolio(binanceSymbol){
+  const coin = COINS.find(c => c.binanceSymbol === binanceSymbol);
+  if(!coin) return;
+  const ticker = state.tickers[binanceSymbol];
+  const livePrice = ticker ? parseFloat(ticker.lastPrice) : NaN;
+  const rankInfo = state.ranks[coin.coingeckoId];
+  pfAdd = {
+    symbol: binanceSymbol,
+    base: binanceSymbol.slice(0, -4),
+    price: isFinite(livePrice) ? livePrice : null,
+    image: rankInfo && rankInfo.image ? rankInfo.image : null,
+    gradient: coin.gradient,
+    letter: coin.symbol[0],
+    mode: 'amount',
+    side: 'long',
+    leverage: 1
+  };
+  const priceLine = pfAdd.price != null
+    ? 'Live price: $' + (pfAdd.price < 1 ? pfAdd.price.toFixed(6) : pfAdd.price.toFixed(2))
+    : 'Price unavailable';
+  const avatar = pfAdd.image
+    ? `<span class="pf-avatar"><img src="${escapeHtml(pfAdd.image)}" alt=""></span>`
+    : `<span class="pf-avatar" style="background:${pfAdd.gradient}">${escapeHtml(pfAdd.letter)}</span>`;
+  document.getElementById('pfBody').innerHTML = `
+    <div class="pf-coin">
+      ${avatar}
+      <div class="pf-coin-info">
+        <div class="pf-coin-sym">${escapeHtml(pfAdd.base)} <span>/ USDT</span></div>
+        <div class="pf-coin-price">${priceLine}</div>
+      </div>
+    </div>
+    <div id="pfFields"></div>`;
+  pfRenderFields();
+  document.getElementById('pfOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeAddToPortfolio(){
+  document.getElementById('pfOverlay').classList.remove('open');
+  document.getElementById('pfBody').innerHTML = '';
+  pfAdd = null;
+  // The analysis overlay also locks body scroll; only release it if that one is closed too.
+  if(!document.getElementById('analysisOverlay').classList.contains('open')) document.body.style.overflow = '';
+}
+
+function pfRenderFields(){
+  const wrap = document.getElementById('pfFields');
+  const snapshot = pfReadPortfolio();
+  if(!snapshot){
+    wrap.innerHTML = `<div class="pf-preview short">Couldn't read the saved portfolio data on this device, so nothing can be added right now. Open Portfolio and check that it loads.</div>`;
+    return;
+  }
+  const crypto = snapshot.markets.crypto;
+  const existing = crypto.holdings.find(h => h.symbol === pfAdd.symbol) || null;
+  const existingCalc = existing ? pfComputeHolding(existing) : null;
+  // Same rules as portfolio.html: leverage applies to the whole position, so an
+  // existing holding's leverage is the starting point; direction is locked to it.
+  pfAdd.leverage = existing ? Math.min(existing.leverage || 1, PF_MAX_LEVERAGE) : (pfAdd.leverage || 1);
+  pfAdd.side = existing ? (existing.side || 'long') : (pfAdd.side || 'long');
+  const lev0 = pfLeverageColors(pfAdd.leverage);
+
+  wrap.innerHTML = `
+    <div class="pf-field">
+      <label>Direction</label>
+      ${existing ? `
+        <div class="pf-preview ${pfAdd.side === 'short' ? 'short' : 'long'}" style="margin-bottom:0">This is an existing <b>${pfAdd.side === 'short' ? 'SHORT' : 'LONG'}</b> position - new trades average into the same direction.</div>
+      ` : `
+        <div class="pf-toggle" id="pfSideToggle">
+          <button type="button" data-side="long" class="${pfAdd.side !== 'short' ? 'active' : ''}">Long</button>
+          <button type="button" data-side="short" class="${pfAdd.side === 'short' ? 'active' : ''}">Short</button>
+        </div>
+      `}
+    </div>
+    <div class="pf-field">
+      <label>Entry price (USDT)</label>
+      <input type="number" class="pf-input" id="pfPrice" inputmode="decimal" step="any" placeholder="0.00" value="${pfAdd.price != null ? pfAdd.price : ''}">
+    </div>
+    <div class="pf-toggle" id="pfModeToggle">
+      <button type="button" data-mode="amount" class="active">By USDT amount</button>
+      <button type="button" data-mode="qty">By quantity</button>
+    </div>
+    <div class="pf-field" id="pfQtyField" style="display:none">
+      <label>Quantity</label>
+      <input type="number" class="pf-input" id="pfQty" inputmode="decimal" step="any" placeholder="0.00">
+    </div>
+    <div class="pf-field" id="pfAmountField">
+      <label>Amount to invest (USDT)</label>
+      <input type="number" class="pf-input" id="pfAmount" inputmode="decimal" step="any" placeholder="0.00">
+    </div>
+    <div class="pf-field">
+      <div class="pf-lev-row">
+        <label>Leverage${existing ? ' <small>- applies to the whole position</small>' : ''}</label>
+        <span class="pf-lev-value" id="pfLevValue" style="background:${lev0.bg};color:${lev0.fg}">${pfAdd.leverage}x</span>
+      </div>
+      <input type="range" class="pf-slider" id="pfLeverage" min="1" max="${PF_MAX_LEVERAGE}" step="1" value="${pfAdd.leverage}">
+      <div class="pf-lev-marks"><span>1x</span><span>7x</span><span>13x</span><span>19x</span><span>25x</span></div>
+    </div>
+    <div class="pf-field">
+      <label>Date</label>
+      <input type="date" class="pf-input pf-date" id="pfDate" value="${new Date().toISOString().slice(0,10)}">
+    </div>
+    <div id="pfPreview"></div>
+    <button class="pf-save" id="pfSave" type="button">Save trade</button>
+  `;
+
+  const priceEl = document.getElementById('pfPrice');
+  const qtyEl = document.getElementById('pfQty');
+  const amountEl = document.getElementById('pfAmount');
+  const qtyField = document.getElementById('pfQtyField');
+  const amountField = document.getElementById('pfAmountField');
+  const modeToggle = document.getElementById('pfModeToggle');
+
+  function setMode(mode){
+    pfAdd.mode = mode;
+    modeToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    qtyField.style.display = mode === 'qty' ? 'block' : 'none';
+    amountField.style.display = mode === 'amount' ? 'block' : 'none';
+  }
+  modeToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('button'); if(!btn) return;
+    setMode(btn.dataset.mode);
+    syncFields();
+  });
+
+  const sideToggle = document.getElementById('pfSideToggle');
+  if(sideToggle){
+    sideToggle.addEventListener('click', (e) => {
+      const btn = e.target.closest('button'); if(!btn) return;
+      pfAdd.side = btn.dataset.side;
+      sideToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+      updatePreview();
+    });
+  }
+
+  const levEl = document.getElementById('pfLeverage');
+  const levValueEl = document.getElementById('pfLevValue');
+  levEl.addEventListener('input', () => {
+    pfAdd.leverage = parseInt(levEl.value, 10) || 1;
+    const colors = pfLeverageColors(pfAdd.leverage);
+    levValueEl.textContent = pfAdd.leverage + 'x';
+    levValueEl.style.background = colors.bg;
+    levValueEl.style.color = colors.fg;
+    updatePreview();
+  });
+
+  function syncFields(){
+    const price = parseFloat(priceEl.value);
+    if(!price || price <= 0){ updatePreview(); return; }
+    if(pfAdd.mode === 'amount' && amountEl.value){
+      const amt = parseFloat(amountEl.value);
+      if(amt > 0) qtyEl.value = (amt / price).toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
+    }else if(pfAdd.mode === 'qty' && qtyEl.value){
+      const q = parseFloat(qtyEl.value);
+      if(q > 0) amountEl.value = (q * price).toFixed(2);
+    }
+    updatePreview();
+  }
+  function updatePreview(){
+    const price = parseFloat(priceEl.value);
+    const qty = parseFloat(qtyEl.value);
+    const preview = document.getElementById('pfPreview');
+    if(!price || !qty || price <= 0 || qty <= 0){ preview.innerHTML = ''; return; }
+    const fee = qty * price * PF_FEE_MAKER;
+    const feeLine = ` Fee: <b>${pfFmtMoney(fee, '$')}</b>, deducted immediately from this position's P&amp;L.`;
+    const marginDelta = pfMarginDeltaForAdd(existingCalc, qty, price, pfAdd.leverage || 1);
+    const marginLine = ` Margin ${existingCalc ? 'change' : 'needed'} at ${pfAdd.leverage || 1}x: <b>${pfFmtMoney(marginDelta, '$')}</b>.`;
+    if(existingCalc){
+      const newTotalQty = existingCalc.totalBought + qty;
+      const newTotalCost = (existingCalc.totalBought * existingCalc.avgCost) + (qty * price);
+      const newAvg = newTotalCost / newTotalQty;
+      preview.innerHTML = `<div class="pf-preview">Your average will move from <b>${pfFmtMoney(existingCalc.avgCost, '$')}</b> to <b>${pfFmtMoney(newAvg, '$')}</b> across ${pfTrimNum(newTotalQty)} total.${marginLine}${feeLine}</div>`;
+    }else{
+      const sideLabel = pfAdd.side === 'short' ? 'SHORT' : 'LONG';
+      preview.innerHTML = `<div class="pf-preview">New ${sideLabel} position: ${pfTrimNum(qty)} @ ${pfFmtMoney(price, '$')} = ${pfFmtMoney(qty * price, '$')} invested.${marginLine}${feeLine}</div>`;
+    }
+  }
+  priceEl.addEventListener('input', syncFields);
+  qtyEl.addEventListener('input', () => { setMode('qty'); syncFields(); });
+  amountEl.addEventListener('input', () => { setMode('amount'); syncFields(); });
+  syncFields();
+
+  document.getElementById('pfSave').addEventListener('click', submitAddToPortfolio);
+}
+
+function submitAddToPortfolio(){
+  if(!pfAdd) return;
+  const price = parseFloat(document.getElementById('pfPrice').value);
+  const qty = parseFloat(document.getElementById('pfQty').value);
+  const dateVal = document.getElementById('pfDate').value;
+  const date = dateVal ? new Date(dateVal).getTime() : Date.now();
+
+  if(!price || price <= 0){ pfToast('Enter a valid price', 'error'); return; }
+  if(!qty || qty <= 0){ pfToast('Enter a valid quantity', 'error'); return; }
+
+  // Re-read the portfolio at the moment of saving (not the copy from when the window
+  // opened) so a change made meanwhile in portfolio.html is never overwritten.
+  const portfolio = pfReadPortfolio();
+  if(!portfolio){ pfToast("Couldn't read the saved portfolio data - nothing was changed", 'error'); return; }
+  const crypto = portfolio.markets.crypto;
+  const existing = crypto.holdings.find(h => h.symbol === pfAdd.symbol) || null;
+
+  const leverage = pfAdd.leverage || 1;
+  const fee = qty * price * PF_FEE_MAKER;
+  const existingCalcNow = existing ? pfComputeHolding(existing) : null;
+  const marginDelta = pfMarginDeltaForAdd(existingCalcNow, qty, price, leverage);
+  // Fee is charged against this position's P&L, not drawn from wallet cash,
+  // so only the margin needs to be covered by available cash.
+  const availableCash = pfAvailableCash(crypto);
+  if(marginDelta > availableCash + 1e-9){
+    pfToast(`Needs ${pfFmtMoney(marginDelta, '$')} margin at ${leverage}x - only ${pfFmtMoney(availableCash, '$')} available. Add cash in Portfolio first.`, 'error');
+    return;
+  }
+
+  let holding = existing;
+  if(!holding){
+    holding = { id: pfUid(), symbol: pfAdd.symbol, name: pfAdd.base, side: pfAdd.side === 'short' ? 'short' : 'long', lots: [], soldQty: 0, currentPrice: null, change24h: null, priceUpdated: null, targetPrice: null };
+    crypto.holdings.push(holding);
+  }else if(!holding.side){
+    holding.side = 'long';
+  }
+  holding.lots.push({ id: pfUid(), qty, price, date, fee, feeType: 'maker' });
+  holding.currentPrice = pfAdd.price != null ? pfAdd.price : price;
+  holding.priceUpdated = Date.now();
+  holding.leverage = leverage;
+  crypto.feesPaid = (crypto.feesPaid || 0) + fee;
+
+  try{
+    localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(portfolio));
+  }catch(err){
+    pfToast('Could not save - storage may be full', 'error');
+    return;
+  }
+  const base = pfAdd.base;
+  closeAddToPortfolio();
+  pfToast(`${base} trade saved to Portfolio - ${pfFmtMoney(fee, '$')} fee applied to P&L`, 'success');
+}
+
+document.getElementById('pfClose').addEventListener('click', closeAddToPortfolio);
+document.getElementById('pfOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'pfOverlay') closeAddToPortfolio();
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape' && document.getElementById('pfOverlay').classList.contains('open')) closeAddToPortfolio();
 });
 
 // ---------------- State + cache (stale-while-revalidate, same pattern as the other pages) ----------------

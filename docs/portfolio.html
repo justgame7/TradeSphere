@@ -3366,6 +3366,19 @@ function animateHeroIn(){
   });
 }
 
+/* --------------------------- cross-page sync --------------------------- */
+// watchlist.html's "+" icon saves new trades straight into this same localStorage
+// record from another document (it runs in its own iframe/tab). This page keeps its
+// state in memory and re-saves all of it on every price refresh, so without this it
+// would silently overwrite those trades on its next save. The 'storage' event only
+// fires for writes made by OTHER documents, so this page's own saveState() calls
+// never trigger it.
+window.addEventListener('storage', (e)=>{
+  if(e.key !== STORAGE_KEY) return;
+  state = loadState();
+  renderAll();
+});
+
 /* --------------------------- boot --------------------------- */
 async function boot(){
   applyTabVisibility();
