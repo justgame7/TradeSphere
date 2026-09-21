@@ -216,6 +216,11 @@ a{color:inherit;}
 .expand-period-toggle{flex-direction:column; gap:6px; border-radius:12px;}
 .expand-period-toggle .period-row{display:flex; gap:2px; width:100%;}
 .expand-period-toggle button{flex:1 1 0; min-width:0; white-space:nowrap; border-radius:8px; padding:6px 4px;}
+/* The FY row (FYs + "All time") sizes buttons by their label so the longer
+   "FY 2026-27" text is never squeezed; the Line tab's FY row does the same. */
+.expand-period-toggle .period-row:last-child button{flex:1 1 auto;}
+#perfExpandFY button{flex:1 1 auto; min-width:0; white-space:nowrap;}
+@media (max-width:380px){ .expand-period-toggle button, #perfExpandFY button{font-size:10.5px;} }
 /* Realized P&L total for whichever period/FY is selected in the expand modal */
 .perf-expand-summary{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-top:14px;}
 .perf-meta{font-size:11.5px; color:var(--text-faint); margin-bottom:6px;}
@@ -1343,6 +1348,24 @@ function buildFYBuckets(fyStartYear){
   return out;
 }
 
+// Calendar-month buckets from the month of the very first closed trade
+// through the current month, used by the bars view's "All time" option.
+function buildAllTimeBuckets(){
+  const rows = collectRealized();
+  if(!rows.length) return [];
+  let first = Infinity, last = -Infinity;
+  rows.forEach(r=>{ if(r.date < first) first = r.date; if(r.date > last) last = r.date; });
+  const fd = new Date(first);
+  const ld = new Date(Math.max(Date.now(), last));
+  let y = fd.getFullYear(), m = fd.getMonth();
+  const out = [];
+  while(y < ld.getFullYear() || (y === ld.getFullYear() && m <= ld.getMonth())){
+    out.push({ from: new Date(y, m, 1).getTime(), to: new Date(y, m + 1, 1).getTime(), pnl:0, trades:0 });
+    m++; if(m > 11){ m = 0; y++; }
+  }
+  return out;
+}
+
 // Round a raw axis interval up to a 1/2/2.5/5/10 x 10^n step so gridline
 // labels land on readable numbers instead of things like 137.42.
 function niceStep(range){
@@ -1585,8 +1608,8 @@ function wirePerfHover(host, buckets, y, prefix, geo){
    current FY until older data exists.
    =========================================================================== */
 let perfExpandStyle = 'bars'; // 'bars' | 'line'
-let perfExpandFYStart = null; // set when the modal opens — drives the "Line" FY picker
-let perfExpandBarsPeriod = 7; // number of days, or 'fy:<startYear>' — drives the "Bars" period picker
+let perfExpandFYStart = null; // FY start year, or 'all' — set when the modal opens, drives the "Line" FY picker
+let perfExpandBarsPeriod = 7; // number of days, 'fy:<startYear>' or 'all' — drives the "Bars" period picker
 
 // April (month index 3) starts the Indian financial year: dates in Jan-Mar
 // belong to the FY that began the previous April.
@@ -1671,11 +1694,12 @@ function renderPerfExpand(){
   if(perfExpandStyle === 'line'){
     barsRow.style.display = 'none';
     const years = availableFYStartYears();
-    if(!years.includes(perfExpandFYStart)) perfExpandFYStart = years[0];
+    if(perfExpandFYStart !== 'all' && !years.includes(perfExpandFYStart)) perfExpandFYStart = years[0];
     fyRow.style.display = 'flex';
-    fyRow.innerHTML = years.map(y=>`<button type="button" data-fy="${y}" class="${y === perfExpandFYStart ? 'active' : ''}">${fyLabel(y)}</button>`).join('');
+    fyRow.innerHTML = years.map(y=>`<button type="button" data-fy="${y}" class="${y === perfExpandFYStart ? 'active' : ''}">${fyLabel(y)}</button>`).join('')
+      + `<button type="button" data-fy="all" class="${perfExpandFYStart === 'all' ? 'active' : ''}">All time</button>`;
     const fyTotal = drawFYLineChart(perfExpandFYStart, meta, area);
-    setPerfExpandSummary(fyTotal, fyLabel(perfExpandFYStart), prefix);
+    setPerfExpandSummary(fyTotal, perfExpandFYStart === 'all' ? 'All time' : fyLabel(perfExpandFYStart), prefix);
   }else{
     fyRow.style.display = 'none';
     barsRow.style.display = 'flex';
@@ -1694,6 +1718,7 @@ function renderPerfExpand(){
       + dayOpts.map(d=>`<button type="button" data-days="${d}" class="${perfExpandBarsPeriod === d ? 'active' : ''}">${dayOptLabels[d]}</button>`).join('')
       + '</div><div class="period-row">'
       + fyYears.map(y=>`<button type="button" data-fy="${y}" class="${perfExpandBarsPeriod === ('fy:'+y) ? 'active' : ''}">${fyLabel(y)}</button>`).join('')
+      + `<button type="button" data-fy="all" class="${perfExpandBarsPeriod === 'all' ? 'active' : ''}">All time</button>`
       + '</div>';
 
     let buckets, trades = 0, total = 0, withYear, showBarLabels, periodLabel;
@@ -1717,6 +1742,19 @@ function renderPerfExpand(){
       meta.textContent = trades === 0
         ? `No trades closed in the last ${perfExpandBarsPeriod} days`
         : `${trades} closed trade${trades===1?'':'s'} · ${shortDate(from, withYear)} – ${shortDate(buckets[buckets.length-1].to - DAY_MS, withYear)} · ${grain} bars`;
+    }else if(perfExpandBarsPeriod === 'all'){
+      // Every closed trade ever, one bar per calendar month.
+      periodLabel = 'All time';
+      buckets = buildAllTimeBuckets();
+      withYear = true;
+      showBarLabels = false;
+      collectRealized().forEach(r=>{
+        const b = buckets.find(bk => r.date >= bk.from && r.date < bk.to);
+        if(b){ b.pnl += r.pnl; b.trades++; trades++; total += r.pnl; }
+      });
+      meta.textContent = trades === 0
+        ? 'No closed trades yet'
+        : `${trades} closed trade${trades===1?'':'s'} · ${shortDate(buckets[0].from, true)} – ${shortDate(Math.min(Date.now(), buckets[buckets.length-1].to) - DAY_MS, true)} · All time · monthly bars`;
     }else{
       const fyYear = Number(perfExpandBarsPeriod.slice(3));
       periodLabel = fyLabel(fyYear);
@@ -1761,25 +1799,46 @@ function setPerfExpandSummary(total, label, prefix){
 // 1 Apr through today for the current (unfinished) FY, the full year for a
 // completed one — so the line always reaches the right edge with no blank
 // run of future days.
+//
+// Pass fyStartYear = 'all' for the all-time view: ONE continuous cumulative
+// line from the first closed trade to today. It does not reset at 1 April —
+// the value where one financial year ends is exactly where the next one
+// begins — and each 1 April is marked with a dashed divider, a dot on the
+// line, and an FY label so the year boundaries are still visible.
 function drawFYLineChart(fyStartYear, metaEl, areaEl){
   const prefix = state.settings.displayCurrency === 'INR' ? '₹' : '$';
-  const { start, end } = fyBounds(fyStartYear);
+  const isAll = fyStartYear === 'all';
   const now = Date.now();
-  const domainEnd = Math.min(now, end);
+  let start, end, domainEnd, rows;
 
-  if(domainEnd <= start){
-    metaEl.textContent = `${fyLabel(fyStartYear)} hasn't started yet.`;
-    areaEl.innerHTML = '';
-    return 0;
+  if(isAll){
+    const every = collectRealized().sort((a,b)=>a.date-b.date);
+    if(every.length === 0){
+      metaEl.textContent = 'No closed trades yet.';
+      areaEl.innerHTML = `<div class="perf-empty">Close a trade and the booked P&amp;L will plot here.</div>`;
+      return 0;
+    }
+    const d0 = new Date(every[0].date); d0.setHours(0,0,0,0);
+    start = d0.getTime();
+    domainEnd = Math.max(now, every[every.length - 1].date + 1);
+    end = domainEnd;
+    rows = every;
+  }else{
+    ({ start, end } = fyBounds(fyStartYear));
+    domainEnd = Math.min(now, end);
+    if(domainEnd <= start){
+      metaEl.textContent = `${fyLabel(fyStartYear)} hasn't started yet.`;
+      areaEl.innerHTML = '';
+      return 0;
+    }
+    rows = collectRealized().filter(r => r.date >= start && r.date < domainEnd).sort((a,b)=>a.date-b.date);
   }
-
-  const rows = collectRealized().filter(r => r.date >= start && r.date < domainEnd).sort((a,b)=>a.date-b.date);
   let cum = 0;
   const points = [{ date:start, pnl:0 }];
   rows.forEach(r=>{ cum += r.pnl; points.push({ date:r.date, pnl:cum }); });
   points.push({ date:domainEnd, pnl:cum });
 
-  metaEl.textContent = `${rows.length} closed trade${rows.length===1?'':'s'} · ${shortDate(start,true)} – ${shortDate(domainEnd,true)} · ${fyLabel(fyStartYear)}`;
+  metaEl.textContent = `${rows.length} closed trade${rows.length===1?'':'s'} · ${shortDate(start,true)} – ${shortDate(domainEnd,true)} · ${isAll ? 'All time' : fyLabel(fyStartYear)}`;
 
   const w = Math.max(280, Math.floor(areaEl.clientWidth || 320));
   const h = 260;
@@ -1811,10 +1870,42 @@ function drawFYLineChart(fyStartYear, metaEl, areaEl){
   const dotColor = last.pnl >= 0 ? '#4ED8B0' : '#F2697A';
   const dot = `<circle cx="${x(last.date).toFixed(1)}" cy="${y(last.pnl).toFixed(1)}" r="3.5" fill="${dotColor}"/>`;
 
+  // All-time only: mark every financial-year boundary (1 April) that falls
+  // inside the plotted range. The line itself carries straight through.
+  let fyMarks = '', fyDots = '', fyLabels = '';
+  if(isAll){
+    const valAt = t => {
+      for(let i = 1; i < points.length; i++){
+        if(t <= points[i].date){
+          const p0 = points[i-1], p1 = points[i];
+          const f = p1.date === p0.date ? 0 : (t - p0.date)/(p1.date - p0.date);
+          return p0.pnl + (p1.pnl - p0.pnl)*f;
+        }
+      }
+      return points[points.length-1].pnl;
+    };
+    const edges = [start];
+    for(let fy = fyStartYearForDate(new Date(start)) + 1; fyBounds(fy).start < domainEnd; fy++) edges.push(fyBounds(fy).start);
+    edges.push(domainEnd);
+    for(let i = 0; i < edges.length - 1; i++){
+      const segStart = edges[i], segEnd = edges[i+1];
+      if(i > 0){
+        const bx = x(segStart).toFixed(1);
+        fyMarks += `<line x1="${bx}" y1="${padT}" x2="${bx}" y2="${padT + plotH}" stroke="#4A4568" stroke-width="1" stroke-dasharray="3,3"/>`;
+        fyDots  += `<circle cx="${bx}" cy="${y(valAt(segStart)).toFixed(1)}" r="3" fill="#171325" stroke="var(--gold)" stroke-width="1.5"/>`;
+      }
+      const fy = fyStartYearForDate(new Date(segStart));
+      const segW = x(segEnd) - x(segStart);
+      const short = `${String(fy % 100).padStart(2,'0')}-${String((fy + 1) % 100).padStart(2,'0')}`;
+      const txt = segW >= 68 ? fyLabel(fy) : (segW >= 36 ? short : '');
+      if(txt) fyLabels += `<text x="${((x(segStart) + x(segEnd))/2).toFixed(1)}" y="${padT + 11}" text-anchor="middle" class="pc-axis" opacity=".75">${txt}</text>`;
+    }
+  }
+
   // Right label reads the last real day in the domain: 31 Mar once the FY is
   // complete (domainEnd lands on the exclusive 1 Apr boundary), otherwise
   // today's date.
-  const rightLabelTs = Math.min(domainEnd, end - DAY_MS);
+  const rightLabelTs = isAll ? domainEnd : Math.min(domainEnd, end - DAY_MS);
   const xLabels = `<text x="${padL}" y="${h-7}" class="pc-axis">${shortDate(start, true)}</text>`
                 + `<text x="${w-padR}" y="${h-7}" text-anchor="end" class="pc-axis">${shortDate(rightLabelTs, true)}</text>`;
 
@@ -1832,10 +1923,13 @@ function drawFYLineChart(fyStartYear, metaEl, areaEl){
     </g>`;
   const captureRect = `<rect id="fyHoverCapture" x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="transparent"/>`;
 
-  areaEl.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Cumulative realized profit and loss across the financial year" style="touch-action:pan-y">
+  areaEl.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${isAll ? 'Cumulative realized profit and loss, all time' : 'Cumulative realized profit and loss across the financial year'}" style="touch-action:pan-y">
     ${grid}
+    ${fyMarks}
     <path d="${pathD}" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"/>
+    ${fyDots}
     ${dot}
+    ${fyLabels}
     ${xLabels}
     ${hoverLayer}
     ${captureRect}
@@ -3384,7 +3478,7 @@ document.getElementById('perfExpandStyle').addEventListener('click', (e)=>{
 // so this listener is delegated on the row rather than bound per-button.
 document.getElementById('perfExpandFY').addEventListener('click', (e)=>{
   const btn = e.target.closest('button'); if(!btn) return;
-  perfExpandFYStart = Number(btn.dataset.fy);
+  perfExpandFYStart = btn.dataset.fy === 'all' ? 'all' : Number(btn.dataset.fy);
   renderPerfExpand();
 });
 // Bars-view period row mixes day-range buttons (data-days) with financial
@@ -3393,7 +3487,7 @@ document.getElementById('perfExpandFY').addEventListener('click', (e)=>{
 document.getElementById('perfExpandBarsPeriod').addEventListener('click', (e)=>{
   const btn = e.target.closest('button'); if(!btn) return;
   if(btn.dataset.days) perfExpandBarsPeriod = Number(btn.dataset.days);
-  else if(btn.dataset.fy) perfExpandBarsPeriod = 'fy:' + btn.dataset.fy;
+  else if(btn.dataset.fy) perfExpandBarsPeriod = btn.dataset.fy === 'all' ? 'all' : 'fy:' + btn.dataset.fy;
   renderPerfExpand();
 });
 // The chart is drawn at the container's measured width, so a viewport change
