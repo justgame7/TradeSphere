@@ -513,6 +513,97 @@ a{color:inherit;}
 .crypto-typo .leverage-value{font-family:'JetBrains Mono', monospace;}
 /* Close button of the Analysis / chart overlay (only opened from crypto holdings) */
 .analysis-overlay-close{font-family:'JetBrains Mono', monospace;}
+/* ---- Moon phase card (collapsible, sits just above the footer notice) ---- */
+.moon-card{
+  --moon-blue:#67A3FF; --moon-white:#F7F5FF; --moon-c:var(--moon-blue);
+  background:var(--panel); border:1px solid var(--border); border-radius:12px;
+  margin:22px 0 0; overflow:hidden;
+}
+.moon-card + .notice{margin-top:12px;}
+.moon-head{
+  width:100%; display:flex; align-items:center; gap:12px; padding:12px 16px;
+  background:none; border:0; color:inherit; font:inherit; text-align:left; cursor:pointer;
+}
+.moon-head:hover .moon-chevron{color:var(--moon-c);}
+.moon-head:focus-visible{outline:2px solid var(--moon-c); outline-offset:-2px;}
+.moon-icon{flex:0 0 auto; display:flex; width:38px; height:38px;}
+.moon-svg{display:block; flex:0 0 auto;}
+.moon-head-text{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:1px;}
+.moon-eyebrow{font:600 10px var(--font-mono, 'IBM Plex Mono', monospace); letter-spacing:.14em; text-transform:uppercase; color:var(--text-faint, var(--faint));}
+.moon-name{font-size:15px; font-weight:700; line-height:1.25; color:var(--moon-c); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.moon-sub{font-size:11.5px; color:var(--text-dim, var(--muted)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.moon-head-right{flex:0 0 auto; display:flex; align-items:center; gap:10px;}
+.moon-illum-wrap{display:flex; flex-direction:column; align-items:flex-end; line-height:1.15;}
+.moon-illum{font:600 15px var(--font-mono, 'IBM Plex Mono', monospace); color:var(--moon-c);}
+.moon-illum-lbl{font-size:10px; color:var(--text-faint, var(--faint));}
+.moon-chevron{color:var(--text-faint, var(--faint)); transition:transform .2s, color .15s; flex:0 0 auto;}
+.moon-card.open .moon-chevron{transform:rotate(180deg);}
+
+.moon-body{padding:2px 16px 16px; animation:moonReveal .25s ease;}
+.moon-body[hidden]{display:none;}
+@keyframes moonReveal{from{opacity:0; transform:translateY(-4px);} to{opacity:1; transform:none;}}
+
+/* cycle bar: blue first half (waxing), white second half (waning) */
+.moon-cycle{position:relative; margin:6px 4px 30px;}
+.moon-track{display:flex; height:6px; border-radius:6px; overflow:hidden;}
+.moon-track i{flex:1 1 50%; display:block;}
+.moon-track .wax{background:linear-gradient(90deg, rgba(103,163,255,.18), var(--moon-blue));}
+.moon-track .wan{background:linear-gradient(90deg, var(--moon-white), rgba(247,245,255,.18));}
+.moon-marker{
+  position:absolute; top:-4px; width:14px; height:14px; margin-left:-7px; border-radius:50%;
+  background:var(--moon-c); border:2px solid var(--panel); box-shadow:0 0 0 1px var(--moon-c), 0 0 10px var(--moon-c);
+}
+.moon-tick{position:absolute; top:14px; font:500 9.5px var(--font-mono, 'IBM Plex Mono', monospace); color:var(--text-faint, var(--faint)); white-space:nowrap; transform:translateX(-50%);}
+.moon-tick.first{transform:none;}
+.moon-tick.last{transform:translateX(-100%);}
+.moon-tick.q{opacity:.55;}   /* quarter moons: not plotted by TradingView */
+.moon-stats{font-size:12px; color:var(--text-dim, var(--muted)); margin:0 0 12px;}
+.moon-stats b{font-family:var(--font-mono, 'IBM Plex Mono', monospace); font-weight:600; color:var(--text);}
+.moon-stats + .moon-sec{margin-top:2px;}
+
+.moon-row{
+  display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:10px 12px; margin-bottom:8px;
+  background:var(--panel-2, var(--panel2)); border:1px solid var(--border); border-radius:10px;
+}
+.moon-row-main{flex:1 1 0; min-width:0;}
+.moon-row-k{font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;}
+.moon-row-v{font-size:14px; font-weight:600; color:var(--text);}
+.moon-row-side{text-align:right; flex:0 0 auto;}
+.moon-row-when{font:500 12px var(--font-mono, 'IBM Plex Mono', monospace); color:var(--text);}
+.moon-row-rel{font-size:11px; color:var(--text-faint, var(--faint)); margin-top:1px;}
+/* how this event looks on TradingView's Moon Phases indicator */
+.moon-row-tv{flex:0 0 100%; margin-top:-4px; padding-top:8px; border-top:1px solid var(--border-soft, var(--border)); font-size:11px; line-height:1.45; color:var(--text-dim, var(--muted));}
+.moon-row-tv i{display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; box-shadow:0 0 0 1px rgba(255,255,255,.18);}
+
+.moon-sec{font:600 10px var(--font-mono, 'IBM Plex Mono', monospace); letter-spacing:.14em; text-transform:uppercase; color:var(--text-faint, var(--faint)); margin:14px 0 6px;}
+.moon-up{display:flex; align-items:center; gap:10px; padding:7px 2px; border-top:1px solid var(--border-soft, var(--border)); font-size:12.5px;}
+.moon-up:first-of-type{border-top:0;}
+.moon-up-name{flex:1 1 auto; min-width:0; color:var(--text); font-weight:600; white-space:nowrap;}
+.moon-up-name small{display:block; margin-top:1px; font-size:10px; font-weight:500; line-height:1.3; color:var(--text-faint, var(--faint)); white-space:normal;}
+.moon-up.q{opacity:.6;}
+.moon-up-when{flex:0 0 auto; white-space:nowrap; font:500 11.5px var(--font-mono, 'IBM Plex Mono', monospace); color:var(--text-dim, var(--muted));}
+.moon-up-rel{flex:0 0 auto; white-space:nowrap; font-size:11px; color:var(--text-faint, var(--faint)); min-width:58px; text-align:right;}
+.moon-foot{margin:12px 0 0; font-size:10.5px; color:var(--text-faint, var(--faint)); line-height:1.5;}
+.moon-foot a{color:var(--moon-c); font-weight:600; text-decoration:none; white-space:nowrap;}
+.moon-foot a:hover{text-decoration:underline;}
+/* nested "About the TradingView indicator" toggle - collapsed by default, nothing persisted */
+.moon-info-toggle{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; padding:10px 0 2px;
+  background:none; border:0; border-top:1px solid var(--border-soft, var(--border)); color:var(--text-dim, var(--muted));
+  font:inherit; font-size:11.5px; font-weight:600; text-align:left; cursor:pointer;
+}
+.moon-info-toggle:hover{color:var(--moon-c);}
+.moon-info-toggle:focus-visible{outline:2px solid var(--moon-c); outline-offset:2px;}
+.moon-info-toggle.open .moon-chevron{transform:rotate(180deg);}
+.moon-info{padding:8px 0 0; font-size:12px; line-height:1.55; color:var(--text-dim, var(--muted));}
+.moon-info[hidden]{display:none;}
+.moon-info p{margin:0 0 9px;}
+.moon-info p:last-child{margin-bottom:0;}
+.moon-info b{color:var(--text); font-weight:600;}
+@media (max-width:380px){
+  .moon-up-when{font-size:10.5px;}
+  .moon-row{padding:9px 10px; gap:10px;}
+}
 </style>
 </head>
 <body>
@@ -700,6 +791,48 @@ a{color:inherit;}
       <div class="history-body"><div class="toggle-group toggle-group-sm history-fy-filter" id="stocksUSHistoryFYFilter"></div><div id="stocksUSHistoryList"></div></div>
     </div>
   </section>
+
+  <div class="moon-card" id="moonCard" data-half="waxing">
+    <button class="moon-head" id="moonToggle" type="button" aria-expanded="false" aria-controls="moonBody" aria-label="Toggle moon phase details">
+      <span class="moon-icon" id="moonIcon"></span>
+      <span class="moon-head-text">
+        <span class="moon-eyebrow">Moon phase</span>
+        <span class="moon-name" id="moonName">&mdash;</span>
+        <span class="moon-sub" id="moonSub"></span>
+      </span>
+      <span class="moon-head-right">
+        <span class="moon-illum-wrap"><span class="moon-illum" id="moonIllum">&ndash;</span><span class="moon-illum-lbl">lit</span></span>
+        <svg class="moon-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </span>
+    </button>
+    <div class="moon-body" id="moonBody" hidden>
+      <div class="moon-cycle" aria-hidden="true">
+        <div class="moon-track"><i class="wax"></i><i class="wan"></i></div>
+        <span class="moon-marker" id="moonMarker"></span>
+        <span class="moon-tick first" style="left:0">New</span>
+        <span class="moon-tick q" style="left:25%">1st Qtr</span>
+        <span class="moon-tick" style="left:50%">Full</span>
+        <span class="moon-tick q" style="left:75%">Last Qtr</span>
+        <span class="moon-tick last" style="left:100%">New</span>
+      </div>
+      <p class="moon-stats" id="moonStats"></p>
+      <div class="moon-sec">On the TradingView chart</div>
+      <div id="moonRows"></div>
+      <div class="moon-sec">Next phases</div>
+      <div id="moonUpcoming"></div>
+      <button class="moon-info-toggle" id="moonInfoToggle" type="button" aria-expanded="false" aria-controls="moonInfo">
+        <span>About the TradingView indicator</span>
+        <svg class="moon-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="moon-info" id="moonInfo" hidden>
+        <p><b>What it shows.</b> TradingView&rsquo;s <i>Moon Phases</i> indicator plots each new moon as a circle above the bar (the &ldquo;dark&rdquo; one) and each full moon as a circle below it (the &ldquo;bright&rdquo; one). Bars in between are shaded blue while the moon is waxing (new &rarr; full) and white while it is waning (full &rarr; new). First and last quarters aren&rsquo;t plotted.</p>
+        <p><b>Why traders watch it.</b> Some traders believe lunar cycles nudge markets through subtle gravitational effects on Earth and on market participants. That is a belief, not a proven edge &mdash; treat it as background context next to your other signals, not a signal on its own.</p>
+        <p><b>Match your chart.</b> In TradingView, add <i>Moon Phases</i> from Indicators. Inputs sets the Waxing Moon and Waning Moon colours (blue and white here); Style switches the New Moon and Full Moon circles and the Background Color on or off. It isn&rsquo;t supported on the Monthly timeframe.</p>
+        <p><b>Reading the timing.</b> The circle sits on the bar that contains the exact moment. Crypto trades 24/7, so on a daily chart that is the UTC candle (00:00&ndash;24:00 UTC), which can be a different date from your local time above. On stocks it lands on the next available bar. TradingView&rsquo;s script uses a simplified formula, so a phase that falls right on a candle boundary could land one candle over compared with this card.</p>
+      </div>
+      <p class="moon-foot">Blue = waxing (new &rarr; full), white = waning (full &rarr; new), as on TradingView&rsquo;s Moon Phases indicator. Times are calculated on this device and shown in your local time. <a href="https://www.tradingview.com/support/solutions/43000599884-moon-phases/" rel="noopener" id="moonHelpLink">TradingView help &#8599;</a></p>
+    </div>
+  </div>
 
   <div class="notice">
     <div class="notice-summary">
@@ -3508,6 +3641,254 @@ document.getElementById('btnRefresh').addEventListener('click', async (e)=>{
   renderAll();
   btn.classList.remove('spinning');
 });
+
+/* =====================================================================
+   Moon phase card (collapsible) - sits just above the footer notice.
+   Fully offline: phase times come from Jean Meeus' "Astronomical
+   Algorithms" (ch. 49) series for new / first quarter / full / last
+   quarter moon, accurate to about a minute. Nothing here touches the
+   network, localStorage or any app state.
+
+   Colour language: WAXING (new moon -> full moon) is blue, WANING
+   (full moon -> new moon) is white. The half of the cycle you are in
+   colours the icon, the phase name and the illumination figure.
+
+   Mirrors TradingView's built-in "Moon Phases" indicator: it plots only
+   new moons (circle ABOVE the bar, waxing colour) and full moons (circle
+   BELOW the bar, waning colour) and tints the bars between them. First /
+   last quarters are shown here for reference but are not on the chart.
+   ===================================================================== */
+(function(){
+  const card = document.getElementById('moonCard');
+  if(!card) return;
+  const DAY = 86400000, RAD = Math.PI / 180;
+  const SYNODIC = 29.530588861;
+  const DELTA_T = 69;   // seconds, TT - UT, approx. for the 2020s
+  const COL = { waxing:'#67A3FF', waning:'#F7F5FF' };
+  const PRIMARY = ['New Moon', 'First Quarter', 'Full Moon', 'Last Quarter'];
+  const HALF_OF = ['waxing', 'waxing', 'waning', 'waning'];   // half each primary phase belongs to
+  const NAME_OF = ['Waxing Crescent', 'Waxing Gibbous', 'Waning Gibbous', 'Waning Crescent'];
+  // A primary phase name (e.g. "Full Moon") is shown for this long after it
+  // begins, then the descriptive name (e.g. "Waning Gibbous") takes over.
+  const PRIMARY_WINDOW = 12 * 3600 * 1000;
+
+  // ---- how each phase appears on TradingView's Moon Phases indicator ----
+  const TV_HELP_URL = 'https://www.tradingview.com/support/solutions/43000599884-moon-phases/';
+  const TV_MARK = {   // only new (0) and full (2) moons are plotted
+    0: 'Circle above the bar \u00B7 blue shading until the full moon',
+    2: 'Circle below the bar \u00B7 white shading until the new moon'
+  };
+  const TV_TAG = ['above bar', 'not plotted', 'below bar', 'not plotted'];   // per primary phase
+
+  // ---- Meeus ch. 49: instant of a primary phase, returned as epoch ms (UTC) ----
+  // n = whole lunation count since 2000-01-06; q = 0 new, 1 first qtr, 2 full, 3 last qtr
+  function phaseTime(n, q){
+    const k = n + q * 0.25;
+    const T = k / 1236.85, T2 = T*T, T3 = T2*T, T4 = T3*T;
+    let jde = 2451550.09766 + 29.530588861*k + 0.00015437*T2 - 0.000000150*T3 + 0.00000000073*T4;
+    const E = 1 - 0.002516*T - 0.0000074*T2, E2 = E*E;
+    const M  = (2.5534 + 29.10535670*k - 0.0000014*T2 - 0.00000011*T3) * RAD;
+    const Mp = (201.5643 + 385.81693528*k + 0.0107582*T2 + 0.00001238*T3 - 0.000000058*T4) * RAD;
+    const F  = (160.7108 + 390.67050284*k - 0.0016118*T2 - 0.00000227*T3 + 0.000000011*T4) * RAD;
+    const Om = (124.7746 - 1.56375588*k + 0.0020672*T2 + 0.00000215*T3) * RAD;
+    const s = Math.sin, c = Math.cos;
+    let corr;
+    if(q === 0 || q === 2){
+      const a = q === 0
+        ? [-0.40720, 0.17241, 0.01608, 0.01039, 0.00739, -0.00514, 0.00208]
+        : [-0.40614, 0.17302, 0.01614, 0.01043, 0.00734, -0.00515, 0.00209];
+      corr = a[0]*s(Mp) + a[1]*E*s(M) + a[2]*s(2*Mp) + a[3]*s(2*F)
+           + a[4]*E*s(Mp-M) + a[5]*E*s(Mp+M) + a[6]*E2*s(2*M)
+           - 0.00111*s(Mp-2*F) - 0.00057*s(Mp+2*F) + 0.00056*E*s(2*Mp+M) - 0.00042*s(3*Mp)
+           + 0.00042*E*s(M+2*F) + 0.00038*E*s(M-2*F) - 0.00024*E*s(2*Mp-M) - 0.00017*s(Om)
+           - 0.00007*s(Mp+2*M) + 0.00004*s(2*Mp-2*F) + 0.00004*s(3*M) + 0.00003*s(Mp+M-2*F)
+           + 0.00003*s(2*Mp+2*F) - 0.00003*s(Mp+M+2*F) + 0.00003*s(Mp-M+2*F)
+           - 0.00002*s(Mp-M-2*F) - 0.00002*s(3*Mp+M) + 0.00002*s(4*Mp);
+    }else{
+      corr = -0.62801*s(Mp) + 0.17172*E*s(M) - 0.01183*E*s(Mp+M) + 0.00862*s(2*Mp) + 0.00804*s(2*F)
+           + 0.00454*E*s(Mp-M) + 0.00204*E2*s(2*M) - 0.00180*s(Mp-2*F) - 0.00070*s(Mp+2*F)
+           - 0.00040*s(3*Mp) - 0.00034*E*s(2*Mp-M) + 0.00032*E*s(M+2*F) + 0.00032*E*s(M-2*F)
+           - 0.00028*E2*s(Mp+2*M) + 0.00027*E*s(2*Mp+M) - 0.00017*s(Om) - 0.00005*s(Mp-M-2*F)
+           + 0.00004*s(2*Mp+2*F) - 0.00004*s(Mp+M+2*F) + 0.00004*s(Mp-2*M) + 0.00003*s(Mp+M-2*F)
+           + 0.00003*s(3*M) + 0.00002*s(2*Mp-2*F) + 0.00002*s(Mp-M+2*F) - 0.00002*s(3*Mp+M);
+      const W = 0.00306 - 0.00038*E*c(M) + 0.00026*c(Mp) - 0.00002*c(Mp-M) + 0.00002*c(Mp+M) + 0.00002*c(2*F);
+      corr += q === 1 ? W : -W;
+    }
+    // Additional planetary corrections
+    const A = [
+      [299.77 + 0.107408*k - 0.009173*T2, 0.000325],
+      [251.88 + 0.016321*k, 0.000165], [251.83 + 26.651886*k, 0.000164],
+      [349.42 + 36.412478*k, 0.000126], [84.66 + 18.206239*k, 0.000110],
+      [141.74 + 53.303771*k, 0.000062], [207.14 + 2.453732*k, 0.000060],
+      [154.84 + 7.306860*k, 0.000056], [34.52 + 27.261239*k, 0.000047],
+      [207.19 + 0.121824*k, 0.000042], [291.34 + 1.844379*k, 0.000040],
+      [161.72 + 24.198154*k, 0.000037], [239.56 + 25.513099*k, 0.000035],
+      [331.55 + 3.592518*k, 0.000023]
+    ];
+    let planetary = 0;
+    A.forEach(p => { planetary += p[1] * s(p[0] * RAD); });
+    jde += corr + planetary;
+    return (jde - 2440587.5) * DAY - DELTA_T * 1000;
+  }
+
+  // Sorted primary-phase events spanning a couple of lunations either side of `now`.
+  function eventsAround(now){
+    const n0 = Math.floor((now / DAY + 2440587.5 - 2451550.09766) / SYNODIC);
+    const out = [];
+    for(let n = n0 - 2; n <= n0 + 3; n++){
+      for(let q = 0; q < 4; q++) out.push({ q, t: phaseTime(n, q) });
+    }
+    return out.sort((a, b) => a.t - b.t);
+  }
+
+  function compute(now){
+    const ev = eventsAround(now);
+    let i = 0;
+    while(i < ev.length - 1 && ev[i + 1].t <= now) i++;
+    const cur = ev[i], nxt = ev[i + 1];
+    const frac = (now - cur.t) / (nxt.t - cur.t);          // progress through this quarter (0-1)
+    const p = (cur.q + frac) / 4;                          // cycle position: 0 new, .5 full, 1 new
+    const half = HALF_OF[cur.q];
+    const sincePrimary = now - cur.t < PRIMARY_WINDOW;
+    const name = sincePrimary ? PRIMARY[cur.q] : NAME_OF[cur.q];
+    const illum = (1 - Math.cos(2 * Math.PI * p)) / 2;
+    // The waxing / waning half began at the last new moon / full moon...
+    const halfStartQ = half === 'waxing' ? 0 : 2;
+    let halfStart = null;
+    for(let j = i; j >= 0; j--){ if(ev[j].q === halfStartQ){ halfStart = ev[j]; break; } }
+    // ...and the next half begins at the next full moon / new moon.
+    const nextHalfQ = half === 'waxing' ? 2 : 0;
+    let nextHalf = null;
+    for(let j = i + 1; j < ev.length; j++){ if(ev[j].q === nextHalfQ){ nextHalf = ev[j]; break; } }
+    let lastNew = null;
+    for(let j = i; j >= 0; j--){ if(ev[j].q === 0){ lastNew = ev[j]; break; } }
+    return {
+      p, half, name, illum,
+      ageDays: lastNew ? (now - lastNew.t) / DAY : null,
+      halfStart, nextHalf,
+      upcoming: ev.slice(i + 1, i + 5)
+    };
+  }
+
+  // ---- moon icon: dark disc + lit shape (right side lit while waxing, left while waning) ----
+  function moonSvg(p, color, size){
+    const r = 16, cx = 20, cy = 20;
+    const cc = Math.cos(2 * Math.PI * p);
+    const rx = Math.abs(r * cc).toFixed(2);
+    let d;
+    if(p < 0.5){
+      d = `M${cx} ${cy - r} A${r} ${r} 0 0 1 ${cx} ${cy + r} A${rx} ${r} 0 0 ${cc > 0 ? 0 : 1} ${cx} ${cy - r}Z`;
+    }else{
+      d = `M${cx} ${cy - r} A${r} ${r} 0 0 0 ${cx} ${cy + r} A${rx} ${r} 0 0 ${cc > 0 ? 1 : 0} ${cx} ${cy - r}Z`;
+    }
+    return `<svg class="moon-svg" width="${size}" height="${size}" viewBox="0 0 40 40" aria-hidden="true" style="filter:drop-shadow(0 0 ${Math.round(size/6)}px ${color}66)">`
+         + `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1C1932"/>`
+         + `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" fill-opacity=".10" stroke="${color}" stroke-opacity=".6" stroke-width="1.4"/>`
+         + `<path d="${d}" fill="${color}"/></svg>`;
+  }
+
+  function fmtWhen(ms, compact){
+    const d = new Date(ms), o = { day:'numeric', month:'short', hour:'numeric', minute:'2-digit' };
+    if(!compact) o.weekday = 'short';
+    if(d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
+    return d.toLocaleString(undefined, o);
+  }
+  // Calendar date of the UTC day an instant falls in (= the daily candle on 24/7 crypto charts).
+  function fmtUtcDay(ms){
+    const d = new Date(ms), o = { day:'numeric', month:'short', timeZone:'UTC' };
+    if(d.getUTCFullYear() !== new Date().getUTCFullYear()) o.year = 'numeric';
+    return d.toLocaleDateString(undefined, o);
+  }
+  function fmtSpan(ms){
+    const m = Math.floor(Math.abs(ms) / 60000);
+    const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+    if(d >= 1) return `${d}d ${h}h`;
+    if(h >= 1) return `${h}h ${mm}m`;
+    return `${Math.max(1, mm)}m`;
+  }
+
+  const $ = id => document.getElementById(id);
+  function render(){
+    const now = Date.now();
+    const m = compute(now);
+    const color = COL[m.half];
+    card.dataset.half = m.half;
+    card.style.setProperty('--moon-c', color);
+
+    const halfWord = m.half === 'waxing' ? 'Waxing' : 'Waning';
+    const nextHalfWord = m.half === 'waxing' ? 'Waning' : 'Waxing';
+    const nextHalfPrimary = PRIMARY[m.half === 'waxing' ? 2 : 0];
+    $('moonIcon').innerHTML = moonSvg(m.p, color, 38);
+    $('moonName').textContent = m.name;
+    $('moonSub').textContent = m.nextHalf
+      ? `${halfWord} · ${nextHalfPrimary} in ${fmtSpan(m.nextHalf.t - now)}`
+      : halfWord;
+    $('moonIllum').textContent = Math.round(m.illum * 100) + '%';
+
+    // cycle bar marker + readout
+    $('moonMarker').style.left = (m.p * 100).toFixed(2) + '%';
+    $('moonStats').innerHTML = `<b style="color:${color}">${Math.round(m.illum * 100)}%</b> illuminated`
+      + (m.ageDays != null ? ` · day <b>${m.ageDays.toFixed(1)}</b> of ${SYNODIC.toFixed(1)}` : '');
+
+    // started / next-phase rows
+    const rowHtml = (label, evt, kind, whenTxt, relTxt) => {
+      const col = COL[kind];
+      return `<div class="moon-row">${moonSvg(evt.q / 4, col, 30)}`
+        + `<div class="moon-row-main"><div class="moon-row-k" style="color:${col}">${label}</div><div class="moon-row-v">${PRIMARY[evt.q]}</div></div>`
+        + `<div class="moon-row-side"><div class="moon-row-when">${whenTxt}</div><div class="moon-row-rel">${relTxt}</div>`
+        + `<div class="moon-row-rel">UTC 1D candle \u00B7 ${fmtUtcDay(evt.t)}</div></div>`
+        + `<div class="moon-row-tv"><i style="background:${col}"></i>${TV_MARK[evt.q]}</div></div>`;
+    };
+    let rows = '';
+    if(m.halfStart) rows += rowHtml(`${halfWord} since`, m.halfStart, m.half, fmtWhen(m.halfStart.t), `${fmtSpan(now - m.halfStart.t)} ago`);
+    if(m.nextHalf)  rows += rowHtml(`${nextHalfWord} starts`, m.nextHalf, m.half === 'waxing' ? 'waning' : 'waxing', fmtWhen(m.nextHalf.t), `in ${fmtSpan(m.nextHalf.t - now)}`);
+    $('moonRows').innerHTML = rows;
+
+    $('moonUpcoming').innerHTML = m.upcoming.map(e => {
+      const col = COL[HALF_OF[e.q]];
+      const onChart = e.q === 0 || e.q === 2;
+      return `<div class="moon-up${onChart ? '' : ' q'}">${moonSvg(e.q / 4, col, 22)}`
+        + `<span class="moon-up-name">${PRIMARY[e.q]}<small>${TV_TAG[e.q]}</small></span>`
+        + `<span class="moon-up-when">${fmtWhen(e.t, true)}</span>`
+        + `<span class="moon-up-rel">in ${fmtSpan(e.t - now)}</span></div>`;
+    }).join('');
+  }
+
+  $('moonToggle').addEventListener('click', () => {
+    const body = $('moonBody');
+    const willOpen = body.hidden;
+    body.hidden = !willOpen;
+    card.classList.toggle('open', willOpen);
+    $('moonToggle').setAttribute('aria-expanded', String(willOpen));
+  });
+
+  // "About the TradingView indicator" - collapsed every time, nothing persisted
+  $('moonInfoToggle').addEventListener('click', () => {
+    const box = $('moonInfo'), btn = $('moonInfoToggle');
+    const willOpen = box.hidden;
+    box.hidden = !willOpen;
+    btn.classList.toggle('open', willOpen);
+    btn.setAttribute('aria-expanded', String(willOpen));
+  });
+
+  // This page runs in an iframe inside the app shell, so external links must go through
+  // window.open() (openExternalLink) rather than a plain href navigation.
+  $('moonHelpLink').addEventListener('click', e => {
+    e.preventDefault();
+    if(typeof openExternalLink === 'function') openExternalLink(TV_HELP_URL);
+    else window.open(TV_HELP_URL, '_blank', 'noopener,noreferrer');
+  });
+
+  try{
+    render();
+    setInterval(() => { try{ render(); }catch(e){} }, 60000);
+  }catch(e){
+    // Never let a moon-card problem affect the rest of the page.
+    card.style.display = 'none';
+    console.error('Moon phase card failed:', e);
+  }
+
+})();
 
 /* --------------------------- footer notice toggle --------------------------- */
 document.getElementById('footerNoticeToggle').addEventListener('click', ()=>{
