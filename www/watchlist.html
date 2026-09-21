@@ -2271,6 +2271,7 @@ function submitAddToPortfolio(){
     pfToast('Could not save - storage may be full', 'error');
     return;
   }
+  syncPortfolioGroupAndRefresh();   // a newly opened position joins the Portfolio group
   const base = pfAdd.base;
   closeAddToPortfolio();
   pfToast(`${base} trade saved to Portfolio - ${pfFmtMoney(fee, '$')} fee applied to P&L`, 'success');
@@ -2283,6 +2284,143 @@ document.getElementById('pfOverlay').addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape' && document.getElementById('pfOverlay').classList.contains('open')) closeAddToPortfolio();
 });
+
+// ---------------- Portfolio group (kept in step with Meridian) ----------------
+// A "Portfolio" group is managed for you. Whenever a crypto position is opened in
+// portfolio.html (Meridian) that coin is added to the group, and whenever the position
+// is closed or deleted there it is taken out again. Only THIS group is ever changed -
+// membership in every other group is left exactly as it is:
+//   - opened: the coin goes into Portfolio (and onto the watchlist first, if it isn't
+//             on it yet). "Ungrouped" just means "in no group", so an ungrouped coin
+//             leaves Ungrouped by itself; a coin that is also in e.g. "Top coins"
+//             simply ends up in both.
+//   - closed: the coin comes out of Portfolio only. If that leaves it in no group it
+//             falls back to Ungrouped; if it's in other groups it stays in those.
+// The two pages share one origin, so this page just reads Meridian's saved record. It
+// runs at load, when Meridian saves (the 'storage' event), when the page comes back to
+// the foreground, and after a trade saved with the "+" icon here. It reacts to CHANGES
+// in Meridian's open coins (remembered in PORTFOLIO_SYNC_KEY) rather than forcing the
+// group to match, so something you moved by hand isn't pulled back until that
+// position actually opens or closes. BTC is never groupable on this page, so it's skipped.
+const PORTFOLIO_GROUP_NAME = 'Portfolio';
+const PORTFOLIO_SYNC_KEY = 'crypto-watchlist-portfolio-sync';
+
+function loadPortfolioSync(){
+  try{
+    const o = JSON.parse(localStorage.getItem(PORTFOLIO_SYNC_KEY) || 'null');
+    if(o && typeof o === 'object'){
+      return {
+        groupId: typeof o.groupId === 'string' ? o.groupId : null,
+        held: Array.isArray(o.held) ? o.held.filter(s => typeof s === 'string') : []
+      };
+    }
+  }catch(err){ /* ignore */ }
+  return { groupId: null, held: [] };
+}
+function savePortfolioSync(rec){
+  try{ localStorage.setItem(PORTFOLIO_SYNC_KEY, JSON.stringify(rec)); }catch(err){ /* not critical */ }
+}
+
+// Binance symbols (e.g. "SEIUSDT") of the crypto positions currently open in Meridian.
+// A position stops being in that list when it's fully closed or deleted there. Returns
+// null when the saved record can't be read, so a glitch never looks like "everything
+// was closed".
+function readOpenPortfolioCoins(){
+  let parsed = null;
+  try{
+    const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
+    if(raw) parsed = JSON.parse(raw);
+  }catch(err){ return null; }
+  const open = new Set();
+  if(parsed === null) return open;   // Meridian has never saved anything
+  const holdings = parsed && parsed.markets && parsed.markets.crypto && parsed.markets.crypto.holdings;
+  if(!Array.isArray(holdings)) return null;
+  holdings.forEach(h => {
+    const sym = h && h.symbol;
+    if(typeof sym === 'string' && sym.length > 4 && sym.endsWith('USDT') && sym !== UNGROUPABLE_SYMBOL) open.add(sym);
+  });
+  return open;
+}
+
+// Brings the Portfolio group in line with what changed in Meridian since the last run.
+// Returns { changed, coinsAdded }; coinsAdded means a coin was newly put on the watchlist
+// (it still needs its metadata + prices fetched).
+function syncPortfolioGroup(render = true){
+  const result = { changed: false, coinsAdded: false };
+  const open = readOpenPortfolioCoins();
+  if(!open) return result;
+  const rec = loadPortfolioSync();
+  const before = new Set(rec.held);
+  const opened = Array.from(open).filter(sym => !before.has(sym));
+  const closed = rec.held.filter(sym => !open.has(sym));
+  if(!opened.length && !closed.length) return result;
+
+  // The group is found by the id remembered last time (so renaming it is fine), else by
+  // name, else - only once a coin actually needs it - created.
+  let group = groups.find(g => g.id === rec.groupId)
+    || groups.find(g => g.name.toLowerCase() === PORTFOLIO_GROUP_NAME.toLowerCase())
+    || null;
+  let groupCreated = false, coinsChanged = false, membershipChanged = false;
+  let toFile = opened;
+  if(!group && opened.length){
+    group = { id: genGroupId(), name: PORTFOLIO_GROUP_NAME };
+    groups.push(group);
+    saveGroups(groups);
+    groupCreated = true;
+    toFile = Array.from(open);   // a fresh group should hold every open position
+  }
+
+  toFile.forEach(sym => {
+    if(!COINS.some(c => c.binanceSymbol === sym)){
+      // Not on the watchlist. Bring it in only if the position is genuinely new - a coin
+      // you removed from the watchlist yourself while still holding it stays removed.
+      if(before.has(sym)) return;
+      if(DEFAULT_COINS.some(c => c.binanceSymbol === sym)){
+        saveRemovedDefaults(loadRemovedDefaults().filter(x => x !== sym));   // e.g. ETH
+      }else{
+        const custom = loadCustomCoins();
+        if(!custom.some(c => c.binanceSymbol === sym)){
+          custom.push({ symbol: sym.slice(0, -4), binanceSymbol: sym });
+          saveCustomCoins(custom);
+        }
+      }
+      coinsChanged = true;
+    }
+    const ids = coinGroups[sym] || [];
+    if(!ids.includes(group.id)){ coinGroups[sym] = ids.concat(group.id); membershipChanged = true; }
+  });
+
+  closed.forEach(sym => {
+    const ids = coinGroups[sym];
+    if(group && Array.isArray(ids) && ids.includes(group.id)){
+      const rest = ids.filter(id => id !== group.id);
+      if(rest.length) coinGroups[sym] = rest; else delete coinGroups[sym];   // no group left = Ungrouped
+      membershipChanged = true;
+    }
+  });
+
+  if(coinsChanged) rebuildCoinsList();
+  if(membershipChanged) saveCoinGroups(coinGroups);
+  savePortfolioSync({ groupId: group ? group.id : rec.groupId, held: Array.from(open) });
+
+  result.coinsAdded = coinsChanged;
+  result.changed = groupCreated || coinsChanged || membershipChanged;
+  if(result.changed && render){
+    closeGroupPicker();
+    renderGroupManager();
+    renderAll();
+  }
+  return result;
+}
+// Runs the sync and, if it put a new coin on the watchlist, fetches that coin's
+// metadata and prices - same follow-up as a coin arriving from the screener's "+ WL".
+function syncPortfolioGroupAndRefresh(){
+  try{
+    if(syncPortfolioGroup().coinsAdded) resolveCustomCoinMetadata().finally(refreshAll);
+  }catch(err){
+    console.warn('[portfolio-sync] failed:', err && err.message);
+  }
+}
 
 // ---------------- State + cache (stale-while-revalidate, same pattern as the other pages) ----------------
 const state = { tickers: {}, ranks: {} };
@@ -2630,6 +2768,7 @@ document.getElementById('noticeToggle').addEventListener('click', () => {
 });
 
 loadCache();
+try{ syncPortfolioGroup(false); }catch(err){ console.warn('[portfolio-sync] failed:', err && err.message); }   // before the first render
 renderGroupManager();
 if(Object.keys(state.tickers).length) renderAll();
 resolveCustomCoinMetadata().finally(refreshAll);
@@ -2645,6 +2784,17 @@ window.addEventListener('storage', (e) => {
   if(e.key !== CUSTOM_COINS_KEY) return;
   rebuildCoinsList();
   resolveCustomCoinMetadata().finally(refreshAll);
+});
+
+// Keeps the "Portfolio" group in step with Meridian: portfolio.html saves its record
+// whenever a position is opened, closed or deleted (and on every price refresh), which
+// fires 'storage' here. The visibility hook is a catch-up for a page that was in the
+// background while that happened.
+window.addEventListener('storage', (e) => {
+  if(e.key === PORTFOLIO_STORAGE_KEY) syncPortfolioGroupAndRefresh();
+});
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden) syncPortfolioGroupAndRefresh();
 });
 </script>
 </body>
