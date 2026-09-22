@@ -398,10 +398,13 @@
   .ticker-refresh:active{border-color:var(--accent);color:var(--accent);}
   .top50-trigger{color:var(--accent);border-color:rgba(53,224,192,.32);background:rgba(53,224,192,.06);align-self:center;}
   .top50-trigger svg{width:14px;height:14px;}
+  .ticker-row-wrap{
+    display:flex;align-items:stretch;gap:8px;
+  }
   .ticker-row{
     display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;
     -webkit-overflow-scrolling:touch;scrollbar-width:none;
-    margin:0 -2px;padding:2px 2px 4px;
+    flex:1;min-width:0;padding:2px 0 4px;
   }
   .ticker-row::-webkit-scrollbar{display:none;}
   .ticker-card{
@@ -945,12 +948,6 @@
               <span class="ticker-updated" id="tickerUpdated"></span>
             </div>
             <div class="ticker-eyebrow-actions">
-              <!-- Lives here in markup only as a home for the node; renderTicker()
-                   in the script below moves it into #tickerRow (after the last
-                   coin card) on every render, so it always renders next to ETH. -->
-              <button class="ticker-refresh top50-trigger" id="top50Btn" type="button" aria-label="Browse top 50 coins" title="Top 50 coins">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>
-              </button>
               <button class="ticker-refresh" id="toggleAllBtn" type="button" aria-label="Collapse all" title="Collapse all">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 8 12 3 17 8"/><polyline points="7 21 12 16 17 21"/></svg>
               </button>
@@ -959,7 +956,17 @@
               </button>
             </div>
           </div>
-          <div class="ticker-row" id="tickerRow"></div>
+          <div class="ticker-row-wrap">
+            <div class="ticker-row" id="tickerRow"></div>
+            <!-- Sits outside the scrollable #tickerRow (not inside it), so it
+                 never scrolls off-screen or gets edge-clipped like it did when
+                 it lived inside the row's own horizontal scroller. Icon is a
+                 small ascending bar chart to read as "rankings / Top 50" at a
+                 glance, rather than the generic app-grid glyph it used to be. -->
+            <button class="ticker-refresh top50-trigger" id="top50Btn" type="button" aria-label="Browse top 50 coins" title="Top 50 coins">
+              <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="12" width="4.4" height="9" rx="1.2"/><rect x="9.8" y="7" width="4.4" height="14" rx="1.2"/><rect x="16.6" y="3" width="4.4" height="18" rx="1.2"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="movers-section" id="moversSection">
@@ -1281,7 +1288,15 @@ const TICKER_REFRESH_MS = 20000;
 // network calls. Persisted to localStorage so it survives a reload even
 // before the first ticker fetch of a session completes.
 const BINANCE_SYMBOLS_CACHE_KEY = 'ts_home_binance_symbols_cache_v1';
+// Binance runs "leverage token" style contracts for a handful of low-price
+// bases (1000SHIBUSDT, 1000PEPEUSDT, 1000BONKUSDT, 1000000MOGUSDT, ...) -
+// the exchange symbol carries a digit multiplier the plain base asset
+// doesn't. This map remembers base -> actual exchange symbol (e.g.
+// "SHIB" -> "1000SHIBUSDT") so anything that needs to hit the futures API
+// for a coin uses the real ticker instead of guessing base+"USDT".
+const BINANCE_SYMBOL_MAP_CACHE_KEY = 'ts_home_binance_symbol_map_cache_v1';
 let binanceBaseAssets = null;
+let binanceSymbolMap = null;
 function readBinanceSymbolsCache(){
   try{
     const raw = localStorage.getItem(BINANCE_SYMBOLS_CACHE_KEY);
@@ -1296,13 +1311,33 @@ function getBinanceBaseAssets(){
   if(binanceBaseAssets && binanceBaseAssets.size) return binanceBaseAssets;
   return readBinanceSymbolsCache();
 }
+function readBinanceSymbolMapCache(){
+  try{
+    const raw = localStorage.getItem(BINANCE_SYMBOL_MAP_CACHE_KEY);
+    const obj = raw ? JSON.parse(raw) : null;
+    return (obj && Object.keys(obj).length) ? obj : null;
+  }catch(e){ return null; }
+}
+function writeBinanceSymbolMapCache(obj){
+  try{ localStorage.setItem(BINANCE_SYMBOL_MAP_CACHE_KEY, JSON.stringify(obj)); }catch(e){}
+}
+function getBinanceSymbolMap(){
+  if(binanceSymbolMap && Object.keys(binanceSymbolMap).length) return binanceSymbolMap;
+  return readBinanceSymbolMapCache();
+}
+// Resolve a plain base asset ("SHIB") to the exchange symbol Binance
+// futures actually lists ("1000SHIBUSDT"). Falls back to base+"USDT" when
+// the map isn't populated yet (e.g. before the first ticker fetch) or the
+// base isn't one of Binance's prefixed contracts.
+function resolveBinanceFuturesSymbol(base){
+  const b = (base || '').toUpperCase();
+  if(!b) return '';
+  const map = getBinanceSymbolMap();
+  return (map && map[b]) || (b + 'USDT');
+}
+window.resolveBinanceFuturesSymbol = resolveBinanceFuturesSymbol;
 
 const tickerRow = document.getElementById('tickerRow');
-// Queried here (before loadTicker()'s first render below) so renderTicker()
-// can re-append this same node into the ticker row every time it redraws -
-// the button physically lives in ticker-eyebrow-actions in the HTML, but is
-// relocated into the ticker row (after the last coin card) at render time.
-const top50Btn = document.getElementById('top50Btn');
 const tickerUpdatedEl = document.getElementById('tickerUpdated');
 const tickerRefreshBtn = document.getElementById('tickerRefreshBtn');
 
@@ -1410,12 +1445,6 @@ function renderTicker(map, opts){
       setTimeout(() => priceEl.classList.remove('flash-' + flashDir), 700);
     }
   });
-
-  // Re-append the (persistent, never-cloned) Top 50 button as the last item
-  // in the row, right after the last coin card - tickerRow.innerHTML above
-  // wipes it out of the DOM each redraw, so it has to be moved back in every
-  // time this function runs.
-  if(top50Btn) tickerRow.appendChild(top50Btn);
 }
 
 function updateTickerLabel(){
@@ -1432,6 +1461,7 @@ async function loadTicker(opts){
     const wanted = new Set(TICKER_COINS.map(c => c.binanceSymbol));
     const map = {};
     const allBases = new Set();
+    const symbolMap = {};
     data.forEach(row => {
       if(wanted.has(row.symbol)) map[row.symbol] = row;
       // Strip the USDT quote suffix and any leverage-token digit prefix
@@ -1439,7 +1469,16 @@ async function loadTicker(opts){
       // set lines up with CoinGecko's plain base-asset symbols.
       if(row.symbol && row.symbol.endsWith('USDT')){
         const base = row.symbol.slice(0, -4).replace(/^\d+/, '');
-        if(base) allBases.add(base);
+        if(base){
+          allBases.add(base);
+          // Remember the *actual* exchange symbol for this base so it can be
+          // looked back up later (e.g. "SHIB" -> "1000SHIBUSDT"). Binance
+          // doesn't currently list both a plain and a prefixed contract for
+          // the same base, but if that ever changes, prefer the plain one.
+          if(!symbolMap[base] || (/^\d/.test(symbolMap[base]) && !/^\d/.test(row.symbol))){
+            symbolMap[base] = row.symbol;
+          }
+        }
       }
     });
     renderTicker(map);
@@ -1448,12 +1487,13 @@ async function loadTicker(opts){
     writeTickerCache(map);
     binanceBaseAssets = allBases;
     writeBinanceSymbolsCache(allBases);
+    binanceSymbolMap = symbolMap;
+    writeBinanceSymbolMapCache(symbolMap);
     updateTickerLabel();
   }catch(err){
     console.warn('[home ticker] fetch failed:', err && err.message);
     if(!tickerLastData){
       tickerRow.innerHTML = '<div class="ticker-error">Live prices unavailable right now</div>';
-      if(top50Btn) tickerRow.appendChild(top50Btn);
     }
   }finally{
     if(opts.manual) setTimeout(() => tickerRefreshBtn.classList.remove('spinning'), 400);
@@ -1641,6 +1681,7 @@ const STABLECOIN_SYMBOLS = new Set([
 let top50SortMode = 'market_cap';
 let top50SearchQuery = '';
 
+const top50Btn = document.getElementById('top50Btn');
 const top50Backdrop = document.getElementById('top50Backdrop');
 const top50Modal = document.getElementById('top50Modal');
 const top50CloseBtn = document.getElementById('top50CloseBtn');
@@ -1763,7 +1804,12 @@ function renderTop50List(){
 // value locally - the full module was ported in verbatim from screener.html
 // (styles + overlay markup + IIFE) so it works standalone in this shell.
 function openScreenerForCoin(coin){
-  const symbol = (coin.symbol || '').toUpperCase() + 'USDT';
+  // Don't just append "USDT" - Binance lists some low-price bases (SHIB,
+  // PEPE, BONK, ...) under a digit-prefixed contract like "1000SHIBUSDT",
+  // so naively building "SHIBUSDT" 404s. resolveBinanceFuturesSymbol() looks
+  // up the real exchange symbol from the futures list the home ticker
+  // already fetched, falling back to base+"USDT" if the map isn't ready yet.
+  const symbol = resolveBinanceFuturesSymbol(coin.symbol || '');
   closeTop50Modal();
   if(window.TechAnalysis){
     window.TechAnalysis.openSymbol(symbol);
@@ -3173,8 +3219,15 @@ function normalizeSymbol(raw){
   let s = (raw||'').trim().toUpperCase().replace(/\s+/g,'');
   if(!s) return '';
   s = s.replace(/\.P$/,'');
-  if(!s.endsWith('USDT')) s += 'USDT';
-  return s;
+  // Already a full exchange ticker (e.g. "1000SHIBUSDT" handed in by a top-50
+  // tap, or a user who typed the whole thing) - use it as-is.
+  if(s.endsWith('USDT')) return s;
+  // Otherwise resolve the bare base asset against Binance's real futures
+  // symbol list so digit-prefixed contracts (1000SHIBUSDT, 1000PEPEUSDT,
+  // 1000BONKUSDT, ...) work when someone types just "SHIB". Falls back to
+  // base+"USDT" if the map isn't loaded yet.
+  if(typeof window.resolveBinanceFuturesSymbol === 'function') return window.resolveBinanceFuturesSymbol(s);
+  return s + 'USDT';
 }
 const tfLabel = tf => tf==='4h' ? '4 Hour' : tf==='1w' ? 'Weekly' : 'Daily';
 
