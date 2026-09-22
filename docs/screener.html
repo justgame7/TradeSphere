@@ -5663,6 +5663,41 @@ function ichimoku(c, conv=9, base=26, spanB=52){
   return { tenkan, kijun, spanA, spanB:spanBv, chikou, chikouRef, cloudTop, cloudBot, position };
 }
 
+// Full-series companion to ichimoku() above, for drawing lines across the
+// Chart section's visible candles rather than just today's single reading.
+// Same formulas, same "shifted = i - base" convention for Span A/B (the
+// cloud visible at bar i was calculated `base` bars earlier) and for Chikou
+// (today's close, printed `base` bars back — so chikou[i] pulls the close
+// from `base` bars *ahead* of i). Returned arrays are aligned 1:1 with `c`.
+function ichimokuSeriesFull(c, conv=9, base=26, spanB=52){
+  const n = c.length;
+  const midAt = (len, end) => {
+    if(end-len+1 < 0) return NaN;
+    let hi=-Infinity, lo=Infinity;
+    for(let i=end-len+1;i<=end;i++){ if(c[i].high>hi) hi=c[i].high; if(c[i].low<lo) lo=c[i].low; }
+    return (hi+lo)/2;
+  };
+  const tenkan = new Array(n).fill(NaN), kijun = new Array(n).fill(NaN);
+  const spanA = new Array(n).fill(NaN), spanBArr = new Array(n).fill(NaN);
+  const chikou = new Array(n).fill(NaN);
+  const cloudTop = new Array(n).fill(NaN), cloudBot = new Array(n).fill(NaN);
+  for(let i=0;i<n;i++){
+    tenkan[i] = midAt(conv, i);
+    kijun[i] = midAt(base, i);
+    const shifted = i - base;
+    if(shifted>=0){
+      spanA[i] = (midAt(conv, shifted)+midAt(base, shifted))/2;
+      spanBArr[i] = midAt(spanB, shifted);
+      if(Number.isFinite(spanA[i]) && Number.isFinite(spanBArr[i])){
+        cloudTop[i] = Math.max(spanA[i], spanBArr[i]);
+        cloudBot[i] = Math.min(spanA[i], spanBArr[i]);
+      }
+    }
+    if(i+base < n) chikou[i] = c[i+base].close;
+  }
+  return { tenkan, kijun, spanA, spanB:spanBArr, chikou, cloudTop, cloudBot };
+}
+
 function stochastic(c, len=14, k=3, d=3){
   const n=c.length;
   if(n < len+k+d) return { k:NaN, d:NaN };
@@ -6473,12 +6508,23 @@ let volatilityOverlayEnabled = false; // "Chart" checkbox in the Volatility head
 // CCI, Williams %R, MFI, ROC) — none of them share the price chart's $
 // scale, so the Momentum section has no Chart checkboxes at all (header or
 // per-member) — nothing in it can ever be overlaid on the candlestick chart.
-// True when a given ICT/Trend/Volatility member (by its GROUPS key, e.g.
+// Ichimoku lines that sit on the price $ scale — Tenkan/Kijun/Span A/Span B/
+// Chikou are literal price levels, so all five are chartable individually.
+// Cloud Position ('Above'/'Below'/'Inside') is a text label, and Cloud Top/
+// Bottom are just the running max/min of Span A & B — rather than offer
+// them as separate lines, checking Span A *and* Span B together paints the
+// shaded kumo cloud between them (see drawIchimokuCloud below), so those
+// three stay disabled/greyed instead.
+const ICHIMOKU_CHARTABLE = new Set(['tenkan','kijun','spanA','spanB','chikou']);
+let ichimokuMemberOverlay = new Set(); // individually-checked Ichimoku member keys shown on the Chart
+let ichimokuOverlayEnabled = false; // "Chart" checkbox in the Ichimoku header — shows every chartable Ichimoku line
+// True when a given ICT/Trend/Volatility/Ichimoku member (by its GROUPS key, e.g.
 // 'fvgBull' or 'ema20') should be drawn on the Chart: either that section's
 // header "show all" checkbox is on, or the member was checked by hand.
 function ictShown(key){ return ictOverlayEnabled || ictMemberOverlay.has(key); }
 function trendShown(key){ return trendOverlayEnabled || trendMemberOverlay.has(key); }
 function volatilityShown(key){ return volatilityOverlayEnabled || volatilityMemberOverlay.has(key); }
+function ichimokuShown(key){ return ichimokuOverlayEnabled || ichimokuMemberOverlay.has(key); }
 let loadToken = 0;
 
 function normalizeSymbol(raw){
@@ -6529,7 +6575,11 @@ function renderGroups(values){
               ? (VOLATILITY_CHARTABLE.has(key)
                 ? `<input type="checkbox" class="taVolatilityMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${volatilityShown(key) ? 'checked' : ''}>`
                 : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — different scale">`)
-              : '';
+              : g.key==='ichimoku'
+                ? (ICHIMOKU_CHARTABLE.has(key)
+                  ? `<input type="checkbox" class="taIchimokuMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${ichimokuShown(key) ? 'checked' : ''}>`
+                  : `<input type="checkbox" class="analysis-row-check" disabled title="${key==='cloudPos' ? esc(label)+" can't be overlaid on the price chart — not a price level" : 'Shown as the shaded cloud fill when Span A and Span B are both checked'}">`)
+                : '';
         return `<div class="analysis-row">
           <span class="analysis-row-label">${label}</span>
           <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-valcheck"><span class="analysis-row-value${cls}">${esc(v)}</span>${check}</span></span>
@@ -6548,6 +6598,9 @@ function renderGroups(values){
         </label>` : ''}
         ${g.key==='volatility' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Volatility indicator on the Chart" onclick="event.stopPropagation()">
           <input type="checkbox" class="taVolatilityChartToggle" ${volatilityOverlayEnabled ? 'checked' : ''}>
+        </label>` : ''}
+        ${g.key==='ichimoku' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Ichimoku line on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taIchimokuChartToggle" ${ichimokuOverlayEnabled ? 'checked' : ''}>
         </label>` : ''}
         ${g.isChart
           ? `<div class="analysis-bar-toggle">${BAR_COUNTS.map(n=>`<button type="button" class="taBarCountBtn${n===chartBarCount?' active':''}" data-bars="${n}">${n}</button>`).join('')}</div>`
@@ -6610,6 +6663,13 @@ function toggleVolatilityOverlay(checked){
   if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
   renderGroups(latestValues);
 }
+function toggleIchimokuOverlay(checked){
+  ichimokuOverlayEnabled = checked;
+  ichimokuMemberOverlay = new Set();
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
 
 // A member checkbox was clicked by hand. Per-member selection and the header
 // "show all" checkbox are mutually exclusive: the first manual pick always
@@ -6654,6 +6714,20 @@ function toggleVolatilityMember(key, checked){
   }
   if(checked) volatilityMemberOverlay.add(key);
   else volatilityMemberOverlay.delete(key);
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+// Ichimoku member checkbox clicked. Same pattern as Trend/Volatility above.
+function toggleIchimokuMember(key, checked){
+  if(!ICHIMOKU_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
+  if(ichimokuOverlayEnabled){
+    ichimokuOverlayEnabled = false;
+    ichimokuMemberOverlay = new Set(ICHIMOKU_CHARTABLE);
+  }
+  if(checked) ichimokuMemberOverlay.add(key);
+  else ichimokuMemberOverlay.delete(key);
   const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
   if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
   renderGroups(latestValues);
@@ -6750,6 +6824,20 @@ function drawTaChart(){
     }
     volLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
   }
+  // Same widening for any checked Ichimoku overlay — Span A/B (and the
+  // cloud they form) are shifted `base` bars, and Chikou trails price, so
+  // any of the three can sit outside the visible window's own high-low.
+  if(ichimokuOverlayEnabled || ichimokuMemberOverlay.size){
+    const ichLevels = [];
+    const needed = ['tenkan','kijun','spanA','spanB','chikou'].some(k=>ichimokuShown(k));
+    if(needed){
+      const ich = ichimokuSeriesFull(latestCandles);
+      ['tenkan','kijun','spanA','spanB','chikou'].forEach(k=>{
+        if(ichimokuShown(k)){ for(let i=startIdx;i<latestCandles.length;i++) ichLevels.push(ich[k][i]); }
+      });
+    }
+    ichLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
+  }
   const range = (max-min) || 1;
   const x = i => pad.left + i*(width-pad.left-pad.right)/Math.max(1,bars.length-1);
   const y = p => pad.top + (max-p)*(height-pad.top-pad.bottom)/range;
@@ -6781,6 +6869,7 @@ function drawTaChart(){
   }
   if(trendOverlayEnabled || trendMemberOverlay.size) drawTrendOverlay(ctx, bars, startIdx, x, y); // lines on top so they read clearly over the candles
   if(volatilityOverlayEnabled || volatilityMemberOverlay.size) drawVolatilityOverlay(ctx, bars, startIdx, x, y);
+  if(ichimokuOverlayEnabled || ichimokuMemberOverlay.size) drawIchimokuOverlay(ctx, bars, startIdx, x, y);
 }
 
 // Draws the ICT/Smart Money section's own data (FVGs, order blocks, breaker,
@@ -6925,6 +7014,61 @@ function drawVolatilityOverlay(ctx, bars, startIdx, x, y){
     const dc = donchianSeries(latestCandles, 20);
     if(volatilityShown('dcHigh')) drawLineSeries(dc.high, VOLATILITY_LINE_COLOR.dcHigh, true);
     if(volatilityShown('dcLow')) drawLineSeries(dc.low, VOLATILITY_LINE_COLOR.dcLow, true);
+  }
+}
+
+// Draws whichever Ichimoku members are individually checked (Tenkan/Kijun/
+// Span A/Span B/Chikou/Cloud Top/Cloud Bottom) on top of the candles. Same
+// draw-a-line-series approach as drawTrendOverlay()/drawVolatilityOverlay()
+// above, against the full-series companion computed by ichimokuSeriesFull().
+const ICHIMOKU_LINE_COLOR = { tenkan:'#ff5470', kijun:'#5b8cff', spanA:'#35e0c0', spanB:'#a78bfa', chikou:'#f0c24b' };
+function drawIchimokuOverlay(ctx, bars, startIdx, x, y){
+  if(!latestCandles || !(ichimokuOverlayEnabled || ichimokuMemberOverlay.size)) return;
+  const drawLineSeries = (series, color, dashed)=>{
+    ctx.strokeStyle = color; ctx.lineWidth = 1.3; ctx.setLineDash(dashed ? [4,3] : []);
+    ctx.beginPath();
+    let started = false;
+    bars.forEach((_,i)=>{
+      const v = series[startIdx+i];
+      if(!Number.isFinite(v)){ started = false; return; }
+      const px_ = x(i), py_ = y(v);
+      if(!started){ ctx.moveTo(px_,py_); started = true; } else ctx.lineTo(px_,py_);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  const needed = ['tenkan','kijun','spanA','spanB','chikou'].some(k=>ichimokuShown(k));
+  if(!needed) return;
+  const ich = ichimokuSeriesFull(latestCandles);
+  // Cloud fill goes first so the boundary lines (when checked) read clearly
+  // on top of it. Only paints when both edges are checked — a single span
+  // line has nothing to shade against.
+  if(ichimokuShown('spanA') && ichimokuShown('spanB')) drawIchimokuCloud(ctx, bars, startIdx, x, y, ich);
+  if(ichimokuShown('tenkan')) drawLineSeries(ich.tenkan, ICHIMOKU_LINE_COLOR.tenkan);
+  if(ichimokuShown('kijun')) drawLineSeries(ich.kijun, ICHIMOKU_LINE_COLOR.kijun);
+  if(ichimokuShown('spanA')) drawLineSeries(ich.spanA, ICHIMOKU_LINE_COLOR.spanA);
+  if(ichimokuShown('spanB')) drawLineSeries(ich.spanB, ICHIMOKU_LINE_COLOR.spanB);
+  if(ichimokuShown('chikou')) drawLineSeries(ich.chikou, ICHIMOKU_LINE_COLOR.chikou, true);
+}
+
+// Paints the kumo cloud between Span A and Span B as a soft fill — green
+// where Span A sits above Span B (bullish cloud), red where it's below
+// (bearish) — recoloring segment by segment across any A/B crossover, with
+// no stroked outline around the shape (fill only, matching a plain shaded-
+// ribbon look rather than a bordered box).
+function drawIchimokuCloud(ctx, bars, startIdx, x, y, ich){
+  for(let i=1;i<bars.length;i++){
+    const aPrev = ich.spanA[startIdx+i-1], bPrev = ich.spanB[startIdx+i-1];
+    const aCur = ich.spanA[startIdx+i], bCur = ich.spanB[startIdx+i];
+    if(![aPrev,bPrev,aCur,bCur].every(Number.isFinite)) continue;
+    const bullish = (aPrev+aCur) >= (bPrev+bCur);
+    ctx.fillStyle = bullish ? 'rgba(53,224,192,0.16)' : 'rgba(255,84,112,0.16)';
+    ctx.beginPath();
+    ctx.moveTo(x(i-1), y(aPrev));
+    ctx.lineTo(x(i), y(aCur));
+    ctx.lineTo(x(i), y(bCur));
+    ctx.lineTo(x(i-1), y(bPrev));
+    ctx.closePath();
+    ctx.fill();
   }
 }
 
@@ -7137,6 +7281,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     else if(e.target.classList.contains('taVolatilityChartToggle')) toggleVolatilityOverlay(e.target.checked);
     else if(e.target.classList.contains('taTrendMemberToggle')) toggleTrendMember(e.target.dataset.key, e.target.checked);
     else if(e.target.classList.contains('taVolatilityMemberToggle')) toggleVolatilityMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taIchimokuChartToggle')) toggleIchimokuOverlay(e.target.checked);
+    else if(e.target.classList.contains('taIchimokuMemberToggle')) toggleIchimokuMember(e.target.dataset.key, e.target.checked);
   });
   el('analysisOverlay').addEventListener('click', e=>{
     if(e.target.id==='analysisOverlay') close();
