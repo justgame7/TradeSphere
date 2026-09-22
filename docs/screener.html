@@ -1069,6 +1069,9 @@
   .analysis-row-value{font:700 13px var(--font-mono);color:var(--faint);white-space:nowrap;}
   /* Per-member "show on Chart" checkbox — ICT/Smart Money section only. */
   .analysis-row-check{width:13px;height:13px;flex:none;accent-color:var(--grp-color,var(--accent));cursor:pointer;}
+  /* Keeps a row's value glued to its checkbox on one line — only the sub
+     badge (e.g. "tapped", "3 bars ago") is allowed to wrap onto its own. */
+  .analysis-row-valcheck{display:flex;align-items:center;gap:6px;flex:none;white-space:nowrap;}
   /* ---- Coin Lookup breakdown: collapsible Chart section (90-bar candles) ---- */
   .analysis-group-card.chart-group{grid-column:1/-1;}
   .analysis-chart-wrap{height:240px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;padding:8px;position:relative;}
@@ -6406,7 +6409,7 @@ function renderGroups(values){
           : '';
         return `<div class="analysis-row">
           <span class="analysis-row-label">${label}</span>
-          <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-value${cls}">${esc(v)}</span>${check}</span>
+          <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-valcheck"><span class="analysis-row-value${cls}">${esc(v)}</span>${check}</span></span>
         </div>`;
       }).join('');
     return `
