@@ -487,7 +487,7 @@
   .movers-error{font-size:11px;color:var(--faint);padding:8px 2px;}
   .movers-section.skeleton .mover-chip{opacity:.5;}
 
-  /* ---- Top 50 Coins modal (bottom sheet) ---- */
+  /* ---- Top 100 Coins modal (bottom sheet) ---- */
   .top50-backdrop{
     position:fixed;inset:0;z-index:200;
     background:rgba(5,7,13,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -726,6 +726,9 @@
   }
   .analysis-ict-chart-toggle:hover{border-color:var(--grp-color,var(--accent));color:var(--text);}
   .analysis-ict-chart-toggle input{width:12px;height:12px;accent-color:var(--grp-color,var(--accent));cursor:pointer;}
+  .analysis-ict-chart-toggle:has(input:disabled){cursor:not-allowed;opacity:.5;}
+  .analysis-ict-chart-toggle:has(input:disabled):hover{border-color:var(--border);color:var(--faint);}
+  .analysis-ict-chart-toggle input:disabled{cursor:not-allowed;}
   /* Bar-count picker (45/90/180) in the Chart section header. */
   .analysis-bar-toggle{
     display:flex;align-items:center;gap:2px;flex:none;
@@ -993,9 +996,9 @@
             <!-- Sits outside the scrollable #tickerRow (not inside it), so it
                  never scrolls off-screen or gets edge-clipped like it did when
                  it lived inside the row's own horizontal scroller. Icon is a
-                 small ascending bar chart to read as "rankings / Top 50" at a
+                 small ascending bar chart to read as "rankings / Top 100" at a
                  glance, rather than the generic app-grid glyph it used to be. -->
-            <button class="ticker-refresh top50-trigger" id="top50Btn" type="button" aria-label="Browse top 50 coins" title="Top 50 coins">
+            <button class="ticker-refresh top50-trigger" id="top50Btn" type="button" aria-label="Browse top 100 coins" title="Top 100 coins">
               <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="12" width="4.4" height="9" rx="1.2"/><rect x="9.8" y="7" width="4.4" height="14" rx="1.2"/><rect x="16.6" y="3" width="4.4" height="18" rx="1.2"/></svg>
             </button>
           </div>
@@ -1217,12 +1220,12 @@
   </div>
 
   <div class="top50-backdrop" id="top50Backdrop"></div>
-  <div class="top50-modal" id="top50Modal" role="dialog" aria-modal="true" aria-label="Top 50 coins">
+  <div class="top50-modal" id="top50Modal" role="dialog" aria-modal="true" aria-label="Top 100 coins">
     <div class="top50-handle"></div>
     <div class="top50-head">
       <div class="top50-head-row">
         <div class="top50-title">
-          <span class="top50-title-main">Top 50 Coins</span>
+          <span class="top50-title-main">Top 100 Coins</span>
           <span class="top50-title-sub"><span class="live-dot"></span><span id="top50Updated">—</span></span>
         </div>
         <button class="top50-close" id="top50CloseBtn" type="button" aria-label="Close">
@@ -1315,7 +1318,7 @@ const TICKER_CACHE_KEY = 'ts_home_ticker_cache_v1';
 const TICKER_REFRESH_MS = 20000;
 // The /fapi/v1/ticker/24hr response already contains every Binance USDT-M
 // perpetual symbol, not just the 3 shown in the ticker row - captured here
-// so the Top 50 Coins modal can use "is this actually listed on Binance" as
+// so the Top 100 Coins modal can use "is this actually listed on Binance" as
 // a quality filter on top of CoinGecko's market-cap ranking, with zero extra
 // network calls. Persisted to localStorage so it survives a reload even
 // before the first ticker fetch of a session completes.
@@ -1323,9 +1326,19 @@ const BINANCE_SYMBOLS_CACHE_KEY = 'ts_home_binance_symbols_cache_v1';
 // Binance runs "leverage token" style contracts for a handful of low-price
 // bases (1000SHIBUSDT, 1000PEPEUSDT, 1000BONKUSDT, 1000000MOGUSDT, ...) -
 // the exchange symbol carries a digit multiplier the plain base asset
-// doesn't. This map remembers base -> actual exchange symbol (e.g.
-// "SHIB" -> "1000SHIBUSDT") so anything that needs to hit the futures API
-// for a coin uses the real ticker instead of guessing base+"USDT".
+// doesn't, and CoinGecko lists these under the un-prefixed symbol ("shib",
+// "pepe", "bonk"). But a handful of *real* coin tickers also legitimately
+// start with a number - "1000SATS", "1000CAT", "1000RATS" trade under that
+// exact name on Binance spot AND futures, and CoinGecko's own symbol field
+// carries the same prefix ("1000sats", "1000cat"). There's no reliable way
+// to tell a genuine leverage-multiplier contract apart from a genuinely
+// numeral-prefixed name just by looking at the futures symbol, so both
+// forms of the base - digit-stripped and raw - get registered below.
+// Whichever form a given coin's CoinGecko symbol actually uses, it'll match.
+// This map remembers base -> actual exchange symbol (e.g. "SHIB" ->
+// "1000SHIBUSDT", and "1000SATS" -> "1000SATSUSDT") so anything that needs
+// to hit the futures API for a coin uses the real ticker instead of
+// guessing base+"USDT".
 const BINANCE_SYMBOL_MAP_CACHE_KEY = 'ts_home_binance_symbol_map_cache_v1';
 let binanceBaseAssets = null;
 let binanceSymbolMap = null;
@@ -1496,12 +1509,18 @@ async function loadTicker(opts){
     const symbolMap = {};
     data.forEach(row => {
       if(wanted.has(row.symbol)) map[row.symbol] = row;
-      // Strip the USDT quote suffix and any leverage-token digit prefix
-      // (e.g. "1000PEPEUSDT" -> "PEPE", "1000SHIBUSDT" -> "SHIB") so this
-      // set lines up with CoinGecko's plain base-asset symbols.
+      // Strip the USDT quote suffix, then register BOTH the raw base and
+      // the digit-stripped base (e.g. "1000PEPEUSDT" -> "1000PEPE" and
+      // "PEPE"; "1000SATSUSDT" -> "1000SATS" and "SATS"). See the comment
+      // above BINANCE_SYMBOLS_CACHE_KEY: whether CoinGecko's symbol for a
+      // given coin carries the numeral or not depends on whether it's a
+      // real part of the name, and registering both forms means the match
+      // succeeds either way without having to guess which case it is.
       if(row.symbol && row.symbol.endsWith('USDT')){
-        const base = row.symbol.slice(0, -4).replace(/^\d+/, '');
-        if(base){
+        const rawBase = row.symbol.slice(0, -4);
+        const strippedBase = rawBase.replace(/^\d+/, '');
+        [rawBase, strippedBase].forEach(base => {
+          if(!base) return;
           allBases.add(base);
           // Remember the *actual* exchange symbol for this base so it can be
           // looked back up later (e.g. "SHIB" -> "1000SHIBUSDT"). Binance
@@ -1510,7 +1529,7 @@ async function loadTicker(opts){
           if(!symbolMap[base] || (/^\d/.test(symbolMap[base]) && !/^\d/.test(row.symbol))){
             symbolMap[base] = row.symbol;
           }
-        }
+        });
       }
     });
     renderTicker(map);
@@ -1698,20 +1717,25 @@ async function loadMovers(){
   }
 }
 
-/* ================= Home: Top 50 Coins modal =================
-   Reuses the exact same CoinGecko /coins/markets data already fetched for
-   the Top Movers strip (moversLastRaw / readMoversCache()) instead of
-   firing a second request - CoinGecko's free tier rate-limits aggressively
-   (see learnings.md), and per_page=100 already covers a top-50-ex-stablecoins
-   view with room to spare. Opening the modal just triggers loadMovers()
-   (already defined above) to refresh that shared data, then re-renders here
-   off the same result. */
+/* ================= Home: Top 100 Coins modal =================
+   Used to just reuse the Top Movers strip's per_page=100 CoinGecko fetch,
+   but after excluding stablecoins and restricting to coins with an active
+   Binance USDT-M perpetual (the quality filter below), 100 raw rows don't
+   leave enough candidates for a genuine top 100 - so the modal fetches its
+   own deeper feed at per_page=250 (CoinGecko's per-request max). This fires
+   only on demand when the modal is opened, not on the movers strip's 5-min
+   polling loop, to stay easy on CoinGecko's free-tier rate limit (see
+   learnings.md). */
+const TOP100_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&price_change_percentage=24h&sparkline=false';
+const TOP100_CACHE_KEY = 'ts_home_top100_cache_v1';
 const STABLECOIN_SYMBOLS = new Set([
   'usdt','usdc','dai','fdusd','tusd','usde','usdp','pyusd','gusd','usdd',
   'frax','lusd','susd','eurs','eurt','usdj','busd','usdx','usd1','usdtb','eurc'
 ]);
 let top50SortMode = 'market_cap';
 let top50SearchQuery = '';
+let top100LastRaw = null; // last successfully fetched full list for this modal
+let top100LastTs = null;
 
 const top50Btn = document.getElementById('top50Btn');
 const top50Backdrop = document.getElementById('top50Backdrop');
@@ -1736,10 +1760,34 @@ function formatTop50Compact(n){
   return num.toFixed(0);
 }
 
+function readTop100Cache(){
+  try{
+    const raw = localStorage.getItem(TOP100_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function writeTop100Cache(list){
+  try{ localStorage.setItem(TOP100_CACHE_KEY, JSON.stringify({ data:list, ts:Date.now() })); }catch(e){}
+}
+
 function getTop50SourceList(){
-  if(moversLastRaw) return moversLastRaw;
-  const cached = readMoversCache();
+  if(top100LastRaw) return top100LastRaw;
+  const cached = readTop100Cache();
   return (cached && cached.data) ? cached.data : null;
+}
+
+async function loadTop100(){
+  try{
+    const data = await tickerFetchJSON(TOP100_URL);
+    if(!Array.isArray(data)) throw new Error('Unexpected CoinGecko markets response shape');
+    top100LastRaw = data;
+    top100LastTs = Date.now();
+    writeTop100Cache(data);
+    renderTop50List();
+  }catch(err){
+    console.warn('[top100 modal] fetch failed:', err && err.message);
+    renderTop50List();
+  }
 }
 
 function getFilteredSortedTop50(){
@@ -1767,7 +1815,7 @@ function getFilteredSortedTop50(){
     list.sort((a, b) => (b.total_volume || 0) - (a.total_volume || 0));
   }
   // 'market_cap': the source list already arrives market_cap_desc-sorted from CoinGecko.
-  return list.slice(0, 50);
+  return list.slice(0, 100);
 }
 
 function renderTop50Skeleton(){
@@ -1792,7 +1840,7 @@ function renderTop50Skeleton(){
 function renderTop50List(){
   const list = getFilteredSortedTop50();
   top50List.classList.remove('top50-skeleton');
-  top50UpdatedEl.textContent = moversLastTs ? formatTickerUpdatedLabel(moversLastTs) : (getTop50SourceList() ? 'cached' : '—');
+  top50UpdatedEl.textContent = top100LastTs ? formatTickerUpdatedLabel(top100LastTs) : (getTop50SourceList() ? 'cached' : '—');
 
   if(!list.length){
     const noData = !getTop50SourceList();
@@ -1851,16 +1899,38 @@ function openScreenerForCoin(coin){
 function openTop50Modal(){
   top50Backdrop.classList.add('open');
   top50Modal.classList.add('open');
+  // Give the modal its own slot in the history/back-gesture stack - the
+  // same "keep exactly one extra entry" trick syncHistoryForCurrentPage()
+  // uses for page changes - so a real Back (a predictive-back gesture, an
+  // installed PWA's own Back, or anything else that doesn't route through
+  // handleAndroidBack() below) has something to consume and triggers the
+  // popstate handler instead of falling straight through to closing the
+  // app, since the modal opens without changing currentPage off 'home'.
+  if(!history.state || !history.state.top100){
+    history.pushState({ page: currentPage, top100: true }, '', location.href);
+  }
   if(getTop50SourceList()){
     renderTop50List();
   }else{
     renderTop50Skeleton();
   }
-  loadMovers().then(renderTop50List).catch(() => {});
+  loadTop100();
 }
 function closeTop50Modal(){
   top50Backdrop.classList.remove('open');
   top50Modal.classList.remove('open');
+  // Collapse the buffer entry pushed above back onto the underlying page
+  // state - mirrors how syncHistoryForCurrentPage() uses replaceState
+  // (never push/pop) when returning to Home, so a UI-driven close (the X
+  // button, tapping the backdrop, or the Android/Escape back path via
+  // handleAndroidBack()) doesn't leave a dangling entry that a later real
+  // Back would silently "eat" before doing anything visible. When this
+  // runs as a result of an actual popstate, the browser has already
+  // consumed that entry by the time this fires, so history.state no
+  // longer carries the marker and this is a no-op.
+  if(history.state && history.state.top100){
+    history.replaceState({ page: currentPage }, '', location.href);
+  }
 }
 
 top50Btn.addEventListener('click', openTop50Modal);
@@ -1886,7 +1956,7 @@ top50SortRow.querySelectorAll('.top50-sort-btn').forEach(btn => {
 
 setInterval(() => {
   if(top50Modal.classList.contains('open')){
-    top50UpdatedEl.textContent = moversLastTs ? formatTickerUpdatedLabel(moversLastTs) : '—';
+    top50UpdatedEl.textContent = top100LastTs ? formatTickerUpdatedLabel(top100LastTs) : '—';
   }
 }, 5000);
 
@@ -3347,6 +3417,7 @@ let chartBarCount = 45; // currently selected window size
 // candlestick chart, so those members get a checkbox but it stays disabled.
 const TREND_CHARTABLE = new Set(['ema20','ema50','ema100','ema200','sma50','sma200','supertrend','psar']);
 let trendMemberOverlay = new Set(); // individually-checked Trend member keys shown on the Chart
+let trendOverlayEnabled = false; // "Chart" checkbox in the Trend header — shows every *chartable* Trend member
 // Volatility indicators that share the price chart's $ scale: Bollinger and
 // Keltner bands and the Donchian channel are literal price levels, so they
 // overlay onto the candles just like a moving average. ATR, ATR%, BB %B,
@@ -3355,16 +3426,17 @@ let trendMemberOverlay = new Set(); // individually-checked Trend member keys sh
 // the Trend section above.
 const VOLATILITY_CHARTABLE = new Set(['bbUpper','bbMid','bbLower','kcUpper','kcLower','dcHigh','dcLow']);
 let volatilityMemberOverlay = new Set(); // individually-checked Volatility member keys shown on the Chart
+let volatilityOverlayEnabled = false; // "Chart" checkbox in the Volatility header — shows every *chartable* Volatility member
 // Momentum indicators are all bounded/unbounded oscillators (RSI, Stoch,
 // CCI, Williams %R, MFI, ROC) — none of them share the price chart's $
-// scale, so every Momentum checkbox renders disabled. Kept as a Set (rather
-// than hardcoding "always disabled") so a future price-scale momentum
-// indicator can be wired in without touching the render/draw logic.
-const MOMENTUM_CHARTABLE = new Set();
-let momentumMemberOverlay = new Set(); // stays empty today — see MOMENTUM_CHARTABLE above
-// True when a given ICT member (by its GROUPS key, e.g. 'fvgBull') should be drawn on the
-// Chart: either the header "show all" checkbox is on, or that member was checked by hand.
+// scale, so the Momentum section has no Chart checkboxes at all (header or
+// per-member) — nothing in it can ever be overlaid on the candlestick chart.
+// True when a given ICT/Trend/Volatility member (by its GROUPS key, e.g.
+// 'fvgBull' or 'ema20') should be drawn on the Chart: either that section's
+// header "show all" checkbox is on, or the member was checked by hand.
 function ictShown(key){ return ictOverlayEnabled || ictMemberOverlay.has(key); }
+function trendShown(key){ return trendOverlayEnabled || trendMemberOverlay.has(key); }
+function volatilityShown(key){ return volatilityOverlayEnabled || volatilityMemberOverlay.has(key); }
 let loadToken = 0;
 
 function normalizeSymbol(raw){
@@ -3400,25 +3472,22 @@ function renderGroups(values){
         // ICT rows get their own "show on Chart" checkbox so a specific level
         // (say, just the Bullish FVG) can be isolated on the Chart section
         // below instead of the whole section's worth of overlays at once.
-        // Trend/Volatility/Momentum rows get the same, but only members in
-        // that group's *_CHARTABLE set are enabled — anything on a different
-        // scale than price (MACD, ADX/DI, Aroon, ATR%, BB %B, all the
-        // oscillators, etc.) shows up disabled/greyed instead.
+        // Trend/Volatility rows get the same, but only members in that
+        // group's *_CHARTABLE set are enabled — anything on a different
+        // scale than price (MACD, ADX/DI, Aroon, ATR%, BB %B, etc.) shows up
+        // disabled/greyed instead. Momentum is all oscillators — none of
+        // them are chartable — so that section gets no checkbox at all.
         const check = g.key==='ict'
           ? `<input type="checkbox" class="taIctMemberToggle analysis-row-check" data-key="${key}" title="Show only ${esc(label)} on the Chart" ${ictShown(key) ? 'checked' : ''}>`
           : g.key==='trend'
             ? (TREND_CHARTABLE.has(key)
-              ? `<input type="checkbox" class="taTrendMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${trendMemberOverlay.has(key) ? 'checked' : ''}>`
+              ? `<input type="checkbox" class="taTrendMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${trendShown(key) ? 'checked' : ''}>`
               : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — different scale">`)
             : g.key==='volatility'
               ? (VOLATILITY_CHARTABLE.has(key)
-                ? `<input type="checkbox" class="taVolatilityMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${volatilityMemberOverlay.has(key) ? 'checked' : ''}>`
+                ? `<input type="checkbox" class="taVolatilityMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${volatilityShown(key) ? 'checked' : ''}>`
                 : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — different scale">`)
-              : g.key==='momentum'
-                ? (MOMENTUM_CHARTABLE.has(key)
-                  ? `<input type="checkbox" class="taMomentumMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${momentumMemberOverlay.has(key) ? 'checked' : ''}>`
-                  : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — different scale">`)
-                : '';
+              : '';
         return `<div class="analysis-row">
           <span class="analysis-row-label">${label}</span>
           <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-valcheck"><span class="analysis-row-value${cls}">${esc(v)}</span>${check}</span></span>
@@ -3431,7 +3500,12 @@ function renderGroups(values){
         <div class="analysis-group-title">${g.name}</div>
         ${g.key==='ict' ? `<label class="analysis-ict-chart-toggle" title="Overlay this section's levels on the Chart" onclick="event.stopPropagation()">
           <input type="checkbox" class="taIctChartToggle" ${ictOverlayEnabled ? 'checked' : ''}>
-          <span>Chart</span>
+        </label>` : ''}
+        ${g.key==='trend' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Trend indicator on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taTrendChartToggle" ${trendOverlayEnabled ? 'checked' : ''}>
+        </label>` : ''}
+        ${g.key==='volatility' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Volatility indicator on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taVolatilityChartToggle" ${volatilityOverlayEnabled ? 'checked' : ''}>
         </label>` : ''}
         ${g.isChart
           ? `<div class="analysis-bar-toggle">${BAR_COUNTS.map(n=>`<button type="button" class="taBarCountBtn${n===chartBarCount?' active':''}" data-bars="${n}">${n}</button>`).join('')}</div>`
@@ -3477,6 +3551,24 @@ function toggleIctOverlay(checked){
   renderGroups(latestValues);
 }
 
+// Same "Chart" header checkbox as ICT above, for the Trend and Volatility
+// sections — checking it shows every *chartable* member of that section
+// (moving averages/Supertrend/PSAR, or Bollinger/Keltner/Donchian bands).
+function toggleTrendOverlay(checked){
+  trendOverlayEnabled = checked;
+  trendMemberOverlay = new Set();
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+function toggleVolatilityOverlay(checked){
+  volatilityOverlayEnabled = checked;
+  volatilityMemberOverlay = new Set();
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
 // A member checkbox was clicked by hand. Per-member selection and the header
 // "show all" checkbox are mutually exclusive: the first manual pick always
 // switches off the header and, since everything was visible a moment ago,
@@ -3494,10 +3586,16 @@ function toggleIctMember(key, checked){
   renderGroups(latestValues);
 }
 
-// Trend member checkbox clicked. No header "show all" toggle for this
-// section (unlike ICT), so this just adds/removes the one key.
+// Trend member checkbox clicked by hand. Same mutual-exclusion as the ICT
+// header above: the first manual pick switches the header off and seeds the
+// manual set with every *chartable* member (mirrors what was visible a
+// moment ago), so only this one click's effect changes what's shown.
 function toggleTrendMember(key, checked){
   if(!TREND_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
+  if(trendOverlayEnabled){
+    trendOverlayEnabled = false;
+    trendMemberOverlay = new Set(TREND_CHARTABLE);
+  }
   if(checked) trendMemberOverlay.add(key);
   else trendMemberOverlay.delete(key);
   const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
@@ -3505,24 +3603,15 @@ function toggleTrendMember(key, checked){
   renderGroups(latestValues);
 }
 
-// Volatility member checkbox clicked. Same pattern as Trend: no header
-// "show all" toggle, just adds/removes the one key.
+// Volatility member checkbox clicked. Same pattern as Trend above.
 function toggleVolatilityMember(key, checked){
   if(!VOLATILITY_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
+  if(volatilityOverlayEnabled){
+    volatilityOverlayEnabled = false;
+    volatilityMemberOverlay = new Set(VOLATILITY_CHARTABLE);
+  }
   if(checked) volatilityMemberOverlay.add(key);
   else volatilityMemberOverlay.delete(key);
-  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
-  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
-  renderGroups(latestValues);
-}
-
-// Momentum member checkbox clicked. MOMENTUM_CHARTABLE is currently empty,
-// so no live checkbox can ever fire this — it's here purely so the wiring
-// matches Trend/Volatility exactly if a chartable momentum member is added.
-function toggleMomentumMember(key, checked){
-  if(!MOMENTUM_CHARTABLE.has(key)) return;
-  if(checked) momentumMemberOverlay.add(key);
-  else momentumMemberOverlay.delete(key);
   const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
   if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
   renderGroups(latestValues);
@@ -3580,41 +3669,41 @@ function drawTaChart(){
   }
   // Same widening for any checked Trend overlay (EMA200 in particular can
   // sit well outside a short/tight visible window's own high-low).
-  if(trendMemberOverlay.size){
+  if(trendOverlayEnabled || trendMemberOverlay.size){
     const cl = closes(latestCandles);
     const trendLevels = [];
-    [20,50,100,200].forEach(len=>{ if(trendMemberOverlay.has('ema'+len)){ const s=emaSeries(cl,len); for(let i=startIdx;i<latestCandles.length;i++) trendLevels.push(s[i]); } });
-    [50,200].forEach(len=>{ if(trendMemberOverlay.has('sma'+len)){ for(let i=startIdx;i<latestCandles.length;i++) trendLevels.push(smaAt(cl,len,i)); } });
-    if(trendMemberOverlay.has('supertrend')){ const s=supertrendSeries(latestCandles); for(let i=startIdx;i<latestCandles.length;i++){ if(s[i]) trendLevels.push(s[i].value); } }
-    if(trendMemberOverlay.has('psar')){ const s=psarSeries(latestCandles); for(let i=startIdx;i<latestCandles.length;i++){ if(s[i]) trendLevels.push(s[i].value); } }
+    [20,50,100,200].forEach(len=>{ if(trendShown('ema'+len)){ const s=emaSeries(cl,len); for(let i=startIdx;i<latestCandles.length;i++) trendLevels.push(s[i]); } });
+    [50,200].forEach(len=>{ if(trendShown('sma'+len)){ for(let i=startIdx;i<latestCandles.length;i++) trendLevels.push(smaAt(cl,len,i)); } });
+    if(trendShown('supertrend')){ const s=supertrendSeries(latestCandles); for(let i=startIdx;i<latestCandles.length;i++){ if(s[i]) trendLevels.push(s[i].value); } }
+    if(trendShown('psar')){ const s=psarSeries(latestCandles); for(let i=startIdx;i<latestCandles.length;i++){ if(s[i]) trendLevels.push(s[i].value); } }
     trendLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
   }
   // Same widening for any checked Volatility overlay (Bollinger/Keltner
   // bands and the Donchian channel can sit outside the visible window's
   // own high-low, same reasoning as the Trend block above).
-  if(volatilityMemberOverlay.size){
+  if(volatilityOverlayEnabled || volatilityMemberOverlay.size){
     const cl = closes(latestCandles);
     const volLevels = [];
-    if(volatilityMemberOverlay.has('bbUpper')||volatilityMemberOverlay.has('bbMid')||volatilityMemberOverlay.has('bbLower')){
+    if(volatilityShown('bbUpper')||volatilityShown('bbMid')||volatilityShown('bbLower')){
       const bb = bollingerBandsSeries(cl, 20, 2);
       for(let i=startIdx;i<latestCandles.length;i++){
-        if(volatilityMemberOverlay.has('bbUpper')) volLevels.push(bb.upper[i]);
-        if(volatilityMemberOverlay.has('bbMid')) volLevels.push(bb.mid[i]);
-        if(volatilityMemberOverlay.has('bbLower')) volLevels.push(bb.lower[i]);
+        if(volatilityShown('bbUpper')) volLevels.push(bb.upper[i]);
+        if(volatilityShown('bbMid')) volLevels.push(bb.mid[i]);
+        if(volatilityShown('bbLower')) volLevels.push(bb.lower[i]);
       }
     }
-    if(volatilityMemberOverlay.has('kcUpper')||volatilityMemberOverlay.has('kcLower')){
+    if(volatilityShown('kcUpper')||volatilityShown('kcLower')){
       const kc = keltnerSeriesFull(latestCandles, 20, 2, 14);
       for(let i=startIdx;i<latestCandles.length;i++){
-        if(volatilityMemberOverlay.has('kcUpper')) volLevels.push(kc.upper[i]);
-        if(volatilityMemberOverlay.has('kcLower')) volLevels.push(kc.lower[i]);
+        if(volatilityShown('kcUpper')) volLevels.push(kc.upper[i]);
+        if(volatilityShown('kcLower')) volLevels.push(kc.lower[i]);
       }
     }
-    if(volatilityMemberOverlay.has('dcHigh')||volatilityMemberOverlay.has('dcLow')){
+    if(volatilityShown('dcHigh')||volatilityShown('dcLow')){
       const dc = donchianSeries(latestCandles, 20);
       for(let i=startIdx;i<latestCandles.length;i++){
-        if(volatilityMemberOverlay.has('dcHigh')) volLevels.push(dc.high[i]);
-        if(volatilityMemberOverlay.has('dcLow')) volLevels.push(dc.low[i]);
+        if(volatilityShown('dcHigh')) volLevels.push(dc.high[i]);
+        if(volatilityShown('dcLow')) volLevels.push(dc.low[i]);
       }
     }
     volLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
@@ -3648,8 +3737,8 @@ function drawTaChart(){
       ctx.setLineDash([]);
     }
   }
-  if(trendMemberOverlay.size) drawTrendOverlay(ctx, bars, startIdx, x, y); // lines on top so they read clearly over the candles
-  if(volatilityMemberOverlay.size) drawVolatilityOverlay(ctx, bars, startIdx, x, y);
+  if(trendOverlayEnabled || trendMemberOverlay.size) drawTrendOverlay(ctx, bars, startIdx, x, y); // lines on top so they read clearly over the candles
+  if(volatilityOverlayEnabled || volatilityMemberOverlay.size) drawVolatilityOverlay(ctx, bars, startIdx, x, y);
 }
 
 // Draws the ICT/Smart Money section's own data (FVGs, order blocks, breaker,
@@ -3710,7 +3799,7 @@ function drawIctOverlay(ctx, bars, startIdx, x, y, width, height, pad){
 // `bars` window is walked/plotted through x()/y().
 const TREND_LINE_COLOR = { ema20:'#5b8cff', ema50:'#f0c24b', ema100:'#a78bfa', ema200:'#ff5470', sma50:'#35e0c0', sma200:'#8b93a3' };
 function drawTrendOverlay(ctx, bars, startIdx, x, y){
-  if(!latestCandles || !trendMemberOverlay.size) return;
+  if(!latestCandles || !(trendOverlayEnabled || trendMemberOverlay.size)) return;
   const cl = closes(latestCandles);
   const drawLineSeries = (series, color, dashed)=>{
     ctx.strokeStyle = color; ctx.lineWidth = 1.3; ctx.setLineDash(dashed ? [4,3] : []);
@@ -3726,15 +3815,15 @@ function drawTrendOverlay(ctx, bars, startIdx, x, y){
   };
   [20,50,100,200].forEach(len=>{
     const key = 'ema'+len;
-    if(trendMemberOverlay.has(key)) drawLineSeries(emaSeries(cl, len), TREND_LINE_COLOR[key]);
+    if(trendShown(key)) drawLineSeries(emaSeries(cl, len), TREND_LINE_COLOR[key]);
   });
   [50,200].forEach(len=>{
     const key = 'sma'+len;
-    if(!trendMemberOverlay.has(key)) return;
+    if(!trendShown(key)) return;
     const series = latestCandles.map((_,i)=>smaAt(cl, len, i));
     drawLineSeries(series, TREND_LINE_COLOR[key], true);
   });
-  if(trendMemberOverlay.has('supertrend')){
+  if(trendShown('supertrend')){
     const st = supertrendSeries(latestCandles);
     ctx.lineWidth = 1.3;
     let prevPt = null, prevDir = null;
@@ -3749,7 +3838,7 @@ function drawTrendOverlay(ctx, bars, startIdx, x, y){
       prevPt = pt; prevDir = p.dir;
     });
   }
-  if(trendMemberOverlay.has('psar')){
+  if(trendShown('psar')){
     const sar = psarSeries(latestCandles);
     bars.forEach((_,i)=>{
       const p = sar[startIdx+i];
@@ -3765,7 +3854,7 @@ function drawTrendOverlay(ctx, bars, startIdx, x, y){
 // draw-a-line-series approach as drawTrendOverlay() above.
 const VOLATILITY_LINE_COLOR = { bbUpper:'#a78bfa', bbMid:'#8b93a3', bbLower:'#a78bfa', kcUpper:'#5b8cff', kcLower:'#5b8cff', dcHigh:'#f0c24b', dcLow:'#f0c24b' };
 function drawVolatilityOverlay(ctx, bars, startIdx, x, y){
-  if(!latestCandles || !volatilityMemberOverlay.size) return;
+  if(!latestCandles || !(volatilityOverlayEnabled || volatilityMemberOverlay.size)) return;
   const cl = closes(latestCandles);
   const drawLineSeries = (series, color, dashed)=>{
     ctx.strokeStyle = color; ctx.lineWidth = 1.3; ctx.setLineDash(dashed ? [4,3] : []);
@@ -3779,21 +3868,21 @@ function drawVolatilityOverlay(ctx, bars, startIdx, x, y){
     });
     ctx.stroke(); ctx.setLineDash([]);
   };
-  if(volatilityMemberOverlay.has('bbUpper')||volatilityMemberOverlay.has('bbMid')||volatilityMemberOverlay.has('bbLower')){
+  if(volatilityShown('bbUpper')||volatilityShown('bbMid')||volatilityShown('bbLower')){
     const bb = bollingerBandsSeries(cl, 20, 2);
-    if(volatilityMemberOverlay.has('bbUpper')) drawLineSeries(bb.upper, VOLATILITY_LINE_COLOR.bbUpper, true);
-    if(volatilityMemberOverlay.has('bbMid')) drawLineSeries(bb.mid, VOLATILITY_LINE_COLOR.bbMid);
-    if(volatilityMemberOverlay.has('bbLower')) drawLineSeries(bb.lower, VOLATILITY_LINE_COLOR.bbLower, true);
+    if(volatilityShown('bbUpper')) drawLineSeries(bb.upper, VOLATILITY_LINE_COLOR.bbUpper, true);
+    if(volatilityShown('bbMid')) drawLineSeries(bb.mid, VOLATILITY_LINE_COLOR.bbMid);
+    if(volatilityShown('bbLower')) drawLineSeries(bb.lower, VOLATILITY_LINE_COLOR.bbLower, true);
   }
-  if(volatilityMemberOverlay.has('kcUpper')||volatilityMemberOverlay.has('kcLower')){
+  if(volatilityShown('kcUpper')||volatilityShown('kcLower')){
     const kc = keltnerSeriesFull(latestCandles, 20, 2, 14);
-    if(volatilityMemberOverlay.has('kcUpper')) drawLineSeries(kc.upper, VOLATILITY_LINE_COLOR.kcUpper, true);
-    if(volatilityMemberOverlay.has('kcLower')) drawLineSeries(kc.lower, VOLATILITY_LINE_COLOR.kcLower, true);
+    if(volatilityShown('kcUpper')) drawLineSeries(kc.upper, VOLATILITY_LINE_COLOR.kcUpper, true);
+    if(volatilityShown('kcLower')) drawLineSeries(kc.lower, VOLATILITY_LINE_COLOR.kcLower, true);
   }
-  if(volatilityMemberOverlay.has('dcHigh')||volatilityMemberOverlay.has('dcLow')){
+  if(volatilityShown('dcHigh')||volatilityShown('dcLow')){
     const dc = donchianSeries(latestCandles, 20);
-    if(volatilityMemberOverlay.has('dcHigh')) drawLineSeries(dc.high, VOLATILITY_LINE_COLOR.dcHigh, true);
-    if(volatilityMemberOverlay.has('dcLow')) drawLineSeries(dc.low, VOLATILITY_LINE_COLOR.dcLow, true);
+    if(volatilityShown('dcHigh')) drawLineSeries(dc.high, VOLATILITY_LINE_COLOR.dcHigh, true);
+    if(volatilityShown('dcLow')) drawLineSeries(dc.low, VOLATILITY_LINE_COLOR.dcLow, true);
   }
 }
 
@@ -3933,12 +4022,31 @@ function openFor(symbol, tfWanted){
   }
   el('analysisOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  // Same history-buffer trick as openTop50Modal() in the outer script: this
+  // overlay opens without changing currentPage (it's only ever triggered
+  // from Home - the ticker cards or a Top 100 Coins row), so without a
+  // pushed entry a real Back (predictive-back gesture, an installed PWA's
+  // own Back) has nothing to consume and falls straight through to exiting
+  // the app instead of reaching the popstate handler that already knows how
+  // to close this overlay. Guarded so re-opening for a different symbol
+  // while already open (e.g. typing a new symbol into the search box)
+  // doesn't push a second entry.
+  if(!history.state || !history.state.analysis){
+    history.pushState({ page: currentPage, analysis: true }, '', location.href);
+  }
   load(symbol, currentTf);
 }
 function close(){
   loadToken++;
   el('analysisOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  // Collapse the buffer entry pushed in openFor() back onto the underlying
+  // page state - same reasoning as closeTop50Modal() in the outer script.
+  // A no-op when this runs as a result of an actual popstate, since the
+  // browser has already consumed that entry by the time this fires.
+  if(history.state && history.state.analysis){
+    history.replaceState({ page: currentPage }, '', location.href);
+  }
 }
 function setTf(tf){
   if(tf === currentTf && latestValues) return;
@@ -4002,9 +4110,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   el('taGroupsGrid').addEventListener('change', e=>{
     if(e.target.classList.contains('taIctChartToggle')) toggleIctOverlay(e.target.checked);
     else if(e.target.classList.contains('taIctMemberToggle')) toggleIctMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taTrendChartToggle')) toggleTrendOverlay(e.target.checked);
+    else if(e.target.classList.contains('taVolatilityChartToggle')) toggleVolatilityOverlay(e.target.checked);
     else if(e.target.classList.contains('taTrendMemberToggle')) toggleTrendMember(e.target.dataset.key, e.target.checked);
     else if(e.target.classList.contains('taVolatilityMemberToggle')) toggleVolatilityMember(e.target.dataset.key, e.target.checked);
-    else if(e.target.classList.contains('taMomentumMemberToggle')) toggleMomentumMember(e.target.dataset.key, e.target.checked);
   });
   el('analysisOverlay').addEventListener('click', e=>{
     if(e.target.id==='analysisOverlay') close();
