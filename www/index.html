@@ -3462,8 +3462,15 @@ let chartBarCount = 45; // currently selected window size
 // own 0–100 or unbounded scale and can't be meaningfully overlaid on a
 // candlestick chart, so those members get a checkbox but it stays disabled.
 const TREND_CHARTABLE = new Set(['ema20','ema50','ema100','ema200','sma50','sma200','supertrend','psar']);
+// EMA100, SMA50, SMA200 and PSAR are the Trend members traders least often
+// want auto-added (SMA50/200 largely duplicate the EMA20/50/200 already
+// shown, PSAR is a dotted per-bar series that gets noisy fast), so the
+// header "Chart" checkbox skips them — same convention as Market
+// Structure's STRUCTURE_MASTER_EXCLUDE above. Still individually chartable,
+// just only ever checked by hand.
+const TREND_MASTER_EXCLUDE = new Set(['ema100','sma50','sma200','psar']);
 let trendMemberOverlay = new Set(); // individually-checked Trend member keys shown on the Chart
-let trendOverlayEnabled = false; // "Chart" checkbox in the Trend header — shows every *chartable* Trend member
+let trendOverlayEnabled = false; // "Chart" checkbox in the Trend header — shows EMA20/50/200 + Supertrend (see TREND_MASTER_EXCLUDE)
 // Volatility indicators that share the price chart's $ scale: Bollinger and
 // Keltner bands and the Donchian channel are literal price levels, so they
 // overlay onto the candles just like a moving average. ATR, ATR%, BB %B,
@@ -3508,7 +3515,10 @@ let structureOverlayEnabled = false; // "Chart" checkbox in the Market Structure
 // keys in STRUCTURE_MASTER_EXCLUDE the header checkbox is ignored entirely
 // — those only ever show when checked individually.
 function ictShown(key){ return ictOverlayEnabled || ictMemberOverlay.has(key); }
-function trendShown(key){ return trendOverlayEnabled || trendMemberOverlay.has(key); }
+function trendShown(key){
+  if(TREND_MASTER_EXCLUDE.has(key)) return trendMemberOverlay.has(key);
+  return trendOverlayEnabled || trendMemberOverlay.has(key);
+}
 function volatilityShown(key){ return volatilityOverlayEnabled || volatilityMemberOverlay.has(key); }
 function ichimokuShown(key){ return ichimokuOverlayEnabled || ichimokuMemberOverlay.has(key); }
 function structureShown(key){
@@ -3649,7 +3659,10 @@ function toggleIctOverlay(checked){
 // (moving averages/Supertrend/PSAR, or Bollinger/Keltner/Donchian bands).
 function toggleTrendOverlay(checked){
   trendOverlayEnabled = checked;
-  trendMemberOverlay = new Set();
+  // Wipe only the header-controlled members — anything from
+  // TREND_MASTER_EXCLUDE that was checked by hand stays checked, since the
+  // header never governed it in the first place.
+  trendMemberOverlay = new Set([...trendMemberOverlay].filter(k => TREND_MASTER_EXCLUDE.has(k)));
   const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
   if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
   renderGroups(latestValues);
@@ -3697,14 +3710,17 @@ function toggleIctMember(key, checked){
 }
 
 // Trend member checkbox clicked by hand. Same mutual-exclusion as the ICT
-// header above: the first manual pick switches the header off and seeds the
-// manual set with every *chartable* member (mirrors what was visible a
-// moment ago), so only this one click's effect changes what's shown.
+// header above, with one difference: the four keys in TREND_MASTER_EXCLUDE
+// (EMA100, SMA50, SMA200, PSAR) are never part of the header's "select all"
+// and so never trigger or get pulled in by the re-seed — clicking one of
+// those just adds/removes that single key.
 function toggleTrendMember(key, checked){
   if(!TREND_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
-  if(trendOverlayEnabled){
+  if(trendOverlayEnabled && !TREND_MASTER_EXCLUDE.has(key)){
     trendOverlayEnabled = false;
-    trendMemberOverlay = new Set(TREND_CHARTABLE);
+    const keptExcluded = [...trendMemberOverlay].filter(k => TREND_MASTER_EXCLUDE.has(k));
+    const headerKeys = [...TREND_CHARTABLE].filter(k => !TREND_MASTER_EXCLUDE.has(k));
+    trendMemberOverlay = new Set([...headerKeys, ...keptExcluded]);
   }
   if(checked) trendMemberOverlay.add(key);
   else trendMemberOverlay.delete(key);
