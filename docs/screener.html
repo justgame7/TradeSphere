@@ -1065,7 +1065,7 @@
     padding:7px 2px;border-bottom:1px dashed var(--border-soft);
   }
   .analysis-row:last-child{border-bottom:none;}
-  .analysis-row-label{font-size:13px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:7px;}
+  .analysis-row-label{font-size:13px;color:var(--muted);font-weight:500;}
   .analysis-row-value{font:700 13px var(--font-mono);color:var(--faint);white-space:nowrap;}
   /* Per-member "show on Chart" checkbox — ICT/Smart Money section only. */
   .analysis-row-check{width:13px;height:13px;flex:none;accent-color:var(--grp-color,var(--accent));cursor:pointer;}
@@ -6361,7 +6361,7 @@ let latestCandles = null;
 let latestIct = null;        // raw ICT objects (with bar idx) for the chart overlay
 let ictOverlayEnabled = false; // "Chart" checkbox in the ICT section header — "show everything" mode
 let ictMemberOverlay = new Set(); // individually-checked ICT member keys — used whenever the header checkbox is off
-const BAR_COUNTS = [45,90,180]; // Chart section's selectable window sizes
+const BAR_COUNTS = [30,45,90,180]; // Chart section's selectable window sizes
 let chartBarCount = 45; // currently selected window size
 // True when a given ICT member (by its GROUPS key, e.g. 'fvgBull') should be drawn on the
 // Chart: either the header "show all" checkbox is on, or that member was checked by hand.
@@ -6405,8 +6405,8 @@ function renderGroups(values){
           ? `<input type="checkbox" class="taIctMemberToggle analysis-row-check" data-key="${key}" title="Show only ${esc(label)} on the Chart" ${ictShown(key) ? 'checked' : ''}>`
           : '';
         return `<div class="analysis-row">
-          <span class="analysis-row-label">${check}${label}</span>
-          <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-value${cls}">${esc(v)}</span></span>
+          <span class="analysis-row-label">${label}</span>
+          <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-value${cls}">${esc(v)}</span>${check}</span>
         </div>`;
       }).join('');
     return `
