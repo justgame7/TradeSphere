@@ -1032,6 +1032,27 @@
     cursor:pointer;transition:transform .18s ease,color .15s;
   }
   .analysis-group-head:hover .analysis-group-chevron{color:var(--accent);}
+  .analysis-ict-chart-toggle{
+    display:flex;align-items:center;gap:5px;flex:none;
+    font:600 10.5px var(--font-mono);color:var(--faint);
+    padding:3px 9px;border-radius:20px;border:1px solid var(--border);
+    background:var(--panel);cursor:pointer;user-select:none;
+    transition:border-color .15s,color .15s;
+  }
+  .analysis-ict-chart-toggle:hover{border-color:var(--grp-color,var(--accent));color:var(--text);}
+  .analysis-ict-chart-toggle input{width:12px;height:12px;accent-color:var(--grp-color,var(--accent));cursor:pointer;}
+  /* Bar-count picker (45/90/180) in the Chart section header. */
+  .analysis-bar-toggle{
+    display:flex;align-items:center;gap:2px;flex:none;
+    background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:2px;
+  }
+  .analysis-bar-toggle button{
+    background:transparent;border:none;color:var(--faint);
+    font:600 10.5px var(--font-mono);padding:3px 8px;border-radius:16px;cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .analysis-bar-toggle button:hover{color:var(--text);}
+  .analysis-bar-toggle button.active{background:var(--grp-color,var(--accent));color:#07130f;}
   .analysis-group-card.collapsed .analysis-group-chevron{transform:rotate(-90deg);}
   .analysis-group-card.collapsed .analysis-group-head{margin-bottom:0;padding-bottom:10px;}
   .analysis-group-card.collapsed{padding-bottom:4px;}
@@ -1044,8 +1065,16 @@
     padding:7px 2px;border-bottom:1px dashed var(--border-soft);
   }
   .analysis-row:last-child{border-bottom:none;}
-  .analysis-row-label{font-size:13px;color:var(--muted);font-weight:500;}
+  .analysis-row-label{font-size:13px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:7px;}
   .analysis-row-value{font:700 13px var(--font-mono);color:var(--faint);white-space:nowrap;}
+  /* Per-member "show on Chart" checkbox — ICT/Smart Money section only. */
+  .analysis-row-check{width:13px;height:13px;flex:none;accent-color:var(--grp-color,var(--accent));cursor:pointer;}
+  /* ---- Coin Lookup breakdown: collapsible Chart section (90-bar candles) ---- */
+  .analysis-group-card.chart-group{grid-column:1/-1;}
+  .analysis-chart-wrap{height:240px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;padding:8px;position:relative;}
+  .analysis-chart-wrap canvas{width:100%;height:100%;display:block;}
+  .analysis-chart-empty{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;color:var(--faint);font:600 12px var(--font-mono);pointer-events:none;text-align:center;}
+  @media(max-width:700px){.analysis-chart-wrap{height:190px;}}
   @media(max-width:520px){
     .analysis-shell{padding:14px 12px;}
     .analysis-topbar{padding:12px;}
@@ -5858,9 +5887,10 @@ function orderBlocks(c, atrVal, lookback=120){
 }
 function breakerFrom(obs){
   // A broken order block flips role: a bearish OB price closed above becomes
-  // bullish support, and vice-versa.
-  if(obs.bear && obs.bear.broken) return { dir:'Bull', top:obs.bear.top, bottom:obs.bear.bottom };
-  if(obs.bull && obs.bull.broken) return { dir:'Bear', top:obs.bull.top, bottom:obs.bull.bottom };
+  // bullish support, and vice-versa. idx carried through from the underlying
+  // OB so the Chart overlay can place the zone at the right bar.
+  if(obs.bear && obs.bear.broken) return { dir:'Bull', top:obs.bear.top, bottom:obs.bear.bottom, idx:obs.bear.idx };
+  if(obs.bull && obs.bull.broken) return { dir:'Bear', top:obs.bull.top, bottom:obs.bull.bottom, idx:obs.bull.idx };
   return null;
 }
 function sweeps(c, s, bars=5){
@@ -5883,18 +5913,21 @@ function sweeps(c, s, bars=5){
 function structureBreaks(c, s, bias, bars=5){
   const { sh, sl } = s;
   if(!sh.length || !sl.length) return { bos:null, choch:null };
-  const lastH = sh[sh.length-1].price, lastL = sl[sl.length-1].price;
+  const lastHPt = sh[sh.length-1], lastLPt = sl[sl.length-1];
+  const lastH = lastHPt.price, lastL = lastLPt.price;
   const recent = c.slice(-bars);
   const up = recent.some(x=>x.close>lastH);
   const dn = recent.some(x=>x.close<lastL);
   let bos=null, choch=null;
-  if(bias==='Bullish' && up) bos = { dir:'Bull', level:lastH };
-  if(bias==='Bearish' && dn) bos = { dir:'Bear', level:lastL };
-  if(bias==='Bearish' && up) choch = { dir:'Bull', level:lastH };
-  if(bias==='Bullish' && dn) choch = { dir:'Bear', level:lastL };
+  // idx (the swing point that got broken) lets the Chart overlay draw the
+  // BOS/CHoCH line starting from where it actually formed.
+  if(bias==='Bullish' && up) bos = { dir:'Bull', level:lastH, idx:lastHPt.idx };
+  if(bias==='Bearish' && dn) bos = { dir:'Bear', level:lastL, idx:lastLPt.idx };
+  if(bias==='Bearish' && up) choch = { dir:'Bull', level:lastH, idx:lastHPt.idx };
+  if(bias==='Bullish' && dn) choch = { dir:'Bear', level:lastL, idx:lastLPt.idx };
   if(!bos && bias==='Range'){
-    if(up) bos = { dir:'Bull', level:lastH };
-    else if(dn) bos = { dir:'Bear', level:lastL };
+    if(up) bos = { dir:'Bull', level:lastH, idx:lastHPt.idx };
+    else if(dn) bos = { dir:'Bear', level:lastL, idx:lastLPt.idx };
   }
   return { bos, choch };
 }
@@ -5905,7 +5938,7 @@ function equalLevels(s, price, atrVal){
       for(let j=i-1;j>=0 && j>=i-4;j--){
         if(Math.abs(pts[i].price-pts[j].price)<=tol){
           const lvl=(pts[i].price+pts[j].price)/2;
-          if(isHigh ? price<lvl*1.01 : price>lvl*0.99) return lvl;
+          if(isHigh ? price<lvl*1.01 : price>lvl*0.99) return { level:lvl, idx:pts[i].idx };
         }
       }
     }
@@ -5994,6 +6027,10 @@ const dist = (level, price) => { if(!Number.isFinite(level) || !price) return nu
    Group taxonomy. Keys map 1:1 to the value map built by computeValues().
    --------------------------------------------------------------------------- */
 const GROUPS = [
+  // Chart has no metric rows (members:[]) — its body is a 90-bar candlestick
+  // canvas instead, drawn by drawTaChart(). isChart:true routes renderGroups()
+  // and copyValues() around the normal member-row logic.
+  { key:'chart', name:'Chart', icon:'📉', color:'#8b93a3', isChart:true, members:[] },
   { key:'ict', name:'ICT / Smart Money', icon:'🧠', color:'#FF5470', members:[
     ['fvgBull','Fair Value Gap (Bullish)'],['fvgBear','Fair Value Gap (Bearish)'],
     ['obBull','Order Block (Bullish)'],['obBear','Order Block (Bearish)'],
@@ -6179,13 +6216,26 @@ function computeValues(candles, tf, ticker, derivs){
   set('bos', brk.bos ? px(brk.bos.level) : 'None', brk.bos ? (brk.bos.dir==='Bull'?'pos':'neg') : '', brk.bos ? brk.bos.dir.toLowerCase() : null);
   set('choch', brk.choch ? px(brk.choch.level) : 'None', brk.choch ? (brk.choch.dir==='Bull'?'pos':'neg') : '', brk.choch ? brk.choch.dir.toLowerCase() : null);
   const eq = equalLevels(sw, price, atrV);
-  set('eqh', eq.eqh ? px(eq.eqh) : 'None', eq.eqh?'warn':'', eq.eqh ? dist(eq.eqh, price) : null);
-  set('eql', eq.eql ? px(eq.eql) : 'None', eq.eql?'warn':'', eq.eql ? dist(eq.eql, price) : null);
+  set('eqh', eq.eqh ? px(eq.eqh.level) : 'None', eq.eqh?'warn':'', eq.eqh ? dist(eq.eqh.level, price) : null);
+  set('eql', eq.eql ? px(eq.eql.level) : 'None', eq.eql?'warn':'', eq.eql ? dist(eq.eql.level, price) : null);
   const pd = premiumDiscount(candles);
   set('pdZone', Number.isFinite(pd.pct) ? pd.zone+' '+pd.pct.toFixed(0)+'%' : '—', pd.zone==='Discount'?'pos':pd.zone==='Premium'?'neg':'');
   const disp = displacement(candles, atrV);
   set('displacement', disp ? num(disp.ratio,2)+'× ATR' : 'None', disp ? (disp.dir==='Bull'?'pos':'neg') : '',
       disp ? (disp.ago===0?'this bar':disp.ago+' bars ago') : null);
+
+  // Raw ICT objects (with bar indices, not just display strings) stashed for
+  // the Chart section's "show ICT on chart" overlay — see drawIctOverlay().
+  latestIct = {
+    totalBars: candles.length,
+    fvgBull: fBull, fvgBear: fBear,
+    obBull: obs.bull, obBear: obs.bear,
+    breaker: br,
+    sweepBsl: sp.bsl, sweepSsl: sp.ssl,
+    bos: brk.bos, choch: brk.choch,
+    eqh: eq.eqh, eql: eq.eql,
+    pd, displacement: disp
+  };
 
   /* ---- Market structure ---- */
   set('bias', bias, bias==='Bullish'?'pos':bias==='Bearish'?'neg':'warn');
@@ -6307,6 +6357,15 @@ let currentSymbol = null;
 let currentTf = '1d';
 let currentSource = null;
 let latestValues = null;
+let latestCandles = null;
+let latestIct = null;        // raw ICT objects (with bar idx) for the chart overlay
+let ictOverlayEnabled = false; // "Chart" checkbox in the ICT section header — "show everything" mode
+let ictMemberOverlay = new Set(); // individually-checked ICT member keys — used whenever the header checkbox is off
+const BAR_COUNTS = [45,90,180]; // Chart section's selectable window sizes
+let chartBarCount = 90; // currently selected window size
+// True when a given ICT member (by its GROUPS key, e.g. 'fvgBull') should be drawn on the
+// Chart: either the header "show all" checkbox is on, or that member was checked by hand.
+function ictShown(key){ return ictOverlayEnabled || ictMemberOverlay.has(key); }
 let loadToken = 0;
 
 function normalizeSymbol(raw){
@@ -6324,35 +6383,54 @@ function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&l
 // Which groups are collapsed, by index into GROUPS. Persists across refreshes
 // and timeframe switches (re-renders reuse it) so the user's layout choice
 // sticks until they explicitly toggle a section or Expand/Collapse All.
-let collapsedGroups = new Set();
+// Chart starts collapsed — it's the priciest section to draw and most people
+// want the numbers first, the picture on demand.
+let collapsedGroups = new Set([GROUPS.findIndex(g=>g.key==='chart')]);
 
 function renderGroups(values){
   const grid = el('taGroupsGrid');
   grid.innerHTML = GROUPS.map((g,idx)=>{
     const collapsed = collapsedGroups.has(idx);
-    return `
-    <div class="analysis-group-card${collapsed ? ' collapsed' : ''}" style="--grp-color:${g.color}" data-idx="${idx}">
-      <div class="analysis-group-head">
-        <div class="analysis-group-icon">${g.icon}</div>
-        <div class="analysis-group-title">${g.name}</div>
-        <div class="analysis-group-count">${g.members.length}</div>
-        <button type="button" class="analysis-group-chevron" aria-label="Toggle ${esc(g.name)} section" aria-expanded="${collapsed ? 'false' : 'true'}">⌄</button>
-      </div>
-      <div class="analysis-group-body">
-      ${g.members.map(([key,label])=>{
+    const body = g.isChart
+      ? `<div class="analysis-chart-wrap"><canvas id="taChartCanvas"></canvas><div class="analysis-chart-empty" id="taChartEmpty">No chart data yet</div></div>`
+      : g.members.map(([key,label])=>{
         const d = values ? values[key] : null;
         const v = d ? d.v : '—';
         const cls = d && d.cls ? ' val-'+d.cls : (values ? '' : ' val-load');
         const sub = d && d.sub ? `<span class="analysis-row-sub">${esc(d.sub)}</span>` : '';
+        // ICT rows get their own "show on Chart" checkbox so a specific level
+        // (say, just the Bullish FVG) can be isolated on the Chart section
+        // below instead of the whole section's worth of overlays at once.
+        const check = g.key==='ict'
+          ? `<input type="checkbox" class="taIctMemberToggle analysis-row-check" data-key="${key}" title="Show only ${esc(label)} on the Chart" ${ictShown(key) ? 'checked' : ''}>`
+          : '';
         return `<div class="analysis-row">
-          <span class="analysis-row-label">${label}</span>
+          <span class="analysis-row-label">${check}${label}</span>
           <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-value${cls}">${esc(v)}</span></span>
         </div>`;
-      }).join('')}
+      }).join('');
+    return `
+    <div class="analysis-group-card${collapsed ? ' collapsed' : ''}${g.isChart ? ' chart-group' : ''}" style="--grp-color:${g.color}" data-idx="${idx}">
+      <div class="analysis-group-head">
+        <div class="analysis-group-icon">${g.icon}</div>
+        <div class="analysis-group-title">${g.name}</div>
+        ${g.key==='ict' ? `<label class="analysis-ict-chart-toggle" title="Overlay this section's levels on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taIctChartToggle" ${ictOverlayEnabled ? 'checked' : ''}>
+          <span>Chart</span>
+        </label>` : ''}
+        ${g.isChart
+          ? `<div class="analysis-bar-toggle">${BAR_COUNTS.map(n=>`<button type="button" class="taBarCountBtn${n===chartBarCount?' active':''}" data-bars="${n}">${n}</button>`).join('')}</div>`
+          : `<div class="analysis-group-count">${g.members.length}</div>`}
+        <button type="button" class="analysis-group-chevron" aria-label="Toggle ${esc(g.name)} section" aria-expanded="${collapsed ? 'false' : 'true'}">⌄</button>
       </div>
+      <div class="analysis-group-body">${body}</div>
     </div>
   `}).join('');
   updateToggleAllBtn();
+  // Re-render rebuilds the whole grid (fresh <canvas>), so if the chart
+  // section was already open — e.g. the symbol or timeframe just changed
+  // while it was expanded — redraw it against the new candles.
+  drawTaChart();
 }
 
 function toggleGroup(idx){
@@ -6366,8 +6444,40 @@ function toggleGroup(idx){
     if(chev) chev.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   }
   updateToggleAllBtn();
+  drawTaChart(); // no-op unless this was the chart section opening
 }
 function grid_card(idx){ return document.querySelector(`.analysis-group-card[data-idx="${idx}"]`); }
+
+// "Chart" checkbox in the ICT section header. Checking it draws the section's
+// own FVGs/order blocks/breaker/sweeps/BOS-CHoCH/equal highs-lows/premium-
+// discount/displacement straight onto the Chart section below — and opens
+// that section automatically, since a checked box with a collapsed chart
+// underneath it would otherwise show nothing.
+function toggleIctOverlay(checked){
+  ictOverlayEnabled = checked;
+  ictMemberOverlay = new Set(); // header is back in sole control — any individual picks are cleared
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  // Re-render so the 13 member checkboxes update to reflect the header state too.
+  renderGroups(latestValues);
+}
+
+// A member checkbox was clicked by hand. Per-member selection and the header
+// "show all" checkbox are mutually exclusive: the first manual pick always
+// switches off the header and, since everything was visible a moment ago,
+// seeds the manual set with every member so only this one click's effect
+// (adding or removing this key) changes what's shown.
+function toggleIctMember(key, checked){
+  if(ictOverlayEnabled){
+    ictOverlayEnabled = false;
+    ictMemberOverlay = new Set(GROUPS.find(g=>g.key==='ict').members.map(([k])=>k));
+  }
+  if(checked) ictMemberOverlay.add(key);
+  else ictMemberOverlay.delete(key);
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
 
 function toggleAllGroups(){
   const collapseAll = collapsedGroups.size < GROUPS.length;
@@ -6378,6 +6488,144 @@ function toggleAllGroups(){
     if(chev) chev.setAttribute('aria-expanded', collapseAll ? 'false' : 'true');
   });
   updateToggleAllBtn();
+  drawTaChart();
+}
+
+// Draws the last `chartBarCount` candles (45/90/180, picked in the section
+// header) of the currently loaded symbol/timeframe into the
+// Chart section's canvas. Self-guards on collapsed/missing-data state, so it's
+// safe to call unconditionally after any render or toggle — a hidden canvas
+// (display:none body) has a zero-size bounding rect and is simply skipped;
+// the section redraws itself next time it's expanded.
+function drawTaChart(){
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(chartIdx<0 || collapsedGroups.has(chartIdx)) return;
+  const canvas = el('taChartCanvas');
+  const empty = el('taChartEmpty');
+  if(!canvas) return;
+  if(!latestCandles || latestCandles.length<2){
+    if(empty) empty.style.display = 'flex';
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  if(rect.width===0 || rect.height===0) return; // not actually visible yet
+  if(empty) empty.style.display = 'none';
+  const bars = latestCandles.slice(-chartBarCount);
+  const startIdx = latestCandles.length - bars.length; // full-array index of bars[0]
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = rect.width * ratio; canvas.height = rect.height * ratio;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(ratio,ratio);
+  const width = rect.width, height = rect.height, pad = {left:54,right:10,top:10,bottom:20};
+  const highs = bars.map(b=>b.high), lows = bars.map(b=>b.low);
+  let max = Math.max(...highs), min = Math.min(...lows);
+  // With the ICT overlay on, widen the price range so its levels/zones —
+  // which can sit outside the visible 90-bar high/low — aren't clipped.
+  if((ictOverlayEnabled || ictMemberOverlay.size) && latestIct){
+    const levels = [];
+    [['fvgBull',latestIct.fvgBull],['fvgBear',latestIct.fvgBear],['obBull',latestIct.obBull],['obBear',latestIct.obBear],['breaker',latestIct.breaker]]
+      .forEach(([k,z])=>{ if(z && ictShown(k)){ levels.push(z.top, z.bottom); } });
+    [['sweepBsl',latestIct.sweepBsl],['sweepSsl',latestIct.sweepSsl],['bos',latestIct.bos],['choch',latestIct.choch],['eqh',latestIct.eqh],['eql',latestIct.eql]]
+      .forEach(([k,o])=>{ if(o && ictShown(k)) levels.push(o.level); });
+    levels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
+  }
+  const range = (max-min) || 1;
+  const x = i => pad.left + i*(width-pad.left-pad.right)/Math.max(1,bars.length-1);
+  const y = p => pad.top + (max-p)*(height-pad.top-pad.bottom)/range;
+  ctx.clearRect(0,0,width,height);
+  ctx.strokeStyle = '#232833'; ctx.fillStyle = '#8b93a3'; ctx.font = '10px JetBrains Mono, monospace';
+  for(let step=0; step<4; step++){
+    const price = min + range*step/3;
+    ctx.beginPath(); ctx.moveTo(pad.left,y(price)); ctx.lineTo(width-pad.right,y(price)); ctx.stroke();
+    ctx.fillText(px(price), 4, y(price)+3);
+  }
+  const cw = Math.max(1.5,(width-pad.left-pad.right)/bars.length*.7);
+  if(ictOverlayEnabled || ictMemberOverlay.size) drawIctOverlay(ctx, bars, startIdx, x, y, width, height, pad); // zones/lines first, under the candles
+  bars.forEach((b,i)=>{
+    const rising = b.close >= b.open;
+    ctx.strokeStyle = rising ? '#35e0c0' : '#ff5470';
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath(); ctx.moveTo(x(i),y(b.high)); ctx.lineTo(x(i),y(b.low)); ctx.stroke();
+    ctx.fillRect(x(i)-cw/2, y(Math.max(b.open,b.close)), cw, Math.max(1, Math.abs(y(b.open)-y(b.close))));
+  });
+  if(ictShown('displacement') && latestIct && latestIct.displacement){
+    // Outline the displacement candle on top so it isn't hidden under a zone fill.
+    const idx = (bars.length-1) - latestIct.displacement.ago; // already window-relative — ago counts back from the last candle
+    if(idx>=0 && idx<bars.length){
+      ctx.strokeStyle = latestIct.displacement.dir==='Bull' ? '#35e0c0' : '#ff5470';
+      ctx.lineWidth = 1.5; ctx.setLineDash([2,2]);
+      ctx.strokeRect(x(idx)-cw/2-2, pad.top, cw+4, height-pad.top-pad.bottom);
+      ctx.setLineDash([]);
+    }
+  }
+}
+
+// Draws the ICT/Smart Money section's own data (FVGs, order blocks, breaker,
+// liquidity sweeps, BOS/CHoCH, equal highs/lows, premium/discount) onto the
+// chart already set up by drawTaChart(). fullIdx values on the ICT objects
+// are indices into the full fetched candle array, not the visible 90-bar
+// window, so everything is remapped through toX() before drawing.
+function drawIctOverlay(ctx, bars, startIdx, x, y, width, height, pad){
+  const ict = latestIct;
+  const rightEdge = width - pad.right;
+  const clampCol = w => Math.max(0, Math.min(bars.length-1, w));
+  const toX = fullIdx => x(clampCol(fullIdx - startIdx));
+  const zone = (obj, color, dashed)=>{
+    if(!obj || !Number.isFinite(obj.top) || !Number.isFinite(obj.bottom)) return;
+    const left = toX(obj.idx ?? startIdx);
+    const top = y(obj.top), bottom = y(obj.bottom);
+    ctx.fillStyle = color + '2A';
+    ctx.fillRect(left, top, rightEdge-left, Math.max(1,bottom-top));
+    ctx.strokeStyle = color; ctx.lineWidth = 1;
+    ctx.setLineDash(dashed ? [4,3] : []);
+    ctx.strokeRect(left, top, rightEdge-left, Math.max(1,bottom-top));
+    ctx.setLineDash([]);
+  };
+  const line = (level, color, label, fullIdx)=>{
+    if(!Number.isFinite(level)) return;
+    const left = fullIdx!==undefined ? toX(fullIdx) : pad.left;
+    ctx.strokeStyle = color; ctx.setLineDash([5,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(left, y(level)); ctx.lineTo(rightEdge, y(level)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(label, Math.min(left+3, rightEdge-30), y(level)-3);
+  };
+  // Premium (upper half of the dealing range) / discount (lower half) — a
+  // faint background split either side of the midpoint.
+  if(ictShown('pdZone') && ict.pd && Number.isFinite(ict.pd.mid)){
+    const midY = y(ict.pd.mid);
+    ctx.fillStyle = 'rgba(255,84,112,0.05)';
+    ctx.fillRect(pad.left, pad.top, rightEdge-pad.left, Math.max(0, midY-pad.top));
+    ctx.fillStyle = 'rgba(53,224,192,0.05)';
+    ctx.fillRect(pad.left, midY, rightEdge-pad.left, Math.max(0, (height-pad.bottom)-midY));
+  }
+  if(ictShown('fvgBull')) zone(ict.fvgBull, '#35e0c0');
+  if(ictShown('fvgBear')) zone(ict.fvgBear, '#ff5470');
+  if(ictShown('obBull')) zone(ict.obBull, '#8ea9ff');
+  if(ictShown('obBear')) zone(ict.obBear, '#f0c24b');
+  if(ictShown('breaker')) zone(ict.breaker, '#a78bfa', true);
+  if(ictShown('sweepBsl') && ict.sweepBsl) line(ict.sweepBsl.level, '#ff5470', 'BSL', ict.totalBars-1-ict.sweepBsl.ago);
+  if(ictShown('sweepSsl') && ict.sweepSsl) line(ict.sweepSsl.level, '#35e0c0', 'SSL', ict.totalBars-1-ict.sweepSsl.ago);
+  if(ictShown('bos') && ict.bos) line(ict.bos.level, ict.bos.dir==='Bull' ? '#35e0c0' : '#ff5470', 'BOS', ict.bos.idx);
+  if(ictShown('choch') && ict.choch) line(ict.choch.level, ict.choch.dir==='Bull' ? '#35e0c0' : '#ff5470', 'CHoCH', ict.choch.idx);
+  if(ictShown('eqh') && ict.eqh) line(ict.eqh.level, '#f0c24b', 'EQH', ict.eqh.idx);
+  if(ictShown('eql') && ict.eql) line(ict.eql.level, '#f0c24b', 'EQL', ict.eql.idx);
+}
+
+// Bar-count picker (45/90/180) in the Chart section header. Just needs to
+// flip the active button and redraw — no full renderGroups() rebuild, same
+// as toggleGroup()/toggleAllGroups() above.
+function setChartBarCount(n){
+  if(!BAR_COUNTS.includes(n) || n===chartBarCount) return;
+  chartBarCount = n;
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  const card = grid_card(chartIdx);
+  if(card){
+    card.querySelectorAll('.taBarCountBtn').forEach(b=>{
+      b.classList.toggle('active', parseInt(b.dataset.bars,10)===n);
+    });
+  }
+  drawTaChart();
 }
 function updateToggleAllBtn(){
   const btn = el('taToggleAllBtn');
@@ -6407,8 +6655,10 @@ async function load(symbol, tf){
   el('taChange').className = 'analysis-change';
   el('taSource').textContent = 'resolving…';
   setStatus(`Loading ${symbol} · ${tfLabel(tf)}…`, 'loading');
-  renderGroups(null);
   latestValues = null;
+  latestCandles = null;
+  latestIct = null;
+  renderGroups(null);
 
   let candles = null, ticker = null, source = null, binanceErr = null;
   try{
@@ -6464,6 +6714,7 @@ async function load(symbol, tf){
   if(token !== loadToken) return;
 
   latestValues = computeValues(candles, tf, ticker, derivs);
+  latestCandles = candles;
   renderGroups(latestValues);
   const lastBar = new Date(candles[candles.length-1].time);
   setStatus(`${symbol} · ${tfLabel(tf)} · ${candles.length} candles · last bar ${lastBar.toLocaleString()} · ${source}`, 'ok');
@@ -6518,6 +6769,7 @@ function copyValues(){
   if(!latestValues) return;
   const lines = [`${currentSymbol} · ${tfLabel(currentTf)} · ${currentSource}`];
   for(const g of GROUPS){
+    if(g.isChart) continue; // no metric rows to copy — it's a candle chart
     lines.push('', g.name.toUpperCase());
     for(const [key,label] of g.members){
       const d = latestValues[key];
@@ -6554,11 +6806,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(btn) setTf(btn.dataset.tf);
   });
   el('taGroupsGrid').addEventListener('click', e=>{
+    const barBtn = e.target.closest('.taBarCountBtn');
+    if(barBtn){ setChartBarCount(parseInt(barBtn.dataset.bars, 10)); return; }
     const head = e.target.closest('.analysis-group-head');
     if(!head) return;
     const card = head.closest('.analysis-group-card');
     if(!card) return;
     toggleGroup(parseInt(card.dataset.idx, 10));
+  });
+  el('taGroupsGrid').addEventListener('change', e=>{
+    if(e.target.classList.contains('taIctChartToggle')) toggleIctOverlay(e.target.checked);
+    else if(e.target.classList.contains('taIctMemberToggle')) toggleIctMember(e.target.dataset.key, e.target.checked);
   });
   el('analysisOverlay').addEventListener('click', e=>{
     if(e.target.id==='analysisOverlay') close();
