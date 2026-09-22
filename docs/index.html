@@ -24,6 +24,10 @@
     --red:#ff5470;
     --amber:#f5a623;
     --blue:#5b8cff;
+    --gold:#f0c24b;
+    --orange:#ff8a4c;
+    --violet:#a78bfa;
+    --accent-dim:#1e7f6f;
     --font-ui:'Space Grotesk',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   }
@@ -392,6 +396,8 @@
   .ticker-refresh.spinning svg{transform:rotate(360deg);}
   .ticker-refresh.flipped svg{transform:rotate(180deg);}
   .ticker-refresh:active{border-color:var(--accent);color:var(--accent);}
+  .top50-trigger{color:var(--accent);border-color:rgba(53,224,192,.32);background:rgba(53,224,192,.06);align-self:center;}
+  .top50-trigger svg{width:14px;height:14px;}
   .ticker-row{
     display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;
     -webkit-overflow-scrolling:touch;scrollbar-width:none;
@@ -479,6 +485,95 @@
   .movers-error{font-size:11px;color:var(--faint);padding:8px 2px;}
   .movers-section.skeleton .mover-chip{opacity:.5;}
 
+  /* ---- Top 50 Coins modal (bottom sheet) ---- */
+  .top50-backdrop{
+    position:fixed;inset:0;z-index:200;
+    background:rgba(5,7,13,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    opacity:0;pointer-events:none;transition:opacity .25s ease;
+  }
+  .top50-backdrop.open{opacity:1;pointer-events:auto;}
+  .top50-modal{
+    position:fixed;left:0;right:0;bottom:0;z-index:201;
+    height:min(88dvh,760px);
+    display:flex;flex-direction:column;
+    background:linear-gradient(180deg,#141a2c 0%,#0d1120 100%);
+    border:1px solid var(--border-soft);border-bottom:none;
+    border-radius:22px 22px 0 0;
+    box-shadow:0 -20px 60px rgba(0,0,0,.5);
+    transform:translateY(100%);transition:transform .32s cubic-bezier(.32,.72,0,1);
+    overflow:hidden;padding-bottom:env(safe-area-inset-bottom);
+  }
+  .top50-modal.open{transform:translateY(0);}
+  .top50-handle{width:36px;height:4px;border-radius:2px;background:var(--border);margin:10px auto 2px;flex-shrink:0;}
+  .top50-head{
+    position:relative;flex-shrink:0;padding:12px 18px 14px;
+    background:
+      radial-gradient(120% 160% at 10% 0%,rgba(53,224,192,.16),transparent 55%),
+      radial-gradient(120% 160% at 100% 0%,rgba(139,92,246,.16),transparent 55%);
+    border-bottom:1px solid var(--border-soft);
+  }
+  .top50-head-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+  .top50-title{display:flex;flex-direction:column;gap:3px;}
+  .top50-title-main{font:800 18px var(--font-ui);color:var(--text);letter-spacing:-.01em;}
+  .top50-title-sub{font:600 10.5px var(--font-mono);color:var(--muted);display:flex;align-items:center;}
+  .top50-title-sub .live-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:5px;box-shadow:0 0 6px var(--accent);animation:tickerPulse 2s infinite;flex-shrink:0;}
+  .top50-close{
+    width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--border);background:var(--panel);border-radius:10px;color:var(--muted);cursor:pointer;
+    transition:border-color .15s ease,color .15s ease;
+  }
+  .top50-close:active{border-color:var(--red);color:var(--red);}
+  .top50-search-wrap{position:relative;margin-bottom:10px;}
+  .top50-search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--faint);pointer-events:none;}
+  .top50-search{
+    width:100%;padding:10px 12px 10px 34px;border-radius:12px;
+    background:var(--panel);border:1px solid var(--border-soft);color:var(--text);
+    font:600 13px var(--font-ui);outline:none;transition:border-color .15s ease;
+  }
+  .top50-search::placeholder{color:var(--faint);}
+  .top50-search:focus{border-color:var(--accent);}
+  .top50-sort-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;}
+  .top50-sort-row::-webkit-scrollbar{display:none;}
+  .top50-sort-btn{
+    flex:0 0 auto;padding:6px 13px;border-radius:20px;font:700 11px var(--font-mono);
+    letter-spacing:.03em;color:var(--muted);background:var(--panel);border:1px solid var(--border-soft);
+    cursor:pointer;transition:all .15s ease;white-space:nowrap;
+  }
+  .top50-sort-btn.active{background:rgba(53,224,192,.14);border-color:rgba(53,224,192,.5);color:var(--accent);}
+  .top50-sort-btn:active{transform:scale(.95);}
+  .top50-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 10px 18px;}
+  .top50-row{
+    display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:14px;
+    cursor:pointer;transition:background .15s ease,transform .1s ease;
+    animation:top50RowIn .3s ease backwards;
+  }
+  .top50-row:active{transform:scale(.98);background:var(--panel2);}
+  @keyframes top50RowIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .top50-rank{width:20px;flex-shrink:0;text-align:center;font:700 11px var(--font-mono);color:var(--faint);}
+  .top50-rank.top3{color:var(--amber);}
+  .top50-logo{width:32px;height:32px;border-radius:50%;flex-shrink:0;background:var(--panel2);object-fit:cover;}
+  .top50-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px;}
+  .top50-sym-row{display:flex;align-items:baseline;gap:6px;}
+  .top50-sym{font:700 13px var(--font-ui);color:var(--text);}
+  .top50-name{font:500 11px var(--font-ui);color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .top50-meta{font:600 10.5px var(--font-mono);color:var(--faint);}
+  .top50-right{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+  .top50-price{font:700 12.5px var(--font-mono);color:var(--text);}
+  .top50-chg{font:700 11.5px var(--font-mono);padding:2px 7px;border-radius:8px;}
+  .top50-chg.up{color:var(--accent);background:rgba(53,224,192,.12);}
+  .top50-chg.down{color:var(--red);background:rgba(255,84,112,.12);}
+  .top50-empty,.top50-error{padding:40px 20px;text-align:center;color:var(--faint);font-size:12.5px;}
+  .top50-skeleton .top50-sym,.top50-skeleton .top50-name,.top50-skeleton .top50-price,.top50-skeleton .top50-chg,.top50-skeleton .top50-meta{
+    color:transparent;border-radius:4px;
+    background:linear-gradient(90deg,var(--panel2) 25%,var(--border-soft) 50%,var(--panel2) 75%);
+    background-size:200% 100%;animation:tickerShimmer 1.3s infinite;
+  }
+  .top50-skeleton .top50-logo{
+    background:linear-gradient(90deg,var(--panel2) 25%,var(--border-soft) 50%,var(--panel2) 75%);
+    background-size:200% 100%;animation:tickerShimmer 1.3s infinite;
+  }
+  .top50-skeleton .top50-row{pointer-events:none;}
+
   /* ---- Recently visited ---- */
   .recent-section{margin:0 0 18px;position:relative;z-index:1;}
   .recent-section.hidden{display:none;}
@@ -543,6 +638,169 @@
   .home-card[data-page="pulse"] .home-icon{background:linear-gradient(135deg,#5b8cff,#35e0c0);}
   .home-card[data-page="settings"] .home-icon{background:linear-gradient(135deg,#9aa5b8,#5b6478);}
   .home-card[data-page="meridian"] .home-icon{background:linear-gradient(135deg,#E7B454,#9186E8);}
+  /* ---- Full-screen analysis overlay ---- */
+  .analysis-overlay{
+    position:fixed;inset:0;z-index:50;display:none;
+    background:rgba(5,6,9,.86);backdrop-filter:blur(4px);
+    overflow-y:auto;
+    padding:0 0 60px;
+  }
+  .analysis-overlay.open{display:block;}
+  .analysis-shell{max-width:1180px;margin:0 auto;padding:20px;}
+  .analysis-topbar{
+    position:sticky;top:0;z-index:2;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    background:rgba(10,12,16,.9);backdrop-filter:blur(10px);
+    border:1px solid var(--border);border-radius:16px;
+    padding:14px 16px;margin-bottom:16px;
+    box-shadow:0 10px 30px -18px rgba(0,0,0,.7);
+  }
+  .analysis-id{display:flex;align-items:center;gap:12px;flex:1;min-width:220px;}
+  .analysis-symbol-icon{
+    width:40px;height:40px;border-radius:12px;flex:none;
+    background:linear-gradient(155deg,rgba(53,224,192,.22),rgba(91,140,255,.12));
+    border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font:700 14px var(--font-mono);color:var(--accent);
+  }
+  .analysis-id-text{display:flex;flex-direction:column;line-height:1.25;}
+  .analysis-symbol{font-size:17px;font-weight:700;letter-spacing:-.01em;}
+  .analysis-symbol .quote{color:var(--faint);font-weight:600;font-size:12px;margin-left:2px;}
+  .analysis-meta{display:flex;align-items:center;gap:8px;font:600 10.5px var(--font-mono);color:var(--faint);letter-spacing:.04em;}
+  .analysis-price{font:700 15px var(--font-mono);color:var(--text);}
+  .analysis-controls{display:flex;align-items:center;gap:10px;flex:none;}
+  .analysis-close{
+    width:34px;height:34px;border-radius:10px;flex:none;padding:0;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    display:flex;align-items:center;justify-content:center;font-size:16px;
+    box-shadow:none;
+  }
+  .analysis-close:hover{border-color:var(--red);color:var(--red);transform:none;}
+  .analysis-tf-toggle{
+    display:flex;background:var(--panel2);border:1px solid var(--border);
+    border-radius:10px;padding:3px;gap:2px;
+  }
+  .analysis-tf-toggle button{
+    background:transparent;border:none;color:var(--muted);
+    font-family:var(--font-mono);padding:8px 13px;font-size:12px;font-weight:600;
+    border-radius:7px;cursor:pointer;transition:background .15s,color .15s;
+  }
+  .analysis-tf-toggle button:hover{color:var(--accent);}
+  .analysis-tf-toggle button.active{background:var(--accent);color:#07130f;box-shadow:0 2px 10px rgba(53,224,192,.35);}
+  .analysis-status-row{display:flex;align-items:center;gap:8px;margin:0 0 16px;color:var(--faint);font:600 11px var(--font-mono);letter-spacing:.03em;}
+  .analysis-status-row .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none;}
+
+  .analysis-groups-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:14px;
+  }
+  .analysis-group-card{
+    background:linear-gradient(155deg,var(--panel2),var(--panel));
+    border:1px solid var(--border);border-radius:16px;
+    padding:14px 15px 8px;
+    box-shadow:0 1px 0 0 rgba(255,255,255,.03) inset;
+  }
+  .analysis-group-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border-soft);cursor:pointer;user-select:none;}
+  .analysis-group-icon{
+    width:28px;height:28px;border-radius:9px;flex:none;
+    background:color-mix(in srgb,var(--grp-color,var(--accent)) 18%,transparent);
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+    box-shadow:0 4px 12px -4px color-mix(in srgb,var(--grp-color,var(--accent)) 55%,transparent);
+  }
+  .analysis-group-title{font-weight:700;font-size:13.5px;letter-spacing:-.01em;flex:1;}
+  .analysis-group-count{font:600 11px var(--font-mono);color:var(--faint);background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:2px 8px;}
+  .analysis-group-chevron{
+    flex:none;width:22px;height:22px;padding:0;border:none;background:transparent;
+    color:var(--faint);font-size:12px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:transform .18s ease,color .15s;
+  }
+  .analysis-group-head:hover .analysis-group-chevron{color:var(--accent);}
+  .analysis-group-card.collapsed .analysis-group-chevron{transform:rotate(-90deg);}
+  .analysis-group-card.collapsed .analysis-group-head{margin-bottom:0;padding-bottom:10px;}
+  .analysis-group-card.collapsed{padding-bottom:4px;}
+  .analysis-group-body{overflow:hidden;}
+  .analysis-group-card.collapsed .analysis-group-body{display:none;}
+  .analysis-toggle-all .taa-chevron{display:inline-block;transition:transform .18s ease;}
+  .analysis-toggle-all.all-collapsed .taa-chevron{transform:rotate(-90deg);}
+  .analysis-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:7px 2px;border-bottom:1px dashed var(--border-soft);
+  }
+  .analysis-row:last-child{border-bottom:none;}
+  .analysis-row-label{font-size:13px;color:var(--muted);font-weight:500;}
+  .analysis-row-value{font:700 13px var(--font-mono);color:var(--faint);white-space:nowrap;}
+  @media(max-width:520px){
+    .analysis-shell{padding:14px 12px;}
+    .analysis-topbar{padding:12px;}
+    .analysis-groups-grid{grid-template-columns:1fr;}
+  }
+
+  /* ---- Coin Lookup analysis: value states & controls ---- */
+  .analysis-meta{flex-wrap:wrap;}
+  .analysis-change{font:700 11px var(--font-mono);}
+  .analysis-change.up{color:var(--accent);}
+  .analysis-change.down{color:var(--red);}
+  .analysis-source{
+    font:600 10px var(--font-mono);letter-spacing:.04em;
+    border:1px solid var(--border);border-radius:20px;padding:2px 8px;color:var(--faint);
+  }
+  .analysis-source.src-binance{color:var(--gold);border-color:rgba(240,194,75,.35);}
+  .analysis-source.src-bybit{color:var(--orange);border-color:rgba(255,138,76,.35);}
+  .analysis-icon-btn{
+    width:34px;height:34px;border-radius:10px;flex:none;padding:0;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;
+    box-shadow:none;transition:color .15s,border-color .15s;
+  }
+  .analysis-icon-btn:hover{color:var(--accent);border-color:var(--accent-dim);}
+
+  .analysis-status-row.is-loading .dot{background:var(--amber);animation:taPulse 1s ease-in-out infinite;}
+  .analysis-status-row.is-ok .dot{background:var(--accent);animation:none;}
+  .analysis-status-row.is-error{color:var(--red);}
+  .analysis-status-row.is-error .dot{background:var(--red);animation:none;}
+  @keyframes taPulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  @media(prefers-reduced-motion:reduce){
+    .analysis-status-row.is-loading .dot{animation:none;}
+    .analysis-row-value.val-load{animation:none;}
+  }
+
+  /* Row layout: label column flexes and wraps, value column stays pinned to the
+     right edge on every width so the numbers form a single readable column. */
+  .analysis-row{align-items:flex-start;gap:12px;flex-wrap:nowrap;}
+  .analysis-row-label{flex:1 1 auto;min-width:0;line-height:1.35;}
+  .analysis-row-val-wrap{
+    flex:0 1 auto;max-width:62%;display:flex;flex-wrap:wrap;align-items:center;
+    justify-content:flex-end;gap:6px;text-align:right;
+  }
+  .analysis-row-value{white-space:normal;overflow-wrap:anywhere;}
+  .analysis-row-sub{
+    font:600 10.5px var(--font-mono);color:var(--faint);
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:6px;
+    padding:1px 5px;white-space:nowrap;
+  }
+  .analysis-row-value{color:var(--text);}
+  .analysis-row-value.val-pos{color:var(--accent);}
+  .analysis-row-value.val-neg{color:var(--red);}
+  .analysis-row-value.val-warn{color:var(--amber);}
+  .analysis-row-value.val-load{
+    color:transparent;background:linear-gradient(90deg,var(--panel),var(--border),var(--panel));
+    background-size:200% 100%;border-radius:5px;min-width:54px;display:inline-block;
+    animation:taShimmer 1.2s linear infinite;
+  }
+  @keyframes taShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  @media(max-width:520px){
+    .analysis-group-card{padding:12px 12px 6px;}
+    .analysis-row{gap:8px;padding:8px 2px;}
+    .analysis-row-label{font-size:12.5px;}
+    .analysis-row-value{font-size:12.5px;}
+    .analysis-row-sub{font-size:10px;padding:1px 4px;}
+    .analysis-row-val-wrap{max-width:58%;}
+  }
+  @media(max-width:360px){
+    .analysis-row-label{font-size:12px;}
+    .analysis-row-value{font-size:12px;}
+  }
+
 </style>
 </head>
 <body>
@@ -687,6 +945,12 @@
               <span class="ticker-updated" id="tickerUpdated"></span>
             </div>
             <div class="ticker-eyebrow-actions">
+              <!-- Lives here in markup only as a home for the node; renderTicker()
+                   in the script below moves it into #tickerRow (after the last
+                   coin card) on every render, so it always renders next to ETH. -->
+              <button class="ticker-refresh top50-trigger" id="top50Btn" type="button" aria-label="Browse top 50 coins" title="Top 50 coins">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>
+              </button>
               <button class="ticker-refresh" id="toggleAllBtn" type="button" aria-label="Collapse all" title="Collapse all">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 8 12 3 17 8"/><polyline points="7 21 12 16 17 21"/></svg>
               </button>
@@ -912,6 +1176,64 @@
       <iframe id="iframe-meridian" data-src="portfolio.html"></iframe>
     </div>
   </div>
+
+  <div class="top50-backdrop" id="top50Backdrop"></div>
+  <div class="top50-modal" id="top50Modal" role="dialog" aria-modal="true" aria-label="Top 50 coins">
+    <div class="top50-handle"></div>
+    <div class="top50-head">
+      <div class="top50-head-row">
+        <div class="top50-title">
+          <span class="top50-title-main">Top 50 Coins</span>
+          <span class="top50-title-sub"><span class="live-dot"></span><span id="top50Updated">—</span></span>
+        </div>
+        <button class="top50-close" id="top50CloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+        </button>
+      </div>
+      <div class="top50-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="top50-search" id="top50Search" type="text" placeholder="Search coin or symbol" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="top50-sort-row" id="top50SortRow">
+        <button class="top50-sort-btn active" data-sort="market_cap" type="button">Market Cap</button>
+        <button class="top50-sort-btn" data-sort="change" type="button">24h % ↕</button>
+        <button class="top50-sort-btn" data-sort="volume" type="button">Volume</button>
+      </div>
+    </div>
+    <div class="top50-list" id="top50List"></div>
+  </div>
+</div>
+
+<!-- Technical Analysis overlay (opened from Coin Lookup on Custom Screens tab) -->
+<div class="analysis-overlay" id="analysisOverlay" role="dialog" aria-modal="true" aria-label="Coin technical analysis">
+  <div class="analysis-shell">
+    <div class="analysis-topbar">
+      <div class="analysis-id">
+        <div class="analysis-symbol-icon" id="taSymbolIcon">—</div>
+        <div class="analysis-id-text">
+          <div class="analysis-symbol" id="taSymbolText">—<span class="quote"></span></div>
+          <div class="analysis-meta">
+            <span id="taPrice" class="analysis-price">—</span>
+            <span id="taChange" class="analysis-change"></span>
+            <span id="taSource" class="analysis-source">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="analysis-controls">
+        <div class="analysis-tf-toggle" id="taTfToggle">
+          <button type="button" data-tf="4h">4H</button>
+          <button type="button" data-tf="1d" class="active">1D</button>
+          <button type="button" data-tf="1w">1W</button>
+        </div>
+        <button type="button" class="analysis-icon-btn" id="taCopyBtn" title="Copy all values" aria-label="Copy all values" onclick="TechAnalysis.copyValues()">⧉</button>
+        <button type="button" class="analysis-icon-btn analysis-toggle-all" id="taToggleAllBtn" title="Collapse all sections" aria-label="Collapse all sections" onclick="TechAnalysis.toggleAll()"><span class="taa-chevron">⌄</span></button>
+        <button type="button" class="analysis-icon-btn" id="taRefreshBtn" title="Reload values" aria-label="Reload values" onclick="TechAnalysis.refresh()">↻</button>
+        <button type="button" class="analysis-close" id="taCloseBtn" aria-label="Close" onclick="TechAnalysis.close()">✕</button>
+      </div>
+    </div>
+    <div class="analysis-status-row" id="taStatusRow"><span class="dot"></span><span id="taStatusText">Enter a coin to load its values</span></div>
+    <div class="analysis-groups-grid" id="taGroupsGrid"></div>
+  </div>
 </div>
 
 <script>
@@ -949,13 +1271,38 @@ const pages = document.querySelectorAll('.page');
 const TICKER_COINS = [
   { symbol:'BTC',  binanceSymbol:'BTCUSDT'  },
   { symbol:'ETH',  binanceSymbol:'ETHUSDT'  },
-  { symbol:'SOL',  binanceSymbol:'SOLUSDT'  },
-  { symbol:'HYPE', binanceSymbol:'HYPEUSDT' },
 ];
 const TICKER_CACHE_KEY = 'ts_home_ticker_cache_v1';
 const TICKER_REFRESH_MS = 20000;
+// The /fapi/v1/ticker/24hr response already contains every Binance USDT-M
+// perpetual symbol, not just the 3 shown in the ticker row - captured here
+// so the Top 50 Coins modal can use "is this actually listed on Binance" as
+// a quality filter on top of CoinGecko's market-cap ranking, with zero extra
+// network calls. Persisted to localStorage so it survives a reload even
+// before the first ticker fetch of a session completes.
+const BINANCE_SYMBOLS_CACHE_KEY = 'ts_home_binance_symbols_cache_v1';
+let binanceBaseAssets = null;
+function readBinanceSymbolsCache(){
+  try{
+    const raw = localStorage.getItem(BINANCE_SYMBOLS_CACHE_KEY);
+    const arr = raw ? JSON.parse(raw) : null;
+    return (arr && arr.length) ? new Set(arr) : null;
+  }catch(e){ return null; }
+}
+function writeBinanceSymbolsCache(setObj){
+  try{ localStorage.setItem(BINANCE_SYMBOLS_CACHE_KEY, JSON.stringify(Array.from(setObj))); }catch(e){}
+}
+function getBinanceBaseAssets(){
+  if(binanceBaseAssets && binanceBaseAssets.size) return binanceBaseAssets;
+  return readBinanceSymbolsCache();
+}
 
 const tickerRow = document.getElementById('tickerRow');
+// Queried here (before loadTicker()'s first render below) so renderTicker()
+// can re-append this same node into the ticker row every time it redraws -
+// the button physically lives in ticker-eyebrow-actions in the HTML, but is
+// relocated into the ticker row (after the last coin card) at render time.
+const top50Btn = document.getElementById('top50Btn');
 const tickerUpdatedEl = document.getElementById('tickerUpdated');
 const tickerRefreshBtn = document.getElementById('tickerRefreshBtn');
 
@@ -1052,7 +1399,9 @@ function renderTicker(map, opts){
         '<span class="ticker-price">' + priceText + '</span>' +
       '</div>' +
       '<span class="ticker-chg ' + dirClass + '">' + chgText + '</span>';
-    card.addEventListener('click', () => activatePage('watchlist'));
+    card.addEventListener('click', () => {
+      if(window.TechAnalysis) window.TechAnalysis.openSymbol(coin.binanceSymbol);
+    });
     tickerRow.appendChild(card);
 
     if(flashDir){
@@ -1061,6 +1410,12 @@ function renderTicker(map, opts){
       setTimeout(() => priceEl.classList.remove('flash-' + flashDir), 700);
     }
   });
+
+  // Re-append the (persistent, never-cloned) Top 50 button as the last item
+  // in the row, right after the last coin card - tickerRow.innerHTML above
+  // wipes it out of the DOM each redraw, so it has to be moved back in every
+  // time this function runs.
+  if(top50Btn) tickerRow.appendChild(top50Btn);
 }
 
 function updateTickerLabel(){
@@ -1076,16 +1431,29 @@ async function loadTicker(opts){
     if(!Array.isArray(data)) throw new Error('Unexpected Binance ticker response shape');
     const wanted = new Set(TICKER_COINS.map(c => c.binanceSymbol));
     const map = {};
-    data.forEach(row => { if(wanted.has(row.symbol)) map[row.symbol] = row; });
+    const allBases = new Set();
+    data.forEach(row => {
+      if(wanted.has(row.symbol)) map[row.symbol] = row;
+      // Strip the USDT quote suffix and any leverage-token digit prefix
+      // (e.g. "1000PEPEUSDT" -> "PEPE", "1000SHIBUSDT" -> "SHIB") so this
+      // set lines up with CoinGecko's plain base-asset symbols.
+      if(row.symbol && row.symbol.endsWith('USDT')){
+        const base = row.symbol.slice(0, -4).replace(/^\d+/, '');
+        if(base) allBases.add(base);
+      }
+    });
     renderTicker(map);
     tickerLastData = map;
     tickerLastTs = Date.now();
     writeTickerCache(map);
+    binanceBaseAssets = allBases;
+    writeBinanceSymbolsCache(allBases);
     updateTickerLabel();
   }catch(err){
     console.warn('[home ticker] fetch failed:', err && err.message);
     if(!tickerLastData){
       tickerRow.innerHTML = '<div class="ticker-error">Live prices unavailable right now</div>';
+      if(top50Btn) tickerRow.appendChild(top50Btn);
     }
   }finally{
     if(opts.manual) setTimeout(() => tickerRefreshBtn.classList.remove('spinning'), 400);
@@ -1257,6 +1625,192 @@ async function loadMovers(){
     }
   }
 }
+
+/* ================= Home: Top 50 Coins modal =================
+   Reuses the exact same CoinGecko /coins/markets data already fetched for
+   the Top Movers strip (moversLastRaw / readMoversCache()) instead of
+   firing a second request - CoinGecko's free tier rate-limits aggressively
+   (see learnings.md), and per_page=100 already covers a top-50-ex-stablecoins
+   view with room to spare. Opening the modal just triggers loadMovers()
+   (already defined above) to refresh that shared data, then re-renders here
+   off the same result. */
+const STABLECOIN_SYMBOLS = new Set([
+  'usdt','usdc','dai','fdusd','tusd','usde','usdp','pyusd','gusd','usdd',
+  'frax','lusd','susd','eurs','eurt','usdj','busd','usdx','usd1','usdtb','eurc'
+]);
+let top50SortMode = 'market_cap';
+let top50SearchQuery = '';
+
+const top50Backdrop = document.getElementById('top50Backdrop');
+const top50Modal = document.getElementById('top50Modal');
+const top50CloseBtn = document.getElementById('top50CloseBtn');
+const top50SearchInput = document.getElementById('top50Search');
+const top50SortRow = document.getElementById('top50SortRow');
+const top50List = document.getElementById('top50List');
+const top50UpdatedEl = document.getElementById('top50Updated');
+
+function formatTop50Price(n){
+  const num = Number(n) || 0;
+  if(num >= 1000) return '$' + num.toLocaleString('en-US', { maximumFractionDigits:0 });
+  if(num >= 1) return '$' + num.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  return '$' + num.toLocaleString('en-US', { minimumFractionDigits:4, maximumFractionDigits:6 });
+}
+function formatTop50Compact(n){
+  const num = Number(n) || 0;
+  if(num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+  if(num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+  if(num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+  return num.toFixed(0);
+}
+
+function getTop50SourceList(){
+  if(moversLastRaw) return moversLastRaw;
+  const cached = readMoversCache();
+  return (cached && cached.data) ? cached.data : null;
+}
+
+function getFilteredSortedTop50(){
+  const raw = getTop50SourceList() || [];
+  let list = raw.filter(c => c && c.symbol && !STABLECOIN_SYMBOLS.has(c.symbol.toLowerCase()));
+  // CoinGecko's market-cap ranking occasionally surfaces low-float or
+  // questionable-data tokens (e.g. tokenized RWA products) far above their
+  // real standing. Restricting to coins with an active Binance USDT-M
+  // perpetual contract acts as a quality filter - it's also exactly the
+  // universe screener.html can actually analyze, so every coin tapped here
+  // is guaranteed to open real data rather than a "not found" error.
+  const binanceSet = getBinanceBaseAssets();
+  if(binanceSet && binanceSet.size){
+    list = list.filter(c => binanceSet.has((c.symbol || '').toUpperCase()));
+  }
+  if(top50SearchQuery){
+    const q = top50SearchQuery.toLowerCase();
+    list = list.filter(c => (c.symbol || '').toLowerCase().includes(q) || (c.name || '').toLowerCase().includes(q));
+  }
+  list = list.slice();
+  if(top50SortMode === 'change'){
+    list.sort((a, b) => (typeof b.price_change_percentage_24h === 'number' ? b.price_change_percentage_24h : -Infinity)
+                       - (typeof a.price_change_percentage_24h === 'number' ? a.price_change_percentage_24h : -Infinity));
+  }else if(top50SortMode === 'volume'){
+    list.sort((a, b) => (b.total_volume || 0) - (a.total_volume || 0));
+  }
+  // 'market_cap': the source list already arrives market_cap_desc-sorted from CoinGecko.
+  return list.slice(0, 50);
+}
+
+function renderTop50Skeleton(){
+  top50List.classList.add('top50-skeleton');
+  const rows = [];
+  for(let i = 0; i < 8; i++){
+    rows.push(
+      '<div class="top50-row" style="animation-delay:' + Math.min(i * 18, 140) + 'ms">' +
+        '<span class="top50-rank">' + (i + 1) + '</span>' +
+        '<div class="top50-logo"></div>' +
+        '<div class="top50-body">' +
+          '<div class="top50-sym-row"><span class="top50-sym">XXXX</span><span class="top50-name">Loading name</span></div>' +
+          '<span class="top50-meta">Vol —</span>' +
+        '</div>' +
+        '<div class="top50-right"><span class="top50-price">$0,000</span><span class="top50-chg">+0.00%</span></div>' +
+      '</div>'
+    );
+  }
+  top50List.innerHTML = rows.join('');
+}
+
+function renderTop50List(){
+  const list = getFilteredSortedTop50();
+  top50List.classList.remove('top50-skeleton');
+  top50UpdatedEl.textContent = moversLastTs ? formatTickerUpdatedLabel(moversLastTs) : (getTop50SourceList() ? 'cached' : '—');
+
+  if(!list.length){
+    const noData = !getTop50SourceList();
+    top50List.innerHTML = '<div class="' + (noData ? 'top50-error' : 'top50-empty') + '">' +
+      (noData ? 'Top coins unavailable right now' : 'No coins match your search') + '</div>';
+    return;
+  }
+
+  top50List.innerHTML = '';
+  list.forEach((coin, i) => {
+    const row = document.createElement('div');
+    row.className = 'top50-row';
+    row.style.animationDelay = Math.min(i * 18, 260) + 'ms';
+    const chg = coin.price_change_percentage_24h;
+    const hasChg = typeof chg === 'number';
+    const chgText = hasChg ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : '—';
+    const dirClass = hasChg ? (chg >= 0 ? 'up' : 'down') : '';
+    row.innerHTML =
+      '<span class="top50-rank' + (i < 3 ? ' top3' : '') + '">' + (i + 1) + '</span>' +
+      '<img class="top50-logo" src="' + (coin.image || '') + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' +
+      '<div class="top50-body">' +
+        '<div class="top50-sym-row"><span class="top50-sym">' + (coin.symbol || '').toUpperCase() + '</span><span class="top50-name">' + (coin.name || '') + '</span></div>' +
+        '<span class="top50-meta">Vol ' + formatTop50Compact(coin.total_volume) + ' · MCap ' + formatTop50Compact(coin.market_cap) + '</span>' +
+      '</div>' +
+      '<div class="top50-right">' +
+        '<span class="top50-price">' + formatTop50Price(coin.current_price) + '</span>' +
+        '<span class="top50-chg ' + dirClass + '">' + chgText + '</span>' +
+      '</div>';
+    row.addEventListener('click', () => openScreenerForCoin(coin));
+    top50List.appendChild(row);
+  });
+}
+
+// Tapping a coin opens the Technical Breakdown overlay (the same
+// TechAnalysis module screener.html's Custom Screens tab uses) right here in
+// index.html's own document - no screener page, no iframe, no ?symbol=
+// hand-off. TechAnalysis.openSymbol() pulls the coin's candles/ticker/
+// derivatives straight from Binance USDT-M futures (falling back to Bybit
+// USDT perps if it isn't listed there) and computes every ICT/Smart Money,
+// trend, momentum, volatility, Ichimoku, volume, structure and derivatives
+// value locally - the full module was ported in verbatim from screener.html
+// (styles + overlay markup + IIFE) so it works standalone in this shell.
+function openScreenerForCoin(coin){
+  const symbol = (coin.symbol || '').toUpperCase() + 'USDT';
+  closeTop50Modal();
+  if(window.TechAnalysis){
+    window.TechAnalysis.openSymbol(symbol);
+  }
+}
+
+function openTop50Modal(){
+  top50Backdrop.classList.add('open');
+  top50Modal.classList.add('open');
+  if(getTop50SourceList()){
+    renderTop50List();
+  }else{
+    renderTop50Skeleton();
+  }
+  loadMovers().then(renderTop50List).catch(() => {});
+}
+function closeTop50Modal(){
+  top50Backdrop.classList.remove('open');
+  top50Modal.classList.remove('open');
+}
+
+top50Btn.addEventListener('click', openTop50Modal);
+top50CloseBtn.addEventListener('click', closeTop50Modal);
+top50Backdrop.addEventListener('click', closeTop50Modal);
+
+let top50SearchDebounce = null;
+top50SearchInput.addEventListener('input', () => {
+  clearTimeout(top50SearchDebounce);
+  top50SearchDebounce = setTimeout(() => {
+    top50SearchQuery = top50SearchInput.value.trim();
+    renderTop50List();
+  }, 120);
+});
+top50SortRow.querySelectorAll('.top50-sort-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    top50SortRow.querySelectorAll('.top50-sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    top50SortMode = btn.dataset.sort;
+    renderTop50List();
+  });
+});
+
+setInterval(() => {
+  if(top50Modal.classList.contains('open')){
+    top50UpdatedEl.textContent = moversLastTs ? formatTickerUpdatedLabel(moversLastTs) : '—';
+  }
+}, 5000);
 
 // Single source of truth for "is the strip visible right now" - handles
 // initial load, the Settings toggle flipping on/off later (via the
@@ -1476,6 +2030,17 @@ function handleAndroidBack(){
     return;
   }
 
+  if(top50Modal.classList.contains('open')){
+    closeTop50Modal();
+    return;
+  }
+
+  const techOverlay = document.getElementById('analysisOverlay');
+  if(techOverlay && techOverlay.classList.contains('open') && window.TechAnalysis){
+    window.TechAnalysis.close();
+    return;
+  }
+
   if(closeOpenModalInActivePage()){
     return;
   }
@@ -1567,6 +2132,17 @@ window.addEventListener('popstate', event => {
     syncHistoryForCurrentPage();
     return;
   }
+  if(top50Modal.classList.contains('open')){
+    closeTop50Modal();
+    syncHistoryForCurrentPage();
+    return;
+  }
+  const techOverlayPS = document.getElementById('analysisOverlay');
+  if(techOverlayPS && techOverlayPS.classList.contains('open') && window.TechAnalysis){
+    window.TechAnalysis.close();
+    syncHistoryForCurrentPage();
+    return;
+  }
   if(closeOpenModalInActivePage()){
     syncHistoryForCurrentPage();
     return;
@@ -1581,6 +2157,1279 @@ activatePage('home');
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
 }
+</script>
+
+<script>
+/* =============================================================================
+   TechAnalysis — Coin Lookup (Custom Screens tab) -> full technical breakdown.
+
+   Flow:  symbol typed -> normalised to a USDT perp ticker -> validated against
+   Binance USDT-M futures first, falling back to Bybit USDT linear perps when
+   the symbol isn't listed there (same order the Cloud Breakout search uses) ->
+   klines + ticker + derivatives pulled for the selected timeframe (4H/1D/1W,
+   daily default) -> every indicator below computed locally from those candles.
+
+   Only values are rendered: a number, level, range or state per row. Colour is
+   the only interpretation layer (green = bullish read, red = bearish, grey =
+   neutral/absent). Nothing here is fetched from a third-party indicator API,
+   so every number is reproducible from the raw OHLCV shown on the chart.
+   ============================================================================= */
+(function(){
+'use strict';
+
+/* ---------------------------------------------------------------------------
+   Data sources. Binance futures mirrors the host-fallback list used elsewhere
+   in this file; Bybit is only touched when Binance doesn't list the symbol.
+   --------------------------------------------------------------------------- */
+const FAPI_HOSTS = [
+  "https://fapi.binance.com","https://fapi1.binance.com","https://fapi2.binance.com",
+  "https://fapi3.binance.com","https://fapi4.binance.com"
+];
+let taHost = FAPI_HOSTS[0];
+const SPOT_HOSTS = ["https://api.binance.com","https://api1.binance.com","https://api2.binance.com"];
+let taSpotHost = SPOT_HOSTS[0];
+const BYBIT = 'https://api.bybit.com';
+const BYBIT_TF = { '4h':'240', '1d':'D', '1w':'W' };
+const BARS = 500;                 // candles pulled per timeframe
+const PERIODS_PER_YEAR = { '4h':2190, '1d':365, '1w':52 };
+
+async function timedFetch(url, ms=12000){
+  const ctl = new AbortController();
+  const t = setTimeout(()=>ctl.abort(), ms);
+  try{ return await fetch(url, { signal: ctl.signal }); }
+  finally{ clearTimeout(t); }
+}
+async function fapi(path){
+  const order = [taHost, ...FAPI_HOSTS.filter(h=>h!==taHost)];
+  let last;
+  for(const host of order){
+    try{
+      const res = await timedFetch(host+path);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      taHost = host;
+      return data;
+    }catch(e){ last = e; }
+  }
+  throw last || new Error('request failed');
+}
+async function spot(path){
+  const order = [taSpotHost, ...SPOT_HOSTS.filter(h=>h!==taSpotHost)];
+  let last;
+  for(const host of order){
+    try{
+      const res = await timedFetch(host+path);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      taSpotHost = host;
+      return data;
+    }catch(e){ last = e; }
+  }
+  throw last || new Error('request failed');
+}
+async function bybit(path){
+  const res = await timedFetch(BYBIT+path);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const data = await res.json();
+  if(data.retCode !== 0) throw new Error(data.retMsg || 'Bybit error');
+  return data;
+}
+
+/* Binance kline index 9 is taker-buy base volume, which is what makes a real
+   cumulative delta possible. Bybit's kline payload has no taker split, so CVD
+   reads "n/a" on Bybit-sourced symbols rather than being faked from candle
+   direction. */
+async function binanceKlines(symbol, interval, limit=BARS){
+  const raw = await fapi(`/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+  if(!Array.isArray(raw) || !raw.length) throw new Error('no klines');
+  return raw.map(k=>({
+    time:+k[0], open:+k[1], high:+k[2], low:+k[3], close:+k[4],
+    volume:+k[5], quoteVolume:+k[7], takerBuy:+k[9]
+  }));
+}
+async function bybitKlines(symbol, interval, limit=BARS){
+  const tf = BYBIT_TF[interval];
+  const data = await bybit(`/v5/market/kline?category=linear&symbol=${symbol}&interval=${tf}&limit=${limit}`);
+  const list = data.result && data.result.list;
+  if(!list || !list.length) throw new Error('symbol not listed on Bybit');
+  return list.slice().reverse().map(k=>({
+    time:+k[0], open:+k[1], high:+k[2], low:+k[3], close:+k[4],
+    volume:+k[5], quoteVolume:+k[6], takerBuy:null
+  }));
+}
+
+/* ---------------------------------------------------------------------------
+   Indicator math. Every function takes plain arrays/candles and returns plain
+   numbers — no state, no DOM — so they can be unit-checked in isolation.
+   --------------------------------------------------------------------------- */
+const closes = c => c.map(x=>x.close);
+const highs  = c => c.map(x=>x.high);
+const lows   = c => c.map(x=>x.low);
+const last   = a => a.length ? a[a.length-1] : NaN;
+
+function smaAt(values, len, end){
+  if(end===undefined) end = values.length-1;
+  if(end-len+1 < 0) return NaN;
+  let s=0; for(let i=end-len+1;i<=end;i++) s+=values[i];
+  return s/len;
+}
+function emaSeries(values, len){
+  const out = new Array(values.length).fill(NaN);
+  if(values.length < len) return out;
+  const k = 2/(len+1);
+  let seed = 0; for(let i=0;i<len;i++) seed += values[i];
+  let prev = seed/len; out[len-1] = prev;
+  for(let i=len;i<values.length;i++){ prev = values[i]*k + prev*(1-k); out[i]=prev; }
+  return out;
+}
+function rsiSeries(values, len=14){
+  const out = new Array(values.length).fill(NaN);
+  if(values.length <= len) return out;
+  let gain=0, loss=0;
+  for(let i=1;i<=len;i++){
+    const d = values[i]-values[i-1];
+    if(d>=0) gain+=d; else loss-=d;
+  }
+  let ag=gain/len, al=loss/len;
+  out[len] = al===0 ? 100 : 100 - 100/(1+ag/al);
+  for(let i=len+1;i<values.length;i++){
+    const d = values[i]-values[i-1];
+    ag = (ag*(len-1) + (d>0?d:0))/len;
+    al = (al*(len-1) + (d<0?-d:0))/len;
+    out[i] = al===0 ? 100 : 100 - 100/(1+ag/al);
+  }
+  return out;
+}
+function macdParts(values, fast=12, slow=26, signal=9){
+  const ef = emaSeries(values, fast), es = emaSeries(values, slow);
+  const line = values.map((_,i)=> (Number.isFinite(ef[i]) && Number.isFinite(es[i])) ? ef[i]-es[i] : NaN);
+  const valid = line.filter(Number.isFinite);
+  const sig = emaSeries(valid, signal);
+  const signalLast = last(sig);
+  const lineLast = last(valid);
+  return { line: lineLast, signal: signalLast, hist: lineLast-signalLast };
+}
+function trueRanges(c){
+  const tr = [NaN];
+  for(let i=1;i<c.length;i++){
+    tr.push(Math.max(c[i].high-c[i].low, Math.abs(c[i].high-c[i-1].close), Math.abs(c[i].low-c[i-1].close)));
+  }
+  return tr;
+}
+function atrSeries(c, len=14){
+  const tr = trueRanges(c);
+  const out = new Array(c.length).fill(NaN);
+  if(c.length < len+1) return out;
+  let sum=0; for(let i=1;i<=len;i++) sum+=tr[i];
+  let prev = sum/len; out[len]=prev;
+  for(let i=len+1;i<c.length;i++){ prev = (prev*(len-1)+tr[i])/len; out[i]=prev; }
+  return out;
+}
+const atrValue = (c, len=14) => last(atrSeries(c,len).filter(Number.isFinite));
+
+function adxParts(c, len=14){
+  const n = c.length;
+  if(n < len*2+2) return { adx:NaN, plusDI:NaN, minusDI:NaN };
+  const tr=[], pdm=[], ndm=[];
+  for(let i=1;i<n;i++){
+    tr.push(Math.max(c[i].high-c[i].low, Math.abs(c[i].high-c[i-1].close), Math.abs(c[i].low-c[i-1].close)));
+    const up = c[i].high-c[i-1].high, dn = c[i-1].low-c[i].low;
+    pdm.push(up>dn && up>0 ? up : 0);
+    ndm.push(dn>up && dn>0 ? dn : 0);
+  }
+  const wilder = (arr)=>{
+    const out = new Array(arr.length).fill(NaN);
+    let s=0; for(let i=0;i<len;i++) s+=arr[i];
+    out[len-1]=s;
+    for(let i=len;i<arr.length;i++){ s = s - s/len + arr[i]; out[i]=s; }
+    return out;
+  };
+  const strS=wilder(tr), pS=wilder(pdm), nS=wilder(ndm);
+  const dx=[];
+  for(let i=len-1;i<strS.length;i++){
+    if(!strS[i]) { dx.push(NaN); continue; }
+    const p = 100*pS[i]/strS[i], m = 100*nS[i]/strS[i];
+    dx.push((p+m)===0 ? 0 : 100*Math.abs(p-m)/(p+m));
+  }
+  const clean = dx.filter(Number.isFinite);
+  let adx = NaN;
+  if(clean.length >= len){
+    let s=0; for(let i=0;i<len;i++) s+=clean[i];
+    adx = s/len;
+    for(let i=len;i<clean.length;i++) adx = (adx*(len-1)+clean[i])/len;
+  }
+  const i = strS.length-1;
+  return {
+    adx,
+    plusDI: strS[i] ? 100*pS[i]/strS[i] : NaN,
+    minusDI: strS[i] ? 100*nS[i]/strS[i] : NaN
+  };
+}
+
+function supertrend(c, len=10, mult=3){
+  const atrS = atrSeries(c, len);
+  const n = c.length;
+  let upper=NaN, lower=NaN, trend=1, line=NaN;
+  for(let i=len;i<n;i++){
+    if(!Number.isFinite(atrS[i])) continue;
+    const mid = (c[i].high+c[i].low)/2;
+    let ub = mid + mult*atrS[i], lb = mid - mult*atrS[i];
+    if(Number.isFinite(upper)) ub = (ub < upper || c[i-1].close > upper) ? ub : upper;
+    if(Number.isFinite(lower)) lb = (lb > lower || c[i-1].close < lower) ? lb : lower;
+    if(c[i].close > ub) trend = 1;
+    else if(c[i].close < lb) trend = -1;
+    upper = ub; lower = lb;
+    line = trend === 1 ? lb : ub;
+  }
+  return { value: line, dir: trend };
+}
+
+function psar(c, step=0.02, maxStep=0.2){
+  const n = c.length;
+  if(n < 5) return { value:NaN, dir:0 };
+  let bull = c[1].close > c[0].close;
+  let sar = bull ? c[0].low : c[0].high;
+  let ep  = bull ? c[1].high : c[1].low;
+  let af  = step;
+  for(let i=2;i<n;i++){
+    sar = sar + af*(ep-sar);
+    if(bull){
+      sar = Math.min(sar, c[i-1].low, c[i-2].low);
+      if(c[i].low < sar){ bull=false; sar=ep; ep=c[i].low; af=step; }
+      else if(c[i].high > ep){ ep=c[i].high; af=Math.min(af+step, maxStep); }
+    } else {
+      sar = Math.max(sar, c[i-1].high, c[i-2].high);
+      if(c[i].high > sar){ bull=true; sar=ep; ep=c[i].high; af=step; }
+      else if(c[i].low < ep){ ep=c[i].low; af=Math.min(af+step, maxStep); }
+    }
+  }
+  return { value: sar, dir: bull ? 1 : -1 };
+}
+
+function aroon(c, len=14){
+  const n = c.length;
+  if(n < len+1) return { up:NaN, down:NaN };
+  let hi=-Infinity, lo=Infinity, hiIdx=0, loIdx=0;
+  for(let i=n-len-1;i<n;i++){
+    if(c[i].high>=hi){ hi=c[i].high; hiIdx=i; }
+    if(c[i].low<=lo){ lo=c[i].low; loIdx=i; }
+  }
+  return { up: 100*(len-(n-1-hiIdx))/len, down: 100*(len-(n-1-loIdx))/len };
+}
+
+function ichimoku(c, conv=9, base=26, spanB=52){
+  const n = c.length;
+  const midAt = (len, end) => {
+    if(end-len+1 < 0) return NaN;
+    let hi=-Infinity, lo=Infinity;
+    for(let i=end-len+1;i<=end;i++){ if(c[i].high>hi) hi=c[i].high; if(c[i].low<lo) lo=c[i].low; }
+    return (hi+lo)/2;
+  };
+  const end = n-1;
+  const tenkan = midAt(conv, end);
+  const kijun  = midAt(base, end);
+  const shifted = end - base;                  // cloud printed at "now" was built `base` bars ago
+  const spanA = shifted>=0 ? (midAt(conv, shifted)+midAt(base, shifted))/2 : NaN;
+  const spanBv = shifted>=0 ? midAt(spanB, shifted) : NaN;
+  const cloudTop = Math.max(spanA, spanBv), cloudBot = Math.min(spanA, spanBv);
+  const price = c[end].close;
+  const chikou = price;                         // current close, printed `base` bars back
+  const chikouRef = (end-base)>=0 ? c[end-base].close : NaN;
+  let position = '—';
+  if(Number.isFinite(cloudTop)){
+    position = price > cloudTop ? 'Above' : price < cloudBot ? 'Below' : 'Inside';
+  }
+  return { tenkan, kijun, spanA, spanB:spanBv, chikou, chikouRef, cloudTop, cloudBot, position };
+}
+
+function stochastic(c, len=14, k=3, d=3){
+  const n=c.length;
+  if(n < len+k+d) return { k:NaN, d:NaN };
+  const raw=[];
+  for(let i=len-1;i<n;i++){
+    let hi=-Infinity, lo=Infinity;
+    for(let j=i-len+1;j<=i;j++){ if(c[j].high>hi) hi=c[j].high; if(c[j].low<lo) lo=c[j].low; }
+    raw.push(hi===lo ? 50 : 100*(c[i].close-lo)/(hi-lo));
+  }
+  const kArr=[];
+  for(let i=k-1;i<raw.length;i++) kArr.push(smaAt(raw,k,i));
+  const dArr=[];
+  for(let i=d-1;i<kArr.length;i++) dArr.push(smaAt(kArr,d,i));
+  return { k:last(kArr), d:last(dArr) };
+}
+function stochRsi(values, rsiLen=14, stochLen=14, k=3, d=3){
+  const rs = rsiSeries(values, rsiLen).filter(Number.isFinite);
+  if(rs.length < stochLen+k+d) return { k:NaN, d:NaN };
+  const raw=[];
+  for(let i=stochLen-1;i<rs.length;i++){
+    const w = rs.slice(i-stochLen+1, i+1);
+    const hi=Math.max(...w), lo=Math.min(...w);
+    raw.push(hi===lo ? 50 : 100*(rs[i]-lo)/(hi-lo));
+  }
+  const kArr=[]; for(let i=k-1;i<raw.length;i++) kArr.push(smaAt(raw,k,i));
+  const dArr=[]; for(let i=d-1;i<kArr.length;i++) dArr.push(smaAt(kArr,d,i));
+  return { k:last(kArr), d:last(dArr) };
+}
+function cci(c, len=34){
+  const n=c.length;
+  if(n<len) return NaN;
+  const tp = c.map(x=>(x.high+x.low+x.close)/3);
+  const mean = smaAt(tp, len);
+  let dev=0; for(let i=n-len;i<n;i++) dev += Math.abs(tp[i]-mean);
+  dev/=len;
+  return dev===0 ? 0 : (tp[n-1]-mean)/(0.015*dev);
+}
+function williamsR(c, len=14){
+  const n=c.length;
+  if(n<len) return NaN;
+  let hi=-Infinity, lo=Infinity;
+  for(let i=n-len;i<n;i++){ if(c[i].high>hi) hi=c[i].high; if(c[i].low<lo) lo=c[i].low; }
+  return hi===lo ? -50 : -100*(hi-c[n-1].close)/(hi-lo);
+}
+function mfi(c, len=14){
+  const n=c.length;
+  if(n<len+1) return NaN;
+  let pos=0, neg=0;
+  for(let i=n-len;i<n;i++){
+    const tp = (c[i].high+c[i].low+c[i].close)/3;
+    const prevTp = (c[i-1].high+c[i-1].low+c[i-1].close)/3;
+    const flow = tp*c[i].volume;
+    if(tp>prevTp) pos+=flow; else if(tp<prevTp) neg+=flow;
+  }
+  if(neg===0) return 100;
+  return 100 - 100/(1+pos/neg);
+}
+function roc(values, len=12){
+  const n=values.length;
+  if(n<len+1 || !values[n-1-len]) return NaN;
+  return 100*(values[n-1]-values[n-1-len])/values[n-1-len];
+}
+function bollinger(values, len=20, mult=2){
+  const n=values.length;
+  if(n<len) return { upper:NaN, mid:NaN, lower:NaN, pctB:NaN, width:NaN };
+  const mid = smaAt(values, len);
+  let v=0; for(let i=n-len;i<n;i++) v += Math.pow(values[i]-mid,2);
+  const sd = Math.sqrt(v/len);
+  const upper = mid+mult*sd, lower = mid-mult*sd;
+  const price = values[n-1];
+  return {
+    upper, mid, lower,
+    pctB: upper===lower ? 0.5 : (price-lower)/(upper-lower),
+    width: mid ? 100*(upper-lower)/mid : NaN
+  };
+}
+function keltner(c, len=20, mult=2, atrLen=14){
+  const mid = last(emaSeries(closes(c), len));
+  const a = atrValue(c, atrLen);
+  return { upper: mid+mult*a, mid, lower: mid-mult*a };
+}
+function donchian(c, len=20){
+  const n=c.length;
+  if(n<len) return { high:NaN, low:NaN };
+  let hi=-Infinity, lo=Infinity;
+  for(let i=n-len;i<n;i++){ if(c[i].high>hi) hi=c[i].high; if(c[i].low<lo) lo=c[i].low; }
+  return { high:hi, low:lo };
+}
+function historicalVol(values, len=20, periodsPerYear=365){
+  const n=values.length;
+  if(n<len+1) return NaN;
+  const r=[];
+  for(let i=n-len;i<n;i++){ if(values[i-1]>0) r.push(Math.log(values[i]/values[i-1])); }
+  if(r.length<2) return NaN;
+  const m = r.reduce((a,b)=>a+b,0)/r.length;
+  const v = r.reduce((a,b)=>a+Math.pow(b-m,2),0)/(r.length-1);
+  return Math.sqrt(v)*Math.sqrt(periodsPerYear)*100;
+}
+function obv(c){
+  let v=0;
+  for(let i=1;i<c.length;i++){
+    if(c[i].close>c[i-1].close) v+=c[i].volume;
+    else if(c[i].close<c[i-1].close) v-=c[i].volume;
+  }
+  return v;
+}
+function rollingVwap(c, len=20){
+  const n=c.length;
+  if(n<len) return NaN;
+  let pv=0, vol=0;
+  for(let i=n-len;i<n;i++){
+    const tp=(c[i].high+c[i].low+c[i].close)/3;
+    pv += tp*c[i].volume; vol += c[i].volume;
+  }
+  return vol ? pv/vol : NaN;
+}
+function cvd(c, len=100){
+  const start = Math.max(0, c.length-len);
+  let delta=0, ok=false;
+  for(let i=start;i<c.length;i++){
+    if(!Number.isFinite(c[i].takerBuy)) return null;   // Bybit klines carry no taker split
+    delta += (2*c[i].takerBuy - c[i].volume);
+    ok = true;
+  }
+  return ok ? delta : null;
+}
+function cmf(c, len=20){
+  const n=c.length;
+  if(n<len) return NaN;
+  let mfv=0, vol=0;
+  for(let i=n-len;i<n;i++){
+    const range = c[i].high-c[i].low;
+    if(range>0) mfv += (((c[i].close-c[i].low)-(c[i].high-c[i].close))/range)*c[i].volume;
+    vol += c[i].volume;
+  }
+  return vol ? mfv/vol : NaN;
+}
+function adLine(c){
+  let ad=0;
+  for(const x of c){
+    const range = x.high-x.low;
+    if(range>0) ad += (((x.close-x.low)-(x.high-x.close))/range)*x.volume;
+  }
+  return ad;
+}
+/* Volume profile: each candle's volume is spread evenly across the price bins
+   its range covers, then the value area grows outward from the POC bin until
+   it holds 70% of the traded volume — the standard VAH/VAL construction. */
+function volumeProfile(c, lookback=120, bins=60){
+  const w = c.slice(-lookback);
+  if(w.length < 10) return { poc:NaN, vah:NaN, val:NaN };
+  const hi = Math.max(...w.map(x=>x.high)), lo = Math.min(...w.map(x=>x.low));
+  if(!(hi>lo)) return { poc:NaN, vah:NaN, val:NaN };
+  const size = (hi-lo)/bins;
+  const buckets = new Array(bins).fill(0);
+  for(const x of w){
+    const a = Math.max(0, Math.min(bins-1, Math.floor((x.low-lo)/size)));
+    const b = Math.max(0, Math.min(bins-1, Math.floor((x.high-lo)/size)));
+    const span = b-a+1;
+    const share = x.volume/span;
+    for(let i=a;i<=b;i++) buckets[i]+=share;
+  }
+  const total = buckets.reduce((s,v)=>s+v,0);
+  let pocIdx=0;
+  for(let i=1;i<bins;i++) if(buckets[i]>buckets[pocIdx]) pocIdx=i;
+  let lower=pocIdx, upper=pocIdx, acc=buckets[pocIdx];
+  while(acc < total*0.7 && (lower>0 || upper<bins-1)){
+    const down = lower>0 ? buckets[lower-1] : -1;
+    const up   = upper<bins-1 ? buckets[upper+1] : -1;
+    if(up >= down){ upper++; acc += buckets[upper]; }
+    else { lower--; acc += buckets[lower]; }
+  }
+  const center = i => lo + (i+0.5)*size;
+  return { poc: center(pocIdx), vah: lo+(upper+1)*size, val: lo+lower*size };
+}
+
+/* ---- structure / ICT ---------------------------------------------------- */
+function swings(c, span=3){
+  const sh=[], sl=[];
+  for(let i=span;i<c.length-span;i++){
+    let isH=true, isL=true;
+    for(let j=i-span;j<=i+span;j++){
+      if(j===i) continue;
+      if(c[j].high>=c[i].high) isH=false;
+      if(c[j].low<=c[i].low) isL=false;
+    }
+    if(isH) sh.push({ idx:i, price:c[i].high });
+    if(isL) sl.push({ idx:i, price:c[i].low });
+  }
+  // A steep one-way trend can print no confirmed pivot on one side at all.
+  // Fall back to the extreme of the last 20 bars so levels, fibs and the
+  // structure read still resolve to something real off the chart.
+  if(!sh.length || !sl.length){
+    const from = Math.max(0, c.length-20);
+    let hi=-Infinity, lo=Infinity, hiI=from, loI=from;
+    for(let i=from;i<c.length;i++){
+      if(c[i].high>hi){ hi=c[i].high; hiI=i; }
+      if(c[i].low<lo){ lo=c[i].low; loI=i; }
+    }
+    if(!sh.length && Number.isFinite(hi)) sh.push({ idx:hiI, price:hi });
+    if(!sl.length && Number.isFinite(lo)) sl.push({ idx:loI, price:lo });
+  }
+  return { sh, sl };
+}
+function structureBias(s){
+  const { sh, sl } = s;
+  if(sh.length<2 || sl.length<2) return 'Range';
+  const h1=sh[sh.length-2].price, h2=sh[sh.length-1].price;
+  const l1=sl[sl.length-2].price, l2=sl[sl.length-1].price;
+  if(h2>h1 && l2>l1) return 'Bullish';
+  if(h2<h1 && l2<l1) return 'Bearish';
+  return 'Range';
+}
+function fvgs(c, lookback=120){
+  const start = Math.max(2, c.length-lookback);
+  const out=[];
+  for(let i=start;i<c.length;i++){
+    const a=c[i-2], b=c[i];
+    if(b.low > a.high) out.push({ type:'bull', bottom:a.high, top:b.low, idx:i });
+    else if(b.high < a.low) out.push({ type:'bear', bottom:b.high, top:a.low, idx:i });
+  }
+  // "filled" = price has traded all the way through the imbalance since it
+  // formed (bull gap closed from above, bear gap closed from below).
+  for(const g of out){
+    g.filled = false;
+    for(let k=g.idx+1;k<c.length;k++){
+      if(g.type==='bull' && c[k].low <= g.bottom){ g.filled = true; break; }
+      if(g.type==='bear' && c[k].high >= g.top){ g.filled = true; break; }
+    }
+  }
+  return out;
+}
+function pickFvg(list, type){
+  const same = list.filter(g=>g.type===type);
+  const open = same.filter(g=>!g.filled);
+  return open.length ? open[open.length-1] : (same.length ? same[same.length-1] : null);
+}
+/* Order block: the last opposite-colour candle immediately before a displacement
+   candle that closed through it. Kept as a zone (candle high/low); "tapped" once
+   price has traded back into it. */
+function orderBlocks(c, atrVal, lookback=120){
+  const start = Math.max(1, c.length-lookback);
+  let bull=null, bear=null;
+  const backFor = (i, wantBearish)=>{           // last opposite-colour candle before the push
+    for(let j=i-1;j>=Math.max(0,i-5);j--){
+      const bearish = c[j].close < c[j].open;
+      if(bearish === wantBearish) return j;
+    }
+    return -1;
+  };
+  for(let i=start;i<c.length;i++){
+    const cur=c[i];
+    const body = Math.abs(cur.close-cur.open);
+    if(!(Number.isFinite(atrVal) && atrVal>0 && body >= atrVal*0.8)) continue;
+    if(cur.close>cur.open){
+      const j = backFor(i, true);
+      if(j>=0 && cur.close > c[j].high) bull = { top:c[j].high, bottom:c[j].low, idx:j };
+    } else {
+      const j = backFor(i, false);
+      if(j>=0 && cur.close < c[j].low) bear = { top:c[j].high, bottom:c[j].low, idx:j };
+    }
+  }
+  const tag = (ob, type)=>{
+    if(!ob) return null;
+    ob.tapped = false; ob.broken = false;
+    for(let k=ob.idx+2;k<c.length;k++){
+      if(c[k].low<=ob.top && c[k].high>=ob.bottom) ob.tapped = true;
+      if(type==='bull' && c[k].close < ob.bottom) ob.broken = true;
+      if(type==='bear' && c[k].close > ob.top) ob.broken = true;
+    }
+    return ob;
+  };
+  return { bull: tag(bull,'bull'), bear: tag(bear,'bear') };
+}
+function breakerFrom(obs){
+  // A broken order block flips role: a bearish OB price closed above becomes
+  // bullish support, and vice-versa.
+  if(obs.bear && obs.bear.broken) return { dir:'Bull', top:obs.bear.top, bottom:obs.bear.bottom };
+  if(obs.bull && obs.bull.broken) return { dir:'Bear', top:obs.bull.top, bottom:obs.bull.bottom };
+  return null;
+}
+function sweeps(c, s, bars=5){
+  const n=c.length;
+  let bsl=null, ssl=null;
+  for(let i=Math.max(1,n-bars);i<n;i++){
+    const priorH = s.sh.filter(p=>p.idx < i-1);
+    const priorL = s.sl.filter(p=>p.idx < i-1);
+    if(priorH.length){
+      const lvl = priorH[priorH.length-1].price;
+      if(c[i].high>lvl && c[i].close<lvl) bsl = { level:lvl, ago:n-1-i };
+    }
+    if(priorL.length){
+      const lvl = priorL[priorL.length-1].price;
+      if(c[i].low<lvl && c[i].close>lvl) ssl = { level:lvl, ago:n-1-i };
+    }
+  }
+  return { bsl, ssl };
+}
+function structureBreaks(c, s, bias, bars=5){
+  const { sh, sl } = s;
+  if(!sh.length || !sl.length) return { bos:null, choch:null };
+  const lastH = sh[sh.length-1].price, lastL = sl[sl.length-1].price;
+  const recent = c.slice(-bars);
+  const up = recent.some(x=>x.close>lastH);
+  const dn = recent.some(x=>x.close<lastL);
+  let bos=null, choch=null;
+  if(bias==='Bullish' && up) bos = { dir:'Bull', level:lastH };
+  if(bias==='Bearish' && dn) bos = { dir:'Bear', level:lastL };
+  if(bias==='Bearish' && up) choch = { dir:'Bull', level:lastH };
+  if(bias==='Bullish' && dn) choch = { dir:'Bear', level:lastL };
+  if(!bos && bias==='Range'){
+    if(up) bos = { dir:'Bull', level:lastH };
+    else if(dn) bos = { dir:'Bear', level:lastL };
+  }
+  return { bos, choch };
+}
+function equalLevels(s, price, atrVal){
+  const tol = Number.isFinite(atrVal) && atrVal>0 ? atrVal*0.25 : price*0.0015;
+  const cluster = (pts, isHigh)=>{
+    for(let i=pts.length-1;i>0;i--){
+      for(let j=i-1;j>=0 && j>=i-4;j--){
+        if(Math.abs(pts[i].price-pts[j].price)<=tol){
+          const lvl=(pts[i].price+pts[j].price)/2;
+          if(isHigh ? price<lvl*1.01 : price>lvl*0.99) return lvl;
+        }
+      }
+    }
+    return null;
+  };
+  return { eqh: cluster(s.sh, true), eql: cluster(s.sl, false) };
+}
+function premiumDiscount(c, lookback=50){
+  const w=c.slice(-lookback);
+  const hi=Math.max(...w.map(x=>x.high)), lo=Math.min(...w.map(x=>x.low));
+  const price=c[c.length-1].close;
+  if(!(hi>lo)) return { pct:NaN, zone:'—' };
+  const pct=100*(price-lo)/(hi-lo);
+  return { pct, zone: pct>50 ? 'Premium' : 'Discount', mid:(hi+lo)/2 };
+}
+function displacement(c, atrVal, bars=3){
+  if(!Number.isFinite(atrVal) || atrVal<=0) return null;
+  let best=null;
+  for(let i=Math.max(0,c.length-bars);i<c.length;i++){
+    const body=Math.abs(c[i].close-c[i].open);
+    const ratio=body/atrVal;
+    if(ratio>=1.5 && (!best || ratio>best.ratio)){
+      best={ ratio, dir: c[i].close>c[i].open ? 'Bull':'Bear', ago:c.length-1-i };
+    }
+  }
+  return best;
+}
+function pivots(c){
+  const p = c[c.length-2];                 // last *closed* candle of this timeframe
+  if(!p) return {};
+  const P=(p.high+p.low+p.close)/3, rng=p.high-p.low;
+  return { P, R1:2*P-p.low, S1:2*P-p.high, R2:P+rng, S2:P-rng };
+}
+function fibLevels(s){
+  if(!s.sh.length || !s.sl.length) return null;
+  const h=s.sh[s.sh.length-1], l=s.sl[s.sl.length-1];
+  const hi=h.price, lo=l.price;
+  if(!(hi>lo)) return null;
+  const up = l.idx < h.idx;                // up-leg retraces down from the high
+  const range = hi-lo;
+  const at = r => up ? hi - r*range : lo + r*range;
+  return { dir: up?'up':'down', f382:at(0.382), f5:at(0.5), f618:at(0.618), hi, lo };
+}
+function nearestLevels(s, price){
+  const below = s.sl.map(x=>x.price).concat(s.sh.map(x=>x.price)).filter(p=>p<price);
+  const above = s.sh.map(x=>x.price).concat(s.sl.map(x=>x.price)).filter(p=>p>price);
+  return {
+    support: below.length ? Math.max(...below) : NaN,
+    resistance: above.length ? Math.min(...above) : NaN
+  };
+}
+
+/* ---------------------------------------------------------------------------
+   Formatting
+   --------------------------------------------------------------------------- */
+let PDEC = 2;
+function decimalsFor(p){
+  p = Math.abs(p);
+  if(!Number.isFinite(p) || p===0) return 2;
+  if(p>=1000) return 2;
+  if(p>=100) return 3;
+  if(p>=1) return 4;
+  if(p>=0.1) return 5;
+  if(p>=0.01) return 6;
+  if(p>=0.001) return 7;
+  return 8;
+}
+const px  = v => Number.isFinite(v) ? v.toFixed(PDEC) : '—';
+const num = (v,d=2) => Number.isFinite(v) ? v.toFixed(d) : '—';
+const pct = (v,d=2) => Number.isFinite(v) ? (v>=0?'+':'')+v.toFixed(d)+'%' : '—';
+const pctPlain = (v,d=2) => Number.isFinite(v) ? v.toFixed(d)+'%' : '—';
+function compact(v, d=2){
+  if(!Number.isFinite(v)) return '—';
+  const sign = v<0 ? '-' : '';
+  const a = Math.abs(v);
+  if(a>=1e12) return sign+(a/1e12).toFixed(d)+'T';
+  if(a>=1e9)  return sign+(a/1e9).toFixed(d)+'B';
+  if(a>=1e6)  return sign+(a/1e6).toFixed(d)+'M';
+  if(a>=1e3)  return sign+(a/1e3).toFixed(d)+'K';
+  return sign+a.toFixed(d);
+}
+const range = (lo,hi) => (Number.isFinite(lo)&&Number.isFinite(hi)) ? `${px(lo)} – ${px(hi)}` : '—';
+const dist = (level, price) => { if(!Number.isFinite(level) || !price) return null; const d=(level-price)/price*100; return (d>=0?'+':'')+d.toFixed(2)+'%'; };
+
+/* ---------------------------------------------------------------------------
+   Group taxonomy. Keys map 1:1 to the value map built by computeValues().
+   --------------------------------------------------------------------------- */
+const GROUPS = [
+  { key:'ict', name:'ICT / Smart Money', icon:'🧠', color:'#FF5470', members:[
+    ['fvgBull','Fair Value Gap (Bullish)'],['fvgBear','Fair Value Gap (Bearish)'],
+    ['obBull','Order Block (Bullish)'],['obBear','Order Block (Bearish)'],
+    ['breaker','Breaker Block'],
+    ['sweepBsl','Liquidity Sweep (BSL)'],['sweepSsl','Liquidity Sweep (SSL)'],
+    ['bos','Break of Structure'],['choch','Change of Character'],
+    ['eqh','Equal Highs'],['eql','Equal Lows'],
+    ['pdZone','Premium / Discount Zone'],['displacement','Displacement']
+  ]},
+  { key:'trend', name:'Trend', icon:'📈', color:'var(--accent)', members:[
+    ['ema20','EMA 20'],['ema50','EMA 50'],['ema100','EMA 100'],['ema200','EMA 200'],
+    ['sma50','SMA 50'],['sma200','SMA 200'],
+    ['macdLine','MACD Line'],['macdSignal','MACD Signal'],['macdHist','MACD Histogram'],
+    ['adx','ADX (14)'],['plusDI','+DI'],['minusDI','-DI'],
+    ['supertrend','Supertrend'],['psar','Parabolic SAR'],
+    ['aroonUp','Aroon Up'],['aroonDown','Aroon Down']
+  ]},
+  { key:'momentum', name:'Momentum', icon:'⚡', color:'var(--gold)', members:[
+    ['rsi','RSI (14)'],['srsiK','Stoch RSI %K'],['srsiD','Stoch RSI %D'],
+    ['stochK','Stochastic %K'],['stochD','Stochastic %D'],
+    ['cci','CCI (34)'],['willr','Williams %R'],['mfi','MFI (14)'],['roc','ROC (12)']
+  ]},
+  { key:'volatility', name:'Volatility', icon:'🌊', color:'var(--violet)', members:[
+    ['atr','ATR (14)'],['atrPct','ATR %'],
+    ['bbUpper','Bollinger Upper'],['bbMid','Bollinger Mid'],['bbLower','Bollinger Lower'],
+    ['bbPctB','BB %B'],['bbWidth','BB Bandwidth'],
+    ['kcUpper','Keltner Upper'],['kcLower','Keltner Lower'],
+    ['dcHigh','Donchian High'],['dcLow','Donchian Low'],
+    ['hv','Historical Volatility']
+  ]},
+  { key:'ichimoku', name:'Ichimoku Cloud', icon:'☁️', color:'var(--blue)', members:[
+    ['tenkan','Tenkan-sen'],['kijun','Kijun-sen'],['spanA','Senkou Span A'],['spanB','Senkou Span B'],
+    ['chikou','Chikou Span'],['cloudPos','Cloud Position'],['cloudTop','Cloud Top'],['cloudBot','Cloud Bottom']
+  ]},
+  { key:'volume', name:'Volume', icon:'📊', color:'var(--orange)', members:[
+    ['vol24h','24h Volume'],['volMa','Volume MA (20)'],['volRatio','Volume Ratio'],
+    ['obv','OBV'],['vwap','VWAP'],['cvd','CVD'],
+    ['poc','Volume Profile POC'],['vah','Value Area High'],['val','Value Area Low'],
+    ['cmf','Chaikin Money Flow'],['adl','A/D Line']
+  ]},
+  { key:'structure', name:'Market Structure', icon:'🏗️', color:'#5B8CFF', members:[
+    ['bias','Structure Trend'],['swingHigh','Last Swing High'],['swingLow','Last Swing Low'],
+    ['support','Nearest Support'],['resistance','Nearest Resistance'],
+    ['pivP','Pivot (P)'],['pivR1','Pivot R1'],['pivR2','Pivot R2'],['pivS1','Pivot S1'],['pivS2','Pivot S2'],
+    ['fib382','Fib 0.382'],['fib5','Fib 0.5'],['fib618','Fib 0.618']
+  ]},
+  { key:'derivatives', name:'Derivatives', icon:'💹', color:'#F0C24B', members:[
+    ['funding','Funding Rate'],['oi','Open Interest'],['oiChange','OI Change (24h)'],
+    ['lsRatio','Long/Short Ratio'],['basis','Basis (Perp − Spot)']
+  ]}
+];
+
+/* ---------------------------------------------------------------------------
+   Value assembly — one flat { key: {v, cls, sub} } map for the renderer.
+   cls: 'pos' | 'neg' | 'warn' | '' (neutral)
+   sub: tiny trailing chip (distance, state, bar age) — never a sentence.
+   --------------------------------------------------------------------------- */
+function computeValues(candles, tf, ticker, derivs){
+  const out = {};
+  const set = (k,v,cls,sub)=>{ out[k] = { v: v===null||v===undefined ? '—' : v, cls: cls||'', sub: sub||null }; };
+  const cl = closes(candles);
+  const price = cl[cl.length-1];
+  PDEC = decimalsFor(price);
+  const side = lvl => Number.isFinite(lvl) ? (price>lvl ? 'pos' : 'neg') : '';
+  const vsPrice = lvl => Number.isFinite(lvl) ? (price>lvl ? 'above' : 'below') : null;
+
+  /* ---- Trend ---- */
+  const emaLen = [20,50,100,200];
+  emaLen.forEach(len=>{
+    const v = last(emaSeries(cl, len).filter(Number.isFinite));
+    set('ema'+len, px(v), side(v), vsPrice(v));
+  });
+  [50,200].forEach(len=>{
+    const v = smaAt(cl, len);
+    set('sma'+len, px(v), side(v), vsPrice(v));
+  });
+  const m = macdParts(cl);
+  set('macdLine', num(m.line, PDEC), m.line>0?'pos':'neg');
+  set('macdSignal', num(m.signal, PDEC), m.signal>0?'pos':'neg');
+  set('macdHist', num(m.hist, PDEC), m.hist>0?'pos':'neg', m.hist>0?'expanding up':'expanding down');
+  const dmi = adxParts(candles);
+  set('adx', num(dmi.adx,1), dmi.adx>=25?'pos':dmi.adx<20?'neg':'warn', dmi.adx>=25?'trending':dmi.adx<20?'weak':'building');
+  set('plusDI', num(dmi.plusDI,1), dmi.plusDI>dmi.minusDI?'pos':'');
+  set('minusDI', num(dmi.minusDI,1), dmi.minusDI>dmi.plusDI?'neg':'');
+  const st = supertrend(candles);
+  set('supertrend', px(st.value), st.dir===1?'pos':'neg', st.dir===1?'long':'short');
+  const sar = psar(candles);
+  set('psar', px(sar.value), sar.dir===1?'pos':'neg', sar.dir===1?'below price':'above price');
+  const ar = aroon(candles);
+  set('aroonUp', num(ar.up,0), ar.up>=70?'pos':'');
+  set('aroonDown', num(ar.down,0), ar.down>=70?'neg':'');
+
+  /* ---- Ichimoku ---- */
+  const ich = ichimoku(candles);
+  set('tenkan', px(ich.tenkan), side(ich.tenkan));
+  set('kijun', px(ich.kijun), side(ich.kijun));
+  set('spanA', px(ich.spanA), ich.spanA>ich.spanB?'pos':'neg');
+  set('spanB', px(ich.spanB), ich.spanA>ich.spanB?'neg':'pos');
+  set('chikou', px(ich.chikou), ich.chikou>ich.chikouRef?'pos':'neg', ich.chikou>ich.chikouRef?'above price 26 back':'below price 26 back');
+  set('cloudPos', ich.position, ich.position==='Above'?'pos':ich.position==='Below'?'neg':'warn');
+  set('cloudTop', px(ich.cloudTop), side(ich.cloudTop), dist(ich.cloudTop, price));
+  set('cloudBot', px(ich.cloudBot), side(ich.cloudBot), dist(ich.cloudBot, price));
+
+  /* ---- Momentum ---- */
+  const rsiV = last(rsiSeries(cl,14).filter(Number.isFinite));
+  set('rsi', num(rsiV,1), rsiV>=70?'neg':rsiV<=30?'pos':rsiV>50?'pos':'', rsiV>=70?'overbought':rsiV<=30?'oversold':null);
+  const sr = stochRsi(cl);
+  set('srsiK', num(sr.k,1), sr.k>=80?'neg':sr.k<=20?'pos':'');
+  set('srsiD', num(sr.d,1), sr.d>=80?'neg':sr.d<=20?'pos':'');
+  const so = stochastic(candles);
+  set('stochK', num(so.k,1), so.k>=80?'neg':so.k<=20?'pos':'');
+  set('stochD', num(so.d,1), so.d>=80?'neg':so.d<=20?'pos':'');
+  const cciV = cci(candles);
+  set('cci', num(cciV,1), cciV>=100?'pos':cciV<=-100?'neg':'', cciV>=100?'overbought':cciV<=-100?'oversold':null);
+  const wr = williamsR(candles);
+  set('willr', num(wr,1), wr>=-20?'neg':wr<=-80?'pos':'', wr>=-20?'overbought':wr<=-80?'oversold':null);
+  const mfiV = mfi(candles);
+  set('mfi', num(mfiV,1), mfiV>=80?'neg':mfiV<=20?'pos':'');
+  const rocV = roc(cl);
+  set('roc', pct(rocV), rocV>0?'pos':'neg');
+
+  /* ---- Volatility ---- */
+  const atrV = atrValue(candles,14);
+  set('atr', px(atrV));
+  const atrPct = price ? atrV/price*100 : NaN;
+  set('atrPct', pctPlain(atrPct), atrPct>=8?'warn':'');
+  const bb = bollinger(cl);
+  set('bbUpper', px(bb.upper), side(bb.upper));
+  set('bbMid', px(bb.mid), side(bb.mid));
+  set('bbLower', px(bb.lower), side(bb.lower));
+  set('bbPctB', num(bb.pctB,2), bb.pctB>1?'neg':bb.pctB<0?'pos':'', bb.pctB>1?'above band':bb.pctB<0?'below band':null);
+  set('bbWidth', pctPlain(bb.width), bb.width<5?'warn':'', bb.width<5?'squeeze':null);
+  const kc = keltner(candles);
+  set('kcUpper', px(kc.upper), side(kc.upper));
+  set('kcLower', px(kc.lower), side(kc.lower));
+  const dc = donchian(candles);
+  set('dcHigh', px(dc.high), '', dist(dc.high, price));
+  set('dcLow', px(dc.low), '', dist(dc.low, price));
+  set('hv', pctPlain(historicalVol(cl, 20, PERIODS_PER_YEAR[tf]||365),1), '', 'annualised');
+
+  /* ---- Volume ---- */
+  set('vol24h', ticker && Number.isFinite(ticker.quoteVolume) ? '$'+compact(ticker.quoteVolume) : '—');
+  const volMa = smaAt(candles.map(c=>c.volume), 20);
+  set('volMa', compact(volMa));
+  const lastVol = candles[candles.length-1].volume;
+  const vr = volMa ? lastVol/volMa : NaN;
+  set('volRatio', Number.isFinite(vr) ? num(vr,2)+'×' : '—', vr>=1.5?'pos':vr<0.7?'neg':'');
+  const obvV = obv(candles);
+  set('obv', compact(obvV), obvV>0?'pos':'neg');
+  const vwapV = rollingVwap(candles,20);
+  set('vwap', px(vwapV), side(vwapV), vsPrice(vwapV));
+  const cvdV = cvd(candles);
+  set('cvd', cvdV===null ? 'n/a' : compact(cvdV), cvdV===null?'':(cvdV>0?'pos':'neg'), cvdV===null?'no taker data':'100-bar');
+  const vp = volumeProfile(candles);
+  set('poc', px(vp.poc), side(vp.poc), dist(vp.poc, price));
+  set('vah', px(vp.vah), side(vp.vah));
+  set('val', px(vp.val), side(vp.val));
+  const cmfV = cmf(candles);
+  set('cmf', num(cmfV,3), cmfV>0.05?'pos':cmfV<-0.05?'neg':'');
+  const adlV = adLine(candles);
+  set('adl', compact(adlV), adlV>0?'pos':'neg');
+
+  /* ---- ICT / Smart Money ---- */
+  const sw = swings(candles,3);
+  const gaps = fvgs(candles);
+  const fBull = pickFvg(gaps,'bull'), fBear = pickFvg(gaps,'bear');
+  set('fvgBull', fBull ? range(fBull.bottom, fBull.top) : 'None',
+      fBull ? (fBull.filled?'':'pos') : '', fBull ? (fBull.filled?'mitigated':'unfilled') : null);
+  set('fvgBear', fBear ? range(fBear.bottom, fBear.top) : 'None',
+      fBear ? (fBear.filled?'':'neg') : '', fBear ? (fBear.filled?'mitigated':'unfilled') : null);
+  const obs = orderBlocks(candles, atrV);
+  set('obBull', obs.bull ? range(obs.bull.bottom, obs.bull.top) : 'None',
+      obs.bull ? (obs.bull.broken?'':'pos') : '', obs.bull ? (obs.bull.broken?'broken':obs.bull.tapped?'tapped':'fresh') : null);
+  set('obBear', obs.bear ? range(obs.bear.bottom, obs.bear.top) : 'None',
+      obs.bear ? (obs.bear.broken?'':'neg') : '', obs.bear ? (obs.bear.broken?'broken':obs.bear.tapped?'tapped':'fresh') : null);
+  const br = breakerFrom(obs);
+  set('breaker', br ? range(br.bottom, br.top) : 'None', br ? (br.dir==='Bull'?'pos':'neg') : '', br ? br.dir.toLowerCase() : null);
+  const sp = sweeps(candles, sw);
+  set('sweepBsl', sp.bsl ? px(sp.bsl.level) : 'None', sp.bsl?'neg':'', sp.bsl ? (sp.bsl.ago===0?'this bar':sp.bsl.ago+' bars ago') : null);
+  set('sweepSsl', sp.ssl ? px(sp.ssl.level) : 'None', sp.ssl?'pos':'', sp.ssl ? (sp.ssl.ago===0?'this bar':sp.ssl.ago+' bars ago') : null);
+  const bias = structureBias(sw);
+  const brk = structureBreaks(candles, sw, bias);
+  set('bos', brk.bos ? px(brk.bos.level) : 'None', brk.bos ? (brk.bos.dir==='Bull'?'pos':'neg') : '', brk.bos ? brk.bos.dir.toLowerCase() : null);
+  set('choch', brk.choch ? px(brk.choch.level) : 'None', brk.choch ? (brk.choch.dir==='Bull'?'pos':'neg') : '', brk.choch ? brk.choch.dir.toLowerCase() : null);
+  const eq = equalLevels(sw, price, atrV);
+  set('eqh', eq.eqh ? px(eq.eqh) : 'None', eq.eqh?'warn':'', eq.eqh ? dist(eq.eqh, price) : null);
+  set('eql', eq.eql ? px(eq.eql) : 'None', eq.eql?'warn':'', eq.eql ? dist(eq.eql, price) : null);
+  const pd = premiumDiscount(candles);
+  set('pdZone', Number.isFinite(pd.pct) ? pd.zone+' '+pd.pct.toFixed(0)+'%' : '—', pd.zone==='Discount'?'pos':pd.zone==='Premium'?'neg':'');
+  const disp = displacement(candles, atrV);
+  set('displacement', disp ? num(disp.ratio,2)+'× ATR' : 'None', disp ? (disp.dir==='Bull'?'pos':'neg') : '',
+      disp ? (disp.ago===0?'this bar':disp.ago+' bars ago') : null);
+
+  /* ---- Market structure ---- */
+  set('bias', bias, bias==='Bullish'?'pos':bias==='Bearish'?'neg':'warn');
+  const lastSh = sw.sh.length ? sw.sh[sw.sh.length-1].price : NaN;
+  const lastSl = sw.sl.length ? sw.sl[sw.sl.length-1].price : NaN;
+  set('swingHigh', px(lastSh), '', dist(lastSh, price));
+  set('swingLow', px(lastSl), '', dist(lastSl, price));
+  const nl = nearestLevels(sw, price);
+  const sup = Number.isFinite(nl.support) ? nl.support : dc.low;        // Donchian edge when no pivot sits below
+  const res = Number.isFinite(nl.resistance) ? nl.resistance : dc.high; // ditto above
+  set('support', px(sup), 'pos', dist(sup, price));
+  set('resistance', px(res), 'neg', dist(res, price));
+  const pv = pivots(candles);
+  set('pivP', px(pv.P), side(pv.P));
+  set('pivR1', px(pv.R1)); set('pivR2', px(pv.R2));
+  set('pivS1', px(pv.S1)); set('pivS2', px(pv.S2));
+  const fib = fibLevels(sw);
+  set('fib382', fib ? px(fib.f382) : '—', fib?side(fib.f382):'');
+  set('fib5',   fib ? px(fib.f5)   : '—', fib?side(fib.f5):'');
+  set('fib618', fib ? px(fib.f618) : '—', fib?side(fib.f618):'');
+
+  /* ---- Derivatives ---- */
+  const d = derivs || {};
+  set('funding', Number.isFinite(d.funding) ? pct(d.funding*100,4) : '—',
+      d.funding>0?'neg':d.funding<0?'pos':'', d.fundingIn || null);
+  set('oi', Number.isFinite(d.oi) ? '$'+compact(d.oi*price) : '—', '', Number.isFinite(d.oi) ? compact(d.oi)+' contracts' : null);
+  set('oiChange', Number.isFinite(d.oiChange) ? pct(d.oiChange) : '—', d.oiChange>0?'pos':d.oiChange<0?'neg':'');
+  set('lsRatio', Number.isFinite(d.lsRatio) ? num(d.lsRatio,2) : '—', d.lsRatio>1?'pos':d.lsRatio<1?'neg':'');
+  set('basis', Number.isFinite(d.basis) ? pct(d.basis,3) : '—', d.basis>0?'pos':d.basis<0?'neg':'');
+
+  return out;
+}
+
+/* ---------------------------------------------------------------------------
+   Derivatives fetch — best-effort per field, so one dead endpoint can't blank
+   the whole panel. Binance and Bybit expose the same five numbers in
+   different shapes.
+   --------------------------------------------------------------------------- */
+async function fetchDerivatives(symbol, source){
+  const out = {};
+  const settle = async (fn)=>{ try{ await fn(); }catch(e){ /* leave field blank */ } };
+  if(source === 'Binance'){
+    await Promise.all([
+      settle(async()=>{
+        const d = await fapi(`/fapi/v1/premiumIndex?symbol=${symbol}`);
+        out.funding = parseFloat(d.lastFundingRate);
+        const mins = Math.round((Number(d.nextFundingTime)-Date.now())/60000);
+        if(mins>0) out.fundingIn = 'in '+(mins>=60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m');
+      }),
+      settle(async()=>{
+        const d = await fapi(`/fapi/v1/openInterest?symbol=${symbol}`);
+        out.oi = parseFloat(d.openInterest);
+      }),
+      settle(async()=>{
+        const d = await fapi(`/futures/data/openInterestHist?symbol=${symbol}&period=4h&limit=7`);
+        if(Array.isArray(d) && d.length>1){
+          const a=parseFloat(d[0].sumOpenInterest), b=parseFloat(d[d.length-1].sumOpenInterest);
+          if(a>0) out.oiChange = (b-a)/a*100;
+        }
+      }),
+      settle(async()=>{
+        const d = await fapi(`/futures/data/globalLongShortAccountRatio?symbol=${symbol}&period=4h&limit=1`);
+        if(Array.isArray(d) && d.length) out.lsRatio = parseFloat(d[0].longShortRatio);
+      }),
+      settle(async()=>{
+        const [perp, sp] = await Promise.all([
+          fapi(`/fapi/v1/ticker/price?symbol=${symbol}`),
+          spot(`/api/v3/ticker/price?symbol=${symbol}`)
+        ]);
+        const p = parseFloat(perp.price), s = parseFloat(sp.price);
+        if(p>0 && s>0) out.basis = (p-s)/s*100;
+      })
+    ]);
+    return out;
+  }
+  await Promise.all([
+    settle(async()=>{
+      const d = await bybit(`/v5/market/tickers?category=linear&symbol=${symbol}`);
+      const t = d.result.list[0];
+      out.funding = parseFloat(t.fundingRate);
+      out.oi = parseFloat(t.openInterest);
+      const mins = Math.round((Number(t.nextFundingTime)-Date.now())/60000);
+      if(mins>0) out.fundingIn = 'in '+(mins>=60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m');
+    }),
+    settle(async()=>{
+      const d = await bybit(`/v5/market/open-interest?category=linear&symbol=${symbol}&intervalTime=4h&limit=7`);
+      const list = d.result.list || [];
+      if(list.length>1){
+        const newest = parseFloat(list[0].openInterest);
+        const oldest = parseFloat(list[list.length-1].openInterest);
+        if(oldest>0) out.oiChange = (newest-oldest)/oldest*100;
+      }
+    }),
+    settle(async()=>{
+      const d = await bybit(`/v5/market/account-ratio?category=linear&symbol=${symbol}&period=4h&limit=1`);
+      const r = (d.result.list||[])[0];
+      if(r){
+        const buy = parseFloat(r.buyRatio), sell = parseFloat(r.sellRatio);
+        if(sell>0) out.lsRatio = buy/sell;
+      }
+    }),
+    settle(async()=>{
+      const [lin, sp] = await Promise.all([
+        bybit(`/v5/market/tickers?category=linear&symbol=${symbol}`),
+        bybit(`/v5/market/tickers?category=spot&symbol=${symbol}`)
+      ]);
+      const p = parseFloat(lin.result.list[0].lastPrice);
+      const s = parseFloat(sp.result.list[0].lastPrice);
+      if(p>0 && s>0) out.basis = (p-s)/s*100;
+    })
+  ]);
+  return out;
+}
+
+/* ---------------------------------------------------------------------------
+   Controller
+   --------------------------------------------------------------------------- */
+let currentSymbol = null;
+let currentTf = '1d';
+let currentSource = null;
+let latestValues = null;
+let loadToken = 0;
+
+function normalizeSymbol(raw){
+  let s = (raw||'').trim().toUpperCase().replace(/\s+/g,'');
+  if(!s) return '';
+  s = s.replace(/\.P$/,'');
+  if(!s.endsWith('USDT')) s += 'USDT';
+  return s;
+}
+const tfLabel = tf => tf==='4h' ? '4 Hour' : tf==='1w' ? 'Weekly' : 'Daily';
+
+function el(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+// Which groups are collapsed, by index into GROUPS. Persists across refreshes
+// and timeframe switches (re-renders reuse it) so the user's layout choice
+// sticks until they explicitly toggle a section or Expand/Collapse All.
+let collapsedGroups = new Set();
+
+function renderGroups(values){
+  const grid = el('taGroupsGrid');
+  grid.innerHTML = GROUPS.map((g,idx)=>{
+    const collapsed = collapsedGroups.has(idx);
+    return `
+    <div class="analysis-group-card${collapsed ? ' collapsed' : ''}" style="--grp-color:${g.color}" data-idx="${idx}">
+      <div class="analysis-group-head">
+        <div class="analysis-group-icon">${g.icon}</div>
+        <div class="analysis-group-title">${g.name}</div>
+        <div class="analysis-group-count">${g.members.length}</div>
+        <button type="button" class="analysis-group-chevron" aria-label="Toggle ${esc(g.name)} section" aria-expanded="${collapsed ? 'false' : 'true'}">⌄</button>
+      </div>
+      <div class="analysis-group-body">
+      ${g.members.map(([key,label])=>{
+        const d = values ? values[key] : null;
+        const v = d ? d.v : '—';
+        const cls = d && d.cls ? ' val-'+d.cls : (values ? '' : ' val-load');
+        const sub = d && d.sub ? `<span class="analysis-row-sub">${esc(d.sub)}</span>` : '';
+        return `<div class="analysis-row">
+          <span class="analysis-row-label">${label}</span>
+          <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-value${cls}">${esc(v)}</span></span>
+        </div>`;
+      }).join('')}
+      </div>
+    </div>
+  `}).join('');
+  updateToggleAllBtn();
+}
+
+function toggleGroup(idx){
+  if(collapsedGroups.has(idx)) collapsedGroups.delete(idx);
+  else collapsedGroups.add(idx);
+  const card = grid_card(idx);
+  if(card){
+    const collapsed = collapsedGroups.has(idx);
+    card.classList.toggle('collapsed', collapsed);
+    const chev = card.querySelector('.analysis-group-chevron');
+    if(chev) chev.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
+  updateToggleAllBtn();
+}
+function grid_card(idx){ return document.querySelector(`.analysis-group-card[data-idx="${idx}"]`); }
+
+function toggleAllGroups(){
+  const collapseAll = collapsedGroups.size < GROUPS.length;
+  collapsedGroups = new Set(collapseAll ? GROUPS.map((_,i)=>i) : []);
+  document.querySelectorAll('#taGroupsGrid .analysis-group-card').forEach(card=>{
+    card.classList.toggle('collapsed', collapseAll);
+    const chev = card.querySelector('.analysis-group-chevron');
+    if(chev) chev.setAttribute('aria-expanded', collapseAll ? 'false' : 'true');
+  });
+  updateToggleAllBtn();
+}
+function updateToggleAllBtn(){
+  const btn = el('taToggleAllBtn');
+  if(!btn) return;
+  const allCollapsed = GROUPS.length > 0 && collapsedGroups.size >= GROUPS.length;
+  btn.classList.toggle('all-collapsed', allCollapsed);
+  const label = allCollapsed ? 'Expand all sections' : 'Collapse all sections';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+}
+
+function setStatus(text, state){
+  el('taStatusText').textContent = text;
+  const row = el('taStatusRow');
+  row.classList.remove('is-loading','is-ok','is-error');
+  if(state) row.classList.add('is-'+state);
+}
+
+async function load(symbol, tf){
+  const token = ++loadToken;
+  currentSymbol = symbol; currentTf = tf;
+  const base = symbol.replace(/USDT$/,'');
+  el('taSymbolIcon').textContent = base.slice(0,4);
+  el('taSymbolText').innerHTML = `${esc(base)}<span class="quote">/USDT</span>`;
+  el('taPrice').textContent = '…';
+  el('taChange').textContent = '';
+  el('taChange').className = 'analysis-change';
+  el('taSource').textContent = 'resolving…';
+  setStatus(`Loading ${symbol} · ${tfLabel(tf)}…`, 'loading');
+  renderGroups(null);
+  latestValues = null;
+
+  let candles = null, ticker = null, source = null, binanceErr = null;
+  try{
+    const [k, t] = await Promise.all([
+      binanceKlines(symbol, tf),
+      fapi(`/fapi/v1/ticker/24hr?symbol=${symbol}`).catch(()=>null)
+    ]);
+    candles = k;
+    ticker = t ? { quoteVolume:parseFloat(t.quoteVolume), lastPrice:parseFloat(t.lastPrice), changePct:parseFloat(t.priceChangePercent) } : null;
+    source = 'Binance';
+  }catch(e){
+    binanceErr = e;
+  }
+  if(!candles){
+    // Not on Binance USDT-M — try the Bybit USDT linear book, same fallback
+    // order the Cloud Breakout search uses.
+    try{
+      const [k, t] = await Promise.all([
+        bybitKlines(symbol, tf),
+        bybit(`/v5/market/tickers?category=linear&symbol=${symbol}`).catch(()=>null)
+      ]);
+      candles = k;
+      const row = t && t.result && t.result.list && t.result.list[0];
+      ticker = row ? { quoteVolume:parseFloat(row.turnover24h), lastPrice:parseFloat(row.lastPrice), changePct:parseFloat(row.price24hPcnt)*100 } : null;
+      source = 'Bybit';
+    }catch(bybitErr){
+      if(token !== loadToken) return;
+      setStatus(`${symbol} isn't listed on Binance USDT-M or Bybit USDT perps. Check the ticker and search again.`, 'error');
+      el('taSource').textContent = 'not found';
+      el('taPrice').textContent = '—';
+      renderGroups(null);
+      return;
+    }
+  }
+  if(token !== loadToken) return;
+  if(candles.length < 60){
+    setStatus(`${symbol} has only ${candles.length} ${tfLabel(tf).toLowerCase()} candles — long-period values will read "—".`, 'error');
+  }
+  currentSource = source;
+  el('taSource').textContent = source==='Bybit' ? 'Bybit USDT Perp' : 'Binance USDT-M Perp';
+  el('taSource').className = 'analysis-source ' + (source==='Bybit' ? 'src-bybit' : 'src-binance');
+
+  const price = ticker && Number.isFinite(ticker.lastPrice) ? ticker.lastPrice : candles[candles.length-1].close;
+  PDEC = decimalsFor(price);
+  el('taPrice').textContent = px(price);
+  if(ticker && Number.isFinite(ticker.changePct)){
+    const ch = el('taChange');
+    ch.textContent = pct(ticker.changePct);
+    ch.className = 'analysis-change ' + (ticker.changePct>=0 ? 'up':'down');
+  }
+
+  const derivs = await fetchDerivatives(symbol, source).catch(()=>({}));
+  if(token !== loadToken) return;
+
+  latestValues = computeValues(candles, tf, ticker, derivs);
+  renderGroups(latestValues);
+  const lastBar = new Date(candles[candles.length-1].time);
+  setStatus(`${symbol} · ${tfLabel(tf)} · ${candles.length} candles · last bar ${lastBar.toLocaleString()} · ${source}`, 'ok');
+}
+
+function open(){
+  const input = el('taCoinSearchInput');
+  const symbol = normalizeSymbol(input.value);
+  if(!symbol){ input.focus(); return; }
+  openFor(symbol);
+}
+/* Entry point for anything outside the lookup box — the 🔎 button on each scan
+   result row hands the symbol straight in, no typing. */
+function openSymbol(raw, tf){
+  const symbol = normalizeSymbol(raw);
+  if(!symbol) return;
+  const input = el('taCoinSearchInput');
+  if(input) input.value = symbol.replace(/USDT$/,'');
+  openFor(symbol, tf);
+}
+/* tfWanted is optional. The Cloud Breakout analysis window passes the
+   timeframe its row was screened on so the breakdown matches what's on
+   screen; without it a fresh coin still opens on the daily. */
+function openFor(symbol, tfWanted){
+  if(tfWanted && BYBIT_TF[tfWanted]){
+    currentTf = tfWanted;
+    document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===currentTf));
+  } else if(symbol !== currentSymbol){  // a fresh coin always opens on the daily
+    currentTf = '1d';
+    document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf==='1d'));
+  }
+  el('analysisOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  load(symbol, currentTf);
+}
+function close(){
+  loadToken++;
+  el('analysisOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function setTf(tf){
+  if(tf === currentTf && latestValues) return;
+  currentTf = tf;
+  document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===tf));
+  if(currentSymbol) load(currentSymbol, tf);
+}
+function refresh(){ if(currentSymbol) load(currentSymbol, currentTf); }
+
+/* Copy every rendered value as plain text — useful for pasting a snapshot into
+   notes or a journal without re-typing 80 numbers. */
+function copyValues(){
+  if(!latestValues) return;
+  const lines = [`${currentSymbol} · ${tfLabel(currentTf)} · ${currentSource}`];
+  for(const g of GROUPS){
+    lines.push('', g.name.toUpperCase());
+    for(const [key,label] of g.members){
+      const d = latestValues[key];
+      lines.push(`${label}: ${d ? d.v : '—'}${d && d.sub ? ' ('+d.sub+')' : ''}`);
+    }
+  }
+  const text = lines.join('\n');
+  const btn = el('taCopyBtn');
+  const done = ()=>{ btn.textContent = '✓'; setTimeout(()=>{ btn.textContent = '⧉'; }, 1200); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>{});
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){}
+    document.body.removeChild(ta);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const input = el('taCoinSearchInput');
+  if(input){
+    input.addEventListener('input', e=>{
+      const pos = e.target.selectionStart;
+      e.target.value = e.target.value.toUpperCase();
+      e.target.setSelectionRange(pos,pos);
+    });
+    input.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){ e.preventDefault(); open(); }
+    });
+  }
+  el('taTfToggle').addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-tf]');
+    if(btn) setTf(btn.dataset.tf);
+  });
+  el('taGroupsGrid').addEventListener('click', e=>{
+    const head = e.target.closest('.analysis-group-head');
+    if(!head) return;
+    const card = head.closest('.analysis-group-card');
+    if(!card) return;
+    toggleGroup(parseInt(card.dataset.idx, 10));
+  });
+  el('analysisOverlay').addEventListener('click', e=>{
+    if(e.target.id==='analysisOverlay') close();
+  });
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Escape' && el('analysisOverlay').classList.contains('open')) close();
+  });
+});
+
+window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, toggleAll: toggleAllGroups, GROUPS, _compute: computeValues };
+})();
 </script>
 
 </body>
