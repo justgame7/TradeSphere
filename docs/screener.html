@@ -6362,7 +6362,7 @@ let latestIct = null;        // raw ICT objects (with bar idx) for the chart ove
 let ictOverlayEnabled = false; // "Chart" checkbox in the ICT section header — "show everything" mode
 let ictMemberOverlay = new Set(); // individually-checked ICT member keys — used whenever the header checkbox is off
 const BAR_COUNTS = [45,90,180]; // Chart section's selectable window sizes
-let chartBarCount = 90; // currently selected window size
+let chartBarCount = 45; // currently selected window size
 // True when a given ICT member (by its GROUPS key, e.g. 'fvgBull') should be drawn on the
 // Chart: either the header "show all" checkbox is on, or that member was checked by hand.
 function ictShown(key){ return ictOverlayEnabled || ictMemberOverlay.has(key); }
