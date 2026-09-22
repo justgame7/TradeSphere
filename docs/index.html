@@ -402,26 +402,25 @@
     display:flex;align-items:stretch;gap:8px;
   }
   .ticker-row{
-    display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;
-    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+    display:flex;gap:7px;overflow:hidden;
     flex:1;min-width:0;padding:2px 3px 4px;
   }
   .ticker-row::-webkit-scrollbar{display:none;}
   .ticker-card{
-    flex:0 0 auto;display:flex;align-items:center;gap:8px;
-    min-width:150px;padding:9px 13px;border-radius:14px;
+    flex:1 1 0;min-width:0;display:flex;align-items:center;gap:7px;
+    padding:8px 11px;border-radius:14px;
     background:var(--panel);border:1px solid var(--border-soft);
     cursor:pointer;transition:border-color .15s ease,transform .1s ease;
   }
   .ticker-card:active{transform:scale(.96);}
   .ticker-card.up{border-color:rgba(53,224,192,.28);}
   .ticker-card.down{border-color:rgba(255,84,112,.28);}
-  .ticker-card-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px;}
-  .ticker-sym{font:700 11.5px var(--font-ui);color:var(--text);letter-spacing:.01em;}
-  .ticker-price{font:600 12px var(--font-mono);color:var(--text);transition:color .3s ease;white-space:nowrap;}
+  .ticker-card-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px;overflow:hidden;}
+  .ticker-sym{font:700 11px var(--font-ui);color:var(--text);letter-spacing:.01em;}
+  .ticker-price{font:600 11.5px var(--font-mono);color:var(--text);transition:color .3s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .ticker-price.flash-up{color:var(--accent);}
   .ticker-price.flash-down{color:var(--red);}
-  .ticker-chg{font:700 12px var(--font-mono);white-space:nowrap;}
+  .ticker-chg{font:700 11.5px var(--font-mono);white-space:nowrap;flex-shrink:0;}
   .ticker-chg.up{color:var(--accent);}
   .ticker-chg.down{color:var(--red);}
   .ticker-card.skeleton .ticker-price,

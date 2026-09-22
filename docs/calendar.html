@@ -412,7 +412,7 @@
    (America/New_York) unless noted, converted to the user's local
    time for display.
    ============================================================ */
-const VERIFIED_THROUGH = "2026-09-05";
+const VERIFIED_THROUGH = "2026-09-22";
 
 const EVENTS = [
   {
@@ -432,7 +432,7 @@ const EVENTS = [
     impact: "high",
     verified: true,
     date: "2026-09-15T14:15:00-04:00",
-    desc: "Procedural cloture vote on the motion to proceed to the Digital Asset Market Clarity Act (H.R. 3633), the U.S. crypto market-structure bill — this is a procedural step, not final passage, and needs 60 votes to succeed. Analyst odds of passage this year have fallen sharply (Galaxy Research cut its estimate from ~50% to ~30% in early September) given the shrinking pre-midterm legislative calendar and unresolved ethics/stablecoin provisions.",
+    desc: "Outcome: cloture FAILED, 49–50 (short of the 60 needed), largely over ethics-disclosure language for officials' crypto holdings rather than the underlying SEC/CFTC market-structure framework. Sen. Thom Tillis filed a motion to reconsider, but the bill is effectively stalled for 2026 — the SEC has since opened its own \"Regulation Crypto Assets\" rulemaking (see below) as a regulatory fallback.",
     source: { name: "CoinDesk / Congress.gov tracker", url: "https://www.coindesk.com/policy/2026/08/08/u-s-senate-opens-first-stage-of-crypto-clarity-act-voting-to-give-bill-a-chance-next-month" }
   },
   {
@@ -442,7 +442,7 @@ const EVENTS = [
     impact: "high",
     verified: true,
     date: "2026-09-16T14:00:00-04:00",
-    desc: "Two-day meeting concluding Sep 16 with the rate decision at 2:00pm ET and press conference ~30 min later. This meeting includes the quarterly Summary of Economic Projections (\"dot plot\"). Current target range: 3.50%–3.75%.",
+    desc: "Outcome: the FOMC voted 12-0 to raise the federal funds rate 25bps to a target range of 3.75%–4.00% — the first hike since 2023 and the first meeting chaired by Kevin Warsh, who cited inflation \"too high for too long.\" The updated dot plot shows most officials expecting another hike by year-end. This was the quarterly Summary of Economic Projections (\"dot plot\") meeting.",
     source: { name: "Federal Reserve meeting calendar", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" }
   },
   {
@@ -494,7 +494,7 @@ const EVENTS = [
     impact: "high",
     verified: true,
     date: "2026-10-28T14:00:00-04:00",
-    desc: "Two-day meeting concluding Oct 28. No Summary of Economic Projections at this meeting (SEP only occurs in Mar/Jun/Sep/Dec).",
+    desc: "Two-day meeting concluding Oct 28, the first since the September meeting's surprise 25bp hike to 3.75%–4.00% under new Chair Kevin Warsh. No Summary of Economic Projections at this meeting (SEP only occurs in Mar/Jun/Sep/Dec).",
     source: { name: "Federal Reserve meeting calendar", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" }
   },
   {
@@ -546,8 +546,39 @@ const EVENTS = [
     verified: false,
     date: "2026-12-15T12:00:00-05:00",
     tentative: true,
-    desc: "Ethereum's next major hard fork (enshrined proposer-builder separation + block-level access lists). Originally targeted for H1 2026, developers pushed it to Q4 2026 in mid-August; no mainnet block/date is locked yet — placeholder date shown is illustrative only. Watch ethereum.org/roadmap for the confirmed fork date.",
+    desc: "Ethereum's next major hard fork (enshrined proposer-builder separation + block-level access lists). A public Sepolia testnet fork is tentatively scheduled for Oct 6, 2026 (see the network entry below) as the key gating step; developers still hope for mainnet before year-end but the roadmap has already slipped from an earlier H1 2026 target and Devnet-9 has hit finality issues, so no mainnet block/date is locked yet — placeholder date shown is illustrative only. Watch ethereum.org/roadmap for the confirmed fork date.",
     source: { name: "Ethereum Foundation roadmap", url: "https://ethereum.org/roadmap/glamsterdam/" }
+  },
+  {
+    id: "glamsterdam-sepolia",
+    title: "Ethereum Glamsterdam — Sepolia public testnet fork",
+    category: "network",
+    impact: "low",
+    verified: false,
+    tentative: true,
+    date: "2026-10-06T13:53:00+00:00",
+    desc: "Tentatively-scheduled first public-testnet rehearsal (Holesky/Hoodi to follow) for the Glamsterdam upgrade — the gating step before any mainnet date can be set. Developers agreed to this date despite the upgrade not yet running successfully on a stable private devnet (Devnet-9 has had finality issues), so a slip is plausible. A clean run here is what would let a December 2026 mainnet target stay alive.",
+    source: { name: "Ethereum core devs / Christine Kim newsletter", url: "https://bitcoinethereumnews.com/ethereum/ethereum-targets-october-6-for-glamsterdam-sepolia-fork/" }
+  },
+  {
+    id: "sec-reg-crypto-assets-comments",
+    title: "SEC \"Regulation Crypto Assets\" — public comment period closes",
+    category: "regulatory",
+    impact: "medium",
+    verified: true,
+    date: "2026-10-20T23:59:00-04:00",
+    desc: "The SEC's own rulemaking framework for digital-asset offerings, publicly positioned by its Chairman as the agency's fallback (\"deliver for investors and innovators with or without the legislation\") after the CLARITY Act's cloture vote failed on Sep 15. This is the deadline for public comments before the SEC can move toward a final rule — likely to carry the bulk of US crypto rulemaking into 2027 given Congress's stalled market-structure bill.",
+    source: { name: "SEC rulemaking docket", url: "https://www.sec.gov/rules-regulations/rulemaking-activity" }
+  },
+  {
+    id: "gov-funding-deadline-dec",
+    title: "US government funding deadline (shutdown risk)",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-12-11T00:00:00-05:00",
+    desc: "The stopgap continuing resolution Trump signed Sep 2, 2026 (avoiding an Oct 1 lapse) funds the government only through this date. Congress must pass FY2027 appropriations or another CR by Dec 11 or risk a repeat of the record 43-day shutdown that ran Oct 1–Nov 12, 2025, which delayed several BLS/Census data releases and dented Q4 GDP. The Dec 11 date was deliberately set after the Nov 3 midterms to keep a shutdown fight off the campaign trail — worth watching alongside the year's last FOMC meeting and CPI print, both landing the same week.",
+    source: { name: "Congress.gov / continuing resolution coverage", url: "https://govtschemes.org/government-shutdown-2026-update/" }
   },
   {
     id: "fomc-dec",
@@ -723,14 +754,13 @@ const EVENTS = [
   },
   {
     id: "opec-plus-review",
-    title: "OPEC+ eight-country output review meeting",
+    title: "OPEC+ output review meeting",
     category: "commodities",
     impact: "medium",
-    verified: false,
-    tentative: true,
-    date: "2026-11-01T09:00:00-04:00",
-    desc: "The eight-country OPEC+ subgroup has been meeting on a roughly monthly cadence (confirmed dates so far: Jan 4 and Jun 7, 2026) to review production levels. No exact November date is locked yet — placeholder based on the observed cadence. Oil-price swings feed through to risk sentiment and inflation expectations.",
-    source: { name: "OPEC official statements", url: "https://www.opec.org/" }
+    verified: true,
+    date: "2026-10-04T09:00:00-04:00",
+    desc: "Now a seven-country subgroup (Saudi Arabia, Russia, Iraq, Kuwait, Kazakhstan, Algeria, Oman — the UAE has dropped out of this voluntary-adjustment track) meeting monthly to review production levels; this date was explicitly confirmed in OPEC's own Sep 6, 2026 statement as \"the next meeting.\" The following review would fall in early November but isn't confirmed yet. Oil-price swings feed through to risk sentiment and inflation expectations.",
+    source: { name: "OPEC official statements", url: "https://opec.org/pr-detail/613-6-september-2026.html" }
   },
   {
     id: "nfp-oct",
