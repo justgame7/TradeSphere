@@ -800,6 +800,8 @@
     box-shadow:none;transition:color .15s,border-color .15s;
   }
   .analysis-icon-btn:hover{color:var(--accent);border-color:var(--accent-dim);}
+  .analysis-icon-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .analysis-icon-btn:disabled:hover{color:var(--muted);border-color:var(--border);}
 
   .analysis-status-row.is-loading .dot{background:var(--amber);animation:taPulse 1s ease-in-out infinite;}
   .analysis-status-row.is-ok .dot{background:var(--accent);animation:none;}
@@ -1276,7 +1278,10 @@
           <button type="button" data-tf="1d" class="active">1D</button>
           <button type="button" data-tf="1w">1W</button>
         </div>
-        <button type="button" class="analysis-icon-btn" id="taCopyBtn" title="Copy all values" aria-label="Copy all values" onclick="TechAnalysis.copyValues()">⧉</button>
+        <!-- "Copy all values" is hidden, not removed — the button and copyValues()
+             below are left fully intact so this can be switched back on later. -->
+        <button type="button" class="analysis-icon-btn" id="taCopyBtn" title="Copy all values" aria-label="Copy all values" onclick="TechAnalysis.copyValues()" style="display:none;">⧉</button>
+        <button type="button" class="analysis-icon-btn" id="taClearChecksBtn" title="Clear all checkboxes" aria-label="Clear all checkboxes" disabled onclick="TechAnalysis.clearAllChecks()"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="3"></rect><path d="M5.5 5.5l5 5M10.5 5.5l-5 5"></path></svg></button>
         <button type="button" class="analysis-icon-btn analysis-toggle-all" id="taToggleAllBtn" title="Collapse all sections" aria-label="Collapse all sections" onclick="TechAnalysis.toggleAll()"><span class="taa-chevron">⌄</span></button>
         <button type="button" class="analysis-icon-btn" id="taRefreshBtn" title="Reload values" aria-label="Reload values" onclick="TechAnalysis.refresh()">↻</button>
         <button type="button" class="analysis-close" id="taCloseBtn" aria-label="Close" onclick="TechAnalysis.close()">✕</button>
@@ -3674,8 +3679,15 @@ let trendOverlayEnabled = false; // "Chart" checkbox in the Trend header — sho
 // their own scale and can't be meaningfully overlaid — same convention as
 // the Trend section above.
 const VOLATILITY_CHARTABLE = new Set(['bbUpper','bbMid','bbLower','kcUpper','kcLower','dcHigh','dcLow']);
+// Bollinger Upper/Mid/Lower is the one band set traders reliably want
+// auto-added, so the header "Chart" checkbox sweeps in just those three.
+// Keltner Upper/Lower and Donchian High/Low overlap Bollinger visually and
+// clutter the chart fast, so they're left for manual, deliberate checking —
+// still individually chartable, just only ever get checked by hand, never
+// swept in by "select all".
+const VOLATILITY_MASTER_EXCLUDE = new Set(['kcUpper','kcLower','dcHigh','dcLow']);
 let volatilityMemberOverlay = new Set(); // individually-checked Volatility member keys shown on the Chart
-let volatilityOverlayEnabled = false; // "Chart" checkbox in the Volatility header — shows every *chartable* Volatility member
+let volatilityOverlayEnabled = false; // "Chart" checkbox in the Volatility header — shows only Bollinger Upper/Mid/Lower, see VOLATILITY_MASTER_EXCLUDE
 // Momentum indicators are all bounded/unbounded oscillators (RSI, Stoch,
 // CCI, Williams %R, MFI, ROC) — none of them share the price chart's $
 // scale, so the Momentum section has no Chart checkboxes at all (header or
@@ -3697,13 +3709,16 @@ let ichimokuOverlayEnabled = false; // "Chart" checkbox in the Ichimoku header �
 // so that one stays disabled/greyed like the non-chartable Trend/Volatility
 // members above.
 const STRUCTURE_CHARTABLE = new Set(['swingHigh','swingLow','support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382','fib5','fib618']);
-// Pivot R1/R2/S1/S2 and Fib 0.382 clutter the chart fast (5 extra lines) and
-// are the ones traders least often want all-at-once, so the header "Chart"
-// checkbox deliberately skips them — they stay individually chartable, just
-// only ever get checked by hand, never swept in by "select all".
-const STRUCTURE_MASTER_EXCLUDE = new Set(['pivR1','pivR2','pivS1','pivS2','fib382']);
+// Swing High/Low and the two most-watched fib retracement levels (0.5,
+// 0.618) are the only Market Structure levels traders reliably want
+// auto-added, so the header "Chart" checkbox sweeps in just those four.
+// Support/Resistance, the Pivot Points and Fib 0.382 clutter the chart fast
+// and are left for manual, deliberate checking — they stay individually
+// chartable, just only ever get checked by hand, never swept in by "select
+// all".
+const STRUCTURE_MASTER_EXCLUDE = new Set(['support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382']);
 let structureMemberOverlay = new Set(); // individually-checked Market Structure member keys shown on the Chart
-let structureOverlayEnabled = false; // "Chart" checkbox in the Market Structure header — shows every chartable level except STRUCTURE_MASTER_EXCLUDE
+let structureOverlayEnabled = false; // "Chart" checkbox in the Market Structure header — shows only Swing High/Low + Fib 0.5/0.618, see STRUCTURE_MASTER_EXCLUDE
 // Volume members that resolve to an actual price level: VWAP and the Volume
 // Profile's POC/Value Area High/Value Area Low all sit on the $ scale, so
 // they can be drawn as horizontal lines same as Market Structure's Support/
@@ -3716,15 +3731,19 @@ let volumeOverlayEnabled = false; // "Chart" checkbox in the Volume header — s
 // True when a given ICT/Trend/Volatility/Ichimoku/Structure/Volume member (by its
 // GROUPS key, e.g. 'fvgBull' or 'ema20') should be drawn on the Chart:
 // either that section's header "show all" checkbox is on, or the member
-// was checked by hand. Market Structure is the one exception: for the five
-// keys in STRUCTURE_MASTER_EXCLUDE the header checkbox is ignored entirely
-// — those only ever show when checked individually.
+// was checked by hand. Trend, Volatility and Market Structure are the
+// exceptions: for the keys in their *_MASTER_EXCLUDE set the header
+// checkbox is ignored entirely — those only ever show when checked
+// individually.
 function ictShown(key){ return ictOverlayEnabled || ictMemberOverlay.has(key); }
 function trendShown(key){
   if(TREND_MASTER_EXCLUDE.has(key)) return trendMemberOverlay.has(key);
   return trendOverlayEnabled || trendMemberOverlay.has(key);
 }
-function volatilityShown(key){ return volatilityOverlayEnabled || volatilityMemberOverlay.has(key); }
+function volatilityShown(key){
+  if(VOLATILITY_MASTER_EXCLUDE.has(key)) return volatilityMemberOverlay.has(key);
+  return volatilityOverlayEnabled || volatilityMemberOverlay.has(key);
+}
 function ichimokuShown(key){ return ichimokuOverlayEnabled || ichimokuMemberOverlay.has(key); }
 function structureShown(key){
   if(STRUCTURE_MASTER_EXCLUDE.has(key)) return structureMemberOverlay.has(key);
@@ -3920,13 +3939,13 @@ function renderGroups(values){
         ${g.key==='trend' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Trend indicator on the Chart" onclick="event.stopPropagation()">
           <input type="checkbox" class="taTrendChartToggle" ${trendOverlayEnabled ? 'checked' : ''}>
         </label>` : ''}
-        ${g.key==='volatility' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Volatility indicator on the Chart" onclick="event.stopPropagation()">
+        ${g.key==='volatility' ? `<label class="analysis-ict-chart-toggle" title="Overlay Bollinger Upper/Mid/Lower on the Chart" onclick="event.stopPropagation()">
           <input type="checkbox" class="taVolatilityChartToggle" ${volatilityOverlayEnabled ? 'checked' : ''}>
         </label>` : ''}
         ${g.key==='ichimoku' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Ichimoku line on the Chart" onclick="event.stopPropagation()">
           <input type="checkbox" class="taIchimokuChartToggle" ${ichimokuOverlayEnabled ? 'checked' : ''}>
         </label>` : ''}
-        ${g.key==='structure' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Market Structure level on the Chart" onclick="event.stopPropagation()">
+        ${g.key==='structure' ? `<label class="analysis-ict-chart-toggle" title="Overlay Swing High/Low and Fib 0.5/0.618 on the Chart" onclick="event.stopPropagation()">
           <input type="checkbox" class="taStructureChartToggle" ${structureOverlayEnabled ? 'checked' : ''}>
         </label>` : ''}
         ${g.key==='volume' ? `<label class="analysis-ict-chart-toggle" title="Overlay VWAP and the Volume Profile's POC/Value Area on the Chart" onclick="event.stopPropagation()">
@@ -3941,6 +3960,7 @@ function renderGroups(values){
     </div>
   `}).join('');
   updateToggleAllBtn();
+  updateClearChecksBtn();
   // Re-render rebuilds the whole grid (fresh <canvas>), so if the chart
   // section was already open — e.g. the symbol or timeframe just changed
   // while it was expanded — redraw it against the new candles.
@@ -3995,7 +4015,10 @@ function toggleTrendOverlay(checked){
 }
 function toggleVolatilityOverlay(checked){
   volatilityOverlayEnabled = checked;
-  volatilityMemberOverlay = new Set();
+  // Wipe only the header-controlled members — anything from
+  // VOLATILITY_MASTER_EXCLUDE that was checked by hand stays checked, since
+  // the header never governed it in the first place.
+  volatilityMemberOverlay = new Set([...volatilityMemberOverlay].filter(k => VOLATILITY_MASTER_EXCLUDE.has(k)));
   const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
   if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
   renderGroups(latestValues);
@@ -4055,12 +4078,18 @@ function toggleTrendMember(key, checked){
   renderGroups(latestValues);
 }
 
-// Volatility member checkbox clicked. Same pattern as Trend above.
+// Volatility member checkbox clicked. Same pattern as Trend above: the four
+// keys in VOLATILITY_MASTER_EXCLUDE (Keltner Upper/Lower, Donchian
+// High/Low) are never part of the header's "select all" and so never
+// trigger or get pulled in by the re-seed — clicking one of those just
+// adds/removes that single key.
 function toggleVolatilityMember(key, checked){
   if(!VOLATILITY_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
-  if(volatilityOverlayEnabled){
+  if(volatilityOverlayEnabled && !VOLATILITY_MASTER_EXCLUDE.has(key)){
     volatilityOverlayEnabled = false;
-    volatilityMemberOverlay = new Set(VOLATILITY_CHARTABLE);
+    const keptExcluded = [...volatilityMemberOverlay].filter(k => VOLATILITY_MASTER_EXCLUDE.has(k));
+    const headerKeys = [...VOLATILITY_CHARTABLE].filter(k => !VOLATILITY_MASTER_EXCLUDE.has(k));
+    volatilityMemberOverlay = new Set([...headerKeys, ...keptExcluded]);
   }
   if(checked) volatilityMemberOverlay.add(key);
   else volatilityMemberOverlay.delete(key);
@@ -4084,10 +4113,11 @@ function toggleIchimokuMember(key, checked){
 }
 
 // Market Structure member checkbox clicked. Same pattern as Trend/Volatility/
-// Ichimoku above, with one difference: the five keys in
-// STRUCTURE_MASTER_EXCLUDE (Pivot R1/R2/S1/S2, Fib 0.382) are never part of
-// the header's "select all" and so never trigger or get pulled in by the
-// re-seed — clicking one of those just adds/removes that single key.
+// Ichimoku above, with one difference: the eight keys in
+// STRUCTURE_MASTER_EXCLUDE (Support, Resistance, Pivot P/R1/R2/S1/S2, Fib
+// 0.382) are never part of the header's "select all" and so never trigger
+// or get pulled in by the re-seed — clicking one of those just adds/removes
+// that single key.
 function toggleStructureMember(key, checked){
   if(!STRUCTURE_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
   if(structureOverlayEnabled && !STRUCTURE_MASTER_EXCLUDE.has(key)){
@@ -4590,6 +4620,42 @@ function updateToggleAllBtn(){
   btn.setAttribute('aria-label', label);
 }
 
+// True if any Chart-overlay checkbox is checked — header "select all" toggle
+// or an individually-checked member — across ICT, Trend, Volatility,
+// Ichimoku, Market Structure or Volume. Relative Strength is deliberately
+// left out: its own "Chart" checkboxes (taRsChartToggle/taRseChartToggle)
+// just show/hide a ratio-chart iframe inside that section and never touch
+// the price chart, so they're not part of what "clear all checkboxes" means.
+function anyOverlayChecked(){
+  return ictOverlayEnabled || ictMemberOverlay.size>0 ||
+    trendOverlayEnabled || trendMemberOverlay.size>0 ||
+    volatilityOverlayEnabled || volatilityMemberOverlay.size>0 ||
+    ichimokuOverlayEnabled || ichimokuMemberOverlay.size>0 ||
+    structureOverlayEnabled || structureMemberOverlay.size>0 ||
+    volumeOverlayEnabled || volumeMemberOverlay.size>0;
+}
+// Enables/disables the "Clear all checkboxes" header button to match current
+// checkbox state — called after every render, since any checkbox change goes
+// through renderGroups().
+function updateClearChecksBtn(){
+  const btn = el('taClearChecksBtn');
+  if(!btn) return;
+  btn.disabled = !anyOverlayChecked();
+}
+// Clears every Chart-overlay checkbox in one go — both header "select all"
+// toggles and individually-checked members — across ICT, Trend, Volatility,
+// Ichimoku, Market Structure and Volume. See anyOverlayChecked() above for
+// why Relative Strength is left untouched.
+function clearAllChecks(){
+  ictOverlayEnabled = false; ictMemberOverlay = new Set();
+  trendOverlayEnabled = false; trendMemberOverlay = new Set();
+  volatilityOverlayEnabled = false; volatilityMemberOverlay = new Set();
+  ichimokuOverlayEnabled = false; ichimokuMemberOverlay = new Set();
+  structureOverlayEnabled = false; structureMemberOverlay = new Set();
+  volumeOverlayEnabled = false; volumeMemberOverlay = new Set();
+  renderGroups(latestValues);
+}
+
 function setStatus(text, state){
   el('taStatusText').textContent = text;
   const row = el('taStatusRow');
@@ -4833,7 +4899,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, toggleAll: toggleAllGroups, GROUPS, _compute: computeValues };
+window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, clearAllChecks, toggleAll: toggleAllGroups, GROUPS, _compute: computeValues };
 })();
 </script>
 
