@@ -767,6 +767,15 @@
   .analysis-chart-wrap canvas{width:100%;height:100%;display:block;}
   .analysis-chart-empty{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;color:var(--faint);font:600 12px var(--font-mono);pointer-events:none;text-align:center;}
   @media(max-width:700px){.analysis-chart-wrap{height:190px;}}
+  /* ---- Relative Strength (vs BTC / vs ETH): optional TradingView ratio chart ---- */
+  .analysis-ratio-chart-wrap{margin-top:10px;height:260px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+  .analysis-ratio-chart-wrap.hidden{display:none;}
+  .analysis-ratio-chart-frame{width:100%;height:100%;border:0;display:block;}
+  @media(max-width:700px){.analysis-ratio-chart-wrap{height:200px;}}
+  /* ---- Relative Strength card: BTC / ETH subsections sharing one card ---- */
+  .analysis-subgroup+.analysis-subgroup{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);}
+  .analysis-subgroup-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
+  .analysis-subgroup-title{font:700 11px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.05em;}
   @media(max-width:520px){
     .analysis-shell{padding:14px 12px;}
     .analysis-topbar{padding:12px;}
@@ -2898,6 +2907,29 @@ function swings(c, span=3){
   }
   return { sh, sl };
 }
+// A confirmed fractal pivot only prints once `span` bars have formed on both
+// sides of it, so a strong one-way move can leave the last confirmed swing
+// high/low pointing at a stale pivot price has since broken through — the
+// Market Structure card's "Last Swing High/Low" and anything derived from
+// them (Fib retracement, the chart's SH/SL lines) would otherwise keep
+// showing an invalidated level. These extend the last confirmed pivot
+// forward to the actual highest high / lowest low printed since it, so the
+// displayed level always reflects the current range instead. Used only for
+// display/Fib purposes — the raw fractal `sw` (unconfirmed extension left
+// out) still feeds BOS/CHoCH, liquidity sweeps and equal-highs/lows, which
+// need genuinely confirmed pivots to mean anything structurally.
+function extendSwingHigh(c, sh){
+  if(!sh) return sh;
+  let best = sh;
+  for(let i=sh.idx+1;i<c.length;i++){ if(c[i].high>best.price) best = { idx:i, price:c[i].high }; }
+  return best;
+}
+function extendSwingLow(c, sl){
+  if(!sl) return sl;
+  let best = sl;
+  for(let i=sl.idx+1;i<c.length;i++){ if(c[i].low<best.price) best = { idx:i, price:c[i].low }; }
+  return best;
+}
 function structureBias(s){
   const { sh, sl } = s;
   if(sh.length<2 || sl.length<2) return 'Range';
@@ -3075,6 +3107,122 @@ function nearestLevels(s, price){
 }
 
 /* ---------------------------------------------------------------------------
+   Relative Strength vs BTC — Pearson correlation and regression beta over two
+   equal-length period-return arrays. Used by the Relative Strength section
+   below; kept generic (plain arrays in, plain number out) like every other
+   indicator function here.
+   --------------------------------------------------------------------------- */
+function pearsonCorr(a, b){
+  const n = Math.min(a.length, b.length);
+  if(n < 2) return NaN;
+  let sa=0, sb=0;
+  for(let i=0;i<n;i++){ sa+=a[i]; sb+=b[i]; }
+  const ma = sa/n, mb = sb/n;
+  let cov=0, va=0, vb=0;
+  for(let i=0;i<n;i++){ const da=a[i]-ma, db=b[i]-mb; cov+=da*db; va+=da*da; vb+=db*db; }
+  if(va===0 || vb===0) return NaN;
+  return cov/Math.sqrt(va*vb);
+}
+function betaOf(assetRet, benchRet){
+  const n = Math.min(assetRet.length, benchRet.length);
+  if(n < 2) return NaN;
+  let sa=0, sb=0;
+  for(let i=0;i<n;i++){ sa+=assetRet[i]; sb+=benchRet[i]; }
+  const ma = sa/n, mb = sb/n;
+  let cov=0, vb=0;
+  for(let i=0;i<n;i++){ const da=assetRet[i]-ma, db=benchRet[i]-mb; cov+=da*db; vb+=db*db; }
+  if(vb===0) return NaN;
+  return cov/vb;
+}
+
+/* ---------------------------------------------------------------------------
+   Relative Strength vs a benchmark — generic engine shared by the "vs BTC"
+   and "vs ETH" sections below (computeValues calls this twice, once per
+   benchmark). Everything here is derived from two paired close-price series
+   (this coin's candles + the benchmark's, same timeframe, tail-aligned to
+   whichever is shorter) — no extra indicator API, same philosophy as every
+   other section. RS Bias is the headline read: an EMA9/EMA21 cross of the
+   coin/benchmark *ratio* itself, so it answers "is this coin structurally
+   gaining or losing ground on the benchmark" rather than reacting to one
+   bar's noise. The rest break that down: the raw ratio and its own 12-bar
+   ROC, an RSI momentum comparison, two excess-return ("alpha") windows, and
+   a correlation/beta pair for how tightly this coin's moves are coupled to
+   the benchmark's right now.
+   `keyPrefix` namespaces the output keys ('rs' -> rsBias.. for BTC, 'rse'
+   -> rseBias.. for ETH). A hidden `<prefix>RatioRaw` key (not listed in any
+   GROUPS members array, so it never renders as a row) carries the raw
+   numeric ratio through to the ratio-chart checkbox, which needs it to pick
+   a 0-10 scaling multiplier for the TradingView symbol formula.
+   --------------------------------------------------------------------------- */
+function computeRelStrength(set, cl, rsiV, benchCandles, benchSymbol, benchLabel, keyPrefix){
+  const RS_KEYS = [keyPrefix+'Bias', keyPrefix+'Ratio', keyPrefix+'RatioRoc', keyPrefix+'RsiDelta', keyPrefix+'Perf7', keyPrefix+'Perf30', keyPrefix+'Corr30', keyPrefix+'Beta30'];
+  if(benchCandles && benchCandles.length > 20){
+    const benchCl = closes(benchCandles);
+    const n = Math.min(cl.length, benchCl.length);
+    const coinTail = cl.slice(cl.length-n);
+    const benchTail = benchCl.slice(benchCl.length-n);
+    const ratio = coinTail.map((v,i)=> benchTail[i] ? v/benchTail[i] : NaN);
+    const ratioNow = last(ratio.filter(Number.isFinite));
+
+    const ratioRoc = (n>12 && Number.isFinite(ratio[n-1]) && Number.isFinite(ratio[n-13]) && ratio[n-13]!==0)
+      ? (ratio[n-1]/ratio[n-13]-1)*100 : NaN;
+
+    const benchRsiV = last(rsiSeries(benchTail,14).filter(Number.isFinite));
+    const rsiDelta = (Number.isFinite(rsiV) && Number.isFinite(benchRsiV)) ? rsiV-benchRsiV : NaN;
+
+    const perfVsBench = bars => {
+      if(n <= bars) return NaN;
+      const coinRet = coinTail[n-1]/coinTail[n-1-bars]-1;
+      const benchRet = benchTail[n-1]/benchTail[n-1-bars]-1;
+      return (coinRet-benchRet)*100;
+    };
+    const alpha7 = perfVsBench(7);
+    const alpha30 = perfVsBench(30);
+
+    // Bar-over-bar period returns for the correlation/beta pair, last 30.
+    const retsCoin = [], retsBench = [];
+    for(let i=1;i<n;i++){
+      if(coinTail[i-1] && benchTail[i-1]){
+        retsCoin.push(coinTail[i]/coinTail[i-1]-1);
+        retsBench.push(benchTail[i]/benchTail[i-1]-1);
+      }
+    }
+    const rc = retsCoin.slice(-30), rb = retsBench.slice(-30);
+    const corr30 = pearsonCorr(rc, rb);
+    const beta30 = betaOf(rc, rb);
+
+    const ratioEmaFast = last(emaSeries(ratio, 9).filter(Number.isFinite));
+    const ratioEmaSlow = last(emaSeries(ratio, 21).filter(Number.isFinite));
+    const isBenchItself = currentSymbol === benchSymbol;
+    const rsBiasVal = isBenchItself ? null
+      : (Number.isFinite(ratioEmaFast) && Number.isFinite(ratioEmaSlow))
+        ? (ratioEmaFast > ratioEmaSlow ? 'Outperforming' : 'Underperforming')
+        : null;
+
+    set(keyPrefix+'Bias', isBenchItself ? `This is ${benchLabel}` : (rsBiasVal || '—'),
+        rsBiasVal==='Outperforming'?'pos':rsBiasVal==='Underperforming'?'neg':'',
+        isBenchItself ? 'benchmark — nothing to compare' : (rsBiasVal ? (rsBiasVal==='Outperforming' ? 'ratio EMA9 > EMA21' : 'ratio EMA9 < EMA21') : null));
+    set(keyPrefix+'Ratio', Number.isFinite(ratioNow) ? ratioNow.toFixed(decimalsFor(ratioNow)) : '—', '',
+        Number.isFinite(ratioNow) ? `coin priced in ${benchLabel}` : null);
+    set(keyPrefix+'RatioRaw', Number.isFinite(ratioNow) ? ratioNow : null); // hidden — used by the ratio-chart toggle only
+    set(keyPrefix+'RatioRoc', pct(ratioRoc), ratioRoc>0?'pos':ratioRoc<0?'neg':'');
+    set(keyPrefix+'RsiDelta', Number.isFinite(rsiDelta) ? (rsiDelta>=0?'+':'')+rsiDelta.toFixed(1) : '—',
+        rsiDelta>0?'pos':rsiDelta<0?'neg':'',
+        Number.isFinite(rsiDelta) ? `coin RSI ${num(rsiV,1)} vs ${benchLabel} RSI ${num(benchRsiV,1)}` : null);
+    set(keyPrefix+'Perf7', pct(alpha7), alpha7>0?'pos':alpha7<0?'neg':'');
+    set(keyPrefix+'Perf30', pct(alpha30), alpha30>0?'pos':alpha30<0?'neg':'');
+    set(keyPrefix+'Corr30', Number.isFinite(corr30) ? num(corr30,2) : '—',
+        corr30>=0.7?'warn':(corr30<=0.3&&corr30>-1)?'pos':'',
+        Number.isFinite(corr30) ? (corr30>=0.7?`tightly coupled to ${benchLabel}`:corr30<=0.3?'trading independently':null) : null);
+    set(keyPrefix+'Beta30', Number.isFinite(beta30) ? num(beta30,2)+'×' : '—',
+        beta30>1.2?'warn':'',
+        Number.isFinite(beta30) ? (beta30>1?`amplifies ${benchLabel}'s moves`:`dampens ${benchLabel}'s moves`) : null);
+  } else {
+    RS_KEYS.forEach(k=>set(k, null));
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Formatting
    --------------------------------------------------------------------------- */
 let PDEC = 2;
@@ -3163,6 +3311,28 @@ const GROUPS = [
   { key:'derivatives', name:'Derivatives', icon:'💹', color:'#F0C24B', members:[
     ['funding','Funding Rate'],['oi','Open Interest'],['oiChange','OI Change (24h)'],
     ['lsRatio','Long/Short Ratio'],['basis','Basis (Perp − Spot)']
+  ]},
+  { key:'relStrength', name:'Relative Strength', icon:'⚖️', color:'#4ADE80', members:[], subs:[
+    { key:'btc', label:'BTC', benchSymbol:'BTCUSDT', members:[
+      ['rsBias','RS Bias'],
+      ['rsRatio','Coin/BTC Ratio'],
+      ['rsRatioRoc','Ratio ROC (12)'],
+      ['rsRsiDelta','RSI Delta (vs BTC)'],
+      ['rsPerf7','Perf vs BTC (7)'],
+      ['rsPerf30','Perf vs BTC (30)'],
+      ['rsCorr30','Correlation (30)'],
+      ['rsBeta30','Beta (30)']
+    ]},
+    { key:'eth', label:'ETH', benchSymbol:'ETHUSDT', members:[
+      ['rseBias','RS Bias'],
+      ['rseRatio','Coin/ETH Ratio'],
+      ['rseRatioRoc','Ratio ROC (12)'],
+      ['rseRsiDelta','RSI Delta (vs ETH)'],
+      ['rsePerf7','Perf vs ETH (7)'],
+      ['rsePerf30','Perf vs ETH (30)'],
+      ['rseCorr30','Correlation (30)'],
+      ['rseBeta30','Beta (30)']
+    ]}
   ]}
 ];
 
@@ -3171,7 +3341,7 @@ const GROUPS = [
    cls: 'pos' | 'neg' | 'warn' | '' (neutral)
    sub: tiny trailing chip (distance, state, bar age) — never a sentence.
    --------------------------------------------------------------------------- */
-function computeValues(candles, tf, ticker, derivs){
+function computeValues(candles, tf, ticker, derivs, btcCandles, ethCandles){
   const out = {};
   const set = (k,v,cls,sub)=>{ out[k] = { v: v===null||v===undefined ? '—' : v, cls: cls||'', sub: sub||null }; };
   const cl = closes(candles);
@@ -3276,6 +3446,13 @@ function computeValues(candles, tf, ticker, derivs){
   const adlV = adLine(candles);
   set('adl', compact(adlV), adlV>0?'pos':'neg');
 
+  // Raw Volume price levels (VWAP, and the Volume Profile's POC/Value Area
+  // High/Low) stashed for the Chart section's "show on chart" overlay — see
+  // drawVolumeOverlay(). Everything else in this section (24h Volume, Volume
+  // MA, Volume Ratio, OBV, CVD, CMF, A/D Line) is volume-scale, not price, so
+  // there's nothing further to stash for those.
+  latestVolume = { vwap: vwapV, poc: vp.poc, vah: vp.vah, val: vp.val };
+
   /* ---- ICT / Smart Money ---- */
   const sw = swings(candles,3);
   const gaps = fvgs(candles);
@@ -3322,8 +3499,15 @@ function computeValues(candles, tf, ticker, derivs){
 
   /* ---- Market structure ---- */
   set('bias', bias, bias==='Bullish'?'pos':bias==='Bearish'?'neg':'warn');
-  const lastSh = sw.sh.length ? sw.sh[sw.sh.length-1].price : NaN;
-  const lastSl = sw.sl.length ? sw.sl[sw.sl.length-1].price : NaN;
+  // The last *confirmed* fractal pivot can sit well behind price in a steep
+  // one-way move (nothing in the most recent `span` bars can confirm yet) —
+  // extend it to the actual high/low printed since, so a pivot price has
+  // already broken through isn't shown as if it still held. See
+  // extendSwingHigh/extendSwingLow above.
+  const effSh = sw.sh.length ? extendSwingHigh(candles, sw.sh[sw.sh.length-1]) : null;
+  const effSl = sw.sl.length ? extendSwingLow(candles, sw.sl[sw.sl.length-1]) : null;
+  const lastSh = effSh ? effSh.price : NaN;
+  const lastSl = effSl ? effSl.price : NaN;
   set('swingHigh', px(lastSh), '', dist(lastSh, price));
   set('swingLow', px(lastSl), '', dist(lastSl, price));
   const nl = nearestLevels(sw, price);
@@ -3335,7 +3519,10 @@ function computeValues(candles, tf, ticker, derivs){
   set('pivP', px(pv.P), side(pv.P));
   set('pivR1', px(pv.R1)); set('pivR2', px(pv.R2));
   set('pivS1', px(pv.S1)); set('pivS2', px(pv.S2));
-  const fib = fibLevels(sw);
+  // Fib retracement anchors off the same extended swing high/low as the
+  // display above, not the raw (possibly stale) confirmed pivot.
+  const swEff = { sh: effSh ? [...sw.sh.slice(0,-1), effSh] : sw.sh, sl: effSl ? [...sw.sl.slice(0,-1), effSl] : sw.sl };
+  const fib = fibLevels(swEff);
   set('fib382', fib ? px(fib.f382) : '—', fib?side(fib.f382):'');
   set('fib5',   fib ? px(fib.f5)   : '—', fib?side(fib.f5):'');
   set('fib618', fib ? px(fib.f618) : '—', fib?side(fib.f618):'');
@@ -3343,8 +3530,8 @@ function computeValues(candles, tf, ticker, derivs){
   // Raw Market Structure objects (with bar idx where one exists) stashed for
   // the Chart section's "show on chart" overlay — see drawMarketStructureOverlay().
   latestStructure = {
-    swingHigh: sw.sh.length ? sw.sh[sw.sh.length-1] : null,
-    swingLow: sw.sl.length ? sw.sl[sw.sl.length-1] : null,
+    swingHigh: effSh,
+    swingLow: effSl,
     support: sup, resistance: res,
     pivP: pv.P, pivR1: pv.R1, pivR2: pv.R2, pivS1: pv.S1, pivS2: pv.S2,
     fib382: fib ? fib.f382 : NaN, fib5: fib ? fib.f5 : NaN, fib618: fib ? fib.f618 : NaN
@@ -3358,6 +3545,14 @@ function computeValues(candles, tf, ticker, derivs){
   set('oiChange', Number.isFinite(d.oiChange) ? pct(d.oiChange) : '—', d.oiChange>0?'pos':d.oiChange<0?'neg':'');
   set('lsRatio', Number.isFinite(d.lsRatio) ? num(d.lsRatio,2) : '—', d.lsRatio>1?'pos':d.lsRatio<1?'neg':'');
   set('basis', Number.isFinite(d.basis) ? pct(d.basis,3) : '—', d.basis>0?'pos':d.basis<0?'neg':'');
+
+  /* ---- Relative Strength vs BTC, and vs ETH ----
+     Both sections share the same engine (computeRelStrength, defined above
+     pearsonCorr/betaOf) — one call per benchmark, namespaced by key prefix
+     ('rs' for BTC, 'rse' for ETH). See that function's header comment for
+     the methodology. */
+  computeRelStrength(set, cl, rsiV, btcCandles, 'BTCUSDT', 'BTC', 'rs');
+  computeRelStrength(set, cl, rsiV, ethCandles, 'ETHUSDT', 'ETH', 'rse');
 
   return out;
 }
@@ -3453,6 +3648,7 @@ let latestValues = null;
 let latestCandles = null;
 let latestIct = null;        // raw ICT objects (with bar idx) for the chart overlay
 let latestStructure = null;  // raw Market Structure objects (with bar idx where known) for the chart overlay
+let latestVolume = null;     // raw Volume price levels (VWAP/POC/VAH/VAL) for the chart overlay
 let ictOverlayEnabled = false; // "Chart" checkbox in the ICT section header — "show everything" mode
 let ictMemberOverlay = new Set(); // individually-checked ICT member keys — used whenever the header checkbox is off
 const BAR_COUNTS = [30,45,90,180]; // Chart section's selectable window sizes
@@ -3508,7 +3704,16 @@ const STRUCTURE_CHARTABLE = new Set(['swingHigh','swingLow','support','resistanc
 const STRUCTURE_MASTER_EXCLUDE = new Set(['pivR1','pivR2','pivS1','pivS2','fib382']);
 let structureMemberOverlay = new Set(); // individually-checked Market Structure member keys shown on the Chart
 let structureOverlayEnabled = false; // "Chart" checkbox in the Market Structure header — shows every chartable level except STRUCTURE_MASTER_EXCLUDE
-// True when a given ICT/Trend/Volatility/Ichimoku/Structure member (by its
+// Volume members that resolve to an actual price level: VWAP and the Volume
+// Profile's POC/Value Area High/Value Area Low all sit on the $ scale, so
+// they can be drawn as horizontal lines same as Market Structure's Support/
+// Resistance. 24h Volume, Volume MA, Volume Ratio, OBV, CVD, Chaikin Money
+// Flow and the A/D Line are all volume-scale or oscillator readings with no
+// price-axis meaning, so those members get a checkbox but it stays disabled.
+const VOLUME_CHARTABLE = new Set(['vwap','poc','vah','val']);
+let volumeMemberOverlay = new Set(); // individually-checked Volume member keys shown on the Chart
+let volumeOverlayEnabled = false; // "Chart" checkbox in the Volume header — shows VWAP + POC/VAH/VAL
+// True when a given ICT/Trend/Volatility/Ichimoku/Structure/Volume member (by its
 // GROUPS key, e.g. 'fvgBull' or 'ema20') should be drawn on the Chart:
 // either that section's header "show all" checkbox is on, or the member
 // was checked by hand. Market Structure is the one exception: for the five
@@ -3525,6 +3730,7 @@ function structureShown(key){
   if(STRUCTURE_MASTER_EXCLUDE.has(key)) return structureMemberOverlay.has(key);
   return structureOverlayEnabled || structureMemberOverlay.has(key);
 }
+function volumeShown(key){ return volumeOverlayEnabled || volumeMemberOverlay.has(key); }
 let loadToken = 0;
 
 function normalizeSymbol(raw){
@@ -3535,6 +3741,14 @@ function normalizeSymbol(raw){
   return s;
 }
 const tfLabel = tf => tf==='4h' ? '4 Hour' : tf==='1w' ? 'Weekly' : 'Daily';
+// TradingView's widget-embed interval codes for the same 4H/1D/1W set used
+// throughout this module. Only needed by the Relative Strength ratio-chart
+// iframe (ratioChartSrc below) — the outer screener.html has its own copy of
+// this used by the Cloud Breakout chart-link button, but that script isn't
+// part of this shell, so the TechAnalysis module carries its own.
+function tradingViewInterval(tf){
+  return {'1d':'D','1w':'W','4h':'240'}[tf] || 'D';
+}
 
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
@@ -3546,13 +3760,114 @@ function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&l
 // want the numbers first, the picture on demand.
 let collapsedGroups = new Set([GROUPS.findIndex(g=>g.key==='chart')]);
 
+// "Load ratio chart" checkbox in the Relative Strength section's BTC / ETH
+// sub-headings — separate from every other chart toggle above, since this
+// one doesn't overlay the Chart section's candles (different scale
+// entirely): it embeds a standalone TradingView iframe of the coin/
+// benchmark ratio, right inside that subsection's own body, only once
+// checked.
+let rsChartEnabled = false;
+let rseChartEnabled = false;
+// TradingView renders a formula symbol like BINANCE:SOLUSDT.P/BINANCE:BTCUSDT.P
+// as whatever raw ratio it works out to — usually a tiny decimal that's hard
+// to read on an axis. Multiplying by a power of ten so the current ratio
+// lands between 1 and 10 (the way the user's own SOL/LINK examples scale by
+// 1000x/10000x) keeps every coin's ratio chart on a legible 0-10 axis
+// regardless of how small the raw ratio is.
+function ratioChartMultiplier(ratioNow){
+  if(!Number.isFinite(ratioNow) || ratioNow<=0) return 1;
+  return Math.pow(10, Math.ceil(-Math.log10(ratioNow)));
+}
+function ratioChartSrc(benchSymbol, tf){
+  if(!currentSymbol || currentSymbol===benchSymbol) return ''; // no ratio to chart against itself
+  const mult = ratioChartMultiplier(
+    benchSymbol==='BTCUSDT' ? (latestValues && latestValues.rsRatioRaw && latestValues.rsRatioRaw.v)
+                             : (latestValues && latestValues.rseRatioRaw && latestValues.rseRatioRaw.v)
+  );
+  const formula = `BINANCE:${currentSymbol}.P/BINANCE:${benchSymbol}.P${mult>1?'*'+mult:''}`;
+  const params = new URLSearchParams({
+    symbol: formula,
+    interval: tradingViewInterval(tf),
+    hidesidetoolbar: '1',
+    hide_side_toolbar: '1',
+    hidetoptoolbar: '1',
+    hide_top_toolbar: '1',
+    symboledit: '0',
+    saveimage: '0',
+    toolbarbg: '0b0e14',
+    studies: '[]',
+    theme: 'dark',
+    style: '1',
+    hide_volume: '1',
+    timezone: 'Etc/UTC'
+  });
+  return `https://s.tradingview.com/widgetembed/?${params.toString()}`;
+}
+// Sets/clears the iframe src to match the current checkbox state — called
+// after every render (the grid's innerHTML rebuild wipes any iframe that
+// was there) and directly from the checkbox handlers so toggling doesn't
+// need a full re-render.
+function syncRatioChartFrames(){
+  const rsFrame = el('taRsChartFrame');
+  if(rsFrame) rsFrame.src = rsChartEnabled ? ratioChartSrc('BTCUSDT', currentTf) : '';
+  const rseFrame = el('taRseChartFrame');
+  if(rseFrame) rseFrame.src = rseChartEnabled ? ratioChartSrc('ETHUSDT', currentTf) : '';
+}
+function toggleRsChart(checked){
+  rsChartEnabled = checked;
+  const idx = GROUPS.findIndex(g=>g.key==='relStrength');
+  if(checked && idx>=0 && collapsedGroups.has(idx)) collapsedGroups.delete(idx);
+  renderGroups(latestValues);
+}
+function toggleRseChart(checked){
+  rseChartEnabled = checked;
+  const idx = GROUPS.findIndex(g=>g.key==='relStrength');
+  if(checked && idx>=0 && collapsedGroups.has(idx)) collapsedGroups.delete(idx);
+  renderGroups(latestValues);
+}
+
+// Renders one BTC/ETH subsection inside the merged "Relative Strength" card:
+// its own small heading (label + "load ratio chart" checkbox) followed by
+// its metric rows and, when checked, the ratio-chart iframe wrap. Kept
+// separate from the generic member-row loop above since this is the only
+// group with an internal heading + checkbox rather than one at the card
+// level.
+function renderRelStrengthSub(sub, values){
+  const enabled = sub.key==='btc' ? rsChartEnabled : rseChartEnabled;
+  const toggleClass = sub.key==='btc' ? 'taRsChartToggle' : 'taRseChartToggle';
+  const frameId = sub.key==='btc' ? 'taRsChartFrame' : 'taRseChartFrame';
+  const isBenchItself = currentSymbol === sub.benchSymbol;
+  const rows = sub.members.map(([key,label])=>{
+    const d = values ? values[key] : null;
+    const v = d ? d.v : '—';
+    const cls = d && d.cls ? ' val-'+d.cls : (values ? '' : ' val-load');
+    const rowSub = d && d.sub ? `<span class="analysis-row-sub">${esc(d.sub)}</span>` : '';
+    return `<div class="analysis-row">
+      <span class="analysis-row-label">${label}</span>
+      <span class="analysis-row-val-wrap">${rowSub}<span class="analysis-row-valcheck"><span class="analysis-row-value${cls}">${esc(v)}</span></span></span>
+    </div>`;
+  }).join('');
+  const chartWrap = `<div class="analysis-ratio-chart-wrap${enabled ? '' : ' hidden'}"><iframe id="${frameId}" class="analysis-ratio-chart-frame" loading="lazy" title="Coin/${sub.label} ratio chart"></iframe></div>`;
+  return `<div class="analysis-subgroup">
+    <div class="analysis-subgroup-head">
+      <span class="analysis-subgroup-title">vs ${esc(sub.label)}</span>
+      <label class="analysis-ict-chart-toggle" title="${isBenchItself ? `This is ${esc(sub.label)} — no ratio to chart` : `Load the coin/${esc(sub.label)} ratio chart from TradingView`}">
+        <input type="checkbox" class="${toggleClass}" ${enabled ? 'checked' : ''} ${isBenchItself ? 'disabled' : ''}>
+      </label>
+    </div>
+    <div class="analysis-subgroup-body">${rows}${chartWrap}</div>
+  </div>`;
+}
+
 function renderGroups(values){
   const grid = el('taGroupsGrid');
   grid.innerHTML = GROUPS.map((g,idx)=>{
     const collapsed = collapsedGroups.has(idx);
     const body = g.isChart
       ? `<div class="analysis-chart-wrap"><canvas id="taChartCanvas"></canvas><div class="analysis-chart-empty" id="taChartEmpty">No chart data yet</div></div>`
-      : g.members.map(([key,label])=>{
+      : g.subs
+        ? g.subs.map(sub => renderRelStrengthSub(sub, values)).join('')
+        : g.members.map(([key,label])=>{
         const d = values ? values[key] : null;
         const v = d ? d.v : '—';
         const cls = d && d.cls ? ' val-'+d.cls : (values ? '' : ' val-load');
@@ -3560,7 +3875,7 @@ function renderGroups(values){
         // ICT rows get their own "show on Chart" checkbox so a specific level
         // (say, just the Bullish FVG) can be isolated on the Chart section
         // below instead of the whole section's worth of overlays at once.
-        // Trend/Volatility/Ichimoku/Structure rows get the same, but only
+        // Trend/Volatility/Ichimoku/Structure/Volume rows get the same, but only
         // members in that group's *_CHARTABLE set are enabled — anything on
         // a different scale than price (MACD, ADX/DI, Aroon, ATR%, BB %B,
         // Cloud Position/Top/Bottom, Structure Trend, etc.) shows up
@@ -3584,7 +3899,11 @@ function renderGroups(values){
                   ? (STRUCTURE_CHARTABLE.has(key)
                     ? `<input type="checkbox" class="taStructureMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${structureShown(key) ? 'checked' : ''}>`
                     : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — not a price level">`)
-                  : '';
+                  : g.key==='volume'
+                    ? (VOLUME_CHARTABLE.has(key)
+                      ? `<input type="checkbox" class="taVolumeMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${volumeShown(key) ? 'checked' : ''}>`
+                      : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — different scale">`)
+                    : '';
         return `<div class="analysis-row">
           <span class="analysis-row-label">${label}</span>
           <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-valcheck"><span class="analysis-row-value${cls}">${esc(v)}</span>${check}</span></span>
@@ -3610,9 +3929,12 @@ function renderGroups(values){
         ${g.key==='structure' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Market Structure level on the Chart" onclick="event.stopPropagation()">
           <input type="checkbox" class="taStructureChartToggle" ${structureOverlayEnabled ? 'checked' : ''}>
         </label>` : ''}
+        ${g.key==='volume' ? `<label class="analysis-ict-chart-toggle" title="Overlay VWAP and the Volume Profile's POC/Value Area on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taVolumeChartToggle" ${volumeOverlayEnabled ? 'checked' : ''}>
+        </label>` : ''}
         ${g.isChart
           ? `<div class="analysis-bar-toggle">${BAR_COUNTS.map(n=>`<button type="button" class="taBarCountBtn${n===chartBarCount?' active':''}" data-bars="${n}">${n}</button>`).join('')}</div>`
-          : `<div class="analysis-group-count">${g.members.length}</div>`}
+          : `<div class="analysis-group-count">${g.subs ? g.subs.reduce((a,s)=>a+s.members.length,0) : g.members.length}</div>`}
         <button type="button" class="analysis-group-chevron" aria-label="Toggle ${esc(g.name)} section" aria-expanded="${collapsed ? 'false' : 'true'}">⌄</button>
       </div>
       <div class="analysis-group-body">${body}</div>
@@ -3623,6 +3945,10 @@ function renderGroups(values){
   // section was already open — e.g. the symbol or timeframe just changed
   // while it was expanded — redraw it against the new candles.
   drawTaChart();
+  // Same reasoning for the ratio-chart iframes — the rebuild wipes any
+  // iframe that was there, so point a fresh one at TradingView if its
+  // checkbox is currently on.
+  syncRatioChartFrames();
 }
 
 function toggleGroup(idx){
@@ -3777,6 +4103,31 @@ function toggleStructureMember(key, checked){
   renderGroups(latestValues);
 }
 
+// "Chart" checkbox in the Volume section header — checking it draws VWAP and
+// the Volume Profile's POC/Value Area High/Low straight onto the price
+// Chart below. Same pattern as the Volatility header toggle above.
+function toggleVolumeOverlay(checked){
+  volumeOverlayEnabled = checked;
+  volumeMemberOverlay = new Set();
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+// Volume member checkbox clicked. Same pattern as Volatility above.
+function toggleVolumeMember(key, checked){
+  if(!VOLUME_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
+  if(volumeOverlayEnabled){
+    volumeOverlayEnabled = false;
+    volumeMemberOverlay = new Set(VOLUME_CHARTABLE);
+  }
+  if(checked) volumeMemberOverlay.add(key);
+  else volumeMemberOverlay.delete(key);
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
 function toggleAllGroups(){
   const collapseAll = collapsedGroups.size < GROUPS.length;
   collapsedGroups = new Set(collapseAll ? GROUPS.map((_,i)=>i) : []);
@@ -3894,6 +4245,16 @@ function drawTaChart(){
     });
     msLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
   }
+  // Same widening for any checked Volume overlay — VWAP and the Volume
+  // Profile's POC/Value Area High/Low can all sit outside the visible
+  // window's own high-low, same reasoning as the Market Structure block above.
+  if((volumeOverlayEnabled || volumeMemberOverlay.size) && latestVolume){
+    const volPriceLevels = [];
+    ['vwap','poc','vah','val'].forEach(k=>{
+      if(volumeShown(k)) volPriceLevels.push(latestVolume[k]);
+    });
+    volPriceLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
+  }
   const range = (max-min) || 1;
   const x = i => pad.left + i*(width-pad.left-pad.right)/Math.max(1,bars.length-1);
   const y = p => pad.top + (max-p)*(height-pad.top-pad.bottom)/range;
@@ -3927,6 +4288,7 @@ function drawTaChart(){
   if(volatilityOverlayEnabled || volatilityMemberOverlay.size) drawVolatilityOverlay(ctx, bars, startIdx, x, y);
   if(ichimokuOverlayEnabled || ichimokuMemberOverlay.size) drawIchimokuOverlay(ctx, bars, startIdx, x, y);
   if((structureOverlayEnabled || structureMemberOverlay.size) && latestStructure) drawMarketStructureOverlay(ctx, bars, startIdx, x, y, width, height, pad);
+  if((volumeOverlayEnabled || volumeMemberOverlay.size) && latestVolume) drawVolumeOverlay(ctx, bars, startIdx, x, y, width, height, pad);
 }
 
 // Draws the ICT/Smart Money section's own data (FVGs, order blocks, breaker,
@@ -4154,19 +4516,52 @@ function drawMarketStructureOverlay(ctx, bars, startIdx, x, y, width, height, pa
   const rightEdge = width - pad.right;
   const clampCol = w => Math.max(0, Math.min(bars.length-1, w));
   const toX = fullIdx => x(clampCol(fullIdx - startIdx));
-  const line = (level, color, label, fullIdx)=>{
+  // labelBelow flips the label to sit under the dashed line instead of
+  // above it — Swing Low sits right at the bottom of an up-leg's candles,
+  // so a label above the line collides with the wicks; every other level
+  // keeps the default above-line placement.
+  const line = (level, color, label, fullIdx, labelBelow)=>{
     if(!Number.isFinite(level)) return;
     const left = fullIdx!==undefined ? toX(fullIdx) : pad.left;
     ctx.strokeStyle = color; ctx.setLineDash([5,4]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(left, y(level)); ctx.lineTo(rightEdge, y(level)); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = color; ctx.font = '9px JetBrains Mono, monospace';
-    ctx.fillText(label, Math.min(left+3, rightEdge-30), y(level)-3);
+    ctx.fillText(label, Math.min(left+3, rightEdge-30), labelBelow ? y(level)+11 : y(level)-3);
   };
   if(structureShown('swingHigh') && ms.swingHigh) line(ms.swingHigh.price, MARKET_STRUCTURE_LINE_COLOR.swingHigh, MARKET_STRUCTURE_LABEL.swingHigh, ms.swingHigh.idx);
-  if(structureShown('swingLow') && ms.swingLow) line(ms.swingLow.price, MARKET_STRUCTURE_LINE_COLOR.swingLow, MARKET_STRUCTURE_LABEL.swingLow, ms.swingLow.idx);
+  if(structureShown('swingLow') && ms.swingLow) line(ms.swingLow.price, MARKET_STRUCTURE_LINE_COLOR.swingLow, MARKET_STRUCTURE_LABEL.swingLow, ms.swingLow.idx, true);
   ['support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382','fib5','fib618'].forEach(k=>{
     if(structureShown(k)) line(ms[k], MARKET_STRUCTURE_LINE_COLOR[k], MARKET_STRUCTURE_LABEL[k]);
+  });
+}
+
+// Draws whichever Volume members are individually checked (VWAP, Volume
+// Profile POC, Value Area High/Low) onto the chart. Like Market Structure's
+// levels these are single "as of now" prices, not per-bar series, so they're
+// drawn the same way — one dashed horizontal line plus a short label,
+// spanning the full visible window since none of the four has a single
+// originating bar to anchor from.
+const VOLUME_LINE_COLOR = {
+  vwap:'#ff8a4c', poc:'#f0c24b', vah:'#5b8cff', val:'#a78bfa'
+};
+const VOLUME_LABEL = {
+  vwap:'VWAP', poc:'POC', vah:'VAH', val:'VAL'
+};
+function drawVolumeOverlay(ctx, bars, startIdx, x, y, width, height, pad){
+  if(!latestVolume || !(volumeOverlayEnabled || volumeMemberOverlay.size)) return;
+  const vol = latestVolume;
+  const rightEdge = width - pad.right;
+  const line = (level, color, label)=>{
+    if(!Number.isFinite(level)) return;
+    ctx.strokeStyle = color; ctx.setLineDash([5,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, y(level)); ctx.lineTo(rightEdge, y(level)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(label, Math.min(pad.left+3, rightEdge-30), y(level)-3);
+  };
+  ['vwap','poc','vah','val'].forEach(k=>{
+    if(volumeShown(k)) line(vol[k], VOLUME_LINE_COLOR[k], VOLUME_LABEL[k]);
   });
 }
 
@@ -4217,6 +4612,7 @@ async function load(symbol, tf){
   latestCandles = null;
   latestIct = null;
   latestStructure = null;
+  latestVolume = null;
   renderGroups(null);
 
   let candles = null, ticker = null, source = null, binanceErr = null;
@@ -4269,10 +4665,21 @@ async function load(symbol, tf){
     ch.className = 'analysis-change ' + (ticker.changePct>=0 ? 'up':'down');
   }
 
-  const derivs = await fetchDerivatives(symbol, source).catch(()=>({}));
+  const [derivs, btcCandles, ethCandles] = await Promise.all([
+    fetchDerivatives(symbol, source).catch(()=>({})),
+    // Best-effort BTC/ETH candles at the same timeframe, for the Relative
+    // Strength vs BTC / vs ETH sections below. Always pulled from Binance
+    // (both are virtually always listed there regardless of where `symbol`
+    // itself came from) — reuses `candles` directly with no extra request
+    // when the coin being viewed is the benchmark itself. A failed/short
+    // fetch here just leaves that one section reading "—" rather than
+    // failing the page.
+    (symbol === 'BTCUSDT' ? Promise.resolve(candles) : binanceKlines('BTCUSDT', tf).catch(()=>null)),
+    (symbol === 'ETHUSDT' ? Promise.resolve(candles) : binanceKlines('ETHUSDT', tf).catch(()=>null))
+  ]);
   if(token !== loadToken) return;
 
-  latestValues = computeValues(candles, tf, ticker, derivs);
+  latestValues = computeValues(candles, tf, ticker, derivs, btcCandles, ethCandles);
   latestCandles = candles;
   renderGroups(latestValues);
   const lastBar = new Date(candles[candles.length-1].time);
@@ -4349,6 +4756,16 @@ function copyValues(){
   for(const g of GROUPS){
     if(g.isChart) continue; // no metric rows to copy — it's a candle chart
     lines.push('', g.name.toUpperCase());
+    if(g.subs){
+      for(const sub of g.subs){
+        lines.push(`-- vs ${sub.label} --`);
+        for(const [key,label] of sub.members){
+          const d = latestValues[key];
+          lines.push(`${label}: ${d ? d.v : '—'}${d && d.sub ? ' ('+d.sub+')' : ''}`);
+        }
+      }
+      continue;
+    }
     for(const [key,label] of g.members){
       const d = latestValues[key];
       lines.push(`${label}: ${d ? d.v : '—'}${d && d.sub ? ' ('+d.sub+')' : ''}`);
@@ -4403,6 +4820,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     else if(e.target.classList.contains('taIchimokuMemberToggle')) toggleIchimokuMember(e.target.dataset.key, e.target.checked);
     else if(e.target.classList.contains('taStructureChartToggle')) toggleStructureOverlay(e.target.checked);
     else if(e.target.classList.contains('taStructureMemberToggle')) toggleStructureMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taVolumeChartToggle')) toggleVolumeOverlay(e.target.checked);
+    else if(e.target.classList.contains('taVolumeMemberToggle')) toggleVolumeMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taRsChartToggle')) toggleRsChart(e.target.checked);
+    else if(e.target.classList.contains('taRseChartToggle')) toggleRseChart(e.target.checked);
   });
   el('analysisOverlay').addEventListener('click', e=>{
     if(e.target.id==='analysisOverlay') close();
