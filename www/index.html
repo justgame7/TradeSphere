@@ -807,6 +807,17 @@
   }
   .analysis-source.src-binance{color:var(--gold);border-color:rgba(240,194,75,.35);}
   .analysis-source.src-bybit{color:var(--orange);border-color:rgba(255,138,76,.35);}
+  .analysis-meta-icon-btn{
+    width:26px;height:26px;border-radius:8px;flex:none;padding:0;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    text-decoration:none;box-shadow:none;transition:color .15s,border-color .15s;
+  }
+  .analysis-meta-icon-btn:hover{color:var(--accent);border-color:var(--accent-dim);}
+  .analysis-meta-icon-btn.added{color:var(--accent);border-color:var(--accent-dim);cursor:default;}
+  .analysis-meta-icon-btn.added:hover{color:var(--accent);}
+  /* Already-on-watchlist state: screener.html gets its dimmed look from a global button:disabled rule this shell doesn't have, so it's set here. */
+  .analysis-meta-icon-btn:disabled{opacity:.4;}
   .analysis-icon-btn{
     width:34px;height:34px;border-radius:10px;flex:none;padding:0;
     background:var(--panel2);border:1px solid var(--border);color:var(--muted);
@@ -821,6 +832,53 @@
   .analysis-status-row.is-ok .dot{background:var(--accent);animation:none;}
   .analysis-status-row.is-error{color:var(--red);}
   .analysis-status-row.is-error .dot{background:var(--red);animation:none;}
+
+  /* ---- Coin info modal (opened from the technical breakdown header's "i" icon) ---- */
+  .coininfo-modal{
+    position:fixed;inset:0;z-index:60;display:none;
+    align-items:center;justify-content:center;padding:20px;
+    background:rgba(5,6,9,.78);backdrop-filter:blur(3px);
+  }
+  .coininfo-modal.open{display:flex;}
+  .coininfo-dialog{
+    width:min(560px,100%);max-height:calc(100vh - 40px);overflow:auto;
+    background:var(--panel);border:1px solid var(--border);border-radius:16px;
+    padding:0 22px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .coininfo-head{
+    position:sticky;top:0;z-index:1;background:var(--panel);
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+    padding:22px 0 14px;margin-bottom:0;border-bottom:1px solid var(--border-soft);
+  }
+  .coininfo-head h2{margin:0;font:800 18px var(--font-ui);color:var(--text);letter-spacing:-.01em;}
+  .coininfo-head p{margin:4px 0 0;font:600 11px var(--font-mono);color:var(--muted);}
+  .coininfo-close{
+    width:30px;height:30px;border-radius:9px;flex:none;padding:0;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;
+    box-shadow:none;transition:color .15s,border-color .15s;
+  }
+  .coininfo-close:hover{color:var(--accent);border-color:var(--accent-dim);}
+  .coininfo-status{margin:16px 0;font:600 12px var(--font-mono);color:var(--muted);}
+  .coininfo-status.is-error{color:var(--red);}
+  .coininfo-section-title{margin:16px 0 12px;font:700 11px var(--font-mono);text-transform:uppercase;color:var(--faint);letter-spacing:.08em;}
+  .coininfo-about{color:var(--muted);font:12px/1.6 var(--font-mono);margin:0 0 14px;}
+  .coininfo-about p{margin:0 0 10px;}
+  .coininfo-about p:last-child{margin-bottom:0;}
+  .coininfo-about ul{margin:0 0 10px;padding-left:18px;}
+  .coininfo-about li{margin-bottom:4px;}
+  .coininfo-about .about-heading{font-weight:700;color:var(--text);margin:0 0 6px;}
+  .coininfo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;}
+  .coininfo-stat{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+  .coininfo-stat-label{font:600 9.5px var(--font-mono);text-transform:uppercase;color:var(--faint);letter-spacing:.06em;margin-bottom:4px;}
+  .coininfo-stat-value{font:700 13px var(--font-mono);color:var(--text);}
+  .coininfo-links{margin-top:6px;}
+  .coininfo-links h3{margin:0 0 6px;font:700 11px var(--font-mono);text-transform:uppercase;color:var(--faint);letter-spacing:.08em;}
+  .coininfo-website{
+    display:inline-block;color:var(--accent);font-family:var(--font-mono);font-size:12.5px;
+    word-break:break-all;background:transparent;border:none;padding:0;cursor:pointer;text-decoration:underline;
+  }
+  .coininfo-website:hover{color:var(--text);}
   @keyframes taPulse{0%,100%{opacity:1;}50%{opacity:.25;}}
   @media(prefers-reduced-motion:reduce){
     .analysis-status-row.is-loading .dot{animation:none;}
@@ -1271,6 +1329,32 @@
   </div>
 </div>
 
+<!-- Coin info modal — kept at the top level (sibling of analysisOverlay, not
+     inside any tab/page container) so it always renders regardless of which
+     page of the app is active. -->
+<div class="coininfo-modal" id="coinInfoModal" onclick="closeCoinInfo(event)">
+  <div class="coininfo-dialog" role="dialog" aria-modal="true" aria-labelledby="coinInfoTitle" onclick="event.stopPropagation()">
+    <div class="coininfo-head">
+      <div><h2 id="coinInfoTitle">Coin info</h2><p id="coinInfoSubtitle"></p></div>
+      <button class="coininfo-close" type="button" aria-label="Close" onclick="closeCoinInfo()">×</button>
+    </div>
+    <p class="coininfo-status" id="coinInfoStatus">Loading CoinGecko data...</p>
+    <div id="coinInfoDetails" style="display:none;">
+      <h3 class="coininfo-section-title">Overview</h3>
+      <div id="coinInfoAbout" class="coininfo-about"></div>
+      <div class="coininfo-grid" id="coinInfoGrid"></div>
+      <div class="coininfo-links">
+        <h3>Website</h3>
+        <button type="button" class="coininfo-website" id="coinInfoWebsite">—</button>
+      </div>
+      <div class="coininfo-links" style="margin-top:12px;">
+        <h3>CoinGecko</h3>
+        <button type="button" class="coininfo-website" id="coinInfoCoingecko">—</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Technical Analysis overlay (opened from Coin Lookup on Custom Screens tab) -->
 <div class="analysis-overlay" id="analysisOverlay" role="dialog" aria-modal="true" aria-label="Coin technical analysis">
   <div class="analysis-shell">
@@ -1282,7 +1366,10 @@
           <div class="analysis-meta">
             <span id="taPrice" class="analysis-price">—</span>
             <span id="taChange" class="analysis-change"></span>
-            <span id="taSource" class="analysis-source">—</span>
+            <span id="taSource" class="analysis-source" style="display:none;">—</span>
+            <button type="button" class="analysis-meta-icon-btn" id="taInfoBtn" title="Coin info" aria-label="Coin info" onclick="TechAnalysis.showCoinInfo()" style="font:italic 700 12px var(--font-mono);">i</button>
+            <a class="analysis-meta-icon-btn" id="taChartLink" href="#" target="_blank" rel="noopener noreferrer" title="Open chart" aria-label="Open chart"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 9.8L10.2 5.8"></path><path d="M6.7 3.8H12.2V9.3"></path></svg></a>
+            <button type="button" class="analysis-meta-icon-btn" id="taWatchlistBtn" title="Add to watchlist" aria-label="Add to watchlist" onclick="TechAnalysis.addToWatchlist(this)"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 3.2V12.8"></path><path d="M3.2 8H12.8"></path></svg></button>
           </div>
         </div>
       </div>
@@ -2211,6 +2298,12 @@ function handleAndroidBack(){
     return;
   }
 
+  const coinInfoModalEl = document.getElementById('coinInfoModal');
+  if(coinInfoModalEl && coinInfoModalEl.classList.contains('open')){
+    closeCoinInfo();
+    return;
+  }
+
   const techOverlay = document.getElementById('analysisOverlay');
   if(techOverlay && techOverlay.classList.contains('open') && window.TechAnalysis){
     window.TechAnalysis.close();
@@ -2313,6 +2406,13 @@ window.addEventListener('popstate', event => {
     syncHistoryForCurrentPage();
     return;
   }
+  const coinInfoModalPS = document.getElementById('coinInfoModal');
+  if(coinInfoModalPS && coinInfoModalPS.classList.contains('open')){
+    closeCoinInfo();
+    // The Back press consumed the breakdown overlay's buffer entry, but the overlay is still open underneath - restore it.
+    history.pushState({ page: currentPage, analysis: true }, '', location.href);
+    return;
+  }
   const techOverlayPS = document.getElementById('analysisOverlay');
   if(techOverlayPS && techOverlayPS.classList.contains('open') && window.TechAnalysis){
     window.TechAnalysis.close();
@@ -2326,6 +2426,154 @@ window.addEventListener('popstate', event => {
   const targetPage = (event.state && event.state.page) || 'home';
   activatePage(targetPage);
 });
+
+// ---------------------------------------------------------------------------
+// Coin info modal — opened from the technical breakdown header's "i" icon
+// (TechAnalysis.showCoinInfo(), defined in the TechAnalysis module below).
+// Ported from screener.html's Coin Lookup "i" button, adapted to this
+// shell's own design tokens since it doesn't share screener.html's
+// trade-plan/plan-grid CSS.
+// ---------------------------------------------------------------------------
+async function openCoinInfo(symbol){
+  const modal = document.getElementById('coinInfoModal');
+  const statusEl = document.getElementById('coinInfoStatus');
+  const detailsEl = document.getElementById('coinInfoDetails');
+  const titleEl = document.getElementById('coinInfoTitle');
+  const subtitleEl = document.getElementById('coinInfoSubtitle');
+  const gridEl = document.getElementById('coinInfoGrid');
+  const websiteEl = document.getElementById('coinInfoWebsite');
+  const aboutEl = document.getElementById('coinInfoAbout');
+  const coingeckoEl = document.getElementById('coinInfoCoingecko');
+  if(!modal || !symbol) return;
+
+  titleEl.textContent = symbol;
+  subtitleEl.textContent = '';
+  statusEl.textContent = 'Loading CoinGecko data...';
+  statusEl.classList.remove('is-error');
+  statusEl.style.display = 'block';
+  detailsEl.style.display = 'none';
+  gridEl.innerHTML = '';
+  aboutEl.textContent = '';
+  websiteEl.textContent = '—';
+  websiteEl.onclick = null;
+  coingeckoEl.textContent = '—';
+  coingeckoEl.onclick = null;
+  modal.classList.add('open');
+
+  try {
+    const base = symbol.replace(/USDT$/i, '');
+    const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(base)}`);
+    if(!searchRes.ok) throw new Error('search request failed');
+    const searchData = await searchRes.json();
+    const coins = searchData.coins || [];
+    let match = coins.find(c => (c.symbol || '').toLowerCase() === base.toLowerCase());
+    if(!match) match = coins[0];
+    if(!match) throw new Error('no matching coin found on CoinGecko');
+
+    const detailRes = await fetch(`https://api.coingecko.com/api/v3/coins/${match.id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`);
+    if(!detailRes.ok) throw new Error('coin lookup failed');
+    const coin = await detailRes.json();
+
+    const md = coin.market_data || {};
+    const fmtUsd = (n) => (n === undefined || n === null) ? '—' : '$' + Number(n).toLocaleString('en-US', {maximumFractionDigits:0});
+    const fmtNum = (n) => (n === undefined || n === null) ? '—' : Number(n).toLocaleString('en-US', {maximumFractionDigits:0});
+
+    const rankText = coin.market_cap_rank ? ` #${coin.market_cap_rank}` : '';
+    subtitleEl.textContent = coin.name ? `${coin.name} (${(coin.symbol || '').toUpperCase()})${rankText}` : '';
+
+    const rawAbout = (coin.description && coin.description.en) || '';
+    aboutEl.innerHTML = formatAboutHtml(rawAbout);
+
+    const fields = [
+      {label:'Market Cap', value: fmtUsd(md.market_cap && md.market_cap.usd)},
+      {label:'Fully Diluted Valuation', value: fmtUsd(md.fully_diluted_valuation && md.fully_diluted_valuation.usd)},
+      {label:'24 Hour Trading Vol', value: fmtUsd(md.total_volume && md.total_volume.usd)},
+      {label:'Circulating Supply', value: fmtNum(md.circulating_supply)},
+      {label:'Total Supply', value: fmtNum(md.total_supply)},
+      {label:'Max Supply', value: fmtNum(md.max_supply)},
+    ];
+    gridEl.innerHTML = fields.map(f => `<div class="coininfo-stat"><div class="coininfo-stat-label">${f.label}</div><div class="coininfo-stat-value">${f.value}</div></div>`).join('');
+
+    const homepage = ((coin.links && coin.links.homepage) || []).find(h => h);
+    if(homepage){
+      websiteEl.textContent = homepage;
+      websiteEl.onclick = () => window.open(homepage, '_blank', 'noopener,noreferrer');
+    } else {
+      websiteEl.textContent = 'Not available';
+      websiteEl.onclick = null;
+    }
+
+    const coingeckoUrl = `https://www.coingecko.com/en/coins/${match.id}`;
+    coingeckoEl.textContent = coingeckoUrl;
+    coingeckoEl.onclick = () => window.open(coingeckoUrl, '_blank', 'noopener,noreferrer');
+
+    statusEl.style.display = 'none';
+    detailsEl.style.display = 'block';
+  } catch(err){
+    statusEl.textContent = `Could not load coin info from CoinGecko (${err.message}).`;
+    statusEl.classList.add('is-error');
+  }
+}
+
+function coinInfoEscapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function coinInfoStripInlineMarkdown(s){
+  return s.replace(/\*\*(.*?)\*\*/g, '$1').replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1$2').replace(/\[(.*?)\]\(.*?\)/g, '$1');
+}
+
+// Renders the About text returned by CoinGecko. Modern descriptions are markdown
+// with "## Heading" sections; we keep everything through the end of the FIRST
+// section (its heading, intro paragraph, and any bullet list) and stop before the
+// next "## Heading". Older/legacy descriptions have no markdown headings, so we
+// fall back to the first couple of paragraphs. Raw HTML (very old format) is
+// stripped down to plain text.
+function formatAboutHtml(raw){
+  if(!raw) return '<p>No description available.</p>';
+  let text = raw.replace(/\r\n/g, '\n').trim();
+  if(!text) return '<p>No description available.</p>';
+
+  if(/<[a-z][\s\S]*>/i.test(text)){
+    const firstPara = text.split(/\n{2,}/)[0] || text;
+    const plain = firstPara.replace(/<[^>]*>/g, '').trim();
+    return plain ? `<p>${coinInfoEscapeHtml(plain)}</p>` : '<p>No description available.</p>';
+  }
+
+  const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  const isHeading = (b) => /^#{1,6}\s+/.test(b);
+  const headingIdxs = [];
+  blocks.forEach((b, i) => { if(isHeading(b)) headingIdxs.push(i); });
+
+  let sectionBlocks;
+  if(headingIdxs.length === 0){
+    sectionBlocks = blocks.slice(0, Math.min(blocks.length, 3));
+  } else if(headingIdxs[0] > 0){
+    sectionBlocks = blocks.slice(0, headingIdxs[0]);
+  } else {
+    const nextHeadingIdx = headingIdxs.length >= 2 ? headingIdxs[1] : blocks.length;
+    sectionBlocks = blocks.slice(0, nextHeadingIdx);
+  }
+
+  let html = '';
+  sectionBlocks.forEach(block => {
+    if(isHeading(block)){
+      const headingText = block.replace(/^#{1,6}\s+/, '');
+      html += `<p class="about-heading">${coinInfoEscapeHtml(coinInfoStripInlineMarkdown(headingText))}</p>`;
+    } else if(/^[-*]\s+/m.test(block)){
+      const items = block.split(/\n/).map(l => l.replace(/^[-*]\s+/, '').trim()).filter(Boolean);
+      html += '<ul>' + items.map(it => `<li>${coinInfoEscapeHtml(coinInfoStripInlineMarkdown(it))}</li>`).join('') + '</ul>';
+    } else {
+      html += `<p>${coinInfoEscapeHtml(coinInfoStripInlineMarkdown(block))}</p>`;
+    }
+  });
+  return html || '<p>No description available.</p>';
+}
+
+function closeCoinInfo(event){
+  if(event && event.target !== document.getElementById('coinInfoModal')) return;
+  document.getElementById('coinInfoModal').classList.remove('open');
+}
 
 // initial state
 activatePage('home');
@@ -3904,6 +4152,53 @@ const tfLabel = tf => tf==='4h' ? '4 Hour' : tf==='1w' ? 'Weekly' : 'Daily';
 function tradingViewInterval(tf){
   return {'1d':'D','1w':'W','4h':'240'}[tf] || 'D';
 }
+function tvChartUrl(symbol, tf, source){
+  const exchangePrefix = source === 'Bybit' ? 'BYBIT' : 'BINANCE';
+  const tvSymbol = `${exchangePrefix}:${symbol}.P`;
+  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}&interval=${encodeURIComponent(tradingViewInterval(tf))}`;
+}
+
+// ---- Header "coin info" icon — reuses the same CoinGecko info modal (and
+// its global openCoinInfo() loader) that screener.html's Coin Lookup "i"
+// button opens, just with this overlay's own currentSymbol. ----
+function showCoinInfo(){
+  if(!currentSymbol) return;
+  if(typeof openCoinInfo === 'function') openCoinInfo(currentSymbol);
+}
+
+// ---- Header "add to watchlist" icon (writes into the same localStorage key
+// watchlist.html and screener.html's Scanner tab use, so a coin added here
+// shows up there too). ----
+const TA_WATCHLIST_KEY = 'crypto-watchlist-custom-coins';
+const TA_WATCHLIST_DEFAULTS = new Set(['BTCUSDT','ETHUSDT']);
+function taLoadWatchlist(){
+  try{ const raw = localStorage.getItem(TA_WATCHLIST_KEY); const list = raw ? JSON.parse(raw) : []; return Array.isArray(list) ? list : []; }
+  catch(e){ return []; }
+}
+function taIsInWatchlist(sym){ return TA_WATCHLIST_DEFAULTS.has(sym) || taLoadWatchlist().some(c => c && c.binanceSymbol === sym); }
+function taGradientFor(sym){
+  let hash = 0;
+  for(let i = 0; i < sym.length; i++) hash = (hash * 31 + sym.charCodeAt(i)) >>> 0;
+  const palette = ['#35e0c0','#8ea9ff','#ff8a4c','#a78bfa','#f5a623','#ff5470','#5b8cff','#f0c24b'];
+  return `linear-gradient(135deg,${palette[hash % palette.length]},#1c8f79)`;
+}
+function updateWatchlistBtn(){
+  const btn = el('taWatchlistBtn');
+  if(!btn || !currentSymbol) return;
+  const already = taIsInWatchlist(currentSymbol);
+  btn.classList.toggle('added', already);
+  btn.disabled = already;
+  btn.title = already ? 'Already on your watchlist' : 'Add to watchlist';
+  btn.setAttribute('aria-label', btn.title);
+}
+function addToWatchlist(btn){
+  if(!currentSymbol || taIsInWatchlist(currentSymbol)) return;
+  const base = currentSymbol.replace(/USDT$/i,'');
+  const list = taLoadWatchlist();
+  list.push({ symbol:base, binanceSymbol:currentSymbol, name:base, coingeckoId:null, gradient:taGradientFor(currentSymbol), addedAt:Date.now() });
+  try{ localStorage.setItem(TA_WATCHLIST_KEY, JSON.stringify(list)); }catch(e){ return; }
+  updateWatchlistBtn();
+}
 
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
@@ -4851,6 +5146,8 @@ async function load(symbol, tf){
   currentSource = source;
   el('taSource').textContent = source==='Bybit' ? 'Bybit USDT Perp' : 'Binance USDT-M Perp';
   el('taSource').className = 'analysis-source ' + (source==='Bybit' ? 'src-bybit' : 'src-binance');
+  el('taChartLink').href = tvChartUrl(symbol, tf, source);
+  updateWatchlistBtn();
 
   const price = ticker && Number.isFinite(ticker.lastPrice) ? ticker.lastPrice : candles[candles.length-1].close;
   PDEC = decimalsFor(price);
@@ -5023,11 +5320,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(e.target.id==='analysisOverlay') close();
   });
   document.addEventListener('keydown', e=>{
-    if(e.key==='Escape' && el('analysisOverlay').classList.contains('open')) close();
+    if(e.key==='Escape' && el('analysisOverlay').classList.contains('open')){
+      const ci = document.getElementById('coinInfoModal');
+      if(ci && ci.classList.contains('open')) return; // shell's Escape handler closes the coin info modal first
+      close();
+    }
   });
 });
 
-window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, clearAllChecks, toggleAll: toggleAllGroups, GROUPS, _compute: computeValues };
+window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, clearAllChecks, toggleAll: toggleAllGroups, addToWatchlist, showCoinInfo, GROUPS, _compute: computeValues };
 })();
 </script>
 
