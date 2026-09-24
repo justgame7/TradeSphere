@@ -838,6 +838,166 @@
 #scannerPane .match-toggle button.active{background:var(--accent);color:#04211C;}
 
 
+
+
+  /* ---------------- Add screens as conditions ---------------- */
+  #scannerPane .add-btns{display:flex;gap:8px;flex-wrap:wrap;}
+  #scannerPane .add-screens-btn{
+    color:var(--accent2);border-color:rgba(124,140,255,.45);
+    background:linear-gradient(135deg,rgba(124,140,255,.10),rgba(53,224,192,.06));
+  }
+  #scannerPane .add-screens-btn:hover{border-color:var(--accent2);background:rgba(124,140,255,.14);}
+  #scannerPane .cond-chip.screen-chip{
+    background:linear-gradient(135deg,rgba(53,224,192,.12),rgba(124,140,255,.12));
+    border-color:rgba(53,224,192,.4);color:#BFF5EA;
+  }
+  #scannerPane .cond-chip.screen-chip .sc-tag{font-size:9px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase;}
+
+  .scn-picker{
+    --sp-bg:#12151C;--sp-panel:#171B24;--sp-border:rgba(255,255,255,.08);--sp-border2:rgba(255,255,255,.16);
+    --sp-text:#EDEFF5;--sp-muted:#8B93A6;--sp-faint:#525A6B;--sp-accent:#35E0C0;
+    position:fixed;inset:0;z-index:9000;display:flex;align-items:flex-end;justify-content:center;
+    background:rgba(3,4,7,.62);backdrop-filter:blur(6px);
+    opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s linear .2s;
+    font-family:'Space Grotesk',sans-serif;color:var(--sp-text);
+  }
+  .scn-picker.open{opacity:1;visibility:visible;transition:opacity .2s ease;}
+  .scn-picker .sp-sheet{
+    width:100%;max-width:560px;max-height:88vh;display:flex;flex-direction:column;
+    background:linear-gradient(170deg,#161a23,var(--sp-bg));border:1px solid var(--sp-border2);border-bottom:none;
+    border-radius:20px 20px 0 0;transform:translateY(28px);transition:transform .26s ease;
+    padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -20px 50px rgba(0,0,0,.5);
+  }
+  .scn-picker.open .sp-sheet{transform:none;}
+  @media(min-width:600px){
+    .scn-picker{align-items:center;}
+    .scn-picker .sp-sheet{border-radius:20px;border-bottom:1px solid var(--sp-border2);max-height:80vh;}
+  }
+  .scn-picker .sp-grab{width:38px;height:4px;border-radius:4px;background:var(--sp-border2);margin:9px auto 0;flex:none;}
+  .scn-picker .sp-head{display:flex;align-items:flex-start;gap:10px;padding:12px 16px 4px;flex:none;}
+  .scn-picker .sp-title{font:700 16px 'Space Grotesk',sans-serif;letter-spacing:-.01em;}
+  .scn-picker .sp-sub{font-size:11px;color:var(--sp-muted);margin-top:3px;line-height:1.4;}
+  .scn-picker .sp-close{
+    margin-left:auto;flex:none;width:30px;height:30px;border-radius:50%;cursor:pointer;
+    background:rgba(255,255,255,.06);border:1px solid var(--sp-border);color:var(--sp-muted);font-size:12px;
+  }
+  .scn-picker .sp-close:hover{color:var(--sp-text);border-color:var(--sp-border2);}
+  .scn-picker .sp-search{
+    margin:10px 16px 6px;flex:none;background:var(--sp-panel);border:1px solid var(--sp-border);color:var(--sp-text);
+    border-radius:11px;padding:10px 12px;font:500 13px 'Space Grotesk',sans-serif;outline:none;box-sizing:border-box;width:calc(100% - 32px);
+  }
+  .scn-picker .sp-search:focus{border-color:var(--sp-accent);box-shadow:0 0 0 3px rgba(53,224,192,.12);}
+  .scn-picker .sp-list{overflow-y:auto;overscroll-behavior:contain;padding:4px 12px 10px;flex:1;min-height:120px;}
+  .scn-picker .sp-group{
+    font:700 10px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--sp-faint);
+    padding:12px 4px 6px;position:sticky;top:0;background:linear-gradient(var(--sp-bg) 70%,transparent);z-index:1;
+  }
+  .scn-picker .sp-group.saved{color:var(--sp-accent);}
+  .scn-picker .sp-row{
+    width:100%;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;
+    background:var(--sp-panel);border:1px solid var(--sp-border);border-radius:12px;padding:9px 11px;margin-bottom:6px;
+    color:inherit;font:inherit;transition:border-color .15s,background .15s;
+  }
+  .scn-picker .sp-row:hover{border-color:var(--sp-border2);}
+  .scn-picker .sp-row.sel{border-color:var(--sp-accent);background:rgba(53,224,192,.08);}
+  .scn-picker .sp-row.added{opacity:.45;cursor:default;}
+  .scn-picker .sp-check{
+    width:20px;height:20px;border-radius:7px;flex:none;border:1.5px solid var(--sp-border2);
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all .15s;
+  }
+  .scn-picker .sp-row.sel .sp-check,.scn-picker .sp-row.added .sp-check{background:var(--sp-accent);border-color:var(--sp-accent);color:#04211C;}
+  .scn-picker .sp-ico{width:26px;height:26px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;color:#04140F;}
+  .scn-picker .sp-name{flex:1;min-width:0;font-weight:600;font-size:12.5px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .scn-picker .sp-pill{flex:none;font:600 9px 'JetBrains Mono',monospace;letter-spacing:.03em;text-transform:uppercase;color:var(--sp-muted);background:rgba(255,255,255,.05);border:1px solid var(--sp-border);border-radius:20px;padding:2px 7px;}
+  .scn-picker .sp-empty{padding:26px 10px;text-align:center;color:var(--sp-faint);font-size:12px;}
+  .scn-picker .sp-foot{display:flex;gap:10px;padding:12px 16px 14px;border-top:1px solid var(--sp-border);flex:none;}
+  .scn-picker .sp-clear{
+    background:var(--sp-panel);border:1px solid var(--sp-border);color:var(--sp-muted);border-radius:11px;padding:0 14px;
+    font:600 12px 'Space Grotesk',sans-serif;cursor:pointer;
+  }
+  .scn-picker .sp-add{
+    flex:1;background:linear-gradient(135deg,#35E0C0,#1fb99e);color:#04211C;border:none;border-radius:11px;padding:12px;
+    font:700 13px 'Space Grotesk',sans-serif;cursor:pointer;box-shadow:0 6px 20px rgba(53,224,192,.22);transition:opacity .15s,transform .12s;
+  }
+  .scn-picker .sp-add:disabled{opacity:.4;cursor:default;box-shadow:none;}
+  @media (prefers-reduced-motion:reduce){.scn-picker,.scn-picker .sp-sheet{transition:none;}}
+
+  /* ---------------- Save custom screen ---------------- */
+  #scannerPane .save-screen{margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);}
+  #scannerPane .save-screen-btn{
+    display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+    background:linear-gradient(135deg,rgba(53,224,192,.14),rgba(124,140,255,.14));
+    border:1px solid rgba(53,224,192,.35);color:var(--accent);
+    border-radius:11px;padding:9px 15px;font:600 12px var(--font-display);
+    transition:border-color .15s,box-shadow .15s,transform .12s,opacity .15s;
+  }
+  #scannerPane .save-screen-btn:hover:not(:disabled){border-color:var(--accent);box-shadow:0 6px 18px -8px rgba(53,224,192,.55);transform:translateY(-1px);}
+  #scannerPane .save-screen-btn:disabled{opacity:.4;cursor:default;}
+  #scannerPane .save-screen-btn .ss-ico{font-size:13px;line-height:1;}
+  #scannerPane .save-panel{
+    display:grid;grid-template-rows:0fr;opacity:0;visibility:hidden;
+    transition:grid-template-rows .25s ease,opacity .2s ease,visibility 0s linear .25s;
+  }
+  #scannerPane .save-screen.open .save-panel{grid-template-rows:1fr;opacity:1;visibility:visible;transition:grid-template-rows .25s ease,opacity .2s ease,visibility 0s;}
+  #scannerPane .save-panel-inner{min-height:0;overflow:hidden;padding:0 2px;}
+  #scannerPane .save-card{
+    margin-top:12px;padding:13px;border-radius:14px;border:1px solid var(--border-strong);
+    background:linear-gradient(155deg,var(--panel2),var(--panel-solid));
+    box-shadow:0 1px 0 0 rgba(255,255,255,.04) inset,0 14px 30px -18px rgba(0,0,0,.7);
+  }
+  #scannerPane .save-card .sc-label{font:600 10px var(--font-mono);color:var(--faint);letter-spacing:.04em;text-transform:uppercase;display:block;margin-bottom:6px;}
+  #scannerPane .save-row{display:flex;gap:8px;align-items:stretch;}
+  #scannerPane .save-row input[type=text]{flex:1;min-width:0;font:500 13px var(--font-display);padding:10px 12px;border-radius:10px;}
+  #scannerPane .save-row input[type=text]:focus{box-shadow:0 0 0 3px rgba(53,224,192,.14);}
+  #scannerPane .save-confirm{
+    background:linear-gradient(135deg,var(--accent),#1fb99e);color:#04211C;border:none;border-radius:10px;
+    padding:0 16px;font:700 12.5px var(--font-display);cursor:pointer;flex:none;
+    box-shadow:0 6px 18px rgba(53,224,192,.22);transition:transform .12s,box-shadow .12s,opacity .15s;
+  }
+  #scannerPane .save-confirm:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 22px rgba(53,224,192,.32);}
+  #scannerPane .save-confirm:disabled{opacity:.45;cursor:default;box-shadow:none;}
+  #scannerPane .save-cancel{
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:10px;
+    width:38px;flex:none;cursor:pointer;font-size:13px;transition:border-color .15s,color .15s;
+  }
+  #scannerPane .save-cancel:hover{border-color:var(--border-strong);color:var(--text);}
+  #scannerPane .save-hint{margin-top:8px;font:500 10.5px var(--font-mono);color:var(--faint);min-height:14px;}
+  #scannerPane .save-hint.warn{color:var(--gold);}
+
+  /* Saved screen cards (Quick screens > My saved screens) */
+  #scannerPane .preset-group.saved-group{border-color:rgba(53,224,192,.22);background:linear-gradient(160deg,rgba(53,224,192,.05),var(--panel2) 55%);}
+  #scannerPane .preset-group.saved-group .pg-name{color:var(--accent);}
+  #scannerPane .saved-empty{grid-column:1/-1;text-align:center;padding:14px 10px;color:var(--faint);font-size:11.5px;line-height:1.5;border:1px dashed var(--border-strong);border-radius:12px;}
+  #scannerPane .saved-card{padding-right:34px;}
+  #scannerPane .saved-card .pc-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #scannerPane .saved-card .sc-meta{position:relative;z-index:1;display:flex;gap:5px;flex-wrap:wrap;}
+  #scannerPane .saved-card .sc-pill{
+    font:600 9px var(--font-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);
+    background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:20px;padding:2px 7px;
+  }
+  #scannerPane .saved-card .sc-del{
+    position:absolute;z-index:2;top:8px;right:8px;width:22px;height:22px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;
+    background:rgba(255,255,255,.06);border:1px solid transparent;color:var(--muted);cursor:pointer;
+    transition:background .15s,color .15s,border-color .15s;
+  }
+  #scannerPane .saved-card .sc-del:hover{background:rgba(255,77,109,.16);color:var(--red);border-color:rgba(255,77,109,.4);}
+  #scannerPane .saved-card.just-saved{animation:scnSavedPop .9s ease;}
+  @keyframes scnSavedPop{0%{transform:scale(.94);box-shadow:0 0 0 0 rgba(53,224,192,.55);}45%{transform:scale(1.02);box-shadow:0 0 0 8px rgba(53,224,192,0);}100%{transform:scale(1);}}
+  @media (prefers-reduced-motion:reduce){
+    #scannerPane .saved-card.just-saved{animation:none;}
+    #scannerPane .save-panel{transition:none;}
+  }
+  .scn-toast{
+    position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);
+    z-index:9999;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 32px);
+    background:rgba(23,27,36,.96);color:#EDEFF5;border:1px solid rgba(255,255,255,.14);border-radius:12px;
+    padding:10px 14px;font:600 12px 'Space Grotesk',sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.55);
+    backdrop-filter:blur(10px);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;
+  }
+  .scn-toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto;}
+  .scn-toast button{background:none;border:none;color:#35E0C0;font:700 12px 'Space Grotesk',sans-serif;cursor:pointer;padding:0;}
+
   /* ---------------- Scan controls ---------------- */
   #scannerPane .scan-bar{display:flex;flex-direction:column;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
 #scannerPane .scan-bar-row{display:flex;gap:10px;}
@@ -1429,7 +1589,7 @@
       </div>
       <div class="field-inline">
         <label>&nbsp;</label>
-        <button class="add-condition-btn" onclick="Scanner.addConditionFromForm()">+ Add condition</button>
+        <div class="add-btns"><button class="add-condition-btn" onclick="Scanner.addConditionFromForm()">+ Add condition</button><button class="add-condition-btn add-screens-btn" onclick="Scanner.openScreenPicker()">▣ Add screens</button></div>
       </div>
     </div>
     <div class="builder-row">
@@ -1442,6 +1602,22 @@
       </div>
     </div>
     <div class="chips-row" id="scnChipsRow"><span class="empty-chips">No conditions yet — add one above or pick a quick screen.</span></div>
+    <div class="save-screen" id="scnSaveWrap">
+      <button type="button" class="save-screen-btn" id="scnSaveBtn" onclick="Scanner.toggleSaveScreen()"><span class="ss-ico">★</span> Save as custom screen</button>
+      <div class="save-panel" id="scnSavePanel">
+        <div class="save-panel-inner">
+          <div class="save-card">
+            <label class="sc-label" for="scnSaveName">Name this screen</label>
+            <div class="save-row">
+              <input type="text" id="scnSaveName" maxlength="32" placeholder="e.g. Oversold bounce 4H" autocomplete="off" spellcheck="false">
+              <button type="button" class="save-confirm" id="scnSaveConfirm" onclick="Scanner.confirmSaveScreen()">Save</button>
+              <button type="button" class="save-cancel" aria-label="Cancel" onclick="Scanner.closeSaveScreen()">✕</button>
+            </div>
+            <div class="save-hint" id="scnSaveHint"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </details>
 
     <div class="scan-bar">
@@ -4677,10 +4853,14 @@ function addConditionFromForm(){
 }
 function removeCondition(i){ conditions.splice(i,1); renderChips(); }
 function renderChips(){
+  updateSaveBtn();
   const row = document.getElementById('scnChipsRow');
   document.querySelectorAll('.preset-card').forEach(c=>c.classList.remove('active'));
   if(!conditions.length){ row.innerHTML = '<span class="empty-chips">No conditions yet — add one above or pick a quick screen.</span>'; return; }
   row.innerHTML = conditions.map((c,i)=>{
+    if(c.type === 'screen'){
+      return `<span class="cond-chip screen-chip">▣ ${escSaved(c.name)} <span class="sc-tag">${c.conds.length} · ${c.mode==='any'?'any':'all'}</span><button onclick="Scanner.removeCondition(${i})">✕</button></span>`;
+    }
     const m = METRIC_BY_KEY[c.metric];
     const valTxt = m.noValue ? '' : ` ${c.value}${m.unit}`;
     return `<span class="cond-chip">${m.label} ${c.operator}${valTxt}<button onclick="Scanner.removeCondition(${i})">✕</button></span>`;
@@ -4696,7 +4876,16 @@ function setMatchMode(mode){
   if(allResults.length) sortAndRender();
 }
 
+function evalGroup(metrics, conds, mode){
+  const flags = conds.map(c => evalCondition(metrics, c));
+  return mode === 'any' ? flags.some(Boolean) : flags.every(Boolean);
+}
+// Whether any condition (including ones nested inside added screens) uses a metric.
+function condsUse(list, key){
+  return list.some(c => c.type === 'screen' ? condsUse(c.conds, key) : c.metric === key);
+}
 function evalCondition(metrics, cond){
+  if(cond.type === 'screen') return evalGroup(metrics, cond.conds, cond.mode);
   const v = metrics[cond.metric];
   switch(cond.metric){
     case 'macdHist':
@@ -4784,7 +4973,7 @@ function evaluateAll(metrics){
   if(!conditions.length) return { passed:true, matched:[] };
   const flags = conditions.map(c => evalCondition(metrics, c));
   const passed = matchMode==='all' ? flags.every(Boolean) : flags.some(Boolean);
-  const matched = conditions.filter((c,i)=>flags[i]).map(c=>METRIC_BY_KEY[c.metric].label);
+  const matched = conditions.filter((c,i)=>flags[i]).map(c=> c.type==='screen' ? c.name : METRIC_BY_KEY[c.metric].label);
   return { passed, matched };
 }
 
@@ -4946,6 +5135,7 @@ function renderPresets(){
         ${recentItems.map(p => renderPresetCard(p, `preset-recent-${p.id}`)).join('')}
       </div>
     </details>`;
+  html = renderSavedGroup() + html;
   for(const cat of PRESET_CATEGORY_ORDER){
     const items = PRESETS.filter(p=>p.cat===cat);
     if(!items.length) continue;
@@ -4975,6 +5165,331 @@ function applyPreset(id){
   document.querySelectorAll(`.preset-card[data-preset-id="${id}"]`).forEach(c=>c.classList.add('active'));
   const group = document.getElementById(`preset-group-${preset.cat}`);
   if(group) group.open = true;
+}
+
+/* =========================================================================
+   Saved custom screens — condition sets the user names and keeps locally.
+   Shown as their own section at the top of Quick screens.
+   ========================================================================= */
+const SAVED_SCREENS_KEY = 'scn-saved-screens-v1';
+const SAVED_SCREENS_MAX = 40;
+const SAVED_PALETTE = [
+  { g:'linear-gradient(135deg,#35E0C0,#1fb99e)', c:'#35E0C0' },
+  { g:'linear-gradient(135deg,#7C8CFF,#4f5bd5)', c:'#7C8CFF' },
+  { g:'linear-gradient(135deg,#F0C24B,#b8860b)', c:'#F0C24B' },
+  { g:'linear-gradient(135deg,#ff7a9c,#d6336c)', c:'#ff7a9c' },
+  { g:'linear-gradient(135deg,#a78bfa,#6d28d9)', c:'#a78bfa' },
+  { g:'linear-gradient(135deg,#5B8CFF,#2f5bd6)', c:'#5B8CFF' },
+];
+let savedGroupOpen = true;
+let lastDeleted = null; // { item, index } for the Undo toast
+
+function escSaved(s){
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function loadSavedScreens(){
+  let arr = [];
+  try{ arr = JSON.parse(localStorage.getItem(SAVED_SCREENS_KEY)) || []; }catch(e){ arr = []; }
+  if(!Array.isArray(arr)) return [];
+  return arr.map(x => {
+    if(!x || typeof x.id !== 'string' || typeof x.name !== 'string' || !Array.isArray(x.conds)) return null;
+    const conds = x.conds.filter(isValidCond);
+    if(!conds.length) return null;
+    return { id:x.id, name:x.name, conds, mode: x.mode==='any' ? 'any' : 'all', ci: Number.isInteger(x.ci) ? x.ci : 0 };
+  }).filter(Boolean);
+}
+function persistSavedScreens(list){
+  try{ localStorage.setItem(SAVED_SCREENS_KEY, JSON.stringify(list)); return true; }
+  catch(e){ return false; }
+}
+function condLabel(c){
+  if(c.type === 'screen') return `▣ ${c.name}`;
+  const m = METRIC_BY_KEY[c.metric];
+  const valTxt = m.noValue ? '' : ` ${c.value}${m.unit}`;
+  return `${m.label} ${c.operator}${valTxt}`;
+}
+
+/* ---- toast ---- */
+let toastEl = null, toastTimer = null;
+function showToast(msg, actionLabel, actionFn){
+  if(!toastEl){
+    toastEl = document.createElement('div');
+    toastEl.className = 'scn-toast';
+    toastEl.setAttribute('role','status');
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent = '';
+  const span = document.createElement('span');
+  span.textContent = msg;
+  toastEl.appendChild(span);
+  if(actionLabel && actionFn){
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = actionLabel;
+    b.onclick = () => { actionFn(); hideToast(); };
+    toastEl.appendChild(b);
+  }
+  requestAnimationFrame(() => toastEl.classList.add('show'));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, actionLabel ? 5000 : 2600);
+}
+function hideToast(){ if(toastEl) toastEl.classList.remove('show'); }
+
+/* ---- save flow (Condition builder) ---- */
+function updateSaveBtn(){
+  const btn = document.getElementById('scnSaveBtn');
+  if(!btn) return;
+  btn.disabled = !conditions.length;
+  if(!conditions.length) closeSaveScreen();
+  else if(document.getElementById('scnSaveWrap').classList.contains('open')) updateSaveHint();
+}
+function toggleSaveScreen(){
+  const wrap = document.getElementById('scnSaveWrap');
+  if(wrap.classList.contains('open')) closeSaveScreen(); else openSaveScreen();
+}
+function openSaveScreen(){
+  if(!conditions.length){ showToast('Add at least one condition first'); return; }
+  const wrap = document.getElementById('scnSaveWrap');
+  wrap.classList.add('open');
+  const input = document.getElementById('scnSaveName');
+  updateSaveHint();
+  setTimeout(() => { try{ input.focus({preventScroll:false}); }catch(e){ input.focus(); } }, 260);
+}
+function closeSaveScreen(){
+  const wrap = document.getElementById('scnSaveWrap');
+  if(!wrap) return;
+  wrap.classList.remove('open');
+  const input = document.getElementById('scnSaveName');
+  if(input){ input.value = ''; input.blur(); }
+  updateSaveHint();
+}
+function updateSaveHint(){
+  const name = document.getElementById('scnSaveName').value.trim();
+  const hint = document.getElementById('scnSaveHint');
+  const confirmBtn = document.getElementById('scnSaveConfirm');
+  const exists = name && loadSavedScreens().some(s => s.name.toLowerCase() === name.toLowerCase());
+  confirmBtn.disabled = !name;
+  confirmBtn.textContent = exists ? 'Update' : 'Save';
+  hint.classList.toggle('warn', !!exists);
+  hint.textContent = exists
+    ? 'A screen with this name exists — saving will replace it'
+    : `${conditions.length} condition${conditions.length===1?'':'s'} · match ${matchMode==='all'?'ALL':'ANY'} · stored on this device`;
+}
+function confirmSaveScreen(){
+  const name = document.getElementById('scnSaveName').value.trim().slice(0,32);
+  if(!name || !conditions.length) return;
+  const list = loadSavedScreens();
+  const idx = list.findIndex(s => s.name.toLowerCase() === name.toLowerCase());
+  const record = {
+    id: idx>=0 ? list[idx].id : 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    name,
+    conds: conditions.map(c => ({...c})),
+    mode: matchMode,
+    ci: idx>=0 ? list[idx].ci : list.length % SAVED_PALETTE.length,
+  };
+  if(idx>=0) list[idx] = record;
+  else{
+    if(list.length >= SAVED_SCREENS_MAX){ showToast(`Limit of ${SAVED_SCREENS_MAX} saved screens reached`); return; }
+    list.unshift(record);
+  }
+  if(!persistSavedScreens(list)){ showToast('Couldn’t save — device storage unavailable'); return; }
+  closeSaveScreen();
+  savedGroupOpen = true;
+  renderPresets();
+  markSavedActive(record.id, true);
+  showToast(idx>=0 ? `Updated “${name}”` : `Saved “${name}” to Quick screens`);
+}
+
+/* ---- Quick screens section ---- */
+function renderSavedCard(s){
+  const pal = SAVED_PALETTE[s.ci % SAVED_PALETTE.length];
+  const summary = s.conds.map(condLabel).join(s.mode==='all' ? '  +  ' : '  or  ');
+  return `
+    <div class="preset-card saved-card" data-saved-id="${s.id}" style="--pc-color:${pal.c};" onclick="Scanner.applySaved('${s.id}')">
+      <button type="button" class="sc-del" aria-label="Delete ${escSaved(s.name)}" onclick="event.stopPropagation();Scanner.deleteSaved('${s.id}')">✕</button>
+      <div class="pc-head">
+        <div class="pc-icon" style="background:${pal.g};color:#04140F;">★</div>
+        <div class="pc-title">${escSaved(s.name)}</div>
+      </div>
+      <div class="sc-meta">
+        <span class="sc-pill">${s.conds.length} cond</span>
+        <span class="sc-pill">${s.mode==='all'?'match all':'match any'}</span>
+      </div>
+      <div class="pc-desc-wrap"><div class="pc-desc">${escSaved(summary)}</div></div>
+    </div>`;
+}
+function renderSavedGroup(){
+  const list = loadSavedScreens();
+  const body = list.length
+    ? list.map(renderSavedCard).join('')
+    : `<div class="saved-empty">Nothing saved yet.<br>Build a condition set below and tap <b>Save as custom screen</b> — it will show up here.</div>`;
+  return `
+    <details class="preset-group saved-group" id="preset-group-Saved" ${savedGroupOpen?'open':''} ontoggle="Scanner.savedGroupToggled(this.open)">
+      <summary>
+        <span class="pg-name">★ My saved screens</span>
+        <span class="pg-count">${list.length}</span>
+        <span class="pg-chevron">▾</span>
+      </summary>
+      <div class="preset-cards-grid">${body}</div>
+    </details>`;
+}
+function savedGroupToggled(open){ savedGroupOpen = !!open; }
+function markSavedActive(id, pop){
+  document.querySelectorAll(`.saved-card[data-saved-id="${id}"]`).forEach(c => {
+    c.classList.add('active');
+    if(pop){ c.classList.add('just-saved'); setTimeout(()=>c.classList.remove('just-saved'), 1000); }
+  });
+}
+function applySaved(id){
+  const s = loadSavedScreens().find(x => x.id === id);
+  if(!s) return;
+  conditions = s.conds.map(c => ({...c}));
+  setMatchMode(s.mode);
+  renderChips();
+  renderPresets();
+  markSavedActive(id, false);
+}
+function deleteSaved(id){
+  const list = loadSavedScreens();
+  const index = list.findIndex(x => x.id === id);
+  if(index < 0) return;
+  const [item] = list.splice(index, 1);
+  persistSavedScreens(list);
+  lastDeleted = { item, index };
+  renderPresets();
+  showToast(`Deleted “${item.name}”`, 'Undo', undoDeleteSaved);
+}
+function undoDeleteSaved(){
+  if(!lastDeleted) return;
+  const list = loadSavedScreens();
+  if(!list.some(x => x.id === lastDeleted.item.id)) list.splice(Math.min(lastDeleted.index, list.length), 0, lastDeleted.item);
+  persistSavedScreens(list);
+  lastDeleted = null;
+  renderPresets();
+}
+{
+  const nameInput = document.getElementById('scnSaveName');
+  nameInput.addEventListener('input', updateSaveHint);
+  nameInput.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); confirmSaveScreen(); }
+    else if(e.key === 'Escape'){ e.preventDefault(); closeSaveScreen(); }
+  });
+}
+
+/* =========================================================================
+   Add screens as conditions — pick any number of built-in or saved screens.
+   Each screen is added as ONE condition that is evaluated as a unit (using
+   the screen's own ALL/ANY logic), then combined with the rest of the
+   conditions via the builder's Match ALL / ANY.
+   ========================================================================= */
+function isValidCond(c){
+  if(!c) return false;
+  if(c.type === 'screen') return typeof c.name === 'string' && Array.isArray(c.conds) && c.conds.length > 0 && c.conds.every(isValidCond);
+  return !!METRIC_BY_KEY[c.metric];
+}
+const cloneCond = c => JSON.parse(JSON.stringify(c));
+let pickerSel = new Set();
+let pickerEl = null;
+
+function pickerItems(){
+  const items = loadSavedScreens().map(sv => {
+    const pal = SAVED_PALETTE[sv.ci % SAVED_PALETTE.length];
+    return { key:'s:'+sv.id, group:'★ My saved screens', saved:true, title:sv.name, icon:'★', grad:pal.g, conds:sv.conds, mode:sv.mode };
+  });
+  for(const cat of PRESET_CATEGORY_ORDER){
+    PRESETS.filter(p => p.cat === cat).forEach(p => items.push({ key:'p:'+p.id, group:cat, saved:false, title:p.title, icon:p.icon, grad:p.color, conds:p.conds, mode:p.mode }));
+  }
+  return items;
+}
+function addedScreenKeys(){ return new Set(conditions.filter(c => c.type === 'screen').map(c => c.key)); }
+function ensurePicker(){
+  if(pickerEl) return;
+  pickerEl = document.createElement('div');
+  pickerEl.className = 'scn-picker';
+  pickerEl.innerHTML = `
+    <div class="sp-sheet" role="dialog" aria-modal="true" aria-label="Add screens">
+      <div class="sp-grab"></div>
+      <div class="sp-head">
+        <div>
+          <div class="sp-title">Add screens</div>
+          <div class="sp-sub">Pick one or more. Each screen counts as a single condition, using its own ALL/ANY logic.</div>
+        </div>
+        <button type="button" class="sp-close" aria-label="Close">✕</button>
+      </div>
+      <input type="text" class="sp-search" placeholder="Search screens…" autocomplete="off" spellcheck="false">
+      <div class="sp-list"></div>
+      <div class="sp-foot">
+        <button type="button" class="sp-clear">Clear</button>
+        <button type="button" class="sp-add" disabled>Add screens</button>
+      </div>
+    </div>`;
+  document.body.appendChild(pickerEl);
+  pickerEl.addEventListener('click', e => { if(e.target === pickerEl) closeScreenPicker(); });
+  pickerEl.querySelector('.sp-close').onclick = closeScreenPicker;
+  pickerEl.querySelector('.sp-clear').onclick = () => { pickerSel.clear(); renderPickerList(); };
+  pickerEl.querySelector('.sp-add').onclick = confirmScreenPicker;
+  pickerEl.querySelector('.sp-search').addEventListener('input', renderPickerList);
+  pickerEl.querySelector('.sp-list').addEventListener('click', e => {
+    const row = e.target.closest('.sp-row');
+    if(!row || row.classList.contains('added')) return;
+    const key = row.dataset.key;
+    if(pickerSel.has(key)) pickerSel.delete(key); else pickerSel.add(key);
+    row.classList.toggle('sel', pickerSel.has(key));
+    updatePickerFooter();
+  });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && pickerEl.classList.contains('open')) closeScreenPicker(); });
+}
+function renderPickerList(){
+  const q = pickerEl.querySelector('.sp-search').value.trim().toLowerCase();
+  const added = addedScreenKeys();
+  const items = pickerItems().filter(it => !q || it.title.toLowerCase().includes(q));
+  let html = '', lastGroup = null;
+  for(const it of items){
+    if(it.group !== lastGroup){
+      html += `<div class="sp-group${it.saved?' saved':''}">${escSaved(it.group)}</div>`;
+      lastGroup = it.group;
+    }
+    const isAdded = added.has(it.key);
+    html += `
+      <button type="button" class="sp-row${pickerSel.has(it.key)?' sel':''}${isAdded?' added':''}" data-key="${it.key}">
+        <span class="sp-check">✓</span>
+        <span class="sp-ico" style="background:${it.grad};">${it.icon}</span>
+        <span class="sp-name">${escSaved(it.title)}</span>
+        <span class="sp-pill">${isAdded ? 'added' : it.conds.length + ' · ' + (it.mode==='any'?'any':'all')}</span>
+      </button>`;
+  }
+  if(!items.length) html = `<div class="sp-empty">No screens match “${escSaved(q)}”.</div>`;
+  else if(!q && !loadSavedScreens().length) html = `<div class="sp-empty" style="padding:10px 4px 0;text-align:left;">Screens you save from the builder will appear here too.</div>` + html;
+  pickerEl.querySelector('.sp-list').innerHTML = html;
+  updatePickerFooter();
+}
+function updatePickerFooter(){
+  const n = pickerSel.size;
+  const btn = pickerEl.querySelector('.sp-add');
+  btn.disabled = n === 0;
+  btn.textContent = n === 0 ? 'Add screens' : `Add ${n} screen${n===1?'':'s'}`;
+}
+function openScreenPicker(){
+  ensurePicker();
+  pickerSel = new Set();
+  pickerEl.querySelector('.sp-search').value = '';
+  renderPickerList();
+  pickerEl.classList.add('open');
+  pickerEl.querySelector('.sp-list').scrollTop = 0;
+}
+function closeScreenPicker(){ if(pickerEl) pickerEl.classList.remove('open'); }
+function confirmScreenPicker(){
+  const byKey = Object.fromEntries(pickerItems().map(it => [it.key, it]));
+  const added = addedScreenKeys();
+  let count = 0;
+  pickerSel.forEach(key => {
+    const it = byKey[key];
+    if(!it || added.has(key)) return;
+    conditions.push({ type:'screen', key, name:it.title, mode:it.mode, conds: it.conds.map(cloneCond) });
+    count++;
+  });
+  closeScreenPicker();
+  renderChips();
+  if(count) showToast(`Added ${count} screen${count===1?'':'s'} to the builder`);
 }
 
 /* =========================================================================
@@ -5124,13 +5639,13 @@ async function runScan(){
     const fundingMap = await getAllFundingRates().catch(()=>({}));
     // Open interest has no bulk endpoint — only pay for it (one extra call per
     // symbol) when a condition actually needs it.
-    const needsOi = conditions.some(c => c.metric === 'oiChangePct');
+    const needsOi = condsUse(conditions, 'oiChangePct');
     // ATH lookup pulls a full 1500-bar daily history per symbol — the heaviest
     // optional fetch, so it's likewise gated behind an active condition.
-    const needsAth = conditions.some(c => c.metric === 'athProximityAtr');
+    const needsAth = condsUse(conditions, 'athProximityAtr');
     // NDOG/NWOG needs its own daily+weekly klines call per symbol — gated the
     // same way as OI/ATH above.
-    const needsNdog = conditions.some(c => c.metric === 'ndogNwog');
+    const needsNdog = condsUse(conditions, 'ndogNwog');
 
     setStatus(needsAth
       ? `Scanning all ${symbols.length} USDT-M perpetuals (fetching full daily history for ATH)…`
@@ -5323,7 +5838,7 @@ renderPresets();
 applyPreset('breakout');
 
 
-window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct };
+window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker };
 })();
 
 </script>
