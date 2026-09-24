@@ -818,6 +818,23 @@
   .analysis-meta-icon-btn.added:hover{color:var(--accent);}
   /* Already-on-watchlist state: screener.html gets its dimmed look from a global button:disabled rule this shell doesn't have, so it's set here. */
   .analysis-meta-icon-btn:disabled{opacity:.4;}
+  /* ---- Analysis overlay: the header Analysis icon embeds screener.html's own analysis modal (its ?symbol= deep link)
+     as a full-window layer over the breakdown, same idea as the Analysis button on watchlist.html. ---- */
+  .ta-embed-overlay{
+    position:fixed;inset:0;background:rgba(5,6,9,.82);z-index:999;
+    display:none;align-items:stretch;justify-content:center;
+  }
+  .ta-embed-overlay.open{display:flex;}
+  .ta-embed-inner{position:relative;width:100%;height:100%;background:var(--bg);}
+  .ta-embed-close{
+    position:absolute;top:12px;right:12px;z-index:2;
+    width:34px;height:34px;border-radius:9px;padding:0;
+    background:var(--panel);border:1px solid var(--border);color:var(--text);box-shadow:none;
+    font:700 16px var(--font-mono);line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .ta-embed-close:hover{border-color:var(--red);color:var(--red);opacity:1;transform:none;box-shadow:none;}
+  .ta-embed-frame{width:100%;height:100%;border:0;display:block;}
   .analysis-icon-btn{
     width:34px;height:34px;border-radius:10px;flex:none;padding:0;
     background:var(--panel2);border:1px solid var(--border);color:var(--muted);
@@ -1370,6 +1387,7 @@
             <button type="button" class="analysis-meta-icon-btn" id="taInfoBtn" title="Coin info" aria-label="Coin info" onclick="TechAnalysis.showCoinInfo()" style="font:italic 700 12px var(--font-mono);">i</button>
             <a class="analysis-meta-icon-btn" id="taChartLink" href="#" target="_blank" rel="noopener noreferrer" title="Open chart" aria-label="Open chart"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 9.8L10.2 5.8"></path><path d="M6.7 3.8H12.2V9.3"></path></svg></a>
             <button type="button" class="analysis-meta-icon-btn" id="taWatchlistBtn" title="Add to watchlist" aria-label="Add to watchlist" onclick="TechAnalysis.addToWatchlist(this)"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 3.2V12.8"></path><path d="M3.2 8H12.8"></path></svg></button>
+            <button type="button" class="analysis-meta-icon-btn" id="taAnalysisBtn" title="Analysis" aria-label="Analysis" onclick="TechAnalysis.showAnalysis()"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3.5 13V8.5"></path><path d="M8 13V3.5"></path><path d="M12.5 13V6.5"></path></svg></button>
           </div>
         </div>
       </div>
@@ -1390,6 +1408,14 @@
     </div>
     <div class="analysis-status-row" id="taStatusRow"><span class="dot"></span><span id="taStatusText">Enter a coin to load its values</span></div>
     <div class="analysis-groups-grid" id="taGroupsGrid"></div>
+  </div>
+</div>
+
+<!-- Analysis overlay (opened by the Analysis icon in the breakdown header): embeds screener.html's own analysis modal
+     over the breakdown, the same way watchlist.html's Analysis button does. Top-level sibling so it always renders. -->
+<div class="ta-embed-overlay" id="taEmbedOverlay" onclick="if(event.target===this)TechAnalysis.closeAnalysis()">
+  <div class="ta-embed-inner" id="taEmbedInner">
+    <button class="ta-embed-close" id="taEmbedClose" type="button" aria-label="Close analysis" onclick="TechAnalysis.closeAnalysis()">×</button>
   </div>
 </div>
 
@@ -2298,6 +2324,12 @@ function handleAndroidBack(){
     return;
   }
 
+  const taEmbedEl = document.getElementById('taEmbedOverlay');
+  if(taEmbedEl && taEmbedEl.classList.contains('open') && window.TechAnalysis){
+    window.TechAnalysis.closeAnalysis();
+    return;
+  }
+
   const coinInfoModalEl = document.getElementById('coinInfoModal');
   if(coinInfoModalEl && coinInfoModalEl.classList.contains('open')){
     closeCoinInfo();
@@ -2404,6 +2436,13 @@ window.addEventListener('popstate', event => {
   if(top50Modal.classList.contains('open')){
     closeTop50Modal();
     syncHistoryForCurrentPage();
+    return;
+  }
+  const taEmbedPS = document.getElementById('taEmbedOverlay');
+  if(taEmbedPS && taEmbedPS.classList.contains('open') && window.TechAnalysis){
+    window.TechAnalysis.closeAnalysis();
+    // The Back press consumed the breakdown overlay's buffer entry, but the breakdown is still open underneath - restore it.
+    history.pushState({ page: currentPage, analysis: true }, '', location.href);
     return;
   }
   const coinInfoModalPS = document.getElementById('coinInfoModal');
@@ -4200,6 +4239,32 @@ function addToWatchlist(btn){
   updateWatchlistBtn();
 }
 
+// ---- Header "analysis" icon — same idea as the Analysis button on watchlist.html:
+// embeds screener.html's own analysis modal (via its ?symbol= deep link) as a
+// full-window overlay on top of this breakdown, so it opens without leaving
+// the page or losing the breakdown underneath. The iframe is created fresh on
+// each open and removed on close, so it never leaves stale content or extra
+// history entries behind. ----
+function embedOpen(){ const o = el('taEmbedOverlay'); return !!(o && o.classList.contains('open')); }
+function showAnalysis(){
+  if(!currentSymbol) return;
+  const overlay = el('taEmbedOverlay'), inner = el('taEmbedInner');
+  if(!overlay || !inner) return;
+  const old = inner.querySelector('iframe'); if(old) old.remove();
+  const frame = document.createElement('iframe');
+  frame.className = 'ta-embed-frame';
+  frame.title = 'Coin analysis';
+  frame.src = 'screener.html' + '?symbol=' + encodeURIComponent(currentSymbol);
+  inner.appendChild(frame);
+  overlay.classList.add('open');
+}
+function closeAnalysis(){
+  const overlay = el('taEmbedOverlay');
+  if(!overlay) return;
+  overlay.classList.remove('open');
+  const f = overlay.querySelector('iframe'); if(f) f.remove();
+}
+
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
 
@@ -5321,6 +5386,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   document.addEventListener('keydown', e=>{
     if(e.key==='Escape' && el('analysisOverlay').classList.contains('open')){
+      if(embedOpen()) return; // shell's Escape handler closes the analysis overlay first
       const ci = document.getElementById('coinInfoModal');
       if(ci && ci.classList.contains('open')) return; // shell's Escape handler closes the coin info modal first
       close();
@@ -5328,7 +5394,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, clearAllChecks, toggleAll: toggleAllGroups, addToWatchlist, showCoinInfo, GROUPS, _compute: computeValues };
+window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, clearAllChecks, toggleAll: toggleAllGroups, addToWatchlist, showCoinInfo, showAnalysis, closeAnalysis, GROUPS, _compute: computeValues };
 })();
 </script>
 
