@@ -1091,6 +1091,20 @@
   .analysis-subgroup+.analysis-subgroup{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);}
   .analysis-subgroup-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
   .analysis-subgroup-title{font:700 11px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.05em;}
+  /* ---- Relative Strength: computed summary + verdict, below the ratio chart ---- */
+  .analysis-rs-summary{margin-top:10px;padding:10px 12px;background:var(--panel);border:1px solid var(--border-soft);border-radius:12px;}
+  .analysis-rs-summary-list{margin:6px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:6px;}
+  .analysis-rs-summary-list li{font-size:12.5px;line-height:1.5;color:var(--muted);}
+  .analysis-rs-verdict{margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .analysis-rs-verdict-text{font-size:12.5px;font-weight:600;line-height:1.4;color:var(--text);}
+  .analysis-rs-verdict.verdict-pos .analysis-rs-verdict-text{color:var(--accent);}
+  .analysis-rs-verdict.verdict-neg .analysis-rs-verdict-text{color:var(--red);}
+  .analysis-rs-verdict.verdict-warn .analysis-rs-verdict-text{color:var(--amber);}
+  @media(max-width:520px){
+    .analysis-rs-summary{padding:9px 10px;}
+    .analysis-rs-summary-list li{font-size:12px;}
+    .analysis-rs-verdict-text{font-size:12px;}
+  }
   @media(max-width:520px){
     .analysis-shell{padding:14px 12px;}
     .analysis-topbar{padding:12px;}
@@ -6201,7 +6215,123 @@ function betaOf(assetRet, benchRet){
    numeric ratio through to the ratio-chart checkbox, which needs it to pick
    a 0-10 scaling multiplier for the TradingView symbol formula.
    --------------------------------------------------------------------------- */
-function computeRelStrength(set, cl, rsiV, benchCandles, benchSymbol, benchLabel, keyPrefix){
+/* ---------------------------------------------------------------------------
+   Relative Strength summary — turns the eight RS Bias/Ratio ROC/RSI Delta/
+   Perf/Correlation/Beta numbers into a handful of plain-English bullet
+   points plus a one-line verdict, the way a trader would actually read the
+   panel: trend direction first, then whether that trend is speeding up or
+   fading, then whether the coin's own momentum agrees, then whether any of
+   it is genuine coin-specific behavior or just a leveraged/dampened echo of
+   the benchmark. Bias × alpha-trend × RSI-agreement × correlation-bucket ×
+   beta-bucket are built as independent small decisions rather than one big
+   lookup table, so the commentary stays accurate across every combination
+   instead of only the ones someone thought to hardcode by hand.
+   Returns null when there's nothing to summarize (benchmark vs itself, or
+   not enough shared history yet for even RS Bias to resolve).
+   --------------------------------------------------------------------------- */
+function buildRsSummary(rsBiasVal, ratioRoc, rsiDelta, alpha7, alpha30, corr30, beta30, benchLabel, isBenchItself){
+  if(isBenchItself) return null;
+  if(!rsBiasVal) return { bullets:[`Not enough ${benchLabel} price history yet for a reliable relative-strength read.`], verdictText:'Not enough data yet', verdictCls:'' };
+
+  const out = rsBiasVal === 'Outperforming' ? 1 : -1; // +1 outperforming, -1 underperforming
+  const bullets = [];
+
+  // 1) Trend direction + whether the last 12 bars are confirming or fading it
+  {
+    const emaWord = out===1 ? 'above' : 'below';
+    const dirWord = out===1 ? 'gaining ground on' : 'losing ground to';
+    if(Number.isFinite(ratioRoc)){
+      const rocAgrees = (out===1 && ratioRoc>0) || (out===-1 && ratioRoc<0);
+      bullets.push(rocAgrees
+        ? `Structurally ${dirWord} ${benchLabel} (ratio EMA9 ${emaWord} EMA21), and the last 12 bars confirm it — the move is accelerating (${pct(ratioRoc)} 12-bar ratio ROC).`
+        : `Structurally ${dirWord} ${benchLabel} (ratio EMA9 ${emaWord} EMA21), but the last 12 bars are pulling the other way (${pct(ratioRoc)} 12-bar ratio ROC) — the trend may be running out of steam.`);
+    } else {
+      bullets.push(`Structurally ${dirWord} ${benchLabel} (ratio EMA9 ${emaWord} EMA21); not enough bars yet for a 12-bar ROC read.`);
+    }
+  }
+
+  // 2) Alpha trend — is the 7-bar excess return bigger, smaller, or flipped
+  // in sign versus the 30-bar figure?
+  if(Number.isFinite(alpha7) && Number.isFinite(alpha30)){
+    const sameSign = (alpha7>=0) === (alpha30>=0);
+    if(sameSign){
+      const improving = out===1 ? alpha7>alpha30 : alpha7<alpha30;
+      if(out===1){
+        bullets.push(improving
+          ? `Outperformance is accelerating — 7-bar alpha (${pct(alpha7)}) is running hotter than the 30-bar figure (${pct(alpha30)}).`
+          : `Outperformance is cooling — 7-bar alpha (${pct(alpha7)}) is softer than the 30-bar figure (${pct(alpha30)}), worth watching for RS Bias to roll over.`);
+      } else {
+        bullets.push(improving
+          ? `Underperformance is fresh and accelerating — 7-bar alpha (${pct(alpha7)}) is worse than the 30-bar figure (${pct(alpha30)}).`
+          : `Underperformance is easing — 7-bar alpha (${pct(alpha7)}) is less negative than the 30-bar figure (${pct(alpha30)}), an early sign the gap may be narrowing.`);
+      }
+    } else if(alpha7>=0 && alpha30<0){
+      bullets.push(`A short-term reversal is showing — 7-bar alpha has turned positive (${pct(alpha7)}) even though the 30-bar trend is still negative (${pct(alpha30)}). Early, but worth watching for RS Bias to confirm.`);
+    } else {
+      bullets.push(`Giving back an established edge — 7-bar alpha has turned negative (${pct(alpha7)}) against a still-positive 30-bar trend (${pct(alpha30)}).`);
+    }
+  } else if(Number.isFinite(alpha30)){
+    bullets.push(`30-bar alpha vs ${benchLabel} is ${pct(alpha30)}; not enough bars yet for the 7-bar comparison.`);
+  }
+
+  // 3) Own-chart momentum corroboration (RSI Delta)
+  if(Number.isFinite(rsiDelta)){
+    const agrees = (out===1 && rsiDelta>0) || (out===-1 && rsiDelta<0);
+    const mag = Math.abs(rsiDelta);
+    const strength = mag>=10 ? 'notably' : mag>=3 ? 'modestly' : 'only marginally';
+    bullets.push(agrees
+      ? `Own-chart momentum backs this up — RSI Delta ${strength} favors ${out===1?'the coin':benchLabel} (${rsiDelta>=0?'+':''}${rsiDelta.toFixed(1)}).`
+      : `Own-chart momentum disagrees — RSI Delta ${strength} favors ${out===1?benchLabel:'the coin'} instead (${rsiDelta>=0?'+':''}${rsiDelta.toFixed(1)}), a possible early warning the trend is turning.`);
+  }
+
+  // 4) Correlation × Beta synthesis — genuine coin-specific behavior, or
+  // mostly a scaled echo of the benchmark's own trend? 3×3 bucket matrix
+  // (high/mid/low correlation × high/mid/low beta) covers every case with
+  // its own distinct read rather than collapsing to a single "coupled" flag.
+  let idiosyncratic = false;
+  if(Number.isFinite(corr30) && Number.isFinite(beta30)){
+    const corrBucket = corr30>=0.7 ? 'high' : corr30<=0.3 ? 'low' : 'mid';
+    const betaBucket = beta30>1.2 ? 'high' : beta30<0.8 ? 'low' : 'mid';
+    idiosyncratic = corrBucket==='low' || betaBucket==='low';
+    const matrix = {
+      high: {
+        high: `moves almost in lockstep with ${benchLabel} but amplified — much of this ${out===1?'outperformance':'underperformance'} is really a leveraged echo of ${benchLabel}'s own trend, not an independent move`,
+        mid:  `moves closely with ${benchLabel} at roughly a 1:1 pace — this ${out===1?'edge':'gap'} is likely just a different pace on the same ${benchLabel}-driven trend rather than a coin-specific story`,
+        low:  `tracks ${benchLabel}'s direction closely but with muted size — a real ${benchLabel}-linked move, just smaller in magnitude`
+      },
+      mid: {
+        high: `only loosely tied to ${benchLabel} day-to-day, but swings harder on the bars they do move together — part ${benchLabel}-driven, part its own thing`,
+        mid:  `moderately tied to ${benchLabel} with a roughly proportional response — a mixed picture, not purely one or the other`,
+        low:  `only loosely tied to ${benchLabel} and dampens its moves even when they do line up — this looks more coin-specific than ${benchLabel}-driven`
+      },
+      low: {
+        high: `trading largely independently of ${benchLabel} day-to-day, though it can swing hard on the rare bars they move together — this looks like genuine, idiosyncratic ${out===1?'strength':'weakness'}`,
+        mid:  `trading mostly independently of ${benchLabel} — this ${out===1?'outperformance':'underperformance'} looks like its own story, not a ${benchLabel} echo`,
+        low:  `trading independently of ${benchLabel} and dampening what little co-movement exists — about as pure a coin-specific ${out===1?'strength':'weakness'} signal as this panel gets`
+      }
+    };
+    bullets.push(`Correlation (${num(corr30,2)}) and Beta (${num(beta30,2)}×): ${matrix[corrBucket][betaBucket]}.`);
+  }
+
+  // Verdict — bottom line, downgraded to a caution when the alpha trend
+  // (point 2) has already reversed against the headline RS Bias.
+  const alphaFading = Number.isFinite(alpha7) && Number.isFinite(alpha30) &&
+    (out===1 ? (alpha7<alpha30 && alpha7<0) : (alpha7>alpha30 && alpha7>0));
+  let verdictText, verdictCls;
+  if(out===1){
+    if(alphaFading){ verdictText = `Outperforming, but the edge is fading fast — watch for RS Bias to flip before trusting it.`; verdictCls = 'warn'; }
+    else if(idiosyncratic){ verdictText = `Idiosyncratic strength — a genuine leadership candidate independent of ${benchLabel}.`; verdictCls = 'pos'; }
+    else { verdictText = `Leadership tilt, but largely ${benchLabel}-driven — expect it to cool off if ${benchLabel} does.`; verdictCls = 'pos'; }
+  } else {
+    if(alphaFading){ verdictText = `Underperforming, but the gap is narrowing — watch for an RS Bias flip rather than assuming continued weakness.`; verdictCls = 'warn'; }
+    else if(idiosyncratic){ verdictText = `Idiosyncratic weakness — avoid longs; a relative-weakness candidate independent of ${benchLabel} strength.`; verdictCls = 'neg'; }
+    else { verdictText = `Underperforming, but mostly a ${benchLabel}-beta effect — likely turns with ${benchLabel}, not before it.`; verdictCls = 'neg'; }
+  }
+
+  return { bullets, verdictText, verdictCls };
+}
+
+function computeRelStrength(set, cl, rsiV, benchCandles, benchSymbol, benchLabel, keyPrefix, setRaw){
   const RS_KEYS = [keyPrefix+'Bias', keyPrefix+'Ratio', keyPrefix+'RatioRoc', keyPrefix+'RsiDelta', keyPrefix+'Perf7', keyPrefix+'Perf30', keyPrefix+'Corr30', keyPrefix+'Beta30'];
   if(benchCandles && benchCandles.length > 20){
     const benchCl = closes(benchCandles);
@@ -6264,8 +6394,10 @@ function computeRelStrength(set, cl, rsiV, benchCandles, benchSymbol, benchLabel
     set(keyPrefix+'Beta30', Number.isFinite(beta30) ? num(beta30,2)+'×' : '—',
         beta30>1.2?'warn':'',
         Number.isFinite(beta30) ? (beta30>1?`amplifies ${benchLabel}'s moves`:`dampens ${benchLabel}'s moves`) : null);
+    if(setRaw) setRaw(keyPrefix+'Summary', buildRsSummary(rsBiasVal, ratioRoc, rsiDelta, alpha7, alpha30, corr30, beta30, benchLabel, isBenchItself));
   } else {
     RS_KEYS.forEach(k=>set(k, null));
+    if(setRaw) setRaw(keyPrefix+'Summary', null);
   }
 }
 
@@ -6391,6 +6523,10 @@ const GROUPS = [
 function computeValues(candles, tf, ticker, derivs, btcCandles, ethCandles){
   const out = {};
   const set = (k,v,cls,sub)=>{ out[k] = { v: v===null||v===undefined ? '—' : v, cls: cls||'', sub: sub||null }; };
+  // Plain passthrough setter for values that aren't a row — used by the
+  // Relative Strength summary below, which stores a {bullets,verdict...}
+  // object rather than a formatted {v,cls,sub} row.
+  const setRaw = (k,v)=>{ out[k] = v; };
   const cl = closes(candles);
   const price = cl[cl.length-1];
   PDEC = decimalsFor(price);
@@ -6598,8 +6734,8 @@ function computeValues(candles, tf, ticker, derivs, btcCandles, ethCandles){
      pearsonCorr/betaOf) — one call per benchmark, namespaced by key prefix
      ('rs' for BTC, 'rse' for ETH). See that function's header comment for
      the methodology. */
-  computeRelStrength(set, cl, rsiV, btcCandles, 'BTCUSDT', 'BTC', 'rs');
-  computeRelStrength(set, cl, rsiV, ethCandles, 'ETHUSDT', 'ETH', 'rse');
+  computeRelStrength(set, cl, rsiV, btcCandles, 'BTCUSDT', 'BTC', 'rs', setRaw);
+  computeRelStrength(set, cl, rsiV, ethCandles, 'ETHUSDT', 'ETH', 'rse', setRaw);
 
   return out;
 }
@@ -6814,14 +6950,12 @@ function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&l
 // demand without crowding the initial view.
 let collapsedGroups = new Set(GROUPS.map((g,i)=>i).filter(i=>GROUPS[i].key!=='chart'));
 
-// "Load ratio chart" checkbox in the Relative Strength section's BTC / ETH
-// sub-headings — separate from every other chart toggle above, since this
-// one doesn't overlay the Chart section's candles (different scale
-// entirely): it embeds a standalone TradingView iframe of the coin/
-// benchmark ratio, right inside that subsection's own body, only once
-// checked.
-let rsChartEnabled = false;
-let rseChartEnabled = false;
+// The Relative Strength section's BTC / ETH sub-headings used to have a
+// "Load ratio chart" checkbox — separate from every other chart toggle
+// above, since this one doesn't overlay the Chart section's candles
+// (different scale entirely). The ratio chart (a standalone TradingView
+// iframe of the coin/benchmark ratio) is now always shown inside each
+// subsection's own body, so there's nothing left to toggle.
 // TradingView renders a formula symbol like BINANCE:SOLUSDT.P/BINANCE:BTCUSDT.P
 // as whatever raw ratio it works out to — usually a tiny decimal that's hard
 // to read on an axis. Multiplying by a power of ten so the current ratio
@@ -6863,32 +6997,18 @@ function ratioChartSrc(benchSymbol, tf){
 // need a full re-render.
 function syncRatioChartFrames(){
   const rsFrame = el('taRsChartFrame');
-  if(rsFrame) rsFrame.src = rsChartEnabled ? ratioChartSrc('BTCUSDT', currentTf) : '';
+  if(rsFrame) rsFrame.src = ratioChartSrc('BTCUSDT', currentTf);
   const rseFrame = el('taRseChartFrame');
-  if(rseFrame) rseFrame.src = rseChartEnabled ? ratioChartSrc('ETHUSDT', currentTf) : '';
-}
-function toggleRsChart(checked){
-  rsChartEnabled = checked;
-  const idx = GROUPS.findIndex(g=>g.key==='relStrength');
-  if(checked && idx>=0 && collapsedGroups.has(idx)) collapsedGroups.delete(idx);
-  renderGroups(latestValues);
-}
-function toggleRseChart(checked){
-  rseChartEnabled = checked;
-  const idx = GROUPS.findIndex(g=>g.key==='relStrength');
-  if(checked && idx>=0 && collapsedGroups.has(idx)) collapsedGroups.delete(idx);
-  renderGroups(latestValues);
+  if(rseFrame) rseFrame.src = ratioChartSrc('ETHUSDT', currentTf);
 }
 
 // Renders one BTC/ETH subsection inside the merged "Relative Strength" card:
-// its own small heading (label + "load ratio chart" checkbox) followed by
-// its metric rows and, when checked, the ratio-chart iframe wrap. Kept
+// its own small heading (label only, no toggle) followed by its metric rows,
+// the ratio-chart iframe (always shown), and the computed summary. Kept
 // separate from the generic member-row loop above since this is the only
-// group with an internal heading + checkbox rather than one at the card
+// group with an internal per-subsection heading rather than one at the card
 // level.
 function renderRelStrengthSub(sub, values){
-  const enabled = sub.key==='btc' ? rsChartEnabled : rseChartEnabled;
-  const toggleClass = sub.key==='btc' ? 'taRsChartToggle' : 'taRseChartToggle';
   const frameId = sub.key==='btc' ? 'taRsChartFrame' : 'taRseChartFrame';
   const isBenchItself = currentSymbol === sub.benchSymbol;
   const rows = sub.members.map(([key,label])=>{
@@ -6901,15 +7021,25 @@ function renderRelStrengthSub(sub, values){
       <span class="analysis-row-val-wrap">${rowSub}<span class="analysis-row-valcheck"><span class="analysis-row-value${cls}">${esc(v)}</span></span></span>
     </div>`;
   }).join('');
-  const chartWrap = `<div class="analysis-ratio-chart-wrap${enabled ? '' : ' hidden'}"><iframe id="${frameId}" class="analysis-ratio-chart-frame" loading="lazy" title="Coin/${sub.label} ratio chart"></iframe></div>`;
+  const chartWrap = isBenchItself ? '' : `<div class="analysis-ratio-chart-wrap"><iframe id="${frameId}" class="analysis-ratio-chart-frame" loading="lazy" title="Coin/${sub.label} ratio chart"></iframe></div>`;
+  // Computed summary + verdict, rendered below the ratio chart — see
+  // buildRsSummary() for the bullet/verdict logic. Absent (renders nothing)
+  // when there isn't enough data yet or the benchmark is being viewed
+  // against itself.
+  const summary = values ? values[sub.key==='btc' ? 'rsSummary' : 'rseSummary'] : null;
+  const summaryHtml = summary ? `<div class="analysis-rs-summary">
+      <span class="analysis-subgroup-title">Summary</span>
+      <ul class="analysis-rs-summary-list">${summary.bullets.map(b=>`<li>${esc(b)}</li>`).join('')}</ul>
+      <div class="analysis-rs-verdict verdict-${summary.verdictCls||'neutral'}">
+        <span class="analysis-subgroup-title">Verdict</span>
+        <span class="analysis-rs-verdict-text">${esc(summary.verdictText)}</span>
+      </div>
+    </div>` : '';
   return `<div class="analysis-subgroup">
     <div class="analysis-subgroup-head">
       <span class="analysis-subgroup-title">vs ${esc(sub.label)}</span>
-      <label class="analysis-ict-chart-toggle" title="${isBenchItself ? `This is ${esc(sub.label)} — no ratio to chart` : `Load the coin/${esc(sub.label)} ratio chart from TradingView`}">
-        <input type="checkbox" class="${toggleClass}" ${enabled ? 'checked' : ''} ${isBenchItself ? 'disabled' : ''}>
-      </label>
     </div>
-    <div class="analysis-subgroup-body">${rows}${chartWrap}</div>
+    <div class="analysis-subgroup-body">${rows}${chartWrap}${summaryHtml}</div>
   </div>`;
 }
 
@@ -7657,10 +7787,9 @@ function updateToggleAllBtn(){
 
 // True if any Chart-overlay checkbox is checked — header "select all" toggle
 // or an individually-checked member — across ICT, Trend, Volatility,
-// Ichimoku, Market Structure or Volume. Relative Strength is deliberately
-// left out: its own "Chart" checkboxes (taRsChartToggle/taRseChartToggle)
-// just show/hide a ratio-chart iframe inside that section and never touch
-// the price chart, so they're not part of what "clear all checkboxes" means.
+// Ichimoku, Market Structure or Volume. Relative Strength has no checkboxes
+// of its own (its ratio chart is always shown and never touches the price
+// chart), so it's not part of what "clear all checkboxes" means.
 function anyOverlayChecked(){
   return ictOverlayEnabled || ictMemberOverlay.size>0 ||
     trendOverlayEnabled || trendMemberOverlay.size>0 ||
@@ -7815,12 +7944,27 @@ function openFor(symbol, tfWanted){
   }
   el('analysisOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  // Push a history entry so a real Back (hardware button, swipe-back gesture,
+  // or an installed PWA's own Back) closes this overlay and returns to the
+  // Custom Screens page instead of falling straight through to leaving the
+  // app — same trick index.html uses for its own overlays. Guarded so
+  // re-opening for a different symbol while already open (e.g. typing a new
+  // symbol into the search box) doesn't push a second entry.
+  if(!history.state || !history.state.analysis){
+    history.pushState({ analysis: true }, '', location.href);
+  }
   load(symbol, currentTf);
 }
 function close(){
   loadToken++;
   el('analysisOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  // Collapse the entry pushed in openFor() back onto the underlying page
+  // state. A no-op when this runs as a result of an actual popstate, since
+  // the browser has already consumed that entry by the time this fires.
+  if(history.state && history.state.analysis){
+    history.replaceState({}, '', location.href);
+  }
 }
 function setTf(tf){
   if(tf === currentTf && latestValues) return;
@@ -7904,8 +8048,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     else if(e.target.classList.contains('taStructureMemberToggle')) toggleStructureMember(e.target.dataset.key, e.target.checked);
     else if(e.target.classList.contains('taVolumeChartToggle')) toggleVolumeOverlay(e.target.checked);
     else if(e.target.classList.contains('taVolumeMemberToggle')) toggleVolumeMember(e.target.dataset.key, e.target.checked);
-    else if(e.target.classList.contains('taRsChartToggle')) toggleRsChart(e.target.checked);
-    else if(e.target.classList.contains('taRseChartToggle')) toggleRseChart(e.target.checked);
   });
   el('analysisOverlay').addEventListener('click', e=>{
     if(e.target.id==='analysisOverlay') close();
@@ -7914,6 +8056,37 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(e.key==='Escape' && el('analysisOverlay').classList.contains('open')) close();
   });
 });
+
+// Real browser/History-API back — a hardware button, swipe-back gesture, or
+// an installed PWA/TWA's own Back — closes the Technical Breakdown overlay
+// and returns to the Custom Screens page instead of falling straight through
+// to leaving the app, using the history entry openFor() pushed. This is the
+// layer that actually fires when this overlay is opened from inside
+// index.html's Screener iframe too, since a pushState from a nested frame
+// still becomes part of the browser's combined back/forward history and
+// fires popstate on this window when it's traversed. A no-op for any other
+// popstate (screener.html has no other page/overlay history state).
+window.addEventListener('popstate', () => {
+  if(el('analysisOverlay') && el('analysisOverlay').classList.contains('open')) close();
+});
+
+// Cordova-style back-button plugin (DOM CustomEvent) and Capacitor's own
+// native back-button listener — only relevant when screener.html is the
+// top-level document (opened directly rather than embedded in index.html's
+// shell, which already handles its own back button at the outer level).
+// Both just close the overlay when it's open; when it's not, they
+// intentionally do nothing so the platform's default Back proceeds.
+document.addEventListener('backbutton', event => {
+  if(el('analysisOverlay') && el('analysisOverlay').classList.contains('open')){
+    event.preventDefault();
+    close();
+  }
+}, { passive: false });
+if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App && typeof window.Capacitor.Plugins.App.addListener === 'function'){
+  window.Capacitor.Plugins.App.addListener('backButton', () => {
+    if(el('analysisOverlay') && el('analysisOverlay').classList.contains('open')) close();
+  });
+}
 
 window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, clearAllChecks, toggleAll: toggleAllGroups, GROUPS, _compute: computeValues };
 })();
