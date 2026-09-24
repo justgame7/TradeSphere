@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ichimoku Breakout Screener (Binance USDT-M)</title>
+<title>Ichimoku Breakout (Binance USDT-M)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -420,6 +420,9 @@
   .price-action-link:hover{background:rgba(53,224,192,.16);border-color:var(--accent);}
   .decision-price-action{display:block;width:100%;margin:12px 0 0;text-align:center;}
   .screen-match-link{text-align:center;margin-top:8px;}
+  /* Opens the same full technical breakdown the Coin Lookup search shows,
+     for whichever symbol the analysis modal is currently on. */
+  .tech-breakdown-link{text-align:center;margin-top:8px;}
   .analysis-dialog{width:min(1100px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:0 22px 22px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
   /* .analysis-dialog itself is the scrolling container (overflow:auto), so the
      sticky header pins relative to IT, not the page - stays visible while
@@ -474,7 +477,7 @@
   @media(max-width:700px){.analysis-grid{grid-template-columns:1fr;}.chart-wrap{height:340px;}}
   .analysis-cell{display:flex;align-items:center;gap:6px;}
 
-  /* ---------------- Scanner screens matched popover ---------------- */
+  /* ---------------- Custom screens matched popover ---------------- */
   .screen-match-subtitle{margin:2px 0 0;color:var(--faint);font:11px var(--font-mono);}
   .screen-match-ict-toggle{
     display:flex;align-items:center;gap:7px;margin:12px 0 0;cursor:pointer;user-select:none;
@@ -888,6 +891,14 @@
 #scannerPane tbody tr:hover{background:rgba(255,255,255,0.02);}
 #scannerPane tbody tr:last-child td{border-bottom:none;}
 #scannerPane .sym-cell{display:flex;align-items:center;gap:10px;}
+  #scannerPane .sym-cell-btn{
+    background:none;border:none;padding:2px 4px 2px 2px;margin:-2px 0 -2px -4px;
+    border-radius:10px;cursor:pointer;text-align:left;font-family:inherit;color:inherit;
+    transition:background .12s;
+  }
+  #scannerPane .sym-cell-btn:hover,#scannerPane .sym-cell-btn:focus-visible{background:rgba(53,224,192,0.08);}
+  #scannerPane .sym-cell-btn:hover .sym-badge,#scannerPane .sym-cell-btn:focus-visible .sym-badge{box-shadow:0 0 0 2px var(--accent-dim);}
+  #scannerPane .sym-cell-btn:focus-visible{outline:none;}
 #scannerPane .sym-badge{width:30px;height:30px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font:700 10.5px var(--font-mono);color:#fff;}
 #scannerPane .sym-name{font-weight:700;font-size:13px;}
 #scannerPane .sym-sub{font:500 10px var(--font-mono);color:var(--faint);}
@@ -908,6 +919,7 @@
   }
 #scannerPane .icon-btn:hover{border-color:var(--border-strong);color:var(--text);}
 #scannerPane .icon-btn.added{color:var(--accent);border-color:rgba(53,224,192,0.35);}
+  #scannerPane .icon-btn.lookup{color:var(--accent);border-color:rgba(53,224,192,0.3);}
 #scannerPane .empty-state{
     text-align:center;padding:60px 20px;color:var(--faint);
   }
@@ -919,6 +931,239 @@
   /* -- hero stats row (merged layout) -- */
   #scannerPane .scn-stats{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
 
+  /* =========================================================================
+     Coin Lookup (Custom Screens tab) + Technical Analysis overlay
+     ========================================================================= */
+  #scannerPane .lookup-panel{
+    background:linear-gradient(155deg,rgba(53,224,192,.07),var(--panel) 55%);
+    border:1px solid var(--border);border-radius:16px;
+    padding:16px;margin-top:14px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  #scannerPane .lookup-head{display:flex;flex-direction:column;gap:2px;flex:1;min-width:180px;}
+  #scannerPane .lookup-title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;}
+  #scannerPane .lookup-title .lu-icon{
+    width:26px;height:26px;border-radius:8px;flex:none;background:rgba(53,224,192,.14);
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+  }
+  #scannerPane .lookup-sub{color:var(--faint);font-size:11px;margin-left:34px;}
+  #scannerPane .lookup-panel .coin-search{flex:none;}
+  #scannerPane .lookup-panel .coin-search input{width:150px;}
+  @media(max-width:480px){
+    #scannerPane .lookup-panel{padding:14px;gap:10px;}
+    #scannerPane .lookup-panel .coin-search{flex:1;}
+    #scannerPane .lookup-panel .coin-search input{width:100%;}
+  }
+
+  /* ---- Full-screen analysis overlay ---- */
+  .analysis-overlay{
+    position:fixed;inset:0;z-index:50;display:none;
+    background:rgba(5,6,9,.86);backdrop-filter:blur(4px);
+    overflow-y:auto;
+    padding:0 0 60px;
+  }
+  .analysis-overlay.open{display:block;}
+  .analysis-shell{max-width:1180px;margin:0 auto;padding:20px;}
+  .analysis-topbar{
+    position:sticky;top:0;z-index:2;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    background:rgba(10,12,16,.9);backdrop-filter:blur(10px);
+    border:1px solid var(--border);border-radius:16px;
+    padding:14px 16px;margin-bottom:16px;
+    box-shadow:0 10px 30px -18px rgba(0,0,0,.7);
+  }
+  .analysis-id{display:flex;align-items:center;gap:12px;flex:1;min-width:220px;}
+  .analysis-symbol-icon{
+    width:40px;height:40px;border-radius:12px;flex:none;
+    background:linear-gradient(155deg,rgba(53,224,192,.22),rgba(91,140,255,.12));
+    border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font:700 14px var(--font-mono);color:var(--accent);
+  }
+  .analysis-id-text{display:flex;flex-direction:column;line-height:1.25;}
+  .analysis-symbol{font-size:17px;font-weight:700;letter-spacing:-.01em;}
+  .analysis-symbol .quote{color:var(--faint);font-weight:600;font-size:12px;margin-left:2px;}
+  .analysis-meta{display:flex;align-items:center;gap:8px;font:600 10.5px var(--font-mono);color:var(--faint);letter-spacing:.04em;}
+  .analysis-price{font:700 15px var(--font-mono);color:var(--text);}
+  .analysis-controls{display:flex;align-items:center;gap:10px;flex:none;}
+  .analysis-close{
+    width:34px;height:34px;border-radius:10px;flex:none;padding:0;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    display:flex;align-items:center;justify-content:center;font-size:16px;
+    box-shadow:none;
+  }
+  .analysis-close:hover{border-color:var(--red);color:var(--red);transform:none;}
+  .analysis-tf-toggle{
+    display:flex;background:var(--panel2);border:1px solid var(--border);
+    border-radius:10px;padding:3px;gap:2px;
+  }
+  .analysis-tf-toggle button{
+    background:transparent;border:none;color:var(--muted);
+    font-family:var(--font-mono);padding:8px 13px;font-size:12px;font-weight:600;
+    border-radius:7px;cursor:pointer;transition:background .15s,color .15s;
+  }
+  .analysis-tf-toggle button:hover{color:var(--accent);}
+  .analysis-tf-toggle button.active{background:var(--accent);color:#07130f;box-shadow:0 2px 10px rgba(53,224,192,.35);}
+  .analysis-status-row{display:flex;align-items:center;gap:8px;margin:0 0 16px;color:var(--faint);font:600 11px var(--font-mono);letter-spacing:.03em;}
+  .analysis-status-row .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none;}
+
+  .analysis-groups-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:14px;
+  }
+  .analysis-group-card{
+    background:linear-gradient(155deg,var(--panel2),var(--panel));
+    border:1px solid var(--border);border-radius:16px;
+    padding:14px 15px 8px;
+    box-shadow:0 1px 0 0 rgba(255,255,255,.03) inset;
+  }
+  .analysis-group-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border-soft);cursor:pointer;user-select:none;}
+  .analysis-group-icon{
+    width:28px;height:28px;border-radius:9px;flex:none;
+    background:color-mix(in srgb,var(--grp-color,var(--accent)) 18%,transparent);
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+    box-shadow:0 4px 12px -4px color-mix(in srgb,var(--grp-color,var(--accent)) 55%,transparent);
+  }
+  .analysis-group-title{font-weight:700;font-size:13.5px;letter-spacing:-.01em;flex:1;}
+  .analysis-group-count{font:600 11px var(--font-mono);color:var(--faint);background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:2px 8px;}
+  .analysis-group-chevron{
+    flex:none;width:22px;height:22px;padding:0;border:none;background:transparent;
+    color:var(--faint);font-size:12px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:transform .18s ease,color .15s;
+  }
+  .analysis-group-head:hover .analysis-group-chevron{color:var(--accent);}
+  .analysis-ict-chart-toggle{
+    display:flex;align-items:center;gap:5px;flex:none;
+    font:600 10.5px var(--font-mono);color:var(--faint);
+    padding:3px 9px;border-radius:20px;border:1px solid var(--border);
+    background:var(--panel);cursor:pointer;user-select:none;
+    transition:border-color .15s,color .15s;
+  }
+  .analysis-ict-chart-toggle:hover{border-color:var(--grp-color,var(--accent));color:var(--text);}
+  .analysis-ict-chart-toggle input{width:12px;height:12px;accent-color:var(--grp-color,var(--accent));cursor:pointer;}
+  .analysis-ict-chart-toggle:has(input:disabled){cursor:not-allowed;opacity:.5;}
+  .analysis-ict-chart-toggle:has(input:disabled):hover{border-color:var(--border);color:var(--faint);}
+  .analysis-ict-chart-toggle input:disabled{cursor:not-allowed;}
+  /* Bar-count picker (45/90/180) in the Chart section header. */
+  .analysis-bar-toggle{
+    display:flex;align-items:center;gap:2px;flex:none;
+    background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:2px;
+  }
+  .analysis-bar-toggle button{
+    background:transparent;border:none;color:var(--faint);
+    font:600 10.5px var(--font-mono);padding:3px 8px;border-radius:16px;cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .analysis-bar-toggle button:hover{color:var(--text);}
+  .analysis-bar-toggle button.active{background:var(--grp-color,var(--accent));color:#07130f;}
+  .analysis-group-card.collapsed .analysis-group-chevron{transform:rotate(-90deg);}
+  .analysis-group-card.collapsed .analysis-group-head{margin-bottom:0;padding-bottom:10px;}
+  .analysis-group-card.collapsed{padding-bottom:4px;}
+  .analysis-group-body{overflow:hidden;}
+  .analysis-group-card.collapsed .analysis-group-body{display:none;}
+  .analysis-toggle-all .taa-chevron{display:inline-block;transition:transform .18s ease;}
+  .analysis-toggle-all.all-collapsed .taa-chevron{transform:rotate(-90deg);}
+  .analysis-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:7px 2px;border-bottom:1px dashed var(--border-soft);
+  }
+  .analysis-row:last-child{border-bottom:none;}
+  .analysis-row-label{font-size:13px;color:var(--muted);font-weight:500;}
+  .analysis-row-value{font:700 13px var(--font-mono);color:var(--faint);white-space:nowrap;}
+  /* Per-member "show on Chart" checkbox — ICT/Smart Money section only. */
+  .analysis-row-check{width:13px;height:13px;flex:none;accent-color:var(--grp-color,var(--accent));cursor:pointer;}
+  .analysis-row-check:disabled{accent-color:var(--faint);opacity:.4;cursor:not-allowed;}
+  /* Keeps a row's value glued to its checkbox on one line — only the sub
+     badge (e.g. "tapped", "3 bars ago") is allowed to wrap onto its own. */
+  .analysis-row-valcheck{display:flex;align-items:center;gap:6px;flex:none;white-space:nowrap;}
+  /* ---- Coin Lookup breakdown: collapsible Chart section (90-bar candles) ---- */
+  .analysis-group-card.chart-group{grid-column:1/-1;}
+  .analysis-chart-wrap{height:240px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;padding:8px;position:relative;}
+  .analysis-chart-wrap canvas{width:100%;height:100%;display:block;}
+  .analysis-chart-empty{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;color:var(--faint);font:600 12px var(--font-mono);pointer-events:none;text-align:center;}
+  @media(max-width:700px){.analysis-chart-wrap{height:190px;}}
+  /* ---- Relative Strength (vs BTC / vs ETH): optional TradingView ratio chart ---- */
+  .analysis-ratio-chart-wrap{margin-top:10px;height:260px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+  .analysis-ratio-chart-wrap.hidden{display:none;}
+  .analysis-ratio-chart-frame{width:100%;height:100%;border:0;display:block;}
+  @media(max-width:700px){.analysis-ratio-chart-wrap{height:200px;}}
+  /* ---- Relative Strength card: BTC / ETH subsections sharing one card ---- */
+  .analysis-subgroup+.analysis-subgroup{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);}
+  .analysis-subgroup-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
+  .analysis-subgroup-title{font:700 11px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.05em;}
+  @media(max-width:520px){
+    .analysis-shell{padding:14px 12px;}
+    .analysis-topbar{padding:12px;}
+    .analysis-groups-grid{grid-template-columns:1fr;}
+  }
+
+  /* ---- Coin Lookup analysis: value states & controls ---- */
+  .analysis-meta{flex-wrap:wrap;}
+  .analysis-change{font:700 11px var(--font-mono);}
+  .analysis-change.up{color:var(--accent);}
+  .analysis-change.down{color:var(--red);}
+  .analysis-source{
+    font:600 10px var(--font-mono);letter-spacing:.04em;
+    border:1px solid var(--border);border-radius:20px;padding:2px 8px;color:var(--faint);
+  }
+  .analysis-source.src-binance{color:var(--gold);border-color:rgba(240,194,75,.35);}
+  .analysis-source.src-bybit{color:var(--orange);border-color:rgba(255,138,76,.35);}
+  .analysis-icon-btn{
+    width:34px;height:34px;border-radius:10px;flex:none;padding:0;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;
+    box-shadow:none;transition:color .15s,border-color .15s;
+  }
+  .analysis-icon-btn:hover{color:var(--accent);border-color:var(--accent-dim);}
+  .analysis-icon-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .analysis-icon-btn:disabled:hover{color:var(--muted);border-color:var(--border);}
+
+  .analysis-status-row.is-loading .dot{background:var(--amber);animation:taPulse 1s ease-in-out infinite;}
+  .analysis-status-row.is-ok .dot{background:var(--accent);animation:none;}
+  .analysis-status-row.is-error{color:var(--red);}
+  .analysis-status-row.is-error .dot{background:var(--red);animation:none;}
+  @keyframes taPulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  @media(prefers-reduced-motion:reduce){
+    .analysis-status-row.is-loading .dot{animation:none;}
+    .analysis-row-value.val-load{animation:none;}
+  }
+
+  /* Row layout: label column flexes and wraps, value column stays pinned to the
+     right edge on every width so the numbers form a single readable column. */
+  .analysis-row{align-items:flex-start;gap:12px;flex-wrap:nowrap;}
+  .analysis-row-label{flex:1 1 auto;min-width:0;line-height:1.35;}
+  .analysis-row-val-wrap{
+    flex:0 1 auto;max-width:62%;display:flex;flex-wrap:wrap;align-items:center;
+    justify-content:flex-end;gap:6px;text-align:right;
+  }
+  .analysis-row-value{white-space:normal;overflow-wrap:anywhere;}
+  .analysis-row-sub{
+    font:600 10.5px var(--font-mono);color:var(--faint);
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:6px;
+    padding:1px 5px;white-space:nowrap;
+  }
+  .analysis-row-value{color:var(--text);}
+  .analysis-row-value.val-pos{color:var(--accent);}
+  .analysis-row-value.val-neg{color:var(--red);}
+  .analysis-row-value.val-warn{color:var(--amber);}
+  .analysis-row-value.val-load{
+    color:transparent;background:linear-gradient(90deg,var(--panel),var(--border),var(--panel));
+    background-size:200% 100%;border-radius:5px;min-width:54px;display:inline-block;
+    animation:taShimmer 1.2s linear infinite;
+  }
+  @keyframes taShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  @media(max-width:520px){
+    .analysis-group-card{padding:12px 12px 6px;}
+    .analysis-row{gap:8px;padding:8px 2px;}
+    .analysis-row-label{font-size:12.5px;}
+    .analysis-row-value{font-size:12.5px;}
+    .analysis-row-sub{font-size:10px;padding:1px 4px;}
+    .analysis-row-val-wrap{max-width:58%;}
+  }
+  @media(max-width:360px){
+    .analysis-row-label{font-size:12px;}
+    .analysis-row-value{font-size:12px;}
+  }
 </style>
 </head>
 <body>
@@ -936,8 +1181,8 @@
 
 <div class="app-tabs-row">
   <div class="app-tabs">
-    <button type="button" class="app-tab active" id="tabScreenerBtn" onclick="switchAppView('screener')">📈 Screener</button>
-    <button type="button" class="app-tab" id="tabScannerBtn" onclick="switchAppView('scanner')">🔍 Scanner</button>
+    <button type="button" class="app-tab active" id="tabScreenerBtn" onclick="switchAppView('screener')">📈 Cloud Breakout</button>
+    <button type="button" class="app-tab" id="tabScannerBtn" onclick="switchAppView('scanner')">🔍 Custom Screens</button>
   </div>
 </div>
 
@@ -1054,7 +1299,8 @@
     <p class="analysis-status" id="analysisStatus">Loading Binance candles...</p>
     <div class="chart-wrap"><canvas id="analysisChart"></canvas></div>
     <button type="button" class="price-action-link decision-price-action" onclick="openPriceAction(event)">Price action & ICT analysis →</button>
-    <button type="button" class="price-action-link screen-match-link" onclick="Scanner.openScreenMatch(event)">Scanner screens matched →</button>
+    <button type="button" class="price-action-link screen-match-link" onclick="Scanner.openScreenMatch(event)">Custom screens matched →</button>
+    <button type="button" class="price-action-link tech-breakdown-link" onclick="openTechBreakdown(event)">Technical breakdown →</button>
     <div id="analysisDetails"></div>
   </div>
 </div>
@@ -1074,7 +1320,7 @@
     <div class="trade-head" style="position:static;">
       <div class="header-title-wrap">
         <div>
-          <h2 id="screenMatchTitle">Scanner screens matched</h2>
+          <h2 id="screenMatchTitle">Custom screens matched</h2>
           <p class="screen-match-subtitle" id="screenMatchSubtitle">—</p>
         </div>
       </div>
@@ -1122,6 +1368,18 @@
       <span class="live-chip"><span class="live-dot"></span>LIVE · USDT-M</span>
       <div class="tb-stat"><span class="v" id="scnTbUniverse">—</span><span class="k">universe</span></div>
       <div class="tb-stat"><span class="v" id="scnTbLastScan">—</span><span class="k">last scan</span></div>
+    </div>
+  </div>
+
+  <!-- Coin Lookup -->
+  <div class="lookup-panel">
+    <div class="lookup-head">
+      <div class="lookup-title"><span class="lu-icon">🔎</span>Coin Lookup</div>
+      <div class="lookup-sub">Enter any Binance USDT-M or Bybit USDT perp to open its full technical breakdown</div>
+    </div>
+    <div class="coin-search">
+      <input type="text" id="taCoinSearchInput" placeholder="Coin (e.g. BTC)" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button class="coin-search-btn" id="taCoinSearchBtn" type="button" aria-label="Open analysis" onclick="TechAnalysis.open()">🔎</button>
     </div>
   </div>
 
@@ -3262,6 +3520,20 @@ function closePriceAction(event){
   document.getElementById('priceActionModal').classList.remove('open');
 }
 
+// "Technical breakdown" link in the analysis window - opens the same full
+// value breakdown the Coin Lookup search shows on the Custom Screens tab,
+// for whichever symbol the analysis window is currently on. The overlay sits
+// above this modal (z-index 50 vs 11), so closing it returns here.
+// The breakdown opens on the timeframe the row was screened on (4H or 1D)
+// rather than always defaulting to daily; anything else falls back to daily.
+function openTechBreakdown(event){
+  if(event) event.stopPropagation();
+  const symbol = currentExchangeSymbol;
+  if(!symbol || !window.TechAnalysis) return;
+  const tf = (currentAnalysisInterval === '4h' || currentAnalysisInterval === '1w') ? currentAnalysisInterval : '1d';
+  window.TechAnalysis.openSymbol(symbol, tf);
+}
+
 // Levels-card link: closes the Daily analysis window and reopens the same
 // symbol on 4-Hour, or vice versa, without touching the timeframe dropdown
 // that drives the main screener table.
@@ -3289,6 +3561,7 @@ async function openCoinInfo(symbol){
   const gridEl = document.getElementById('coinInfoGrid');
   const websiteEl = document.getElementById('coinInfoWebsite');
   const aboutEl = document.getElementById('coinInfoAbout');
+  const coingeckoEl = document.getElementById('coinInfoCoingecko');
 
   titleEl.textContent = symbol;
   subtitleEl.textContent = '';
@@ -3299,8 +3572,8 @@ async function openCoinInfo(symbol){
   aboutEl.textContent = '';
   websiteEl.textContent = '—';
   websiteEl.onclick = null;
-  document.getElementById('coinInfoCoingecko').textContent = '—';
-  document.getElementById('coinInfoCoingecko').onclick = null;
+  coingeckoEl.textContent = '—';
+  coingeckoEl.onclick = null;
   modal.classList.add('open');
 
   try {
@@ -3346,7 +3619,6 @@ async function openCoinInfo(symbol){
       websiteEl.onclick = null;
     }
 
-    const coingeckoEl = document.getElementById('coinInfoCoingecko');
     const coingeckoUrl = `https://www.coingecko.com/en/coins/${match.id}`;
     coingeckoEl.textContent = coingeckoUrl;
     coingeckoEl.onclick = () => openExternalLink(coingeckoUrl);
@@ -3652,8 +3924,7 @@ function switchAppView(view){
   scannerPane.style.display = isScanner ? '' : 'none';
   screenerBtn.classList.toggle('active', !isScanner);
   scannerBtn.classList.toggle('active', isScanner);
-  document.getElementById('mainTitleText').textContent = 'Scanner';
-  document.getElementById('mainEyebrowText').textContent = isScanner ? 'Condition-Based Scanner' : 'Ichimoku Breakout Screener';
+  document.getElementById('mainEyebrowText').textContent = isScanner ? 'Condition-Based' : 'Ichimoku Breakout';
 }
 </script>
 
@@ -4119,6 +4390,45 @@ function findOteZone(candles, swings, price){
   return { bullish, bearish };
 }
 
+// 50% Retracement distance: how far price currently sits from the midpoint
+// of the same swing leg used for the OTE pocket above. Reported two ways —
+// in ATR units (distAtr) and as a plain percentage of current price
+// (distPct), matching the style of Distance from 24h High/Low. Unlike the
+// fixed 62-79% OTE zone, the "how close counts" threshold here is left to
+// the condition builder (default 1× ATR / 1%, editable to whatever's needed).
+function findMidpointRetracement(candles, swings, price, atrVal){
+  const { swingHighs, swingLows } = swings;
+  if(!swingHighs.length || !swingLows.length) return { distAtr:null, distPct:null, mid:null, direction:null };
+  const lastHigh = swingHighs[swingHighs.length-1];
+  const lastLow = swingLows[swingLows.length-1];
+  if(lastHigh.idx === lastLow.idx) return { distAtr:null, distPct:null, mid:null, direction:null };
+  const mid = (lastHigh.price + lastLow.price) / 2;
+  const direction = lastLow.idx < lastHigh.idx ? 'bullish' : 'bearish'; // up-leg vs down-leg, same convention as findOteZone
+  const distAtr = (Number.isFinite(atrVal) && atrVal>0) ? Math.abs(price - mid) / atrVal : null;
+  const distPct = price>0 ? Math.abs(price - mid) / price * 100 : null;
+  return { distAtr, distPct, mid, direction };
+}
+
+// 61.8% Retracement distance: same idea as the 50% version above, but
+// measured against the classic golden-ratio level of the leg instead of the
+// midpoint — high - 0.618*range for an up-leg, low + 0.618*range for a
+// down-leg (the same anchor the OTE pocket's upper edge uses). Also reported
+// both in ATR units and as a percentage of current price.
+function findFib618Retracement(candles, swings, price, atrVal){
+  const { swingHighs, swingLows } = swings;
+  if(!swingHighs.length || !swingLows.length) return { distAtr:null, distPct:null, level:null, direction:null };
+  const lastHigh = swingHighs[swingHighs.length-1];
+  const lastLow = swingLows[swingLows.length-1];
+  if(lastHigh.idx === lastLow.idx) return { distAtr:null, distPct:null, level:null, direction:null };
+  const range = lastHigh.price - lastLow.price;
+  if(range<=0) return { distAtr:null, distPct:null, level:null, direction:null };
+  const direction = lastLow.idx < lastHigh.idx ? 'bullish' : 'bearish'; // up-leg vs down-leg, same convention as findOteZone
+  const level = direction === 'bullish' ? lastHigh.price - 0.618*range : lastLow.price + 0.618*range;
+  const distAtr = (Number.isFinite(atrVal) && atrVal>0) ? Math.abs(price - level) / atrVal : null;
+  const distPct = price>0 ? Math.abs(price - level) / price * 100 : null;
+  return { distAtr, distPct, level, direction };
+}
+
 // Order block / breaker block — see the scope note above the section header:
 // this is a confluence of sweep + fresh FVG + structure break, not a
 // literally-tracked zone. Breaker = the sweep failed to hold and structure
@@ -4241,6 +4551,8 @@ async function computeMetrics(symbol, interval, ticker){
   const structure = findStructureShift(candles, swings);
   const displacement = findDisplacement(candles, atrVal, 1.8);
   const ote = findOteZone(candles, swings, price);
+  const midpointRetr = findMidpointRetracement(candles, swings, price, atrVal);
+  const fib618Retr = findFib618Retracement(candles, swings, price, atrVal);
   const obSignals = findOrderBlockSignals(sweep, fvgs, structure, candles);
   const equalLevels = findEqualLevels(swings, price, atrVal);
   const premDisc = findPremiumDiscount(candles, 50);
@@ -4263,6 +4575,8 @@ async function computeMetrics(symbol, interval, ticker){
     bosUp: structure.bosUp, bosDown: structure.bosDown, chochUp: structure.chochUp, chochDown: structure.chochDown,
     displacementUp: displacement.bullish, displacementDown: displacement.bearish, displacementRatio: displacement.ratio,
     oteBullish: ote.bullish, oteBearish: ote.bearish,
+    midpointAtrDist: midpointRetr.distAtr, midpointPctDist: midpointRetr.distPct, midpointDirection: midpointRetr.direction,
+    fib618AtrDist: fib618Retr.distAtr, fib618PctDist: fib618Retr.distPct, fib618Direction: fib618Retr.direction,
     freshBullishOB: obSignals.freshBullishOB, freshBearishOB: obSignals.freshBearishOB,
     bullishBreaker: obSignals.bullishBreaker, bearishBreaker: obSignals.bearishBreaker,
     equalHighsNearby: equalLevels.equalHighs, equalLowsNearby: equalLevels.equalLows,
@@ -4301,6 +4615,10 @@ const METRICS = [
   { key:'displacement', label:'Displacement Candle', group:'ICT / Smart Money', unit:'', ops:['bullish','bearish'], noValue:true },
   { key:'displacementRatio', label:'Displacement Size (× ATR)', group:'ICT / Smart Money', unit:'× ATR', ops:['>'], def:1.5 },
   { key:'oteZone', label:'Optimal Trade Entry (OTE)', group:'ICT / Smart Money', unit:'', ops:['bullish (discount, for longs)','bearish (premium, for shorts)'], noValue:true },
+  { key:'midpointAtrDist', label:'Distance from 50% Retracement (× ATR)', group:'ICT / Smart Money', unit:'× ATR', ops:['<','>'], def:1 },
+  { key:'midpointPctDist', label:'Distance from 50% Retracement (%)', group:'ICT / Smart Money', unit:'%', ops:['<','>'], def:1 },
+  { key:'fib618AtrDist', label:'Distance from 61.8% Retracement (× ATR)', group:'ICT / Smart Money', unit:'× ATR', ops:['<','>'], def:1 },
+  { key:'fib618PctDist', label:'Distance from 61.8% Retracement (%)', group:'ICT / Smart Money', unit:'%', ops:['<','>'], def:1 },
   { key:'orderBlock', label:'Order Block (fresh)', group:'ICT / Smart Money', unit:'', ops:['bullish','bearish'], noValue:true },
   { key:'breakerBlock', label:'Breaker Block', group:'ICT / Smart Money', unit:'', ops:['bullish','bearish'], noValue:true },
   { key:'equalLevels', label:'Equal Highs/Lows (liquidity pool)', group:'ICT / Smart Money', unit:'', ops:['equal highs nearby','equal lows nearby'], noValue:true },
@@ -4490,6 +4808,14 @@ const PRESETS = [
     conds:[{metric:'emaTrend',operator:'just crossed down',value:null}], mode:'all' },
   { id:'trending', cat:'Trend', icon:'➤', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Strong trend (ADX)', desc:'ADX above 25 — a real trend, not just chop',
     conds:[{metric:'adx',operator:'>',value:25}], mode:'all' },
+  { id:'midpointRetr', cat:'Trend', icon:'◎', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Near 50% retracement (1× ATR)', desc:'Price sits within 1 ATR of the 50% midpoint of the latest swing leg — edit the multiple (0.5, 2, etc.) in the condition builder',
+    conds:[{metric:'midpointAtrDist',operator:'<',value:1}], mode:'all' },
+  { id:'midpointRetrPct', cat:'Trend', icon:'◎', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Near 50% retracement (1%)', desc:'Price sits within 1% of the 50% midpoint of the latest swing leg — edit the percentage in the condition builder',
+    conds:[{metric:'midpointPctDist',operator:'<',value:1}], mode:'all' },
+  { id:'fib618Retr', cat:'Trend', icon:'◎', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Near 61.8% retracement (1× ATR)', desc:'Price sits within 1 ATR of the golden-ratio (61.8%) level of the latest swing leg — edit the multiple in the condition builder',
+    conds:[{metric:'fib618AtrDist',operator:'<',value:1}], mode:'all' },
+  { id:'fib618RetrPct', cat:'Trend', icon:'◎', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Near 61.8% retracement (1%)', desc:'Price sits within 1% of the golden-ratio (61.8%) level of the latest swing leg — edit the percentage in the condition builder',
+    conds:[{metric:'fib618PctDist',operator:'<',value:1}], mode:'all' },
   // ---- Volatility ----
   { id:'squeeze', cat:'Volatility', icon:'▭', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Volatility squeeze', desc:'Bollinger width under 4% — coiling before a move',
     conds:[{metric:'bbWidthPct',operator:'<',value:4}], mode:'all' },
@@ -4638,7 +4964,7 @@ function applyPreset(id){
 }
 
 /* =========================================================================
-   "Scanner screens matched" — checks a single coin (opened from the
+   "Custom screens matched" — checks a single coin (opened from the
    Screener's analysis modal) against all Scanner presets, independent of
    whichever conditions/preset happen to be active in the Scanner tab.
    ========================================================================= */
@@ -4669,7 +4995,7 @@ async function openScreenMatch(event){
   document.getElementById('screenMatchSubtitle').textContent = symbol;
   const ictToggle = document.getElementById('screenMatchIctToggle');
   if(ictToggle) ictToggle.checked = includeIct;
-  body.innerHTML = `<div class="screen-match-status">Checking ${symbol} against all ${PRESETS.length} scanner screens…</div>`;
+  body.innerHTML = `<div class="screen-match-status">Checking ${symbol} against all ${PRESETS.length} custom screens…</div>`;
   modal.classList.add('open');
   try{
     const interval = currentAnalysisInterval || '4h';
@@ -4688,7 +5014,7 @@ async function openScreenMatch(event){
     lastScreenMatch = { symbol, interval, metrics };
     renderScreenMatches(symbol, interval, metrics);
   }catch(e){
-    body.innerHTML = `<div class="screen-match-status">Couldn't check scanner screens for ${symbol}: ${e.message}</div>`;
+    body.innerHTML = `<div class="screen-match-status">Couldn't check custom screens for ${symbol}: ${e.message}</div>`;
   }
 }
 function closeScreenMatch(event){
@@ -4735,7 +5061,7 @@ function renderScreenMatches(symbol, interval, metrics){
     <div class="screen-match-summary">
       <span class="smc-count">${matchedCount}/${presets.length}</span>
       <div class="smc-copy">
-        <span class="smc-label">${symbol} matches ${matchedCount} scanner screen${matchedCount===1?'':'s'}</span>
+        <span class="smc-label">${symbol} matches ${matchedCount} custom screen${matchedCount===1?'':'s'}</span>
         <span class="smc-sub">Checked on the ${timeframeLabel(interval)} timeframe</span>
       </div>
     </div>
@@ -4923,7 +5249,7 @@ function renderTable(rows){
         <th>MACD</th>
         ${headCell('volRatio','Vol ×')}
         ${headCell('matchCount','Matched')}
-        <th>WL</th>
+        <th>Actions</th>
       </tr></thead>
       <tbody>
         ${rows.map(r => renderRow(r)).join('')}
@@ -4940,10 +5266,10 @@ function renderRow(r){
   const tvUrl = `https://www.tradingview.com/chart/?symbol=BINANCE:${r.symbol}.P`;
   const already = isInWatchlist(r.symbol);
   return `<tr>
-    <td><div class="sym-cell">
+    <td><button type="button" class="sym-cell sym-cell-btn" onclick="TechAnalysis.openSymbol('${r.symbol}')" title="Technical breakdown for ${base}">
       <div class="sym-badge" style="background:linear-gradient(135deg,${color},#151821);">${base.slice(0,4)}</div>
       <div><div class="sym-name">${base}</div><div class="sym-sub">USDT-M PERP</div></div>
-    </div></td>
+    </button></td>
     <td class="mono">${fmtPrice(r.price)}</td>
     <td class="mono ${up?'chg-pos':'chg-neg'}">${up?'+':''}${fmtNum(r.change24h,2)}%</td>
     <td>${trendBadge}</td>
@@ -4987,6 +5313,2612 @@ window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, remov
 })();
 
 </script>
+
+<!-- Technical Analysis overlay (opened from Coin Lookup on Custom Screens tab) -->
+<div class="analysis-overlay" id="analysisOverlay" role="dialog" aria-modal="true" aria-label="Coin technical analysis">
+  <div class="analysis-shell">
+    <div class="analysis-topbar">
+      <div class="analysis-id">
+        <div class="analysis-symbol-icon" id="taSymbolIcon">—</div>
+        <div class="analysis-id-text">
+          <div class="analysis-symbol" id="taSymbolText">—<span class="quote"></span></div>
+          <div class="analysis-meta">
+            <span id="taPrice" class="analysis-price">—</span>
+            <span id="taChange" class="analysis-change"></span>
+            <span id="taSource" class="analysis-source">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="analysis-controls">
+        <div class="analysis-tf-toggle" id="taTfToggle">
+          <button type="button" data-tf="4h">4H</button>
+          <button type="button" data-tf="1d" class="active">1D</button>
+          <button type="button" data-tf="1w">1W</button>
+        </div>
+        <!-- "Copy all values" is hidden, not removed — the button and copyValues()
+             below are left fully intact so this can be switched back on later. -->
+        <button type="button" class="analysis-icon-btn" id="taCopyBtn" title="Copy all values" aria-label="Copy all values" onclick="TechAnalysis.copyValues()" style="display:none;">⧉</button>
+        <button type="button" class="analysis-icon-btn" id="taClearChecksBtn" title="Clear all checkboxes" aria-label="Clear all checkboxes" disabled onclick="TechAnalysis.clearAllChecks()"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="3"></rect><path d="M5.5 5.5l5 5M10.5 5.5l-5 5"></path></svg></button>
+        <button type="button" class="analysis-icon-btn analysis-toggle-all" id="taToggleAllBtn" title="Collapse all sections" aria-label="Collapse all sections" onclick="TechAnalysis.toggleAll()"><span class="taa-chevron">⌄</span></button>
+        <button type="button" class="analysis-icon-btn" id="taRefreshBtn" title="Reload values" aria-label="Reload values" onclick="TechAnalysis.refresh()">↻</button>
+        <button type="button" class="analysis-close" id="taCloseBtn" aria-label="Close" onclick="TechAnalysis.close()">✕</button>
+      </div>
+    </div>
+    <div class="analysis-status-row" id="taStatusRow"><span class="dot"></span><span id="taStatusText">Enter a coin to load its values</span></div>
+    <div class="analysis-groups-grid" id="taGroupsGrid"></div>
+  </div>
+</div>
+
+<script>
+/* =============================================================================
+   TechAnalysis — Coin Lookup (Custom Screens tab) -> full technical breakdown.
+
+   Flow:  symbol typed -> normalised to a USDT perp ticker -> validated against
+   Binance USDT-M futures first, falling back to Bybit USDT linear perps when
+   the symbol isn't listed there (same order the Cloud Breakout search uses) ->
+   klines + ticker + derivatives pulled for the selected timeframe (4H/1D/1W,
+   daily default) -> every indicator below computed locally from those candles.
+
+   Only values are rendered: a number, level, range or state per row. Colour is
+   the only interpretation layer (green = bullish read, red = bearish, grey =
+   neutral/absent). Nothing here is fetched from a third-party indicator API,
+   so every number is reproducible from the raw OHLCV shown on the chart.
+   ============================================================================= */
+(function(){
+'use strict';
+
+/* ---------------------------------------------------------------------------
+   Data sources. Binance futures mirrors the host-fallback list used elsewhere
+   in this file; Bybit is only touched when Binance doesn't list the symbol.
+   --------------------------------------------------------------------------- */
+const FAPI_HOSTS = [
+  "https://fapi.binance.com","https://fapi1.binance.com","https://fapi2.binance.com",
+  "https://fapi3.binance.com","https://fapi4.binance.com"
+];
+let taHost = FAPI_HOSTS[0];
+const SPOT_HOSTS = ["https://api.binance.com","https://api1.binance.com","https://api2.binance.com"];
+let taSpotHost = SPOT_HOSTS[0];
+const BYBIT = 'https://api.bybit.com';
+const BYBIT_TF = { '4h':'240', '1d':'D', '1w':'W' };
+const BARS = 500;                 // candles pulled per timeframe
+const PERIODS_PER_YEAR = { '4h':2190, '1d':365, '1w':52 };
+
+async function timedFetch(url, ms=12000){
+  const ctl = new AbortController();
+  const t = setTimeout(()=>ctl.abort(), ms);
+  try{ return await fetch(url, { signal: ctl.signal }); }
+  finally{ clearTimeout(t); }
+}
+async function fapi(path){
+  const order = [taHost, ...FAPI_HOSTS.filter(h=>h!==taHost)];
+  let last;
+  for(const host of order){
+    try{
+      const res = await timedFetch(host+path);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      taHost = host;
+      return data;
+    }catch(e){ last = e; }
+  }
+  throw last || new Error('request failed');
+}
+async function spot(path){
+  const order = [taSpotHost, ...SPOT_HOSTS.filter(h=>h!==taSpotHost)];
+  let last;
+  for(const host of order){
+    try{
+      const res = await timedFetch(host+path);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      taSpotHost = host;
+      return data;
+    }catch(e){ last = e; }
+  }
+  throw last || new Error('request failed');
+}
+async function bybit(path){
+  const res = await timedFetch(BYBIT+path);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const data = await res.json();
+  if(data.retCode !== 0) throw new Error(data.retMsg || 'Bybit error');
+  return data;
+}
+
+/* Binance kline index 9 is taker-buy base volume, which is what makes a real
+   cumulative delta possible. Bybit's kline payload has no taker split, so CVD
+   reads "n/a" on Bybit-sourced symbols rather than being faked from candle
+   direction. */
+async function binanceKlines(symbol, interval, limit=BARS){
+  const raw = await fapi(`/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+  if(!Array.isArray(raw) || !raw.length) throw new Error('no klines');
+  return raw.map(k=>({
+    time:+k[0], open:+k[1], high:+k[2], low:+k[3], close:+k[4],
+    volume:+k[5], quoteVolume:+k[7], takerBuy:+k[9]
+  }));
+}
+async function bybitKlines(symbol, interval, limit=BARS){
+  const tf = BYBIT_TF[interval];
+  const data = await bybit(`/v5/market/kline?category=linear&symbol=${symbol}&interval=${tf}&limit=${limit}`);
+  const list = data.result && data.result.list;
+  if(!list || !list.length) throw new Error('symbol not listed on Bybit');
+  return list.slice().reverse().map(k=>({
+    time:+k[0], open:+k[1], high:+k[2], low:+k[3], close:+k[4],
+    volume:+k[5], quoteVolume:+k[6], takerBuy:null
+  }));
+}
+
+/* ---------------------------------------------------------------------------
+   Indicator math. Every function takes plain arrays/candles and returns plain
+   numbers — no state, no DOM — so they can be unit-checked in isolation.
+   --------------------------------------------------------------------------- */
+const closes = c => c.map(x=>x.close);
+const highs  = c => c.map(x=>x.high);
+const lows   = c => c.map(x=>x.low);
+const last   = a => a.length ? a[a.length-1] : NaN;
+
+function smaAt(values, len, end){
+  if(end===undefined) end = values.length-1;
+  if(end-len+1 < 0) return NaN;
+  let s=0; for(let i=end-len+1;i<=end;i++) s+=values[i];
+  return s/len;
+}
+function emaSeries(values, len){
+  const out = new Array(values.length).fill(NaN);
+  if(values.length < len) return out;
+  const k = 2/(len+1);
+  let seed = 0; for(let i=0;i<len;i++) seed += values[i];
+  let prev = seed/len; out[len-1] = prev;
+  for(let i=len;i<values.length;i++){ prev = values[i]*k + prev*(1-k); out[i]=prev; }
+  return out;
+}
+function rsiSeries(values, len=14){
+  const out = new Array(values.length).fill(NaN);
+  if(values.length <= len) return out;
+  let gain=0, loss=0;
+  for(let i=1;i<=len;i++){
+    const d = values[i]-values[i-1];
+    if(d>=0) gain+=d; else loss-=d;
+  }
+  let ag=gain/len, al=loss/len;
+  out[len] = al===0 ? 100 : 100 - 100/(1+ag/al);
+  for(let i=len+1;i<values.length;i++){
+    const d = values[i]-values[i-1];
+    ag = (ag*(len-1) + (d>0?d:0))/len;
+    al = (al*(len-1) + (d<0?-d:0))/len;
+    out[i] = al===0 ? 100 : 100 - 100/(1+ag/al);
+  }
+  return out;
+}
+function macdParts(values, fast=12, slow=26, signal=9){
+  const ef = emaSeries(values, fast), es = emaSeries(values, slow);
+  const line = values.map((_,i)=> (Number.isFinite(ef[i]) && Number.isFinite(es[i])) ? ef[i]-es[i] : NaN);
+  const valid = line.filter(Number.isFinite);
+  const sig = emaSeries(valid, signal);
+  const signalLast = last(sig);
+  const lineLast = last(valid);
+  return { line: lineLast, signal: signalLast, hist: lineLast-signalLast };
+}
+function trueRanges(c){
+  const tr = [NaN];
+  for(let i=1;i<c.length;i++){
+    tr.push(Math.max(c[i].high-c[i].low, Math.abs(c[i].high-c[i-1].close), Math.abs(c[i].low-c[i-1].close)));
+  }
+  return tr;
+}
+function atrSeries(c, len=14){
+  const tr = trueRanges(c);
+  const out = new Array(c.length).fill(NaN);
+  if(c.length < len+1) return out;
+  let sum=0; for(let i=1;i<=len;i++) sum+=tr[i];
+  let prev = sum/len; out[len]=prev;
+  for(let i=len+1;i<c.length;i++){ prev = (prev*(len-1)+tr[i])/len; out[i]=prev; }
+  return out;
+}
+const atrValue = (c, len=14) => last(atrSeries(c,len).filter(Number.isFinite));
+
+function adxParts(c, len=14){
+  const n = c.length;
+  if(n < len*2+2) return { adx:NaN, plusDI:NaN, minusDI:NaN };
+  const tr=[], pdm=[], ndm=[];
+  for(let i=1;i<n;i++){
+    tr.push(Math.max(c[i].high-c[i].low, Math.abs(c[i].high-c[i-1].close), Math.abs(c[i].low-c[i-1].close)));
+    const up = c[i].high-c[i-1].high, dn = c[i-1].low-c[i].low;
+    pdm.push(up>dn && up>0 ? up : 0);
+    ndm.push(dn>up && dn>0 ? dn : 0);
+  }
+  const wilder = (arr)=>{
+    const out = new Array(arr.length).fill(NaN);
+    let s=0; for(let i=0;i<len;i++) s+=arr[i];
+    out[len-1]=s;
+    for(let i=len;i<arr.length;i++){ s = s - s/len + arr[i]; out[i]=s; }
+    return out;
+  };
+  const strS=wilder(tr), pS=wilder(pdm), nS=wilder(ndm);
+  const dx=[];
+  for(let i=len-1;i<strS.length;i++){
+    if(!strS[i]) { dx.push(NaN); continue; }
+    const p = 100*pS[i]/strS[i], m = 100*nS[i]/strS[i];
+    dx.push((p+m)===0 ? 0 : 100*Math.abs(p-m)/(p+m));
+  }
+  const clean = dx.filter(Number.isFinite);
+  let adx = NaN;
+  if(clean.length >= len){
+    let s=0; for(let i=0;i<len;i++) s+=clean[i];
+    adx = s/len;
+    for(let i=len;i<clean.length;i++) adx = (adx*(len-1)+clean[i])/len;
+  }
+  const i = strS.length-1;
+  return {
+    adx,
+    plusDI: strS[i] ? 100*pS[i]/strS[i] : NaN,
+    minusDI: strS[i] ? 100*nS[i]/strS[i] : NaN
+  };
+}
+
+function supertrend(c, len=10, mult=3){
+  const atrS = atrSeries(c, len);
+  const n = c.length;
+  let upper=NaN, lower=NaN, trend=1, line=NaN;
+  for(let i=len;i<n;i++){
+    if(!Number.isFinite(atrS[i])) continue;
+    const mid = (c[i].high+c[i].low)/2;
+    let ub = mid + mult*atrS[i], lb = mid - mult*atrS[i];
+    if(Number.isFinite(upper)) ub = (ub < upper || c[i-1].close > upper) ? ub : upper;
+    if(Number.isFinite(lower)) lb = (lb > lower || c[i-1].close < lower) ? lb : lower;
+    if(c[i].close > ub) trend = 1;
+    else if(c[i].close < lb) trend = -1;
+    upper = ub; lower = lb;
+    line = trend === 1 ? lb : ub;
+  }
+  return { value: line, dir: trend };
+}
+
+function psar(c, step=0.02, maxStep=0.2){
+  const n = c.length;
+  if(n < 5) return { value:NaN, dir:0 };
+  let bull = c[1].close > c[0].close;
+  let sar = bull ? c[0].low : c[0].high;
+  let ep  = bull ? c[1].high : c[1].low;
+  let af  = step;
+  for(let i=2;i<n;i++){
+    sar = sar + af*(ep-sar);
+    if(bull){
+      sar = Math.min(sar, c[i-1].low, c[i-2].low);
+      if(c[i].low < sar){ bull=false; sar=ep; ep=c[i].low; af=step; }
+      else if(c[i].high > ep){ ep=c[i].high; af=Math.min(af+step, maxStep); }
+    } else {
+      sar = Math.max(sar, c[i-1].high, c[i-2].high);
+      if(c[i].high > sar){ bull=true; sar=ep; ep=c[i].high; af=step; }
+      else if(c[i].low < ep){ ep=c[i].low; af=Math.min(af+step, maxStep); }
+    }
+  }
+  return { value: sar, dir: bull ? 1 : -1 };
+}
+
+function aroon(c, len=14){
+  const n = c.length;
+  if(n < len+1) return { up:NaN, down:NaN };
+  let hi=-Infinity, lo=Infinity, hiIdx=0, loIdx=0;
+  for(let i=n-len-1;i<n;i++){
+    if(c[i].high>=hi){ hi=c[i].high; hiIdx=i; }
+    if(c[i].low<=lo){ lo=c[i].low; loIdx=i; }
+  }
+  return { up: 100*(len-(n-1-hiIdx))/len, down: 100*(len-(n-1-loIdx))/len };
+}
+
+// Full-series versions of supertrend()/psar() above (which only return the
+// latest value+direction) — used to draw the indicator as a line/dots across
+// the Chart section's visible bar window instead of a single point.
+function supertrendSeries(c, len=10, mult=3){
+  const atrS = atrSeries(c, len);
+  const out = new Array(c.length).fill(null);
+  let upper=NaN, lower=NaN, trend=1;
+  for(let i=len;i<c.length;i++){
+    if(!Number.isFinite(atrS[i])) continue;
+    const mid = (c[i].high+c[i].low)/2;
+    let ub = mid + mult*atrS[i], lb = mid - mult*atrS[i];
+    if(Number.isFinite(upper)) ub = (ub < upper || c[i-1].close > upper) ? ub : upper;
+    if(Number.isFinite(lower)) lb = (lb > lower || c[i-1].close < lower) ? lb : lower;
+    if(c[i].close > ub) trend = 1;
+    else if(c[i].close < lb) trend = -1;
+    upper = ub; lower = lb;
+    out[i] = { value: trend===1 ? lb : ub, dir: trend };
+  }
+  return out;
+}
+function psarSeries(c, step=0.02, maxStep=0.2){
+  const n = c.length;
+  const out = new Array(n).fill(null);
+  if(n < 5) return out;
+  let bull = c[1].close > c[0].close;
+  let sar = bull ? c[0].low : c[0].high;
+  let ep  = bull ? c[1].high : c[1].low;
+  let af  = step;
+  out[1] = { value: sar, dir: bull ? 1 : -1 };
+  for(let i=2;i<n;i++){
+    sar = sar + af*(ep-sar);
+    if(bull){
+      sar = Math.min(sar, c[i-1].low, c[i-2].low);
+      if(c[i].low < sar){ bull=false; sar=ep; ep=c[i].low; af=step; }
+      else if(c[i].high > ep){ ep=c[i].high; af=Math.min(af+step, maxStep); }
+    } else {
+      sar = Math.max(sar, c[i-1].high, c[i-2].high);
+      if(c[i].high > sar){ bull=true; sar=ep; ep=c[i].high; af=step; }
+      else if(c[i].low < ep){ ep=c[i].low; af=Math.min(af+step, maxStep); }
+    }
+    out[i] = { value: sar, dir: bull ? 1 : -1 };
+  }
+  return out;
+}
+
+function ichimoku(c, conv=9, base=26, spanB=52){
+  const n = c.length;
+  const midAt = (len, end) => {
+    if(end-len+1 < 0) return NaN;
+    let hi=-Infinity, lo=Infinity;
+    for(let i=end-len+1;i<=end;i++){ if(c[i].high>hi) hi=c[i].high; if(c[i].low<lo) lo=c[i].low; }
+    return (hi+lo)/2;
+  };
+  const end = n-1;
+  const tenkan = midAt(conv, end);
+  const kijun  = midAt(base, end);
+  const shifted = end - base;                  // cloud printed at "now" was built `base` bars ago
+  const spanA = shifted>=0 ? (midAt(conv, shifted)+midAt(base, shifted))/2 : NaN;
+  const spanBv = shifted>=0 ? midAt(spanB, shifted) : NaN;
+  const cloudTop = Math.max(spanA, spanBv), cloudBot = Math.min(spanA, spanBv);
+  const price = c[end].close;
+  const chikou = price;                         // current close, printed `base` bars back
+  const chikouRef = (end-base)>=0 ? c[end-base].close : NaN;
+  let position = '—';
+  if(Number.isFinite(cloudTop)){
+    position = price > cloudTop ? 'Above' : price < cloudBot ? 'Below' : 'Inside';
+  }
+  return { tenkan, kijun, spanA, spanB:spanBv, chikou, chikouRef, cloudTop, cloudBot, position };
+}
+
+// Full-series companion to ichimoku() above, for drawing lines across the
+// Chart section's visible candles rather than just today's single reading.
+// Same formulas, same "shifted = i - base" convention for Span A/B (the
+// cloud visible at bar i was calculated `base` bars earlier) and for Chikou
+// (today's close, printed `base` bars back — so chikou[i] pulls the close
+// from `base` bars *ahead* of i). Returned arrays are aligned 1:1 with `c`.
+function ichimokuSeriesFull(c, conv=9, base=26, spanB=52){
+  const n = c.length;
+  const midAt = (len, end) => {
+    if(end-len+1 < 0) return NaN;
+    let hi=-Infinity, lo=Infinity;
+    for(let i=end-len+1;i<=end;i++){ if(c[i].high>hi) hi=c[i].high; if(c[i].low<lo) lo=c[i].low; }
+    return (hi+lo)/2;
+  };
+  const tenkan = new Array(n).fill(NaN), kijun = new Array(n).fill(NaN);
+  const spanA = new Array(n).fill(NaN), spanBArr = new Array(n).fill(NaN);
+  const chikou = new Array(n).fill(NaN);
+  const cloudTop = new Array(n).fill(NaN), cloudBot = new Array(n).fill(NaN);
+  for(let i=0;i<n;i++){
+    tenkan[i] = midAt(conv, i);
+    kijun[i] = midAt(base, i);
+    const shifted = i - base;
+    if(shifted>=0){
+      spanA[i] = (midAt(conv, shifted)+midAt(base, shifted))/2;
+      spanBArr[i] = midAt(spanB, shifted);
+      if(Number.isFinite(spanA[i]) && Number.isFinite(spanBArr[i])){
+        cloudTop[i] = Math.max(spanA[i], spanBArr[i]);
+        cloudBot[i] = Math.min(spanA[i], spanBArr[i]);
+      }
+    }
+    if(i+base < n) chikou[i] = c[i+base].close;
+  }
+  return { tenkan, kijun, spanA, spanB:spanBArr, chikou, cloudTop, cloudBot };
+}
+
+function stochastic(c, len=14, k=3, d=3){
+  const n=c.length;
+  if(n < len+k+d) return { k:NaN, d:NaN };
+  const raw=[];
+  for(let i=len-1;i<n;i++){
+    let hi=-Infinity, lo=Infinity;
+    for(let j=i-len+1;j<=i;j++){ if(c[j].high>hi) hi=c[j].high; if(c[j].low<lo) lo=c[j].low; }
+    raw.push(hi===lo ? 50 : 100*(c[i].close-lo)/(hi-lo));
+  }
+  const kArr=[];
+  for(let i=k-1;i<raw.length;i++) kArr.push(smaAt(raw,k,i));
+  const dArr=[];
+  for(let i=d-1;i<kArr.length;i++) dArr.push(smaAt(kArr,d,i));
+  return { k:last(kArr), d:last(dArr) };
+}
+function stochRsi(values, rsiLen=14, stochLen=14, k=3, d=3){
+  const rs = rsiSeries(values, rsiLen).filter(Number.isFinite);
+  if(rs.length < stochLen+k+d) return { k:NaN, d:NaN };
+  const raw=[];
+  for(let i=stochLen-1;i<rs.length;i++){
+    const w = rs.slice(i-stochLen+1, i+1);
+    const hi=Math.max(...w), lo=Math.min(...w);
+    raw.push(hi===lo ? 50 : 100*(rs[i]-lo)/(hi-lo));
+  }
+  const kArr=[]; for(let i=k-1;i<raw.length;i++) kArr.push(smaAt(raw,k,i));
+  const dArr=[]; for(let i=d-1;i<kArr.length;i++) dArr.push(smaAt(kArr,d,i));
+  return { k:last(kArr), d:last(dArr) };
+}
+function cci(c, len=34){
+  const n=c.length;
+  if(n<len) return NaN;
+  const tp = c.map(x=>(x.high+x.low+x.close)/3);
+  const mean = smaAt(tp, len);
+  let dev=0; for(let i=n-len;i<n;i++) dev += Math.abs(tp[i]-mean);
+  dev/=len;
+  return dev===0 ? 0 : (tp[n-1]-mean)/(0.015*dev);
+}
+function williamsR(c, len=14){
+  const n=c.length;
+  if(n<len) return NaN;
+  let hi=-Infinity, lo=Infinity;
+  for(let i=n-len;i<n;i++){ if(c[i].high>hi) hi=c[i].high; if(c[i].low<lo) lo=c[i].low; }
+  return hi===lo ? -50 : -100*(hi-c[n-1].close)/(hi-lo);
+}
+function mfi(c, len=14){
+  const n=c.length;
+  if(n<len+1) return NaN;
+  let pos=0, neg=0;
+  for(let i=n-len;i<n;i++){
+    const tp = (c[i].high+c[i].low+c[i].close)/3;
+    const prevTp = (c[i-1].high+c[i-1].low+c[i-1].close)/3;
+    const flow = tp*c[i].volume;
+    if(tp>prevTp) pos+=flow; else if(tp<prevTp) neg+=flow;
+  }
+  if(neg===0) return 100;
+  return 100 - 100/(1+pos/neg);
+}
+function roc(values, len=12){
+  const n=values.length;
+  if(n<len+1 || !values[n-1-len]) return NaN;
+  return 100*(values[n-1]-values[n-1-len])/values[n-1-len];
+}
+function bollinger(values, len=20, mult=2){
+  const n=values.length;
+  if(n<len) return { upper:NaN, mid:NaN, lower:NaN, pctB:NaN, width:NaN };
+  const mid = smaAt(values, len);
+  let v=0; for(let i=n-len;i<n;i++) v += Math.pow(values[i]-mid,2);
+  const sd = Math.sqrt(v/len);
+  const upper = mid+mult*sd, lower = mid-mult*sd;
+  const price = values[n-1];
+  return {
+    upper, mid, lower,
+    pctB: upper===lower ? 0.5 : (price-lower)/(upper-lower),
+    width: mid ? 100*(upper-lower)/mid : NaN
+  };
+}
+function keltner(c, len=20, mult=2, atrLen=14){
+  const mid = last(emaSeries(closes(c), len));
+  const a = atrValue(c, atrLen);
+  return { upper: mid+mult*a, mid, lower: mid-mult*a };
+}
+function donchian(c, len=20){
+  const n=c.length;
+  if(n<len) return { high:NaN, low:NaN };
+  let hi=-Infinity, lo=Infinity;
+  for(let i=n-len;i<n;i++){ if(c[i].high>hi) hi=c[i].high; if(c[i].low<lo) lo=c[i].low; }
+  return { high:hi, low:lo };
+}
+// Full-series versions of bollinger()/keltner()/donchian() above (which only
+// return the latest value) — needed so the Chart overlay can draw a band
+// across every visible bar, the same way emaSeries()/smaAt() feed the Trend
+// overlay's moving-average lines.
+function bollingerBandsSeries(values, len=20, mult=2){
+  const n = values.length;
+  const mid = new Array(n).fill(NaN), upper = new Array(n).fill(NaN), lower = new Array(n).fill(NaN);
+  for(let i=len-1;i<n;i++){
+    const m = smaAt(values, len, i);
+    let v=0; for(let j=i-len+1;j<=i;j++) v += Math.pow(values[j]-m,2);
+    const sd = Math.sqrt(v/len);
+    mid[i]=m; upper[i]=m+mult*sd; lower[i]=m-mult*sd;
+  }
+  return { upper, mid, lower };
+}
+function keltnerSeriesFull(c, len=20, mult=2, atrLen=14){
+  const emaS = emaSeries(closes(c), len);
+  const atrS = atrSeries(c, atrLen);
+  const n = c.length;
+  const upper = new Array(n).fill(NaN), lower = new Array(n).fill(NaN);
+  for(let i=0;i<n;i++){
+    if(Number.isFinite(emaS[i]) && Number.isFinite(atrS[i])){
+      upper[i] = emaS[i] + mult*atrS[i];
+      lower[i] = emaS[i] - mult*atrS[i];
+    }
+  }
+  return { upper, lower, mid: emaS };
+}
+function donchianSeries(c, len=20){
+  const n = c.length;
+  const high = new Array(n).fill(NaN), low = new Array(n).fill(NaN);
+  for(let i=len-1;i<n;i++){
+    let hi=-Infinity, lo=Infinity;
+    for(let j=i-len+1;j<=i;j++){ if(c[j].high>hi) hi=c[j].high; if(c[j].low<lo) lo=c[j].low; }
+    high[i]=hi; low[i]=lo;
+  }
+  return { high, low };
+}
+function historicalVol(values, len=20, periodsPerYear=365){
+  const n=values.length;
+  if(n<len+1) return NaN;
+  const r=[];
+  for(let i=n-len;i<n;i++){ if(values[i-1]>0) r.push(Math.log(values[i]/values[i-1])); }
+  if(r.length<2) return NaN;
+  const m = r.reduce((a,b)=>a+b,0)/r.length;
+  const v = r.reduce((a,b)=>a+Math.pow(b-m,2),0)/(r.length-1);
+  return Math.sqrt(v)*Math.sqrt(periodsPerYear)*100;
+}
+function obv(c){
+  let v=0;
+  for(let i=1;i<c.length;i++){
+    if(c[i].close>c[i-1].close) v+=c[i].volume;
+    else if(c[i].close<c[i-1].close) v-=c[i].volume;
+  }
+  return v;
+}
+function rollingVwap(c, len=20){
+  const n=c.length;
+  if(n<len) return NaN;
+  let pv=0, vol=0;
+  for(let i=n-len;i<n;i++){
+    const tp=(c[i].high+c[i].low+c[i].close)/3;
+    pv += tp*c[i].volume; vol += c[i].volume;
+  }
+  return vol ? pv/vol : NaN;
+}
+function cvd(c, len=100){
+  const start = Math.max(0, c.length-len);
+  let delta=0, ok=false;
+  for(let i=start;i<c.length;i++){
+    if(!Number.isFinite(c[i].takerBuy)) return null;   // Bybit klines carry no taker split
+    delta += (2*c[i].takerBuy - c[i].volume);
+    ok = true;
+  }
+  return ok ? delta : null;
+}
+function cmf(c, len=20){
+  const n=c.length;
+  if(n<len) return NaN;
+  let mfv=0, vol=0;
+  for(let i=n-len;i<n;i++){
+    const range = c[i].high-c[i].low;
+    if(range>0) mfv += (((c[i].close-c[i].low)-(c[i].high-c[i].close))/range)*c[i].volume;
+    vol += c[i].volume;
+  }
+  return vol ? mfv/vol : NaN;
+}
+function adLine(c){
+  let ad=0;
+  for(const x of c){
+    const range = x.high-x.low;
+    if(range>0) ad += (((x.close-x.low)-(x.high-x.close))/range)*x.volume;
+  }
+  return ad;
+}
+/* Volume profile: each candle's volume is spread evenly across the price bins
+   its range covers, then the value area grows outward from the POC bin until
+   it holds 70% of the traded volume — the standard VAH/VAL construction. */
+function volumeProfile(c, lookback=120, bins=60){
+  const w = c.slice(-lookback);
+  if(w.length < 10) return { poc:NaN, vah:NaN, val:NaN };
+  const hi = Math.max(...w.map(x=>x.high)), lo = Math.min(...w.map(x=>x.low));
+  if(!(hi>lo)) return { poc:NaN, vah:NaN, val:NaN };
+  const size = (hi-lo)/bins;
+  const buckets = new Array(bins).fill(0);
+  for(const x of w){
+    const a = Math.max(0, Math.min(bins-1, Math.floor((x.low-lo)/size)));
+    const b = Math.max(0, Math.min(bins-1, Math.floor((x.high-lo)/size)));
+    const span = b-a+1;
+    const share = x.volume/span;
+    for(let i=a;i<=b;i++) buckets[i]+=share;
+  }
+  const total = buckets.reduce((s,v)=>s+v,0);
+  let pocIdx=0;
+  for(let i=1;i<bins;i++) if(buckets[i]>buckets[pocIdx]) pocIdx=i;
+  let lower=pocIdx, upper=pocIdx, acc=buckets[pocIdx];
+  while(acc < total*0.7 && (lower>0 || upper<bins-1)){
+    const down = lower>0 ? buckets[lower-1] : -1;
+    const up   = upper<bins-1 ? buckets[upper+1] : -1;
+    if(up >= down){ upper++; acc += buckets[upper]; }
+    else { lower--; acc += buckets[lower]; }
+  }
+  const center = i => lo + (i+0.5)*size;
+  return { poc: center(pocIdx), vah: lo+(upper+1)*size, val: lo+lower*size };
+}
+
+/* ---- structure / ICT ---------------------------------------------------- */
+function swings(c, span=3){
+  const sh=[], sl=[];
+  for(let i=span;i<c.length-span;i++){
+    let isH=true, isL=true;
+    for(let j=i-span;j<=i+span;j++){
+      if(j===i) continue;
+      if(c[j].high>=c[i].high) isH=false;
+      if(c[j].low<=c[i].low) isL=false;
+    }
+    if(isH) sh.push({ idx:i, price:c[i].high });
+    if(isL) sl.push({ idx:i, price:c[i].low });
+  }
+  // A steep one-way trend can print no confirmed pivot on one side at all.
+  // Fall back to the extreme of the last 20 bars so levels, fibs and the
+  // structure read still resolve to something real off the chart.
+  if(!sh.length || !sl.length){
+    const from = Math.max(0, c.length-20);
+    let hi=-Infinity, lo=Infinity, hiI=from, loI=from;
+    for(let i=from;i<c.length;i++){
+      if(c[i].high>hi){ hi=c[i].high; hiI=i; }
+      if(c[i].low<lo){ lo=c[i].low; loI=i; }
+    }
+    if(!sh.length && Number.isFinite(hi)) sh.push({ idx:hiI, price:hi });
+    if(!sl.length && Number.isFinite(lo)) sl.push({ idx:loI, price:lo });
+  }
+  return { sh, sl };
+}
+// A confirmed fractal pivot only prints once `span` bars have formed on both
+// sides of it, so a strong one-way move can leave the last confirmed swing
+// high/low pointing at a stale pivot price has since broken through — the
+// Market Structure card's "Last Swing High/Low" and anything derived from
+// them (Fib retracement, the chart's SH/SL lines) would otherwise keep
+// showing an invalidated level. These extend the last confirmed pivot
+// forward to the actual highest high / lowest low printed since it, so the
+// displayed level always reflects the current range instead. Used only for
+// display/Fib purposes — the raw fractal `sw` (unconfirmed extension left
+// out) still feeds BOS/CHoCH, liquidity sweeps and equal-highs/lows, which
+// need genuinely confirmed pivots to mean anything structurally.
+function extendSwingHigh(c, sh){
+  if(!sh) return sh;
+  let best = sh;
+  for(let i=sh.idx+1;i<c.length;i++){ if(c[i].high>best.price) best = { idx:i, price:c[i].high }; }
+  return best;
+}
+function extendSwingLow(c, sl){
+  if(!sl) return sl;
+  let best = sl;
+  for(let i=sl.idx+1;i<c.length;i++){ if(c[i].low<best.price) best = { idx:i, price:c[i].low }; }
+  return best;
+}
+function structureBias(s){
+  const { sh, sl } = s;
+  if(sh.length<2 || sl.length<2) return 'Range';
+  const h1=sh[sh.length-2].price, h2=sh[sh.length-1].price;
+  const l1=sl[sl.length-2].price, l2=sl[sl.length-1].price;
+  if(h2>h1 && l2>l1) return 'Bullish';
+  if(h2<h1 && l2<l1) return 'Bearish';
+  return 'Range';
+}
+function fvgs(c, lookback=120){
+  const start = Math.max(2, c.length-lookback);
+  const out=[];
+  for(let i=start;i<c.length;i++){
+    const a=c[i-2], b=c[i];
+    if(b.low > a.high) out.push({ type:'bull', bottom:a.high, top:b.low, idx:i });
+    else if(b.high < a.low) out.push({ type:'bear', bottom:b.high, top:a.low, idx:i });
+  }
+  // "filled" = price has traded all the way through the imbalance since it
+  // formed (bull gap closed from above, bear gap closed from below).
+  for(const g of out){
+    g.filled = false;
+    for(let k=g.idx+1;k<c.length;k++){
+      if(g.type==='bull' && c[k].low <= g.bottom){ g.filled = true; break; }
+      if(g.type==='bear' && c[k].high >= g.top){ g.filled = true; break; }
+    }
+  }
+  return out;
+}
+function pickFvg(list, type){
+  const same = list.filter(g=>g.type===type);
+  const open = same.filter(g=>!g.filled);
+  return open.length ? open[open.length-1] : (same.length ? same[same.length-1] : null);
+}
+/* Order block: the last opposite-colour candle immediately before a displacement
+   candle that closed through it. Kept as a zone (candle high/low); "tapped" once
+   price has traded back into it. */
+function orderBlocks(c, atrVal, lookback=120){
+  const start = Math.max(1, c.length-lookback);
+  let bull=null, bear=null;
+  const backFor = (i, wantBearish)=>{           // last opposite-colour candle before the push
+    for(let j=i-1;j>=Math.max(0,i-5);j--){
+      const bearish = c[j].close < c[j].open;
+      if(bearish === wantBearish) return j;
+    }
+    return -1;
+  };
+  for(let i=start;i<c.length;i++){
+    const cur=c[i];
+    const body = Math.abs(cur.close-cur.open);
+    if(!(Number.isFinite(atrVal) && atrVal>0 && body >= atrVal*0.8)) continue;
+    if(cur.close>cur.open){
+      const j = backFor(i, true);
+      if(j>=0 && cur.close > c[j].high) bull = { top:c[j].high, bottom:c[j].low, idx:j };
+    } else {
+      const j = backFor(i, false);
+      if(j>=0 && cur.close < c[j].low) bear = { top:c[j].high, bottom:c[j].low, idx:j };
+    }
+  }
+  const tag = (ob, type)=>{
+    if(!ob) return null;
+    ob.tapped = false; ob.broken = false;
+    for(let k=ob.idx+2;k<c.length;k++){
+      if(c[k].low<=ob.top && c[k].high>=ob.bottom) ob.tapped = true;
+      if(type==='bull' && c[k].close < ob.bottom) ob.broken = true;
+      if(type==='bear' && c[k].close > ob.top) ob.broken = true;
+    }
+    return ob;
+  };
+  return { bull: tag(bull,'bull'), bear: tag(bear,'bear') };
+}
+function breakerFrom(obs){
+  // A broken order block flips role: a bearish OB price closed above becomes
+  // bullish support, and vice-versa. idx carried through from the underlying
+  // OB so the Chart overlay can place the zone at the right bar.
+  if(obs.bear && obs.bear.broken) return { dir:'Bull', top:obs.bear.top, bottom:obs.bear.bottom, idx:obs.bear.idx };
+  if(obs.bull && obs.bull.broken) return { dir:'Bear', top:obs.bull.top, bottom:obs.bull.bottom, idx:obs.bull.idx };
+  return null;
+}
+function sweeps(c, s, bars=5){
+  const n=c.length;
+  let bsl=null, ssl=null;
+  for(let i=Math.max(1,n-bars);i<n;i++){
+    const priorH = s.sh.filter(p=>p.idx < i-1);
+    const priorL = s.sl.filter(p=>p.idx < i-1);
+    if(priorH.length){
+      const lvl = priorH[priorH.length-1].price;
+      if(c[i].high>lvl && c[i].close<lvl) bsl = { level:lvl, ago:n-1-i };
+    }
+    if(priorL.length){
+      const lvl = priorL[priorL.length-1].price;
+      if(c[i].low<lvl && c[i].close>lvl) ssl = { level:lvl, ago:n-1-i };
+    }
+  }
+  return { bsl, ssl };
+}
+function structureBreaks(c, s, bias, bars=5){
+  const { sh, sl } = s;
+  if(!sh.length || !sl.length) return { bos:null, choch:null };
+  const lastHPt = sh[sh.length-1], lastLPt = sl[sl.length-1];
+  const lastH = lastHPt.price, lastL = lastLPt.price;
+  const recent = c.slice(-bars);
+  const up = recent.some(x=>x.close>lastH);
+  const dn = recent.some(x=>x.close<lastL);
+  let bos=null, choch=null;
+  // idx (the swing point that got broken) lets the Chart overlay draw the
+  // BOS/CHoCH line starting from where it actually formed.
+  if(bias==='Bullish' && up) bos = { dir:'Bull', level:lastH, idx:lastHPt.idx };
+  if(bias==='Bearish' && dn) bos = { dir:'Bear', level:lastL, idx:lastLPt.idx };
+  if(bias==='Bearish' && up) choch = { dir:'Bull', level:lastH, idx:lastHPt.idx };
+  if(bias==='Bullish' && dn) choch = { dir:'Bear', level:lastL, idx:lastLPt.idx };
+  if(!bos && bias==='Range'){
+    if(up) bos = { dir:'Bull', level:lastH, idx:lastHPt.idx };
+    else if(dn) bos = { dir:'Bear', level:lastL, idx:lastLPt.idx };
+  }
+  return { bos, choch };
+}
+function equalLevels(s, price, atrVal){
+  const tol = Number.isFinite(atrVal) && atrVal>0 ? atrVal*0.25 : price*0.0015;
+  const cluster = (pts, isHigh)=>{
+    for(let i=pts.length-1;i>0;i--){
+      for(let j=i-1;j>=0 && j>=i-4;j--){
+        if(Math.abs(pts[i].price-pts[j].price)<=tol){
+          const lvl=(pts[i].price+pts[j].price)/2;
+          if(isHigh ? price<lvl*1.01 : price>lvl*0.99) return { level:lvl, idx:pts[i].idx };
+        }
+      }
+    }
+    return null;
+  };
+  return { eqh: cluster(s.sh, true), eql: cluster(s.sl, false) };
+}
+function premiumDiscount(c, lookback=50){
+  const w=c.slice(-lookback);
+  const hi=Math.max(...w.map(x=>x.high)), lo=Math.min(...w.map(x=>x.low));
+  const price=c[c.length-1].close;
+  if(!(hi>lo)) return { pct:NaN, zone:'—' };
+  const pct=100*(price-lo)/(hi-lo);
+  return { pct, zone: pct>50 ? 'Premium' : 'Discount', mid:(hi+lo)/2 };
+}
+function displacement(c, atrVal, bars=3){
+  if(!Number.isFinite(atrVal) || atrVal<=0) return null;
+  let best=null;
+  for(let i=Math.max(0,c.length-bars);i<c.length;i++){
+    const body=Math.abs(c[i].close-c[i].open);
+    const ratio=body/atrVal;
+    if(ratio>=1.5 && (!best || ratio>best.ratio)){
+      best={ ratio, dir: c[i].close>c[i].open ? 'Bull':'Bear', ago:c.length-1-i };
+    }
+  }
+  return best;
+}
+function pivots(c){
+  const p = c[c.length-2];                 // last *closed* candle of this timeframe
+  if(!p) return {};
+  const P=(p.high+p.low+p.close)/3, rng=p.high-p.low;
+  return { P, R1:2*P-p.low, S1:2*P-p.high, R2:P+rng, S2:P-rng };
+}
+function fibLevels(s){
+  if(!s.sh.length || !s.sl.length) return null;
+  const h=s.sh[s.sh.length-1], l=s.sl[s.sl.length-1];
+  const hi=h.price, lo=l.price;
+  if(!(hi>lo)) return null;
+  const up = l.idx < h.idx;                // up-leg retraces down from the high
+  const range = hi-lo;
+  const at = r => up ? hi - r*range : lo + r*range;
+  return { dir: up?'up':'down', f382:at(0.382), f5:at(0.5), f618:at(0.618), hi, lo };
+}
+function nearestLevels(s, price){
+  const below = s.sl.map(x=>x.price).concat(s.sh.map(x=>x.price)).filter(p=>p<price);
+  const above = s.sh.map(x=>x.price).concat(s.sl.map(x=>x.price)).filter(p=>p>price);
+  return {
+    support: below.length ? Math.max(...below) : NaN,
+    resistance: above.length ? Math.min(...above) : NaN
+  };
+}
+
+/* ---------------------------------------------------------------------------
+   Relative Strength vs BTC — Pearson correlation and regression beta over two
+   equal-length period-return arrays. Used by the Relative Strength section
+   below; kept generic (plain arrays in, plain number out) like every other
+   indicator function here.
+   --------------------------------------------------------------------------- */
+function pearsonCorr(a, b){
+  const n = Math.min(a.length, b.length);
+  if(n < 2) return NaN;
+  let sa=0, sb=0;
+  for(let i=0;i<n;i++){ sa+=a[i]; sb+=b[i]; }
+  const ma = sa/n, mb = sb/n;
+  let cov=0, va=0, vb=0;
+  for(let i=0;i<n;i++){ const da=a[i]-ma, db=b[i]-mb; cov+=da*db; va+=da*da; vb+=db*db; }
+  if(va===0 || vb===0) return NaN;
+  return cov/Math.sqrt(va*vb);
+}
+function betaOf(assetRet, benchRet){
+  const n = Math.min(assetRet.length, benchRet.length);
+  if(n < 2) return NaN;
+  let sa=0, sb=0;
+  for(let i=0;i<n;i++){ sa+=assetRet[i]; sb+=benchRet[i]; }
+  const ma = sa/n, mb = sb/n;
+  let cov=0, vb=0;
+  for(let i=0;i<n;i++){ const da=assetRet[i]-ma, db=benchRet[i]-mb; cov+=da*db; vb+=db*db; }
+  if(vb===0) return NaN;
+  return cov/vb;
+}
+
+/* ---------------------------------------------------------------------------
+   Relative Strength vs a benchmark — generic engine shared by the "vs BTC"
+   and "vs ETH" sections below (computeValues calls this twice, once per
+   benchmark). Everything here is derived from two paired close-price series
+   (this coin's candles + the benchmark's, same timeframe, tail-aligned to
+   whichever is shorter) — no extra indicator API, same philosophy as every
+   other section. RS Bias is the headline read: an EMA9/EMA21 cross of the
+   coin/benchmark *ratio* itself, so it answers "is this coin structurally
+   gaining or losing ground on the benchmark" rather than reacting to one
+   bar's noise. The rest break that down: the raw ratio and its own 12-bar
+   ROC, an RSI momentum comparison, two excess-return ("alpha") windows, and
+   a correlation/beta pair for how tightly this coin's moves are coupled to
+   the benchmark's right now.
+   `keyPrefix` namespaces the output keys ('rs' -> rsBias.. for BTC, 'rse'
+   -> rseBias.. for ETH). A hidden `<prefix>RatioRaw` key (not listed in any
+   GROUPS members array, so it never renders as a row) carries the raw
+   numeric ratio through to the ratio-chart checkbox, which needs it to pick
+   a 0-10 scaling multiplier for the TradingView symbol formula.
+   --------------------------------------------------------------------------- */
+function computeRelStrength(set, cl, rsiV, benchCandles, benchSymbol, benchLabel, keyPrefix){
+  const RS_KEYS = [keyPrefix+'Bias', keyPrefix+'Ratio', keyPrefix+'RatioRoc', keyPrefix+'RsiDelta', keyPrefix+'Perf7', keyPrefix+'Perf30', keyPrefix+'Corr30', keyPrefix+'Beta30'];
+  if(benchCandles && benchCandles.length > 20){
+    const benchCl = closes(benchCandles);
+    const n = Math.min(cl.length, benchCl.length);
+    const coinTail = cl.slice(cl.length-n);
+    const benchTail = benchCl.slice(benchCl.length-n);
+    const ratio = coinTail.map((v,i)=> benchTail[i] ? v/benchTail[i] : NaN);
+    const ratioNow = last(ratio.filter(Number.isFinite));
+
+    const ratioRoc = (n>12 && Number.isFinite(ratio[n-1]) && Number.isFinite(ratio[n-13]) && ratio[n-13]!==0)
+      ? (ratio[n-1]/ratio[n-13]-1)*100 : NaN;
+
+    const benchRsiV = last(rsiSeries(benchTail,14).filter(Number.isFinite));
+    const rsiDelta = (Number.isFinite(rsiV) && Number.isFinite(benchRsiV)) ? rsiV-benchRsiV : NaN;
+
+    const perfVsBench = bars => {
+      if(n <= bars) return NaN;
+      const coinRet = coinTail[n-1]/coinTail[n-1-bars]-1;
+      const benchRet = benchTail[n-1]/benchTail[n-1-bars]-1;
+      return (coinRet-benchRet)*100;
+    };
+    const alpha7 = perfVsBench(7);
+    const alpha30 = perfVsBench(30);
+
+    // Bar-over-bar period returns for the correlation/beta pair, last 30.
+    const retsCoin = [], retsBench = [];
+    for(let i=1;i<n;i++){
+      if(coinTail[i-1] && benchTail[i-1]){
+        retsCoin.push(coinTail[i]/coinTail[i-1]-1);
+        retsBench.push(benchTail[i]/benchTail[i-1]-1);
+      }
+    }
+    const rc = retsCoin.slice(-30), rb = retsBench.slice(-30);
+    const corr30 = pearsonCorr(rc, rb);
+    const beta30 = betaOf(rc, rb);
+
+    const ratioEmaFast = last(emaSeries(ratio, 9).filter(Number.isFinite));
+    const ratioEmaSlow = last(emaSeries(ratio, 21).filter(Number.isFinite));
+    const isBenchItself = currentSymbol === benchSymbol;
+    const rsBiasVal = isBenchItself ? null
+      : (Number.isFinite(ratioEmaFast) && Number.isFinite(ratioEmaSlow))
+        ? (ratioEmaFast > ratioEmaSlow ? 'Outperforming' : 'Underperforming')
+        : null;
+
+    set(keyPrefix+'Bias', isBenchItself ? `This is ${benchLabel}` : (rsBiasVal || '—'),
+        rsBiasVal==='Outperforming'?'pos':rsBiasVal==='Underperforming'?'neg':'',
+        isBenchItself ? 'benchmark — nothing to compare' : (rsBiasVal ? (rsBiasVal==='Outperforming' ? 'ratio EMA9 > EMA21' : 'ratio EMA9 < EMA21') : null));
+    set(keyPrefix+'Ratio', Number.isFinite(ratioNow) ? ratioNow.toFixed(decimalsFor(ratioNow)) : '—', '',
+        Number.isFinite(ratioNow) ? `coin priced in ${benchLabel}` : null);
+    set(keyPrefix+'RatioRaw', Number.isFinite(ratioNow) ? ratioNow : null); // hidden — used by the ratio-chart toggle only
+    set(keyPrefix+'RatioRoc', pct(ratioRoc), ratioRoc>0?'pos':ratioRoc<0?'neg':'');
+    set(keyPrefix+'RsiDelta', Number.isFinite(rsiDelta) ? (rsiDelta>=0?'+':'')+rsiDelta.toFixed(1) : '—',
+        rsiDelta>0?'pos':rsiDelta<0?'neg':'',
+        Number.isFinite(rsiDelta) ? `coin RSI ${num(rsiV,1)} vs ${benchLabel} RSI ${num(benchRsiV,1)}` : null);
+    set(keyPrefix+'Perf7', pct(alpha7), alpha7>0?'pos':alpha7<0?'neg':'');
+    set(keyPrefix+'Perf30', pct(alpha30), alpha30>0?'pos':alpha30<0?'neg':'');
+    set(keyPrefix+'Corr30', Number.isFinite(corr30) ? num(corr30,2) : '—',
+        corr30>=0.7?'warn':(corr30<=0.3&&corr30>-1)?'pos':'',
+        Number.isFinite(corr30) ? (corr30>=0.7?`tightly coupled to ${benchLabel}`:corr30<=0.3?'trading independently':null) : null);
+    set(keyPrefix+'Beta30', Number.isFinite(beta30) ? num(beta30,2)+'×' : '—',
+        beta30>1.2?'warn':'',
+        Number.isFinite(beta30) ? (beta30>1?`amplifies ${benchLabel}'s moves`:`dampens ${benchLabel}'s moves`) : null);
+  } else {
+    RS_KEYS.forEach(k=>set(k, null));
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Formatting
+   --------------------------------------------------------------------------- */
+let PDEC = 2;
+function decimalsFor(p){
+  p = Math.abs(p);
+  if(!Number.isFinite(p) || p===0) return 2;
+  if(p>=1000) return 2;
+  if(p>=100) return 3;
+  if(p>=1) return 4;
+  if(p>=0.1) return 5;
+  if(p>=0.01) return 6;
+  if(p>=0.001) return 7;
+  return 8;
+}
+const px  = v => Number.isFinite(v) ? v.toFixed(PDEC) : '—';
+const num = (v,d=2) => Number.isFinite(v) ? v.toFixed(d) : '—';
+const pct = (v,d=2) => Number.isFinite(v) ? (v>=0?'+':'')+v.toFixed(d)+'%' : '—';
+const pctPlain = (v,d=2) => Number.isFinite(v) ? v.toFixed(d)+'%' : '—';
+function compact(v, d=2){
+  if(!Number.isFinite(v)) return '—';
+  const sign = v<0 ? '-' : '';
+  const a = Math.abs(v);
+  if(a>=1e12) return sign+(a/1e12).toFixed(d)+'T';
+  if(a>=1e9)  return sign+(a/1e9).toFixed(d)+'B';
+  if(a>=1e6)  return sign+(a/1e6).toFixed(d)+'M';
+  if(a>=1e3)  return sign+(a/1e3).toFixed(d)+'K';
+  return sign+a.toFixed(d);
+}
+const range = (lo,hi) => (Number.isFinite(lo)&&Number.isFinite(hi)) ? `${px(lo)} – ${px(hi)}` : '—';
+const dist = (level, price) => { if(!Number.isFinite(level) || !price) return null; const d=(level-price)/price*100; return (d>=0?'+':'')+d.toFixed(2)+'%'; };
+
+/* ---------------------------------------------------------------------------
+   Group taxonomy. Keys map 1:1 to the value map built by computeValues().
+   --------------------------------------------------------------------------- */
+const GROUPS = [
+  // Chart has no metric rows (members:[]) — its body is a 90-bar candlestick
+  // canvas instead, drawn by drawTaChart(). isChart:true routes renderGroups()
+  // and copyValues() around the normal member-row logic.
+  { key:'chart', name:'Chart', icon:'📉', color:'#8b93a3', isChart:true, members:[] },
+  { key:'ict', name:'ICT / Smart Money', icon:'🧠', color:'#FF5470', members:[
+    ['fvgBull','Fair Value Gap (Bullish)'],['fvgBear','Fair Value Gap (Bearish)'],
+    ['obBull','Order Block (Bullish)'],['obBear','Order Block (Bearish)'],
+    ['breaker','Breaker Block'],
+    ['sweepBsl','Liquidity Sweep (BSL)'],['sweepSsl','Liquidity Sweep (SSL)'],
+    ['bos','Break of Structure'],['choch','Change of Character'],
+    ['eqh','Equal Highs'],['eql','Equal Lows'],
+    ['pdZone','Premium / Discount Zone'],['displacement','Displacement']
+  ]},
+  { key:'trend', name:'Trend', icon:'📈', color:'var(--accent)', members:[
+    ['ema20','EMA 20'],['ema50','EMA 50'],['ema100','EMA 100'],['ema200','EMA 200'],
+    ['sma50','SMA 50'],['sma200','SMA 200'],
+    ['macdLine','MACD Line'],['macdSignal','MACD Signal'],['macdHist','MACD Histogram'],
+    ['adx','ADX (14)'],['plusDI','+DI'],['minusDI','-DI'],
+    ['supertrend','Supertrend'],['psar','Parabolic SAR'],
+    ['aroonUp','Aroon Up'],['aroonDown','Aroon Down']
+  ]},
+  { key:'momentum', name:'Momentum', icon:'⚡', color:'var(--gold)', members:[
+    ['rsi','RSI (14)'],['srsiK','Stoch RSI %K'],['srsiD','Stoch RSI %D'],
+    ['stochK','Stochastic %K'],['stochD','Stochastic %D'],
+    ['cci','CCI (34)'],['willr','Williams %R'],['mfi','MFI (14)'],['roc','ROC (12)']
+  ]},
+  { key:'volatility', name:'Volatility', icon:'🌊', color:'var(--violet)', members:[
+    ['atr','ATR (14)'],['atrPct','ATR %'],
+    ['bbUpper','Bollinger Upper'],['bbMid','Bollinger Mid'],['bbLower','Bollinger Lower'],
+    ['bbPctB','BB %B'],['bbWidth','BB Bandwidth'],
+    ['kcUpper','Keltner Upper'],['kcLower','Keltner Lower'],
+    ['dcHigh','Donchian High'],['dcLow','Donchian Low'],
+    ['hv','Historical Volatility']
+  ]},
+  { key:'ichimoku', name:'Ichimoku Cloud', icon:'☁️', color:'var(--blue)', members:[
+    ['tenkan','Tenkan-sen'],['kijun','Kijun-sen'],['spanA','Senkou Span A'],['spanB','Senkou Span B'],
+    ['chikou','Chikou Span'],['cloudPos','Cloud Position'],['cloudTop','Cloud Top'],['cloudBot','Cloud Bottom']
+  ]},
+  { key:'volume', name:'Volume', icon:'📊', color:'var(--orange)', members:[
+    ['vol24h','24h Volume'],['volMa','Volume MA (20)'],['volRatio','Volume Ratio'],
+    ['obv','OBV'],['vwap','VWAP'],['cvd','CVD'],
+    ['poc','Volume Profile POC'],['vah','Value Area High'],['val','Value Area Low'],
+    ['cmf','Chaikin Money Flow'],['adl','A/D Line']
+  ]},
+  { key:'structure', name:'Market Structure', icon:'🏗️', color:'#5B8CFF', members:[
+    ['bias','Structure Trend'],['swingHigh','Last Swing High'],['swingLow','Last Swing Low'],
+    ['support','Nearest Support'],['resistance','Nearest Resistance'],
+    ['pivP','Pivot (P)'],['pivR1','Pivot R1'],['pivR2','Pivot R2'],['pivS1','Pivot S1'],['pivS2','Pivot S2'],
+    ['fib382','Fib 0.382'],['fib5','Fib 0.5'],['fib618','Fib 0.618']
+  ]},
+  { key:'derivatives', name:'Derivatives', icon:'💹', color:'#F0C24B', members:[
+    ['funding','Funding Rate'],['oi','Open Interest'],['oiChange','OI Change (24h)'],
+    ['lsRatio','Long/Short Ratio'],['basis','Basis (Perp − Spot)']
+  ]},
+  { key:'relStrength', name:'Relative Strength', icon:'⚖️', color:'#4ADE80', members:[], subs:[
+    { key:'btc', label:'BTC', benchSymbol:'BTCUSDT', members:[
+      ['rsBias','RS Bias'],
+      ['rsRatio','Coin/BTC Ratio'],
+      ['rsRatioRoc','Ratio ROC (12)'],
+      ['rsRsiDelta','RSI Delta (vs BTC)'],
+      ['rsPerf7','Perf vs BTC (7)'],
+      ['rsPerf30','Perf vs BTC (30)'],
+      ['rsCorr30','Correlation (30)'],
+      ['rsBeta30','Beta (30)']
+    ]},
+    { key:'eth', label:'ETH', benchSymbol:'ETHUSDT', members:[
+      ['rseBias','RS Bias'],
+      ['rseRatio','Coin/ETH Ratio'],
+      ['rseRatioRoc','Ratio ROC (12)'],
+      ['rseRsiDelta','RSI Delta (vs ETH)'],
+      ['rsePerf7','Perf vs ETH (7)'],
+      ['rsePerf30','Perf vs ETH (30)'],
+      ['rseCorr30','Correlation (30)'],
+      ['rseBeta30','Beta (30)']
+    ]}
+  ]}
+];
+
+/* ---------------------------------------------------------------------------
+   Value assembly — one flat { key: {v, cls, sub} } map for the renderer.
+   cls: 'pos' | 'neg' | 'warn' | '' (neutral)
+   sub: tiny trailing chip (distance, state, bar age) — never a sentence.
+   --------------------------------------------------------------------------- */
+function computeValues(candles, tf, ticker, derivs, btcCandles, ethCandles){
+  const out = {};
+  const set = (k,v,cls,sub)=>{ out[k] = { v: v===null||v===undefined ? '—' : v, cls: cls||'', sub: sub||null }; };
+  const cl = closes(candles);
+  const price = cl[cl.length-1];
+  PDEC = decimalsFor(price);
+  const side = lvl => Number.isFinite(lvl) ? (price>lvl ? 'pos' : 'neg') : '';
+  const vsPrice = lvl => Number.isFinite(lvl) ? (price>lvl ? 'above' : 'below') : null;
+
+  /* ---- Trend ---- */
+  const emaLen = [20,50,100,200];
+  emaLen.forEach(len=>{
+    const v = last(emaSeries(cl, len).filter(Number.isFinite));
+    set('ema'+len, px(v), side(v), vsPrice(v));
+  });
+  [50,200].forEach(len=>{
+    const v = smaAt(cl, len);
+    set('sma'+len, px(v), side(v), vsPrice(v));
+  });
+  const m = macdParts(cl);
+  set('macdLine', num(m.line, PDEC), m.line>0?'pos':'neg');
+  set('macdSignal', num(m.signal, PDEC), m.signal>0?'pos':'neg');
+  set('macdHist', num(m.hist, PDEC), m.hist>0?'pos':'neg', m.hist>0?'expanding up':'expanding down');
+  const dmi = adxParts(candles);
+  set('adx', num(dmi.adx,1), dmi.adx>=25?'pos':dmi.adx<20?'neg':'warn', dmi.adx>=25?'trending':dmi.adx<20?'weak':'building');
+  set('plusDI', num(dmi.plusDI,1), dmi.plusDI>dmi.minusDI?'pos':'');
+  set('minusDI', num(dmi.minusDI,1), dmi.minusDI>dmi.plusDI?'neg':'');
+  const st = supertrend(candles);
+  set('supertrend', px(st.value), st.dir===1?'pos':'neg', st.dir===1?'long':'short');
+  const sar = psar(candles);
+  set('psar', px(sar.value), sar.dir===1?'pos':'neg', sar.dir===1?'below price':'above price');
+  const ar = aroon(candles);
+  set('aroonUp', num(ar.up,0), ar.up>=70?'pos':'');
+  set('aroonDown', num(ar.down,0), ar.down>=70?'neg':'');
+
+  /* ---- Ichimoku ---- */
+  const ich = ichimoku(candles);
+  set('tenkan', px(ich.tenkan), side(ich.tenkan));
+  set('kijun', px(ich.kijun), side(ich.kijun));
+  set('spanA', px(ich.spanA), ich.spanA>ich.spanB?'pos':'neg');
+  set('spanB', px(ich.spanB), ich.spanA>ich.spanB?'neg':'pos');
+  set('chikou', px(ich.chikou), ich.chikou>ich.chikouRef?'pos':'neg', ich.chikou>ich.chikouRef?'above price 26 back':'below price 26 back');
+  set('cloudPos', ich.position, ich.position==='Above'?'pos':ich.position==='Below'?'neg':'warn');
+  set('cloudTop', px(ich.cloudTop), side(ich.cloudTop), dist(ich.cloudTop, price));
+  set('cloudBot', px(ich.cloudBot), side(ich.cloudBot), dist(ich.cloudBot, price));
+
+  /* ---- Momentum ---- */
+  const rsiV = last(rsiSeries(cl,14).filter(Number.isFinite));
+  set('rsi', num(rsiV,1), rsiV>=70?'neg':rsiV<=30?'pos':rsiV>50?'pos':'', rsiV>=70?'overbought':rsiV<=30?'oversold':null);
+  const sr = stochRsi(cl);
+  set('srsiK', num(sr.k,1), sr.k>=80?'neg':sr.k<=20?'pos':'');
+  set('srsiD', num(sr.d,1), sr.d>=80?'neg':sr.d<=20?'pos':'');
+  const so = stochastic(candles);
+  set('stochK', num(so.k,1), so.k>=80?'neg':so.k<=20?'pos':'');
+  set('stochD', num(so.d,1), so.d>=80?'neg':so.d<=20?'pos':'');
+  const cciV = cci(candles);
+  set('cci', num(cciV,1), cciV>=100?'pos':cciV<=-100?'neg':'', cciV>=100?'overbought':cciV<=-100?'oversold':null);
+  const wr = williamsR(candles);
+  set('willr', num(wr,1), wr>=-20?'neg':wr<=-80?'pos':'', wr>=-20?'overbought':wr<=-80?'oversold':null);
+  const mfiV = mfi(candles);
+  set('mfi', num(mfiV,1), mfiV>=80?'neg':mfiV<=20?'pos':'');
+  const rocV = roc(cl);
+  set('roc', pct(rocV), rocV>0?'pos':'neg');
+
+  /* ---- Volatility ---- */
+  const atrV = atrValue(candles,14);
+  set('atr', px(atrV));
+  const atrPct = price ? atrV/price*100 : NaN;
+  set('atrPct', pctPlain(atrPct), atrPct>=8?'warn':'');
+  const bb = bollinger(cl);
+  set('bbUpper', px(bb.upper), side(bb.upper));
+  set('bbMid', px(bb.mid), side(bb.mid));
+  set('bbLower', px(bb.lower), side(bb.lower));
+  set('bbPctB', num(bb.pctB,2), bb.pctB>1?'neg':bb.pctB<0?'pos':'', bb.pctB>1?'above band':bb.pctB<0?'below band':null);
+  set('bbWidth', pctPlain(bb.width), bb.width<5?'warn':'', bb.width<5?'squeeze':null);
+  const kc = keltner(candles);
+  set('kcUpper', px(kc.upper), side(kc.upper));
+  set('kcLower', px(kc.lower), side(kc.lower));
+  const dc = donchian(candles);
+  set('dcHigh', px(dc.high), '', dist(dc.high, price));
+  set('dcLow', px(dc.low), '', dist(dc.low, price));
+  set('hv', pctPlain(historicalVol(cl, 20, PERIODS_PER_YEAR[tf]||365),1), '', 'annualised');
+
+  /* ---- Volume ---- */
+  set('vol24h', ticker && Number.isFinite(ticker.quoteVolume) ? '$'+compact(ticker.quoteVolume) : '—');
+  const volMa = smaAt(candles.map(c=>c.volume), 20);
+  set('volMa', compact(volMa));
+  const lastVol = candles[candles.length-1].volume;
+  const vr = volMa ? lastVol/volMa : NaN;
+  set('volRatio', Number.isFinite(vr) ? num(vr,2)+'×' : '—', vr>=1.5?'pos':vr<0.7?'neg':'');
+  const obvV = obv(candles);
+  set('obv', compact(obvV), obvV>0?'pos':'neg');
+  const vwapV = rollingVwap(candles,20);
+  set('vwap', px(vwapV), side(vwapV), vsPrice(vwapV));
+  const cvdV = cvd(candles);
+  set('cvd', cvdV===null ? 'n/a' : compact(cvdV), cvdV===null?'':(cvdV>0?'pos':'neg'), cvdV===null?'no taker data':'100-bar');
+  const vp = volumeProfile(candles);
+  set('poc', px(vp.poc), side(vp.poc), dist(vp.poc, price));
+  set('vah', px(vp.vah), side(vp.vah));
+  set('val', px(vp.val), side(vp.val));
+  const cmfV = cmf(candles);
+  set('cmf', num(cmfV,3), cmfV>0.05?'pos':cmfV<-0.05?'neg':'');
+  const adlV = adLine(candles);
+  set('adl', compact(adlV), adlV>0?'pos':'neg');
+
+  // Raw Volume price levels (VWAP, and the Volume Profile's POC/Value Area
+  // High/Low) stashed for the Chart section's "show on chart" overlay — see
+  // drawVolumeOverlay(). Everything else in this section (24h Volume, Volume
+  // MA, Volume Ratio, OBV, CVD, CMF, A/D Line) is volume-scale, not price, so
+  // there's nothing further to stash for those.
+  latestVolume = { vwap: vwapV, poc: vp.poc, vah: vp.vah, val: vp.val };
+
+  /* ---- ICT / Smart Money ---- */
+  const sw = swings(candles,3);
+  const gaps = fvgs(candles);
+  const fBull = pickFvg(gaps,'bull'), fBear = pickFvg(gaps,'bear');
+  set('fvgBull', fBull ? range(fBull.bottom, fBull.top) : 'None',
+      fBull ? (fBull.filled?'':'pos') : '', fBull ? (fBull.filled?'mitigated':'unfilled') : null);
+  set('fvgBear', fBear ? range(fBear.bottom, fBear.top) : 'None',
+      fBear ? (fBear.filled?'':'neg') : '', fBear ? (fBear.filled?'mitigated':'unfilled') : null);
+  const obs = orderBlocks(candles, atrV);
+  set('obBull', obs.bull ? range(obs.bull.bottom, obs.bull.top) : 'None',
+      obs.bull ? (obs.bull.broken?'':'pos') : '', obs.bull ? (obs.bull.broken?'broken':obs.bull.tapped?'tapped':'fresh') : null);
+  set('obBear', obs.bear ? range(obs.bear.bottom, obs.bear.top) : 'None',
+      obs.bear ? (obs.bear.broken?'':'neg') : '', obs.bear ? (obs.bear.broken?'broken':obs.bear.tapped?'tapped':'fresh') : null);
+  const br = breakerFrom(obs);
+  set('breaker', br ? range(br.bottom, br.top) : 'None', br ? (br.dir==='Bull'?'pos':'neg') : '', br ? br.dir.toLowerCase() : null);
+  const sp = sweeps(candles, sw);
+  set('sweepBsl', sp.bsl ? px(sp.bsl.level) : 'None', sp.bsl?'neg':'', sp.bsl ? (sp.bsl.ago===0?'this bar':sp.bsl.ago+' bars ago') : null);
+  set('sweepSsl', sp.ssl ? px(sp.ssl.level) : 'None', sp.ssl?'pos':'', sp.ssl ? (sp.ssl.ago===0?'this bar':sp.ssl.ago+' bars ago') : null);
+  const bias = structureBias(sw);
+  const brk = structureBreaks(candles, sw, bias);
+  set('bos', brk.bos ? px(brk.bos.level) : 'None', brk.bos ? (brk.bos.dir==='Bull'?'pos':'neg') : '', brk.bos ? brk.bos.dir.toLowerCase() : null);
+  set('choch', brk.choch ? px(brk.choch.level) : 'None', brk.choch ? (brk.choch.dir==='Bull'?'pos':'neg') : '', brk.choch ? brk.choch.dir.toLowerCase() : null);
+  const eq = equalLevels(sw, price, atrV);
+  set('eqh', eq.eqh ? px(eq.eqh.level) : 'None', eq.eqh?'warn':'', eq.eqh ? dist(eq.eqh.level, price) : null);
+  set('eql', eq.eql ? px(eq.eql.level) : 'None', eq.eql?'warn':'', eq.eql ? dist(eq.eql.level, price) : null);
+  const pd = premiumDiscount(candles);
+  set('pdZone', Number.isFinite(pd.pct) ? pd.zone+' '+pd.pct.toFixed(0)+'%' : '—', pd.zone==='Discount'?'pos':pd.zone==='Premium'?'neg':'');
+  const disp = displacement(candles, atrV);
+  set('displacement', disp ? num(disp.ratio,2)+'× ATR' : 'None', disp ? (disp.dir==='Bull'?'pos':'neg') : '',
+      disp ? (disp.ago===0?'this bar':disp.ago+' bars ago') : null);
+
+  // Raw ICT objects (with bar indices, not just display strings) stashed for
+  // the Chart section's "show ICT on chart" overlay — see drawIctOverlay().
+  latestIct = {
+    totalBars: candles.length,
+    fvgBull: fBull, fvgBear: fBear,
+    obBull: obs.bull, obBear: obs.bear,
+    breaker: br,
+    sweepBsl: sp.bsl, sweepSsl: sp.ssl,
+    bos: brk.bos, choch: brk.choch,
+    eqh: eq.eqh, eql: eq.eql,
+    pd, displacement: disp
+  };
+
+  /* ---- Market structure ---- */
+  set('bias', bias, bias==='Bullish'?'pos':bias==='Bearish'?'neg':'warn');
+  // The last *confirmed* fractal pivot can sit well behind price in a steep
+  // one-way move (nothing in the most recent `span` bars can confirm yet) —
+  // extend it to the actual high/low printed since, so a pivot price has
+  // already broken through isn't shown as if it still held. See
+  // extendSwingHigh/extendSwingLow above.
+  const effSh = sw.sh.length ? extendSwingHigh(candles, sw.sh[sw.sh.length-1]) : null;
+  const effSl = sw.sl.length ? extendSwingLow(candles, sw.sl[sw.sl.length-1]) : null;
+  const lastSh = effSh ? effSh.price : NaN;
+  const lastSl = effSl ? effSl.price : NaN;
+  set('swingHigh', px(lastSh), '', dist(lastSh, price));
+  set('swingLow', px(lastSl), '', dist(lastSl, price));
+  const nl = nearestLevels(sw, price);
+  const sup = Number.isFinite(nl.support) ? nl.support : dc.low;        // Donchian edge when no pivot sits below
+  const res = Number.isFinite(nl.resistance) ? nl.resistance : dc.high; // ditto above
+  set('support', px(sup), 'pos', dist(sup, price));
+  set('resistance', px(res), 'neg', dist(res, price));
+  const pv = pivots(candles);
+  set('pivP', px(pv.P), side(pv.P));
+  set('pivR1', px(pv.R1)); set('pivR2', px(pv.R2));
+  set('pivS1', px(pv.S1)); set('pivS2', px(pv.S2));
+  // Fib retracement anchors off the same extended swing high/low as the
+  // display above, not the raw (possibly stale) confirmed pivot.
+  const swEff = { sh: effSh ? [...sw.sh.slice(0,-1), effSh] : sw.sh, sl: effSl ? [...sw.sl.slice(0,-1), effSl] : sw.sl };
+  const fib = fibLevels(swEff);
+  set('fib382', fib ? px(fib.f382) : '—', fib?side(fib.f382):'');
+  set('fib5',   fib ? px(fib.f5)   : '—', fib?side(fib.f5):'');
+  set('fib618', fib ? px(fib.f618) : '—', fib?side(fib.f618):'');
+
+  // Raw Market Structure objects (with bar idx where one exists) stashed for
+  // the Chart section's "show on chart" overlay — see drawMarketStructureOverlay().
+  latestStructure = {
+    swingHigh: effSh,
+    swingLow: effSl,
+    support: sup, resistance: res,
+    pivP: pv.P, pivR1: pv.R1, pivR2: pv.R2, pivS1: pv.S1, pivS2: pv.S2,
+    fib382: fib ? fib.f382 : NaN, fib5: fib ? fib.f5 : NaN, fib618: fib ? fib.f618 : NaN
+  };
+
+  /* ---- Derivatives ---- */
+  const d = derivs || {};
+  set('funding', Number.isFinite(d.funding) ? pct(d.funding*100,4) : '—',
+      d.funding>0?'neg':d.funding<0?'pos':'', d.fundingIn || null);
+  set('oi', Number.isFinite(d.oi) ? '$'+compact(d.oi*price) : '—', '', Number.isFinite(d.oi) ? compact(d.oi)+' contracts' : null);
+  set('oiChange', Number.isFinite(d.oiChange) ? pct(d.oiChange) : '—', d.oiChange>0?'pos':d.oiChange<0?'neg':'');
+  set('lsRatio', Number.isFinite(d.lsRatio) ? num(d.lsRatio,2) : '—', d.lsRatio>1?'pos':d.lsRatio<1?'neg':'');
+  set('basis', Number.isFinite(d.basis) ? pct(d.basis,3) : '—', d.basis>0?'pos':d.basis<0?'neg':'');
+
+  /* ---- Relative Strength vs BTC, and vs ETH ----
+     Both sections share the same engine (computeRelStrength, defined above
+     pearsonCorr/betaOf) — one call per benchmark, namespaced by key prefix
+     ('rs' for BTC, 'rse' for ETH). See that function's header comment for
+     the methodology. */
+  computeRelStrength(set, cl, rsiV, btcCandles, 'BTCUSDT', 'BTC', 'rs');
+  computeRelStrength(set, cl, rsiV, ethCandles, 'ETHUSDT', 'ETH', 'rse');
+
+  return out;
+}
+
+/* ---------------------------------------------------------------------------
+   Derivatives fetch — best-effort per field, so one dead endpoint can't blank
+   the whole panel. Binance and Bybit expose the same five numbers in
+   different shapes.
+   --------------------------------------------------------------------------- */
+async function fetchDerivatives(symbol, source){
+  const out = {};
+  const settle = async (fn)=>{ try{ await fn(); }catch(e){ /* leave field blank */ } };
+  if(source === 'Binance'){
+    await Promise.all([
+      settle(async()=>{
+        const d = await fapi(`/fapi/v1/premiumIndex?symbol=${symbol}`);
+        out.funding = parseFloat(d.lastFundingRate);
+        const mins = Math.round((Number(d.nextFundingTime)-Date.now())/60000);
+        if(mins>0) out.fundingIn = 'in '+(mins>=60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m');
+      }),
+      settle(async()=>{
+        const d = await fapi(`/fapi/v1/openInterest?symbol=${symbol}`);
+        out.oi = parseFloat(d.openInterest);
+      }),
+      settle(async()=>{
+        const d = await fapi(`/futures/data/openInterestHist?symbol=${symbol}&period=4h&limit=7`);
+        if(Array.isArray(d) && d.length>1){
+          const a=parseFloat(d[0].sumOpenInterest), b=parseFloat(d[d.length-1].sumOpenInterest);
+          if(a>0) out.oiChange = (b-a)/a*100;
+        }
+      }),
+      settle(async()=>{
+        const d = await fapi(`/futures/data/globalLongShortAccountRatio?symbol=${symbol}&period=4h&limit=1`);
+        if(Array.isArray(d) && d.length) out.lsRatio = parseFloat(d[0].longShortRatio);
+      }),
+      settle(async()=>{
+        const [perp, sp] = await Promise.all([
+          fapi(`/fapi/v1/ticker/price?symbol=${symbol}`),
+          spot(`/api/v3/ticker/price?symbol=${symbol}`)
+        ]);
+        const p = parseFloat(perp.price), s = parseFloat(sp.price);
+        if(p>0 && s>0) out.basis = (p-s)/s*100;
+      })
+    ]);
+    return out;
+  }
+  await Promise.all([
+    settle(async()=>{
+      const d = await bybit(`/v5/market/tickers?category=linear&symbol=${symbol}`);
+      const t = d.result.list[0];
+      out.funding = parseFloat(t.fundingRate);
+      out.oi = parseFloat(t.openInterest);
+      const mins = Math.round((Number(t.nextFundingTime)-Date.now())/60000);
+      if(mins>0) out.fundingIn = 'in '+(mins>=60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m');
+    }),
+    settle(async()=>{
+      const d = await bybit(`/v5/market/open-interest?category=linear&symbol=${symbol}&intervalTime=4h&limit=7`);
+      const list = d.result.list || [];
+      if(list.length>1){
+        const newest = parseFloat(list[0].openInterest);
+        const oldest = parseFloat(list[list.length-1].openInterest);
+        if(oldest>0) out.oiChange = (newest-oldest)/oldest*100;
+      }
+    }),
+    settle(async()=>{
+      const d = await bybit(`/v5/market/account-ratio?category=linear&symbol=${symbol}&period=4h&limit=1`);
+      const r = (d.result.list||[])[0];
+      if(r){
+        const buy = parseFloat(r.buyRatio), sell = parseFloat(r.sellRatio);
+        if(sell>0) out.lsRatio = buy/sell;
+      }
+    }),
+    settle(async()=>{
+      const [lin, sp] = await Promise.all([
+        bybit(`/v5/market/tickers?category=linear&symbol=${symbol}`),
+        bybit(`/v5/market/tickers?category=spot&symbol=${symbol}`)
+      ]);
+      const p = parseFloat(lin.result.list[0].lastPrice);
+      const s = parseFloat(sp.result.list[0].lastPrice);
+      if(p>0 && s>0) out.basis = (p-s)/s*100;
+    })
+  ]);
+  return out;
+}
+
+/* ---------------------------------------------------------------------------
+   Controller
+   --------------------------------------------------------------------------- */
+let currentSymbol = null;
+let currentTf = '1d';
+let currentSource = null;
+let latestValues = null;
+let latestCandles = null;
+let latestIct = null;        // raw ICT objects (with bar idx) for the chart overlay
+let latestStructure = null;  // raw Market Structure objects (with bar idx where known) for the chart overlay
+let latestVolume = null;     // raw Volume price levels (VWAP/POC/VAH/VAL) for the chart overlay
+let ictOverlayEnabled = false; // "Chart" checkbox in the ICT section header — "show everything" mode
+let ictMemberOverlay = new Set(['bos','choch']); // individually-checked ICT member keys — used whenever the header checkbox is off; Break of Structure + Change of Character checked by default
+const BAR_COUNTS = [30,45,90,180]; // Chart section's selectable window sizes
+let chartBarCount = 45; // currently selected window size
+// Trend indicators that can be drawn straight onto the price Chart (same $
+// scale, no separate panel needed). MACD, ADX/±DI and Aroon live on their
+// own 0–100 or unbounded scale and can't be meaningfully overlaid on a
+// candlestick chart, so those members get a checkbox but it stays disabled.
+const TREND_CHARTABLE = new Set(['ema20','ema50','ema100','ema200','sma50','sma200','supertrend','psar']);
+// EMA100, SMA50, SMA200 and PSAR are the Trend members traders least often
+// want auto-added (SMA50/200 largely duplicate the EMA20/50/200 already
+// shown, PSAR is a dotted per-bar series that gets noisy fast), so the
+// header "Chart" checkbox skips them — same convention as Market
+// Structure's STRUCTURE_MASTER_EXCLUDE above. Still individually chartable,
+// just only ever checked by hand.
+const TREND_MASTER_EXCLUDE = new Set(['ema100','sma50','sma200','psar']);
+let trendMemberOverlay = new Set(); // individually-checked Trend member keys shown on the Chart
+let trendOverlayEnabled = false; // "Chart" checkbox in the Trend header — shows EMA20/50/200 + Supertrend (see TREND_MASTER_EXCLUDE)
+// Volatility indicators that share the price chart's $ scale: Bollinger and
+// Keltner bands and the Donchian channel are literal price levels, so they
+// overlay onto the candles just like a moving average. ATR, ATR%, BB %B,
+// BB Bandwidth and Historical Vol are all normalized/derived readings on
+// their own scale and can't be meaningfully overlaid — same convention as
+// the Trend section above.
+const VOLATILITY_CHARTABLE = new Set(['bbUpper','bbMid','bbLower','kcUpper','kcLower','dcHigh','dcLow']);
+// Bollinger Upper/Mid/Lower is the one band set traders reliably want
+// auto-added, so the header "Chart" checkbox sweeps in just those three.
+// Keltner Upper/Lower and Donchian High/Low overlap Bollinger visually and
+// clutter the chart fast, so they're left for manual, deliberate checking —
+// still individually chartable, just only ever get checked by hand, never
+// swept in by "select all".
+const VOLATILITY_MASTER_EXCLUDE = new Set(['kcUpper','kcLower','dcHigh','dcLow']);
+let volatilityMemberOverlay = new Set(); // individually-checked Volatility member keys shown on the Chart
+let volatilityOverlayEnabled = false; // "Chart" checkbox in the Volatility header — shows only Bollinger Upper/Mid/Lower, see VOLATILITY_MASTER_EXCLUDE
+// Momentum indicators are all bounded/unbounded oscillators (RSI, Stoch,
+// CCI, Williams %R, MFI, ROC) — none of them share the price chart's $
+// scale, so the Momentum section has no Chart checkboxes at all (header or
+// per-member) — nothing in it can ever be overlaid on the candlestick chart.
+// Ichimoku lines that sit on the price $ scale — Tenkan/Kijun/Span A/Span B/
+// Chikou are literal price levels, so all five are chartable individually.
+// Cloud Position ('Above'/'Below'/'Inside') is a text label, and Cloud Top/
+// Bottom are just the running max/min of Span A & B — rather than offer
+// them as separate lines, checking Span A *and* Span B together paints the
+// shaded kumo cloud between them (see drawIchimokuCloud below), so those
+// three stay disabled/greyed instead.
+const ICHIMOKU_CHARTABLE = new Set(['tenkan','kijun','spanA','spanB','chikou']);
+let ichimokuMemberOverlay = new Set(); // individually-checked Ichimoku member keys shown on the Chart
+let ichimokuOverlayEnabled = false; // "Chart" checkbox in the Ichimoku header — shows every chartable Ichimoku line
+// Market Structure levels that sit on the price $ scale: Swing High/Low,
+// Support/Resistance, the Pivot Points and the Fib retracement levels are
+// all literal prices, so all twelve are chartable individually. Structure
+// Trend ('Bullish'/'Bearish'/'Range') is a text label, not a price level,
+// so that one stays disabled/greyed like the non-chartable Trend/Volatility
+// members above.
+const STRUCTURE_CHARTABLE = new Set(['swingHigh','swingLow','support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382','fib5','fib618']);
+// Swing High/Low and the two most-watched fib retracement levels (0.5,
+// 0.618) are the only Market Structure levels traders reliably want
+// auto-added, so the header "Chart" checkbox sweeps in just those four.
+// Support/Resistance, the Pivot Points and Fib 0.382 clutter the chart fast
+// and are left for manual, deliberate checking — they stay individually
+// chartable, just only ever get checked by hand, never swept in by "select
+// all".
+const STRUCTURE_MASTER_EXCLUDE = new Set(['support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382']);
+let structureMemberOverlay = new Set(); // individually-checked Market Structure member keys shown on the Chart
+let structureOverlayEnabled = true; // "Chart" checkbox in the Market Structure header — shows only Swing High/Low + Fib 0.5/0.618, see STRUCTURE_MASTER_EXCLUDE; checked by default
+// Volume members that resolve to an actual price level: VWAP and the Volume
+// Profile's POC/Value Area High/Value Area Low all sit on the $ scale, so
+// they can be drawn as horizontal lines same as Market Structure's Support/
+// Resistance. 24h Volume, Volume MA, Volume Ratio, OBV, CVD, Chaikin Money
+// Flow and the A/D Line are all volume-scale or oscillator readings with no
+// price-axis meaning, so those members get a checkbox but it stays disabled.
+const VOLUME_CHARTABLE = new Set(['vwap','poc','vah','val']);
+let volumeMemberOverlay = new Set(); // individually-checked Volume member keys shown on the Chart
+let volumeOverlayEnabled = false; // "Chart" checkbox in the Volume header — shows VWAP + POC/VAH/VAL
+// True when a given ICT/Trend/Volatility/Ichimoku/Structure/Volume member (by its
+// GROUPS key, e.g. 'fvgBull' or 'ema20') should be drawn on the Chart:
+// either that section's header "show all" checkbox is on, or the member
+// was checked by hand. Trend, Volatility and Market Structure are the
+// exceptions: for the keys in their *_MASTER_EXCLUDE set the header
+// checkbox is ignored entirely — those only ever show when checked
+// individually.
+function ictShown(key){ return ictOverlayEnabled || ictMemberOverlay.has(key); }
+function trendShown(key){
+  if(TREND_MASTER_EXCLUDE.has(key)) return trendMemberOverlay.has(key);
+  return trendOverlayEnabled || trendMemberOverlay.has(key);
+}
+function volatilityShown(key){
+  if(VOLATILITY_MASTER_EXCLUDE.has(key)) return volatilityMemberOverlay.has(key);
+  return volatilityOverlayEnabled || volatilityMemberOverlay.has(key);
+}
+function ichimokuShown(key){ return ichimokuOverlayEnabled || ichimokuMemberOverlay.has(key); }
+function structureShown(key){
+  if(STRUCTURE_MASTER_EXCLUDE.has(key)) return structureMemberOverlay.has(key);
+  return structureOverlayEnabled || structureMemberOverlay.has(key);
+}
+function volumeShown(key){ return volumeOverlayEnabled || volumeMemberOverlay.has(key); }
+let loadToken = 0;
+
+function normalizeSymbol(raw){
+  let s = (raw||'').trim().toUpperCase().replace(/\s+/g,'');
+  if(!s) return '';
+  s = s.replace(/\.P$/,'');
+  if(!s.endsWith('USDT')) s += 'USDT';
+  return s;
+}
+const tfLabel = tf => tf==='4h' ? '4 Hour' : tf==='1w' ? 'Weekly' : 'Daily';
+
+function el(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+// Which groups are collapsed, by index into GROUPS. Persists across refreshes
+// and timeframe switches (re-renders reuse it) so the user's layout choice
+// sticks until they explicitly toggle a section or Expand/Collapse All.
+// Chart starts expanded — it's the section most people want to see first;
+// every other section starts collapsed so the numbers are available on
+// demand without crowding the initial view.
+let collapsedGroups = new Set(GROUPS.map((g,i)=>i).filter(i=>GROUPS[i].key!=='chart'));
+
+// "Load ratio chart" checkbox in the Relative Strength section's BTC / ETH
+// sub-headings — separate from every other chart toggle above, since this
+// one doesn't overlay the Chart section's candles (different scale
+// entirely): it embeds a standalone TradingView iframe of the coin/
+// benchmark ratio, right inside that subsection's own body, only once
+// checked.
+let rsChartEnabled = false;
+let rseChartEnabled = false;
+// TradingView renders a formula symbol like BINANCE:SOLUSDT.P/BINANCE:BTCUSDT.P
+// as whatever raw ratio it works out to — usually a tiny decimal that's hard
+// to read on an axis. Multiplying by a power of ten so the current ratio
+// lands between 1 and 10 (the way the user's own SOL/LINK examples scale by
+// 1000x/10000x) keeps every coin's ratio chart on a legible 0-10 axis
+// regardless of how small the raw ratio is.
+function ratioChartMultiplier(ratioNow){
+  if(!Number.isFinite(ratioNow) || ratioNow<=0) return 1;
+  return Math.pow(10, Math.ceil(-Math.log10(ratioNow)));
+}
+function ratioChartSrc(benchSymbol, tf){
+  if(!currentSymbol || currentSymbol===benchSymbol) return ''; // no ratio to chart against itself
+  const mult = ratioChartMultiplier(
+    benchSymbol==='BTCUSDT' ? (latestValues && latestValues.rsRatioRaw && latestValues.rsRatioRaw.v)
+                             : (latestValues && latestValues.rseRatioRaw && latestValues.rseRatioRaw.v)
+  );
+  const formula = `BINANCE:${currentSymbol}.P/BINANCE:${benchSymbol}.P${mult>1?'*'+mult:''}`;
+  const params = new URLSearchParams({
+    symbol: formula,
+    interval: tradingViewInterval(tf),
+    hidesidetoolbar: '1',
+    hide_side_toolbar: '1',
+    hidetoptoolbar: '1',
+    hide_top_toolbar: '1',
+    symboledit: '0',
+    saveimage: '0',
+    toolbarbg: '0b0e14',
+    studies: '[]',
+    theme: 'dark',
+    style: '1',
+    hide_volume: '1',
+    timezone: 'Etc/UTC'
+  });
+  return `https://s.tradingview.com/widgetembed/?${params.toString()}`;
+}
+// Sets/clears the iframe src to match the current checkbox state — called
+// after every render (the grid's innerHTML rebuild wipes any iframe that
+// was there) and directly from the checkbox handlers so toggling doesn't
+// need a full re-render.
+function syncRatioChartFrames(){
+  const rsFrame = el('taRsChartFrame');
+  if(rsFrame) rsFrame.src = rsChartEnabled ? ratioChartSrc('BTCUSDT', currentTf) : '';
+  const rseFrame = el('taRseChartFrame');
+  if(rseFrame) rseFrame.src = rseChartEnabled ? ratioChartSrc('ETHUSDT', currentTf) : '';
+}
+function toggleRsChart(checked){
+  rsChartEnabled = checked;
+  const idx = GROUPS.findIndex(g=>g.key==='relStrength');
+  if(checked && idx>=0 && collapsedGroups.has(idx)) collapsedGroups.delete(idx);
+  renderGroups(latestValues);
+}
+function toggleRseChart(checked){
+  rseChartEnabled = checked;
+  const idx = GROUPS.findIndex(g=>g.key==='relStrength');
+  if(checked && idx>=0 && collapsedGroups.has(idx)) collapsedGroups.delete(idx);
+  renderGroups(latestValues);
+}
+
+// Renders one BTC/ETH subsection inside the merged "Relative Strength" card:
+// its own small heading (label + "load ratio chart" checkbox) followed by
+// its metric rows and, when checked, the ratio-chart iframe wrap. Kept
+// separate from the generic member-row loop above since this is the only
+// group with an internal heading + checkbox rather than one at the card
+// level.
+function renderRelStrengthSub(sub, values){
+  const enabled = sub.key==='btc' ? rsChartEnabled : rseChartEnabled;
+  const toggleClass = sub.key==='btc' ? 'taRsChartToggle' : 'taRseChartToggle';
+  const frameId = sub.key==='btc' ? 'taRsChartFrame' : 'taRseChartFrame';
+  const isBenchItself = currentSymbol === sub.benchSymbol;
+  const rows = sub.members.map(([key,label])=>{
+    const d = values ? values[key] : null;
+    const v = d ? d.v : '—';
+    const cls = d && d.cls ? ' val-'+d.cls : (values ? '' : ' val-load');
+    const rowSub = d && d.sub ? `<span class="analysis-row-sub">${esc(d.sub)}</span>` : '';
+    return `<div class="analysis-row">
+      <span class="analysis-row-label">${label}</span>
+      <span class="analysis-row-val-wrap">${rowSub}<span class="analysis-row-valcheck"><span class="analysis-row-value${cls}">${esc(v)}</span></span></span>
+    </div>`;
+  }).join('');
+  const chartWrap = `<div class="analysis-ratio-chart-wrap${enabled ? '' : ' hidden'}"><iframe id="${frameId}" class="analysis-ratio-chart-frame" loading="lazy" title="Coin/${sub.label} ratio chart"></iframe></div>`;
+  return `<div class="analysis-subgroup">
+    <div class="analysis-subgroup-head">
+      <span class="analysis-subgroup-title">vs ${esc(sub.label)}</span>
+      <label class="analysis-ict-chart-toggle" title="${isBenchItself ? `This is ${esc(sub.label)} — no ratio to chart` : `Load the coin/${esc(sub.label)} ratio chart from TradingView`}">
+        <input type="checkbox" class="${toggleClass}" ${enabled ? 'checked' : ''} ${isBenchItself ? 'disabled' : ''}>
+      </label>
+    </div>
+    <div class="analysis-subgroup-body">${rows}${chartWrap}</div>
+  </div>`;
+}
+
+function renderGroups(values){
+  const grid = el('taGroupsGrid');
+  grid.innerHTML = GROUPS.map((g,idx)=>{
+    const collapsed = collapsedGroups.has(idx);
+    const body = g.isChart
+      ? `<div class="analysis-chart-wrap"><canvas id="taChartCanvas"></canvas><div class="analysis-chart-empty" id="taChartEmpty">No chart data yet</div></div>`
+      : g.subs
+        ? g.subs.map(sub => renderRelStrengthSub(sub, values)).join('')
+        : g.members.map(([key,label])=>{
+        const d = values ? values[key] : null;
+        const v = d ? d.v : '—';
+        const cls = d && d.cls ? ' val-'+d.cls : (values ? '' : ' val-load');
+        const sub = d && d.sub ? `<span class="analysis-row-sub">${esc(d.sub)}</span>` : '';
+        // ICT rows get their own "show on Chart" checkbox so a specific level
+        // (say, just the Bullish FVG) can be isolated on the Chart section
+        // below instead of the whole section's worth of overlays at once.
+        // Trend/Volatility/Ichimoku/Structure/Volume rows get the same, but only
+        // members in that group's *_CHARTABLE set are enabled — anything on
+        // a different scale than price (MACD, ADX/DI, Aroon, ATR%, BB %B,
+        // Cloud Position/Top/Bottom, Structure Trend, etc.) shows up
+        // disabled/greyed instead. Momentum is all oscillators — none of
+        // them are chartable — so that section gets no checkbox at all.
+        const check = g.key==='ict'
+          ? `<input type="checkbox" class="taIctMemberToggle analysis-row-check" data-key="${key}" title="Show only ${esc(label)} on the Chart" ${ictShown(key) ? 'checked' : ''}>`
+          : g.key==='trend'
+            ? (TREND_CHARTABLE.has(key)
+              ? `<input type="checkbox" class="taTrendMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${trendShown(key) ? 'checked' : ''}>`
+              : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — different scale">`)
+            : g.key==='volatility'
+              ? (VOLATILITY_CHARTABLE.has(key)
+                ? `<input type="checkbox" class="taVolatilityMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${volatilityShown(key) ? 'checked' : ''}>`
+                : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — different scale">`)
+              : g.key==='ichimoku'
+                ? (ICHIMOKU_CHARTABLE.has(key)
+                  ? `<input type="checkbox" class="taIchimokuMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${ichimokuShown(key) ? 'checked' : ''}>`
+                  : `<input type="checkbox" class="analysis-row-check" disabled title="${key==='cloudPos' ? esc(label)+" can't be overlaid on the price chart — not a price level" : 'Shown as the shaded cloud fill when Span A and Span B are both checked'}">`)
+                : g.key==='structure'
+                  ? (STRUCTURE_CHARTABLE.has(key)
+                    ? `<input type="checkbox" class="taStructureMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${structureShown(key) ? 'checked' : ''}>`
+                    : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — not a price level">`)
+                  : g.key==='volume'
+                    ? (VOLUME_CHARTABLE.has(key)
+                      ? `<input type="checkbox" class="taVolumeMemberToggle analysis-row-check" data-key="${key}" title="Show ${esc(label)} on the Chart" ${volumeShown(key) ? 'checked' : ''}>`
+                      : `<input type="checkbox" class="analysis-row-check" disabled title="${esc(label)} can't be overlaid on the price chart — different scale">`)
+                    : '';
+        return `<div class="analysis-row">
+          <span class="analysis-row-label">${label}</span>
+          <span class="analysis-row-val-wrap">${sub}<span class="analysis-row-valcheck"><span class="analysis-row-value${cls}">${esc(v)}</span>${check}</span></span>
+        </div>`;
+      }).join('');
+    return `
+    <div class="analysis-group-card${collapsed ? ' collapsed' : ''}${g.isChart ? ' chart-group' : ''}" style="--grp-color:${g.color}" data-idx="${idx}">
+      <div class="analysis-group-head">
+        <div class="analysis-group-icon">${g.icon}</div>
+        <div class="analysis-group-title">${g.name}</div>
+        ${g.key==='ict' ? `<label class="analysis-ict-chart-toggle" title="Overlay this section's levels on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taIctChartToggle" ${ictOverlayEnabled ? 'checked' : ''}>
+        </label>` : ''}
+        ${g.key==='trend' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Trend indicator on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taTrendChartToggle" ${trendOverlayEnabled ? 'checked' : ''}>
+        </label>` : ''}
+        ${g.key==='volatility' ? `<label class="analysis-ict-chart-toggle" title="Overlay Bollinger Upper/Mid/Lower on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taVolatilityChartToggle" ${volatilityOverlayEnabled ? 'checked' : ''}>
+        </label>` : ''}
+        ${g.key==='ichimoku' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Ichimoku line on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taIchimokuChartToggle" ${ichimokuOverlayEnabled ? 'checked' : ''}>
+        </label>` : ''}
+        ${g.key==='structure' ? `<label class="analysis-ict-chart-toggle" title="Overlay Swing High/Low and Fib 0.5/0.618 on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taStructureChartToggle" ${structureOverlayEnabled ? 'checked' : ''}>
+        </label>` : ''}
+        ${g.key==='volume' ? `<label class="analysis-ict-chart-toggle" title="Overlay VWAP and the Volume Profile's POC/Value Area on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taVolumeChartToggle" ${volumeOverlayEnabled ? 'checked' : ''}>
+        </label>` : ''}
+        ${g.isChart
+          ? `<div class="analysis-bar-toggle">${BAR_COUNTS.map(n=>`<button type="button" class="taBarCountBtn${n===chartBarCount?' active':''}" data-bars="${n}">${n}</button>`).join('')}</div>`
+          : `<div class="analysis-group-count">${g.subs ? g.subs.reduce((a,s)=>a+s.members.length,0) : g.members.length}</div>`}
+        <button type="button" class="analysis-group-chevron" aria-label="Toggle ${esc(g.name)} section" aria-expanded="${collapsed ? 'false' : 'true'}">⌄</button>
+      </div>
+      <div class="analysis-group-body">${body}</div>
+    </div>
+  `}).join('');
+  updateToggleAllBtn();
+  updateClearChecksBtn();
+  // Re-render rebuilds the whole grid (fresh <canvas>), so if the chart
+  // section was already open — e.g. the symbol or timeframe just changed
+  // while it was expanded — redraw it against the new candles.
+  drawTaChart();
+  // Same reasoning for the ratio-chart iframes — the rebuild wipes any
+  // iframe that was there, so point a fresh one at TradingView if its
+  // checkbox is currently on.
+  syncRatioChartFrames();
+}
+
+function toggleGroup(idx){
+  if(collapsedGroups.has(idx)) collapsedGroups.delete(idx);
+  else collapsedGroups.add(idx);
+  const card = grid_card(idx);
+  if(card){
+    const collapsed = collapsedGroups.has(idx);
+    card.classList.toggle('collapsed', collapsed);
+    const chev = card.querySelector('.analysis-group-chevron');
+    if(chev) chev.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
+  updateToggleAllBtn();
+  drawTaChart(); // no-op unless this was the chart section opening
+}
+function grid_card(idx){ return document.querySelector(`.analysis-group-card[data-idx="${idx}"]`); }
+
+// "Chart" checkbox in the ICT section header. Checking it draws the section's
+// own FVGs/order blocks/breaker/sweeps/BOS-CHoCH/equal highs-lows/premium-
+// discount/displacement straight onto the Chart section below — and opens
+// that section automatically, since a checked box with a collapsed chart
+// underneath it would otherwise show nothing.
+function toggleIctOverlay(checked){
+  ictOverlayEnabled = checked;
+  ictMemberOverlay = new Set(); // header is back in sole control — any individual picks are cleared
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  // Re-render so the 13 member checkboxes update to reflect the header state too.
+  renderGroups(latestValues);
+}
+
+// Same "Chart" header checkbox as ICT above, for the Trend and Volatility
+// sections — checking it shows every *chartable* member of that section
+// (moving averages/Supertrend/PSAR, or Bollinger/Keltner/Donchian bands).
+function toggleTrendOverlay(checked){
+  trendOverlayEnabled = checked;
+  // Wipe only the header-controlled members — anything from
+  // TREND_MASTER_EXCLUDE that was checked by hand stays checked, since the
+  // header never governed it in the first place.
+  trendMemberOverlay = new Set([...trendMemberOverlay].filter(k => TREND_MASTER_EXCLUDE.has(k)));
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+function toggleVolatilityOverlay(checked){
+  volatilityOverlayEnabled = checked;
+  // Wipe only the header-controlled members — anything from
+  // VOLATILITY_MASTER_EXCLUDE that was checked by hand stays checked, since
+  // the header never governed it in the first place.
+  volatilityMemberOverlay = new Set([...volatilityMemberOverlay].filter(k => VOLATILITY_MASTER_EXCLUDE.has(k)));
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+function toggleIchimokuOverlay(checked){
+  ichimokuOverlayEnabled = checked;
+  ichimokuMemberOverlay = new Set();
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+function toggleStructureOverlay(checked){
+  structureOverlayEnabled = checked;
+  // Wipe only the header-controlled members — anything from
+  // STRUCTURE_MASTER_EXCLUDE that was checked by hand stays checked, since
+  // the header never governed it in the first place.
+  structureMemberOverlay = new Set([...structureMemberOverlay].filter(k => STRUCTURE_MASTER_EXCLUDE.has(k)));
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+// A member checkbox was clicked by hand. Per-member selection and the header
+// "show all" checkbox are mutually exclusive: the first manual pick always
+// switches off the header and, since everything was visible a moment ago,
+// seeds the manual set with every member so only this one click's effect
+// (adding or removing this key) changes what's shown.
+function toggleIctMember(key, checked){
+  if(ictOverlayEnabled){
+    ictOverlayEnabled = false;
+    ictMemberOverlay = new Set(GROUPS.find(g=>g.key==='ict').members.map(([k])=>k));
+  }
+  if(checked) ictMemberOverlay.add(key);
+  else ictMemberOverlay.delete(key);
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+// Trend member checkbox clicked by hand. Same mutual-exclusion as the ICT
+// header above, with one difference: the four keys in TREND_MASTER_EXCLUDE
+// (EMA100, SMA50, SMA200, PSAR) are never part of the header's "select all"
+// and so never trigger or get pulled in by the re-seed — clicking one of
+// those just adds/removes that single key.
+function toggleTrendMember(key, checked){
+  if(!TREND_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
+  if(trendOverlayEnabled && !TREND_MASTER_EXCLUDE.has(key)){
+    trendOverlayEnabled = false;
+    const keptExcluded = [...trendMemberOverlay].filter(k => TREND_MASTER_EXCLUDE.has(k));
+    const headerKeys = [...TREND_CHARTABLE].filter(k => !TREND_MASTER_EXCLUDE.has(k));
+    trendMemberOverlay = new Set([...headerKeys, ...keptExcluded]);
+  }
+  if(checked) trendMemberOverlay.add(key);
+  else trendMemberOverlay.delete(key);
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+// Volatility member checkbox clicked. Same pattern as Trend above: the four
+// keys in VOLATILITY_MASTER_EXCLUDE (Keltner Upper/Lower, Donchian
+// High/Low) are never part of the header's "select all" and so never
+// trigger or get pulled in by the re-seed — clicking one of those just
+// adds/removes that single key.
+function toggleVolatilityMember(key, checked){
+  if(!VOLATILITY_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
+  if(volatilityOverlayEnabled && !VOLATILITY_MASTER_EXCLUDE.has(key)){
+    volatilityOverlayEnabled = false;
+    const keptExcluded = [...volatilityMemberOverlay].filter(k => VOLATILITY_MASTER_EXCLUDE.has(k));
+    const headerKeys = [...VOLATILITY_CHARTABLE].filter(k => !VOLATILITY_MASTER_EXCLUDE.has(k));
+    volatilityMemberOverlay = new Set([...headerKeys, ...keptExcluded]);
+  }
+  if(checked) volatilityMemberOverlay.add(key);
+  else volatilityMemberOverlay.delete(key);
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+// Ichimoku member checkbox clicked. Same pattern as Trend/Volatility above.
+function toggleIchimokuMember(key, checked){
+  if(!ICHIMOKU_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
+  if(ichimokuOverlayEnabled){
+    ichimokuOverlayEnabled = false;
+    ichimokuMemberOverlay = new Set(ICHIMOKU_CHARTABLE);
+  }
+  if(checked) ichimokuMemberOverlay.add(key);
+  else ichimokuMemberOverlay.delete(key);
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+// Market Structure member checkbox clicked. Same pattern as Trend/Volatility/
+// Ichimoku above, with one difference: the eight keys in
+// STRUCTURE_MASTER_EXCLUDE (Support, Resistance, Pivot P/R1/R2/S1/S2, Fib
+// 0.382) are never part of the header's "select all" and so never trigger
+// or get pulled in by the re-seed — clicking one of those just adds/removes
+// that single key.
+function toggleStructureMember(key, checked){
+  if(!STRUCTURE_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
+  if(structureOverlayEnabled && !STRUCTURE_MASTER_EXCLUDE.has(key)){
+    structureOverlayEnabled = false;
+    const keptExcluded = [...structureMemberOverlay].filter(k => STRUCTURE_MASTER_EXCLUDE.has(k));
+    const headerKeys = [...STRUCTURE_CHARTABLE].filter(k => !STRUCTURE_MASTER_EXCLUDE.has(k));
+    structureMemberOverlay = new Set([...headerKeys, ...keptExcluded]);
+  }
+  if(checked) structureMemberOverlay.add(key);
+  else structureMemberOverlay.delete(key);
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+// "Chart" checkbox in the Volume section header — checking it draws VWAP and
+// the Volume Profile's POC/Value Area High/Low straight onto the price
+// Chart below. Same pattern as the Volatility header toggle above.
+function toggleVolumeOverlay(checked){
+  volumeOverlayEnabled = checked;
+  volumeMemberOverlay = new Set();
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+// Volume member checkbox clicked. Same pattern as Volatility above.
+function toggleVolumeMember(key, checked){
+  if(!VOLUME_CHARTABLE.has(key)) return; // disabled boxes shouldn't fire, but guard anyway
+  if(volumeOverlayEnabled){
+    volumeOverlayEnabled = false;
+    volumeMemberOverlay = new Set(VOLUME_CHARTABLE);
+  }
+  if(checked) volumeMemberOverlay.add(key);
+  else volumeMemberOverlay.delete(key);
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
+  renderGroups(latestValues);
+}
+
+function toggleAllGroups(){
+  const collapseAll = collapsedGroups.size < GROUPS.length;
+  collapsedGroups = new Set(collapseAll ? GROUPS.map((_,i)=>i) : []);
+  document.querySelectorAll('#taGroupsGrid .analysis-group-card').forEach(card=>{
+    card.classList.toggle('collapsed', collapseAll);
+    const chev = card.querySelector('.analysis-group-chevron');
+    if(chev) chev.setAttribute('aria-expanded', collapseAll ? 'false' : 'true');
+  });
+  updateToggleAllBtn();
+  drawTaChart();
+}
+
+// Draws the last `chartBarCount` candles (45/90/180, picked in the section
+// header) of the currently loaded symbol/timeframe into the
+// Chart section's canvas. Self-guards on collapsed/missing-data state, so it's
+// safe to call unconditionally after any render or toggle — a hidden canvas
+// (display:none body) has a zero-size bounding rect and is simply skipped;
+// the section redraws itself next time it's expanded.
+function drawTaChart(){
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(chartIdx<0 || collapsedGroups.has(chartIdx)) return;
+  const canvas = el('taChartCanvas');
+  const empty = el('taChartEmpty');
+  if(!canvas) return;
+  if(!latestCandles || latestCandles.length<2){
+    if(empty) empty.style.display = 'flex';
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  if(rect.width===0 || rect.height===0) return; // not actually visible yet
+  if(empty) empty.style.display = 'none';
+  const bars = latestCandles.slice(-chartBarCount);
+  const startIdx = latestCandles.length - bars.length; // full-array index of bars[0]
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = rect.width * ratio; canvas.height = rect.height * ratio;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(ratio,ratio);
+  const width = rect.width, height = rect.height, pad = {left:54,right:10,top:10,bottom:20};
+  const highs = bars.map(b=>b.high), lows = bars.map(b=>b.low);
+  let max = Math.max(...highs), min = Math.min(...lows);
+  // With the ICT overlay on, widen the price range so its levels/zones —
+  // which can sit outside the visible 90-bar high/low — aren't clipped.
+  if((ictOverlayEnabled || ictMemberOverlay.size) && latestIct){
+    const levels = [];
+    [['fvgBull',latestIct.fvgBull],['fvgBear',latestIct.fvgBear],['obBull',latestIct.obBull],['obBear',latestIct.obBear],['breaker',latestIct.breaker]]
+      .forEach(([k,z])=>{ if(z && ictShown(k)){ levels.push(z.top, z.bottom); } });
+    [['sweepBsl',latestIct.sweepBsl],['sweepSsl',latestIct.sweepSsl],['bos',latestIct.bos],['choch',latestIct.choch],['eqh',latestIct.eqh],['eql',latestIct.eql]]
+      .forEach(([k,o])=>{ if(o && ictShown(k)) levels.push(o.level); });
+    levels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
+  }
+  // Same widening for any checked Trend overlay (EMA200 in particular can
+  // sit well outside a short/tight visible window's own high-low).
+  if(trendOverlayEnabled || trendMemberOverlay.size){
+    const cl = closes(latestCandles);
+    const trendLevels = [];
+    [20,50,100,200].forEach(len=>{ if(trendShown('ema'+len)){ const s=emaSeries(cl,len); for(let i=startIdx;i<latestCandles.length;i++) trendLevels.push(s[i]); } });
+    [50,200].forEach(len=>{ if(trendShown('sma'+len)){ for(let i=startIdx;i<latestCandles.length;i++) trendLevels.push(smaAt(cl,len,i)); } });
+    if(trendShown('supertrend')){ const s=supertrendSeries(latestCandles); for(let i=startIdx;i<latestCandles.length;i++){ if(s[i]) trendLevels.push(s[i].value); } }
+    if(trendShown('psar')){ const s=psarSeries(latestCandles); for(let i=startIdx;i<latestCandles.length;i++){ if(s[i]) trendLevels.push(s[i].value); } }
+    trendLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
+  }
+  // Same widening for any checked Volatility overlay (Bollinger/Keltner
+  // bands and the Donchian channel can sit outside the visible window's
+  // own high-low, same reasoning as the Trend block above).
+  if(volatilityOverlayEnabled || volatilityMemberOverlay.size){
+    const cl = closes(latestCandles);
+    const volLevels = [];
+    if(volatilityShown('bbUpper')||volatilityShown('bbMid')||volatilityShown('bbLower')){
+      const bb = bollingerBandsSeries(cl, 20, 2);
+      for(let i=startIdx;i<latestCandles.length;i++){
+        if(volatilityShown('bbUpper')) volLevels.push(bb.upper[i]);
+        if(volatilityShown('bbMid')) volLevels.push(bb.mid[i]);
+        if(volatilityShown('bbLower')) volLevels.push(bb.lower[i]);
+      }
+    }
+    if(volatilityShown('kcUpper')||volatilityShown('kcLower')){
+      const kc = keltnerSeriesFull(latestCandles, 20, 2, 14);
+      for(let i=startIdx;i<latestCandles.length;i++){
+        if(volatilityShown('kcUpper')) volLevels.push(kc.upper[i]);
+        if(volatilityShown('kcLower')) volLevels.push(kc.lower[i]);
+      }
+    }
+    if(volatilityShown('dcHigh')||volatilityShown('dcLow')){
+      const dc = donchianSeries(latestCandles, 20);
+      for(let i=startIdx;i<latestCandles.length;i++){
+        if(volatilityShown('dcHigh')) volLevels.push(dc.high[i]);
+        if(volatilityShown('dcLow')) volLevels.push(dc.low[i]);
+      }
+    }
+    volLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
+  }
+  // Same widening for any checked Ichimoku overlay — Span A/B (and the
+  // cloud they form) are shifted `base` bars, and Chikou trails price, so
+  // any of the three can sit outside the visible window's own high-low.
+  if(ichimokuOverlayEnabled || ichimokuMemberOverlay.size){
+    const ichLevels = [];
+    const needed = ['tenkan','kijun','spanA','spanB','chikou'].some(k=>ichimokuShown(k));
+    if(needed){
+      const ich = ichimokuSeriesFull(latestCandles);
+      ['tenkan','kijun','spanA','spanB','chikou'].forEach(k=>{
+        if(ichimokuShown(k)){ for(let i=startIdx;i<latestCandles.length;i++) ichLevels.push(ich[k][i]); }
+      });
+    }
+    ichLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
+  }
+  // Same widening for any checked Market Structure overlay — Swing High/Low,
+  // Support/Resistance, Pivots and Fib levels can all sit outside the
+  // visible window's own high-low.
+  if((structureOverlayEnabled || structureMemberOverlay.size) && latestStructure){
+    const msLevels = [];
+    if(structureShown('swingHigh') && latestStructure.swingHigh) msLevels.push(latestStructure.swingHigh.price);
+    if(structureShown('swingLow') && latestStructure.swingLow) msLevels.push(latestStructure.swingLow.price);
+    ['support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382','fib5','fib618'].forEach(k=>{
+      if(structureShown(k)) msLevels.push(latestStructure[k]);
+    });
+    msLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
+  }
+  // Same widening for any checked Volume overlay — VWAP and the Volume
+  // Profile's POC/Value Area High/Low can all sit outside the visible
+  // window's own high-low, same reasoning as the Market Structure block above.
+  if((volumeOverlayEnabled || volumeMemberOverlay.size) && latestVolume){
+    const volPriceLevels = [];
+    ['vwap','poc','vah','val'].forEach(k=>{
+      if(volumeShown(k)) volPriceLevels.push(latestVolume[k]);
+    });
+    volPriceLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
+  }
+  const range = (max-min) || 1;
+  const x = i => pad.left + i*(width-pad.left-pad.right)/Math.max(1,bars.length-1);
+  const y = p => pad.top + (max-p)*(height-pad.top-pad.bottom)/range;
+  ctx.clearRect(0,0,width,height);
+  ctx.strokeStyle = '#232833'; ctx.fillStyle = '#8b93a3'; ctx.font = '10px JetBrains Mono, monospace';
+  for(let step=0; step<4; step++){
+    const price = min + range*step/3;
+    ctx.beginPath(); ctx.moveTo(pad.left,y(price)); ctx.lineTo(width-pad.right,y(price)); ctx.stroke();
+    ctx.fillText(px(price), 4, y(price)+3);
+  }
+  const cw = Math.max(1.5,(width-pad.left-pad.right)/bars.length*.7);
+  if(ictOverlayEnabled || ictMemberOverlay.size) drawIctOverlay(ctx, bars, startIdx, x, y, width, height, pad); // zones/lines first, under the candles
+  bars.forEach((b,i)=>{
+    const rising = b.close >= b.open;
+    ctx.strokeStyle = rising ? '#35e0c0' : '#ff5470';
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath(); ctx.moveTo(x(i),y(b.high)); ctx.lineTo(x(i),y(b.low)); ctx.stroke();
+    ctx.fillRect(x(i)-cw/2, y(Math.max(b.open,b.close)), cw, Math.max(1, Math.abs(y(b.open)-y(b.close))));
+  });
+  if(ictShown('displacement') && latestIct && latestIct.displacement){
+    // Outline the displacement candle on top so it isn't hidden under a zone fill.
+    const idx = (bars.length-1) - latestIct.displacement.ago; // already window-relative — ago counts back from the last candle
+    if(idx>=0 && idx<bars.length){
+      ctx.strokeStyle = latestIct.displacement.dir==='Bull' ? '#35e0c0' : '#ff5470';
+      ctx.lineWidth = 1.5; ctx.setLineDash([2,2]);
+      ctx.strokeRect(x(idx)-cw/2-2, pad.top, cw+4, height-pad.top-pad.bottom);
+      ctx.setLineDash([]);
+    }
+  }
+  if(trendOverlayEnabled || trendMemberOverlay.size) drawTrendOverlay(ctx, bars, startIdx, x, y); // lines on top so they read clearly over the candles
+  if(volatilityOverlayEnabled || volatilityMemberOverlay.size) drawVolatilityOverlay(ctx, bars, startIdx, x, y);
+  if(ichimokuOverlayEnabled || ichimokuMemberOverlay.size) drawIchimokuOverlay(ctx, bars, startIdx, x, y);
+  if((structureOverlayEnabled || structureMemberOverlay.size) && latestStructure) drawMarketStructureOverlay(ctx, bars, startIdx, x, y, width, height, pad);
+  if((volumeOverlayEnabled || volumeMemberOverlay.size) && latestVolume) drawVolumeOverlay(ctx, bars, startIdx, x, y, width, height, pad);
+}
+
+// Draws the ICT/Smart Money section's own data (FVGs, order blocks, breaker,
+// liquidity sweeps, BOS/CHoCH, equal highs/lows, premium/discount) onto the
+// chart already set up by drawTaChart(). fullIdx values on the ICT objects
+// are indices into the full fetched candle array, not the visible 90-bar
+// window, so everything is remapped through toX() before drawing.
+function drawIctOverlay(ctx, bars, startIdx, x, y, width, height, pad){
+  const ict = latestIct;
+  const rightEdge = width - pad.right;
+  const clampCol = w => Math.max(0, Math.min(bars.length-1, w));
+  const toX = fullIdx => x(clampCol(fullIdx - startIdx));
+  const zone = (obj, color, dashed)=>{
+    if(!obj || !Number.isFinite(obj.top) || !Number.isFinite(obj.bottom)) return;
+    const left = toX(obj.idx ?? startIdx);
+    const top = y(obj.top), bottom = y(obj.bottom);
+    ctx.fillStyle = color + '2A';
+    ctx.fillRect(left, top, rightEdge-left, Math.max(1,bottom-top));
+    ctx.strokeStyle = color; ctx.lineWidth = 1;
+    ctx.setLineDash(dashed ? [4,3] : []);
+    ctx.strokeRect(left, top, rightEdge-left, Math.max(1,bottom-top));
+    ctx.setLineDash([]);
+  };
+  const line = (level, color, label, fullIdx)=>{
+    if(!Number.isFinite(level)) return;
+    const left = fullIdx!==undefined ? toX(fullIdx) : pad.left;
+    ctx.strokeStyle = color; ctx.setLineDash([5,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(left, y(level)); ctx.lineTo(rightEdge, y(level)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(label, Math.min(left+3, rightEdge-30), y(level)-3);
+  };
+  // Premium (upper half of the dealing range) / discount (lower half) — a
+  // faint background split either side of the midpoint.
+  if(ictShown('pdZone') && ict.pd && Number.isFinite(ict.pd.mid)){
+    const midY = y(ict.pd.mid);
+    ctx.fillStyle = 'rgba(255,84,112,0.05)';
+    ctx.fillRect(pad.left, pad.top, rightEdge-pad.left, Math.max(0, midY-pad.top));
+    ctx.fillStyle = 'rgba(53,224,192,0.05)';
+    ctx.fillRect(pad.left, midY, rightEdge-pad.left, Math.max(0, (height-pad.bottom)-midY));
+  }
+  if(ictShown('fvgBull')) zone(ict.fvgBull, '#35e0c0');
+  if(ictShown('fvgBear')) zone(ict.fvgBear, '#ff5470');
+  if(ictShown('obBull')) zone(ict.obBull, '#8ea9ff');
+  if(ictShown('obBear')) zone(ict.obBear, '#f0c24b');
+  if(ictShown('breaker')) zone(ict.breaker, '#a78bfa', true);
+  if(ictShown('sweepBsl') && ict.sweepBsl) line(ict.sweepBsl.level, '#ff5470', 'BSL', ict.totalBars-1-ict.sweepBsl.ago);
+  if(ictShown('sweepSsl') && ict.sweepSsl) line(ict.sweepSsl.level, '#35e0c0', 'SSL', ict.totalBars-1-ict.sweepSsl.ago);
+  if(ictShown('bos') && ict.bos) line(ict.bos.level, ict.bos.dir==='Bull' ? '#35e0c0' : '#ff5470', 'BOS', ict.bos.idx);
+  if(ictShown('choch') && ict.choch) line(ict.choch.level, ict.choch.dir==='Bull' ? '#35e0c0' : '#ff5470', 'CHoCH', ict.choch.idx);
+  if(ictShown('eqh') && ict.eqh) line(ict.eqh.level, '#f0c24b', 'EQH', ict.eqh.idx);
+  if(ictShown('eql') && ict.eql) line(ict.eql.level, '#f0c24b', 'EQL', ict.eql.idx);
+}
+
+// Draws whichever Trend members are individually checked (moving averages,
+// Supertrend, PSAR) on top of the candles. fullIdx-keyed series are computed
+// once against the whole fetched candle array, then only the visible
+// `bars` window is walked/plotted through x()/y().
+const TREND_LINE_COLOR = { ema20:'#5b8cff', ema50:'#f0c24b', ema100:'#a78bfa', ema200:'#ff5470', sma50:'#35e0c0', sma200:'#8b93a3' };
+function drawTrendOverlay(ctx, bars, startIdx, x, y){
+  if(!latestCandles || !(trendOverlayEnabled || trendMemberOverlay.size)) return;
+  const cl = closes(latestCandles);
+  const drawLineSeries = (series, color, dashed)=>{
+    ctx.strokeStyle = color; ctx.lineWidth = 1.3; ctx.setLineDash(dashed ? [4,3] : []);
+    ctx.beginPath();
+    let started = false;
+    bars.forEach((_,i)=>{
+      const v = series[startIdx+i];
+      if(!Number.isFinite(v)){ started = false; return; }
+      const px_ = x(i), py_ = y(v);
+      if(!started){ ctx.moveTo(px_,py_); started = true; } else ctx.lineTo(px_,py_);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  [20,50,100,200].forEach(len=>{
+    const key = 'ema'+len;
+    if(trendShown(key)) drawLineSeries(emaSeries(cl, len), TREND_LINE_COLOR[key]);
+  });
+  [50,200].forEach(len=>{
+    const key = 'sma'+len;
+    if(!trendShown(key)) return;
+    const series = latestCandles.map((_,i)=>smaAt(cl, len, i));
+    drawLineSeries(series, TREND_LINE_COLOR[key], true);
+  });
+  if(trendShown('supertrend')){
+    const st = supertrendSeries(latestCandles);
+    ctx.lineWidth = 1.3;
+    let prevPt = null, prevDir = null;
+    bars.forEach((_,i)=>{
+      const p = st[startIdx+i];
+      if(!p){ prevPt = null; prevDir = null; return; }
+      const pt = { x: x(i), y: y(p.value) };
+      if(prevPt && prevDir===p.dir){
+        ctx.strokeStyle = p.dir===1 ? '#35e0c0' : '#ff5470';
+        ctx.beginPath(); ctx.moveTo(prevPt.x,prevPt.y); ctx.lineTo(pt.x,pt.y); ctx.stroke();
+      }
+      prevPt = pt; prevDir = p.dir;
+    });
+  }
+  if(trendShown('psar')){
+    const sar = psarSeries(latestCandles);
+    bars.forEach((_,i)=>{
+      const p = sar[startIdx+i];
+      if(!p) return;
+      ctx.fillStyle = p.dir===1 ? '#35e0c0' : '#ff5470';
+      ctx.beginPath(); ctx.arc(x(i), y(p.value), 1.6, 0, Math.PI*2); ctx.fill();
+    });
+  }
+}
+
+// Draws whichever Volatility members are individually checked (Bollinger
+// Bands, Keltner Channel, Donchian Channel) on top of the candles. Same
+// draw-a-line-series approach as drawTrendOverlay() above.
+const VOLATILITY_LINE_COLOR = { bbUpper:'#a78bfa', bbMid:'#8b93a3', bbLower:'#a78bfa', kcUpper:'#5b8cff', kcLower:'#5b8cff', dcHigh:'#f0c24b', dcLow:'#f0c24b' };
+function drawVolatilityOverlay(ctx, bars, startIdx, x, y){
+  if(!latestCandles || !(volatilityOverlayEnabled || volatilityMemberOverlay.size)) return;
+  const cl = closes(latestCandles);
+  const drawLineSeries = (series, color, dashed)=>{
+    ctx.strokeStyle = color; ctx.lineWidth = 1.3; ctx.setLineDash(dashed ? [4,3] : []);
+    ctx.beginPath();
+    let started = false;
+    bars.forEach((_,i)=>{
+      const v = series[startIdx+i];
+      if(!Number.isFinite(v)){ started = false; return; }
+      const px_ = x(i), py_ = y(v);
+      if(!started){ ctx.moveTo(px_,py_); started = true; } else ctx.lineTo(px_,py_);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  if(volatilityShown('bbUpper')||volatilityShown('bbMid')||volatilityShown('bbLower')){
+    const bb = bollingerBandsSeries(cl, 20, 2);
+    if(volatilityShown('bbUpper')) drawLineSeries(bb.upper, VOLATILITY_LINE_COLOR.bbUpper, true);
+    if(volatilityShown('bbMid')) drawLineSeries(bb.mid, VOLATILITY_LINE_COLOR.bbMid);
+    if(volatilityShown('bbLower')) drawLineSeries(bb.lower, VOLATILITY_LINE_COLOR.bbLower, true);
+  }
+  if(volatilityShown('kcUpper')||volatilityShown('kcLower')){
+    const kc = keltnerSeriesFull(latestCandles, 20, 2, 14);
+    if(volatilityShown('kcUpper')) drawLineSeries(kc.upper, VOLATILITY_LINE_COLOR.kcUpper, true);
+    if(volatilityShown('kcLower')) drawLineSeries(kc.lower, VOLATILITY_LINE_COLOR.kcLower, true);
+  }
+  if(volatilityShown('dcHigh')||volatilityShown('dcLow')){
+    const dc = donchianSeries(latestCandles, 20);
+    if(volatilityShown('dcHigh')) drawLineSeries(dc.high, VOLATILITY_LINE_COLOR.dcHigh, true);
+    if(volatilityShown('dcLow')) drawLineSeries(dc.low, VOLATILITY_LINE_COLOR.dcLow, true);
+  }
+}
+
+// Draws whichever Ichimoku members are individually checked (Tenkan/Kijun/
+// Span A/Span B/Chikou/Cloud Top/Cloud Bottom) on top of the candles. Same
+// draw-a-line-series approach as drawTrendOverlay()/drawVolatilityOverlay()
+// above, against the full-series companion computed by ichimokuSeriesFull().
+const ICHIMOKU_LINE_COLOR = { tenkan:'#ff5470', kijun:'#5b8cff', spanA:'#35e0c0', spanB:'#a78bfa', chikou:'#f0c24b' };
+function drawIchimokuOverlay(ctx, bars, startIdx, x, y){
+  if(!latestCandles || !(ichimokuOverlayEnabled || ichimokuMemberOverlay.size)) return;
+  const drawLineSeries = (series, color, dashed)=>{
+    ctx.strokeStyle = color; ctx.lineWidth = 1.3; ctx.setLineDash(dashed ? [4,3] : []);
+    ctx.beginPath();
+    let started = false;
+    bars.forEach((_,i)=>{
+      const v = series[startIdx+i];
+      if(!Number.isFinite(v)){ started = false; return; }
+      const px_ = x(i), py_ = y(v);
+      if(!started){ ctx.moveTo(px_,py_); started = true; } else ctx.lineTo(px_,py_);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  const needed = ['tenkan','kijun','spanA','spanB','chikou'].some(k=>ichimokuShown(k));
+  if(!needed) return;
+  const ich = ichimokuSeriesFull(latestCandles);
+  // Cloud fill goes first so the boundary lines (when checked) read clearly
+  // on top of it. Only paints when both edges are checked — a single span
+  // line has nothing to shade against.
+  if(ichimokuShown('spanA') && ichimokuShown('spanB')) drawIchimokuCloud(ctx, bars, startIdx, x, y, ich);
+  if(ichimokuShown('tenkan')) drawLineSeries(ich.tenkan, ICHIMOKU_LINE_COLOR.tenkan);
+  if(ichimokuShown('kijun')) drawLineSeries(ich.kijun, ICHIMOKU_LINE_COLOR.kijun);
+  if(ichimokuShown('spanA')) drawLineSeries(ich.spanA, ICHIMOKU_LINE_COLOR.spanA);
+  if(ichimokuShown('spanB')) drawLineSeries(ich.spanB, ICHIMOKU_LINE_COLOR.spanB);
+  if(ichimokuShown('chikou')) drawLineSeries(ich.chikou, ICHIMOKU_LINE_COLOR.chikou, true);
+}
+
+// Paints the kumo cloud between Span A and Span B as a soft fill — green
+// where Span A sits above Span B (bullish cloud), red where it's below
+// (bearish) — recoloring segment by segment across any A/B crossover, with
+// no stroked outline around the shape (fill only, matching a plain shaded-
+// ribbon look rather than a bordered box).
+function drawIchimokuCloud(ctx, bars, startIdx, x, y, ich){
+  for(let i=1;i<bars.length;i++){
+    const aPrev = ich.spanA[startIdx+i-1], bPrev = ich.spanB[startIdx+i-1];
+    const aCur = ich.spanA[startIdx+i], bCur = ich.spanB[startIdx+i];
+    if(![aPrev,bPrev,aCur,bCur].every(Number.isFinite)) continue;
+    const bullish = (aPrev+aCur) >= (bPrev+bCur);
+    ctx.fillStyle = bullish ? 'rgba(53,224,192,0.16)' : 'rgba(255,84,112,0.16)';
+    ctx.beginPath();
+    ctx.moveTo(x(i-1), y(aPrev));
+    ctx.lineTo(x(i), y(aCur));
+    ctx.lineTo(x(i), y(bCur));
+    ctx.lineTo(x(i-1), y(bPrev));
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+// Draws whichever Market Structure members are individually checked (Swing
+// High/Low, Support/Resistance, Pivot Points, Fib retracement levels) onto
+// the chart. Unlike Trend/Volatility/Ichimoku these aren't per-bar series —
+// each is a single "as of now" level — so they're drawn the same way ICT's
+// BOS/CHoCH/EQH/EQL lines are (see drawIctOverlay's line() helper): one
+// dashed horizontal line plus a short label. Swing High/Low anchor at the
+// bar where that swing actually printed (fullIdx, via toX()); Support/
+// Resistance/Pivots/Fibs have no single originating bar, so those span the
+// full visible window from the left edge instead.
+const MARKET_STRUCTURE_LINE_COLOR = {
+  swingHigh:'#ff5470', swingLow:'#35e0c0', support:'#35e0c0', resistance:'#ff5470',
+  pivP:'#f0c24b', pivR1:'#ff5470', pivR2:'#ff5470', pivS1:'#35e0c0', pivS2:'#35e0c0',
+  fib382:'#a78bfa', fib5:'#a78bfa', fib618:'#a78bfa'
+};
+const MARKET_STRUCTURE_LABEL = {
+  swingHigh:'SH', swingLow:'SL', support:'S', resistance:'R',
+  pivP:'P', pivR1:'R1', pivR2:'R2', pivS1:'S1', pivS2:'S2',
+  fib382:'0.382', fib5:'0.5', fib618:'0.618'
+};
+function drawMarketStructureOverlay(ctx, bars, startIdx, x, y, width, height, pad){
+  if(!latestStructure || !(structureOverlayEnabled || structureMemberOverlay.size)) return;
+  const ms = latestStructure;
+  const rightEdge = width - pad.right;
+  const clampCol = w => Math.max(0, Math.min(bars.length-1, w));
+  const toX = fullIdx => x(clampCol(fullIdx - startIdx));
+  // labelBelow flips the label to sit under the dashed line instead of
+  // above it — Swing Low sits right at the bottom of an up-leg's candles,
+  // so a label above the line collides with the wicks; every other level
+  // keeps the default above-line placement.
+  const line = (level, color, label, fullIdx, labelBelow)=>{
+    if(!Number.isFinite(level)) return;
+    const left = fullIdx!==undefined ? toX(fullIdx) : pad.left;
+    ctx.strokeStyle = color; ctx.setLineDash([5,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(left, y(level)); ctx.lineTo(rightEdge, y(level)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(label, Math.min(left+3, rightEdge-30), labelBelow ? y(level)+11 : y(level)-3);
+  };
+  if(structureShown('swingHigh') && ms.swingHigh) line(ms.swingHigh.price, MARKET_STRUCTURE_LINE_COLOR.swingHigh, MARKET_STRUCTURE_LABEL.swingHigh, ms.swingHigh.idx);
+  if(structureShown('swingLow') && ms.swingLow) line(ms.swingLow.price, MARKET_STRUCTURE_LINE_COLOR.swingLow, MARKET_STRUCTURE_LABEL.swingLow, ms.swingLow.idx, true);
+  ['support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382','fib5','fib618'].forEach(k=>{
+    if(structureShown(k)) line(ms[k], MARKET_STRUCTURE_LINE_COLOR[k], MARKET_STRUCTURE_LABEL[k]);
+  });
+}
+
+// Draws whichever Volume members are individually checked (VWAP, Volume
+// Profile POC, Value Area High/Low) onto the chart. Like Market Structure's
+// levels these are single "as of now" prices, not per-bar series, so they're
+// drawn the same way — one dashed horizontal line plus a short label,
+// spanning the full visible window since none of the four has a single
+// originating bar to anchor from.
+const VOLUME_LINE_COLOR = {
+  vwap:'#ff8a4c', poc:'#f0c24b', vah:'#5b8cff', val:'#a78bfa'
+};
+const VOLUME_LABEL = {
+  vwap:'VWAP', poc:'POC', vah:'VAH', val:'VAL'
+};
+function drawVolumeOverlay(ctx, bars, startIdx, x, y, width, height, pad){
+  if(!latestVolume || !(volumeOverlayEnabled || volumeMemberOverlay.size)) return;
+  const vol = latestVolume;
+  const rightEdge = width - pad.right;
+  const line = (level, color, label)=>{
+    if(!Number.isFinite(level)) return;
+    ctx.strokeStyle = color; ctx.setLineDash([5,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, y(level)); ctx.lineTo(rightEdge, y(level)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(label, Math.min(pad.left+3, rightEdge-30), y(level)-3);
+  };
+  ['vwap','poc','vah','val'].forEach(k=>{
+    if(volumeShown(k)) line(vol[k], VOLUME_LINE_COLOR[k], VOLUME_LABEL[k]);
+  });
+}
+
+// Bar-count picker (45/90/180) in the Chart section header. Just needs to
+// flip the active button and redraw — no full renderGroups() rebuild, same
+// as toggleGroup()/toggleAllGroups() above.
+function setChartBarCount(n){
+  if(!BAR_COUNTS.includes(n) || n===chartBarCount) return;
+  chartBarCount = n;
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  const card = grid_card(chartIdx);
+  if(card){
+    card.querySelectorAll('.taBarCountBtn').forEach(b=>{
+      b.classList.toggle('active', parseInt(b.dataset.bars,10)===n);
+    });
+  }
+  drawTaChart();
+}
+function updateToggleAllBtn(){
+  const btn = el('taToggleAllBtn');
+  if(!btn) return;
+  const allCollapsed = GROUPS.length > 0 && collapsedGroups.size >= GROUPS.length;
+  btn.classList.toggle('all-collapsed', allCollapsed);
+  const label = allCollapsed ? 'Expand all sections' : 'Collapse all sections';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+}
+
+// True if any Chart-overlay checkbox is checked — header "select all" toggle
+// or an individually-checked member — across ICT, Trend, Volatility,
+// Ichimoku, Market Structure or Volume. Relative Strength is deliberately
+// left out: its own "Chart" checkboxes (taRsChartToggle/taRseChartToggle)
+// just show/hide a ratio-chart iframe inside that section and never touch
+// the price chart, so they're not part of what "clear all checkboxes" means.
+function anyOverlayChecked(){
+  return ictOverlayEnabled || ictMemberOverlay.size>0 ||
+    trendOverlayEnabled || trendMemberOverlay.size>0 ||
+    volatilityOverlayEnabled || volatilityMemberOverlay.size>0 ||
+    ichimokuOverlayEnabled || ichimokuMemberOverlay.size>0 ||
+    structureOverlayEnabled || structureMemberOverlay.size>0 ||
+    volumeOverlayEnabled || volumeMemberOverlay.size>0;
+}
+// Enables/disables the "Clear all checkboxes" header button to match current
+// checkbox state — called after every render, since any checkbox change goes
+// through renderGroups().
+function updateClearChecksBtn(){
+  const btn = el('taClearChecksBtn');
+  if(!btn) return;
+  btn.disabled = !anyOverlayChecked();
+}
+// Clears every Chart-overlay checkbox in one go — both header "select all"
+// toggles and individually-checked members — across ICT, Trend, Volatility,
+// Ichimoku, Market Structure and Volume. See anyOverlayChecked() above for
+// why Relative Strength is left untouched.
+function clearAllChecks(){
+  ictOverlayEnabled = false; ictMemberOverlay = new Set();
+  trendOverlayEnabled = false; trendMemberOverlay = new Set();
+  volatilityOverlayEnabled = false; volatilityMemberOverlay = new Set();
+  ichimokuOverlayEnabled = false; ichimokuMemberOverlay = new Set();
+  structureOverlayEnabled = false; structureMemberOverlay = new Set();
+  volumeOverlayEnabled = false; volumeMemberOverlay = new Set();
+  renderGroups(latestValues);
+}
+
+function setStatus(text, state){
+  el('taStatusText').textContent = text;
+  const row = el('taStatusRow');
+  row.classList.remove('is-loading','is-ok','is-error');
+  if(state) row.classList.add('is-'+state);
+}
+
+async function load(symbol, tf){
+  const token = ++loadToken;
+  currentSymbol = symbol; currentTf = tf;
+  const base = symbol.replace(/USDT$/,'');
+  el('taSymbolIcon').textContent = base.slice(0,4);
+  el('taSymbolText').innerHTML = `${esc(base)}<span class="quote">/USDT</span>`;
+  el('taPrice').textContent = '…';
+  el('taChange').textContent = '';
+  el('taChange').className = 'analysis-change';
+  el('taSource').textContent = 'resolving…';
+  setStatus(`Loading ${symbol} · ${tfLabel(tf)}…`, 'loading');
+  latestValues = null;
+  latestCandles = null;
+  latestIct = null;
+  latestStructure = null;
+  latestVolume = null;
+  renderGroups(null);
+
+  let candles = null, ticker = null, source = null, binanceErr = null;
+  try{
+    const [k, t] = await Promise.all([
+      binanceKlines(symbol, tf),
+      fapi(`/fapi/v1/ticker/24hr?symbol=${symbol}`).catch(()=>null)
+    ]);
+    candles = k;
+    ticker = t ? { quoteVolume:parseFloat(t.quoteVolume), lastPrice:parseFloat(t.lastPrice), changePct:parseFloat(t.priceChangePercent) } : null;
+    source = 'Binance';
+  }catch(e){
+    binanceErr = e;
+  }
+  if(!candles){
+    // Not on Binance USDT-M — try the Bybit USDT linear book, same fallback
+    // order the Cloud Breakout search uses.
+    try{
+      const [k, t] = await Promise.all([
+        bybitKlines(symbol, tf),
+        bybit(`/v5/market/tickers?category=linear&symbol=${symbol}`).catch(()=>null)
+      ]);
+      candles = k;
+      const row = t && t.result && t.result.list && t.result.list[0];
+      ticker = row ? { quoteVolume:parseFloat(row.turnover24h), lastPrice:parseFloat(row.lastPrice), changePct:parseFloat(row.price24hPcnt)*100 } : null;
+      source = 'Bybit';
+    }catch(bybitErr){
+      if(token !== loadToken) return;
+      setStatus(`${symbol} isn't listed on Binance USDT-M or Bybit USDT perps. Check the ticker and search again.`, 'error');
+      el('taSource').textContent = 'not found';
+      el('taPrice').textContent = '—';
+      renderGroups(null);
+      return;
+    }
+  }
+  if(token !== loadToken) return;
+  if(candles.length < 60){
+    setStatus(`${symbol} has only ${candles.length} ${tfLabel(tf).toLowerCase()} candles — long-period values will read "—".`, 'error');
+  }
+  currentSource = source;
+  el('taSource').textContent = source==='Bybit' ? 'Bybit USDT Perp' : 'Binance USDT-M Perp';
+  el('taSource').className = 'analysis-source ' + (source==='Bybit' ? 'src-bybit' : 'src-binance');
+
+  const price = ticker && Number.isFinite(ticker.lastPrice) ? ticker.lastPrice : candles[candles.length-1].close;
+  PDEC = decimalsFor(price);
+  el('taPrice').textContent = px(price);
+  if(ticker && Number.isFinite(ticker.changePct)){
+    const ch = el('taChange');
+    ch.textContent = pct(ticker.changePct);
+    ch.className = 'analysis-change ' + (ticker.changePct>=0 ? 'up':'down');
+  }
+
+  const [derivs, btcCandles, ethCandles] = await Promise.all([
+    fetchDerivatives(symbol, source).catch(()=>({})),
+    // Best-effort BTC/ETH candles at the same timeframe, for the Relative
+    // Strength vs BTC / vs ETH sections below. Always pulled from Binance
+    // (both are virtually always listed there regardless of where `symbol`
+    // itself came from) — reuses `candles` directly with no extra request
+    // when the coin being viewed is the benchmark itself. A failed/short
+    // fetch here just leaves that one section reading "—" rather than
+    // failing the page.
+    (symbol === 'BTCUSDT' ? Promise.resolve(candles) : binanceKlines('BTCUSDT', tf).catch(()=>null)),
+    (symbol === 'ETHUSDT' ? Promise.resolve(candles) : binanceKlines('ETHUSDT', tf).catch(()=>null))
+  ]);
+  if(token !== loadToken) return;
+
+  latestValues = computeValues(candles, tf, ticker, derivs, btcCandles, ethCandles);
+  latestCandles = candles;
+  renderGroups(latestValues);
+  const lastBar = new Date(candles[candles.length-1].time);
+  setStatus(`${symbol} · ${tfLabel(tf)} · ${candles.length} candles · last bar ${lastBar.toLocaleString()} · ${source}`, 'ok');
+}
+
+function open(){
+  const input = el('taCoinSearchInput');
+  const symbol = normalizeSymbol(input.value);
+  if(!symbol){ input.focus(); return; }
+  openFor(symbol);
+}
+/* Entry point for anything outside the lookup box — the 🔎 button on each scan
+   result row hands the symbol straight in, no typing. */
+function openSymbol(raw, tf){
+  const symbol = normalizeSymbol(raw);
+  if(!symbol) return;
+  const input = el('taCoinSearchInput');
+  if(input) input.value = symbol.replace(/USDT$/,'');
+  openFor(symbol, tf);
+}
+/* tfWanted is optional. The Cloud Breakout analysis window passes the
+   timeframe its row was screened on so the breakdown matches what's on
+   screen; without it a fresh coin still opens on the daily. */
+function openFor(symbol, tfWanted){
+  if(tfWanted && BYBIT_TF[tfWanted]){
+    currentTf = tfWanted;
+    document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===currentTf));
+  } else if(symbol !== currentSymbol){  // a fresh coin always opens on the daily
+    currentTf = '1d';
+    document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf==='1d'));
+  }
+  el('analysisOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  load(symbol, currentTf);
+}
+function close(){
+  loadToken++;
+  el('analysisOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function setTf(tf){
+  if(tf === currentTf && latestValues) return;
+  currentTf = tf;
+  document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===tf));
+  if(currentSymbol) load(currentSymbol, tf);
+}
+function refresh(){ if(currentSymbol) load(currentSymbol, currentTf); }
+
+/* Copy every rendered value as plain text — useful for pasting a snapshot into
+   notes or a journal without re-typing 80 numbers. */
+function copyValues(){
+  if(!latestValues) return;
+  const lines = [`${currentSymbol} · ${tfLabel(currentTf)} · ${currentSource}`];
+  for(const g of GROUPS){
+    if(g.isChart) continue; // no metric rows to copy — it's a candle chart
+    lines.push('', g.name.toUpperCase());
+    if(g.subs){
+      for(const sub of g.subs){
+        lines.push(`-- vs ${sub.label} --`);
+        for(const [key,label] of sub.members){
+          const d = latestValues[key];
+          lines.push(`${label}: ${d ? d.v : '—'}${d && d.sub ? ' ('+d.sub+')' : ''}`);
+        }
+      }
+      continue;
+    }
+    for(const [key,label] of g.members){
+      const d = latestValues[key];
+      lines.push(`${label}: ${d ? d.v : '—'}${d && d.sub ? ' ('+d.sub+')' : ''}`);
+    }
+  }
+  const text = lines.join('\n');
+  const btn = el('taCopyBtn');
+  const done = ()=>{ btn.textContent = '✓'; setTimeout(()=>{ btn.textContent = '⧉'; }, 1200); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>{});
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){}
+    document.body.removeChild(ta);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const input = el('taCoinSearchInput');
+  if(input){
+    input.addEventListener('input', e=>{
+      const pos = e.target.selectionStart;
+      e.target.value = e.target.value.toUpperCase();
+      e.target.setSelectionRange(pos,pos);
+    });
+    input.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){ e.preventDefault(); open(); }
+    });
+  }
+  el('taTfToggle').addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-tf]');
+    if(btn) setTf(btn.dataset.tf);
+  });
+  el('taGroupsGrid').addEventListener('click', e=>{
+    const barBtn = e.target.closest('.taBarCountBtn');
+    if(barBtn){ setChartBarCount(parseInt(barBtn.dataset.bars, 10)); return; }
+    const head = e.target.closest('.analysis-group-head');
+    if(!head) return;
+    const card = head.closest('.analysis-group-card');
+    if(!card) return;
+    toggleGroup(parseInt(card.dataset.idx, 10));
+  });
+  el('taGroupsGrid').addEventListener('change', e=>{
+    if(e.target.classList.contains('taIctChartToggle')) toggleIctOverlay(e.target.checked);
+    else if(e.target.classList.contains('taIctMemberToggle')) toggleIctMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taTrendChartToggle')) toggleTrendOverlay(e.target.checked);
+    else if(e.target.classList.contains('taVolatilityChartToggle')) toggleVolatilityOverlay(e.target.checked);
+    else if(e.target.classList.contains('taTrendMemberToggle')) toggleTrendMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taVolatilityMemberToggle')) toggleVolatilityMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taIchimokuChartToggle')) toggleIchimokuOverlay(e.target.checked);
+    else if(e.target.classList.contains('taIchimokuMemberToggle')) toggleIchimokuMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taStructureChartToggle')) toggleStructureOverlay(e.target.checked);
+    else if(e.target.classList.contains('taStructureMemberToggle')) toggleStructureMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taVolumeChartToggle')) toggleVolumeOverlay(e.target.checked);
+    else if(e.target.classList.contains('taVolumeMemberToggle')) toggleVolumeMember(e.target.dataset.key, e.target.checked);
+    else if(e.target.classList.contains('taRsChartToggle')) toggleRsChart(e.target.checked);
+    else if(e.target.classList.contains('taRseChartToggle')) toggleRseChart(e.target.checked);
+  });
+  el('analysisOverlay').addEventListener('click', e=>{
+    if(e.target.id==='analysisOverlay') close();
+  });
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Escape' && el('analysisOverlay').classList.contains('open')) close();
+  });
+});
+
+window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, clearAllChecks, toggleAll: toggleAllGroups, GROUPS, _compute: computeValues };
+})();
+</script>
+
 
 </body>
 </html>
