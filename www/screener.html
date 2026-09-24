@@ -6697,7 +6697,7 @@ let latestIct = null;        // raw ICT objects (with bar idx) for the chart ove
 let latestStructure = null;  // raw Market Structure objects (with bar idx where known) for the chart overlay
 let latestVolume = null;     // raw Volume price levels (VWAP/POC/VAH/VAL) for the chart overlay
 let ictOverlayEnabled = false; // "Chart" checkbox in the ICT section header — "show everything" mode
-let ictMemberOverlay = new Set(); // individually-checked ICT member keys — used whenever the header checkbox is off
+let ictMemberOverlay = new Set(['bos','choch']); // individually-checked ICT member keys — used whenever the header checkbox is off; Break of Structure + Change of Character checked by default
 const BAR_COUNTS = [30,45,90,180]; // Chart section's selectable window sizes
 let chartBarCount = 45; // currently selected window size
 // Trend indicators that can be drawn straight onto the price Chart (same $
@@ -6760,7 +6760,7 @@ const STRUCTURE_CHARTABLE = new Set(['swingHigh','swingLow','support','resistanc
 // all".
 const STRUCTURE_MASTER_EXCLUDE = new Set(['support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382']);
 let structureMemberOverlay = new Set(); // individually-checked Market Structure member keys shown on the Chart
-let structureOverlayEnabled = false; // "Chart" checkbox in the Market Structure header — shows only Swing High/Low + Fib 0.5/0.618, see STRUCTURE_MASTER_EXCLUDE
+let structureOverlayEnabled = true; // "Chart" checkbox in the Market Structure header — shows only Swing High/Low + Fib 0.5/0.618, see STRUCTURE_MASTER_EXCLUDE; checked by default
 // Volume members that resolve to an actual price level: VWAP and the Volume
 // Profile's POC/Value Area High/Value Area Low all sit on the $ scale, so
 // they can be drawn as horizontal lines same as Market Structure's Support/
@@ -6809,9 +6809,10 @@ function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&l
 // Which groups are collapsed, by index into GROUPS. Persists across refreshes
 // and timeframe switches (re-renders reuse it) so the user's layout choice
 // sticks until they explicitly toggle a section or Expand/Collapse All.
-// Chart starts collapsed — it's the priciest section to draw and most people
-// want the numbers first, the picture on demand.
-let collapsedGroups = new Set([GROUPS.findIndex(g=>g.key==='chart')]);
+// Chart starts expanded — it's the section most people want to see first;
+// every other section starts collapsed so the numbers are available on
+// demand without crowding the initial view.
+let collapsedGroups = new Set(GROUPS.map((g,i)=>i).filter(i=>GROUPS[i].key!=='chart'));
 
 // "Load ratio chart" checkbox in the Relative Strength section's BTC / ETH
 // sub-headings — separate from every other chart toggle above, since this
