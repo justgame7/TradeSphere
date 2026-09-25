@@ -802,6 +802,23 @@
     #scannerPane .preset-card, #scannerPane .preset-card::before, #scannerPane .preset-card .pc-desc-wrap{transition:none;}
   }
 
+  /* ---------------- Confluence info box (bottom-right of Confluence group) ---------------- */
+  #scannerPane .screen-info-row{display:flex;justify-content:flex-end;padding:0 10px 10px;}
+  #scannerPane .screen-info-btn{
+    display:flex;align-items:center;gap:6px;cursor:pointer;
+    border:1px solid var(--border);border-radius:8px;background:var(--panel-solid);
+    color:var(--faint);font:600 10px var(--font-mono);letter-spacing:.03em;
+    padding:7px 11px;transition:color .15s,border-color .15s;
+  }
+  #scannerPane .screen-info-btn:hover{color:var(--accent);border-color:var(--border-strong);}
+  /* Body content of the per-category "How to use these" page (#screenInfoModal, defined at top level) */
+  .screen-info-body{font-size:12px;line-height:1.6;color:var(--faint);}
+  .screen-info-body p{margin:0 0 11px;}
+  .screen-info-body ul{margin:0 0 11px;padding-left:17px;}
+  .screen-info-body li{margin-bottom:7px;}
+  .screen-info-body li b{color:var(--text);font-weight:700;}
+  .screen-info-body .screen-info-caveat{border-top:1px solid var(--border);padding-top:11px;margin-top:2px;font-style:italic;}
+
 
   /* ---------------- Condition builder ---------------- */
   #scannerPane .builder-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
@@ -1539,6 +1556,20 @@
       <span>Include ICT screens</span>
     </label>
     <div id="screenMatchBody"></div>
+  </div>
+</div>
+
+<!-- "How to use these" page, shared by every Quick screens category (Custom Screens tab).
+     Title + body are filled in per-category by Scanner.openCategoryInfo(cat). -->
+<div class="analysis-modal price-action-modal" id="screenInfoModal" onclick="Scanner.closeCategoryInfo(event)">
+  <div class="analysis-dialog" style="width:min(640px,100%);" role="dialog" aria-modal="true" aria-labelledby="screenInfoTitle" onclick="event.stopPropagation()">
+    <div class="trade-head" style="position:static;">
+      <div class="header-title-wrap">
+        <div><h2 id="screenInfoTitle">ℹ How to use these</h2></div>
+      </div>
+      <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="Scanner.closeCategoryInfo()">×</button></div>
+    </div>
+    <div class="screen-info-body" id="screenInfoBody"></div>
   </div>
 </div>
 
@@ -5107,8 +5138,29 @@ const PRESETS = [
     conds:[{metric:'ndogNwog',operator:'daily gap above',value:null},{metric:'ndogNwog',operator:'weekly gap above',value:null}], mode:'any' },
   { id:'ictGapBelow', cat:'ICT', icon:'⬓', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Unfilled opening gap below', desc:'An unfilled daily or weekly opening gap (NDOG/NWOG) sits below current price',
     conds:[{metric:'ndogNwog',operator:'daily gap below',value:null},{metric:'ndogNwog',operator:'weekly gap below',value:null}], mode:'any' },
+  // ---- Confluence — multi-condition combos built for higher-probability setups ----
+  { id:'confSweptDisplaced', cat:'Confluence', icon:'⚡', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Swept & displaced', desc:'Sell-side liquidity just got swept, a bullish displacement candle followed, and an unmitigated bullish FVG is still open — the core ICT sweep-then-reversal sequence',
+    conds:[{metric:'liquiditySweep',operator:'bullish (sell-side swept)',value:null},{metric:'displacement',operator:'bullish',value:null},{metric:'fvgBullish',operator:'unmitigated only',value:null}], mode:'all' },
+  { id:'confStructureShift', cat:'Confluence', icon:'↗', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Structure shift continuation', desc:'A confirmed bullish break of structure into a fresh bullish order block, filtered to only fire with the trend (EMA20 above EMA50)',
+    conds:[{metric:'structureShift',operator:'bullish BOS',value:null},{metric:'orderBlock',operator:'bullish',value:null},{metric:'emaTrend',operator:'above (golden)',value:null}], mode:'all' },
+  { id:'confBreakerReversal', cat:'Confluence', icon:'⟲', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Breaker block reversal', desc:'A sell-side sweep failed to hold and flipped into a bullish breaker block, with a fair value gap overlapping the same zone — the "unicorn" confluence',
+    conds:[{metric:'liquiditySweep',operator:'bullish (sell-side swept)',value:null},{metric:'breakerBlock',operator:'bullish',value:null},{metric:'fvgBullish',operator:'detected (any)',value:null}], mode:'all' },
+  { id:'confOteDiscount', cat:'Confluence', icon:'◐', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'OTE discount entry', desc:'Price is sitting in the 61.8%-79% discount zone of a bullish leg, Stoch RSI just crossed up out of oversold, and volume is already picking up',
+    conds:[{metric:'oteZone',operator:'bullish (discount, for longs)',value:null},{metric:'stochRsiK',operator:'crossed up (from oversold)',value:null},{metric:'volRatio',operator:'>',value:1.5}], mode:'all' },
+  { id:'confEarlyMomentum', cat:'Confluence', icon:'⚡', color:'linear-gradient(135deg,#ff8a4c,#c2501a)', title:'Early momentum breakout', desc:'A bullish displacement candle backed by a 2× volume surge, while 24h change is still under 2% — catching the move at the start rather than after it has already run',
+    conds:[{metric:'displacement',operator:'bullish',value:null},{metric:'volRatio',operator:'>',value:2},{metric:'change24h',operator:'<',value:2}], mode:'all' },
+  { id:'confSqueezeBreakout', cat:'Confluence', icon:'□', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Volatility squeeze breakout', desc:'Bollinger Band width is compressed below 3%, then breaking out on 2× volume with RSI confirming bullish momentum above 55',
+    conds:[{metric:'bbWidthPct',operator:'<',value:3},{metric:'volRatio',operator:'>',value:2},{metric:'rsi',operator:'>',value:55}], mode:'all' },
+  { id:'confOiBreakout', cat:'Confluence', icon:'▲', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Trend-confirmed OI breakout', desc:'Open interest jumped over 15% alongside a 5%+ price move, with funding still under 0.05% so the breakout isn\'t already crowded with late longs',
+    conds:[{metric:'oiChangePct',operator:'>',value:15},{metric:'change24h',operator:'>',value:5},{metric:'fundingRate',operator:'<',value:0.05}], mode:'all' },
+  { id:'confShortSqueeze', cat:'Confluence', icon:'↑', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Crowded-short squeeze', desc:'Negative funding (shorts paying longs) plus a sell-side liquidity sweep and a bullish RSI divergence — the setup for a forced short-covering unwind',
+    conds:[{metric:'fundingRate',operator:'<',value:0},{metric:'liquiditySweep',operator:'bullish (sell-side swept)',value:null},{metric:'bullishDivergence',operator:'detected',value:null}], mode:'all' },
+  { id:'confDivergenceSupport', cat:'Confluence', icon:'⍇', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Divergence reversal at support', desc:'Stoch RSI is oversold with a bullish RSI divergence, anchored within 2% of the 24h low so the divergence is happening at an actual level, not mid-range',
+    conds:[{metric:'stochRsiK',operator:'<20 (oversold)',value:null},{metric:'bullishDivergence',operator:'detected',value:null},{metric:'nearLowPct',operator:'<',value:2}], mode:'all' },
+  { id:'confAthContinuation', cat:'Confluence', icon:'★', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'ATH breakout continuation', desc:'Within 0.5× ATR of the all-time high with ADX confirming a strong trend and volume above 1.5× average — no overhead supply left to absorb the move',
+    conds:[{metric:'athProximityAtr',operator:'<',value:0.5},{metric:'adx',operator:'>',value:25},{metric:'volRatio',operator:'>',value:1.5}], mode:'all' },
 ];
-const PRESET_CATEGORY_ORDER = ['Momentum','Trend','Volatility','Volume','Derivatives','ICT'];
+const PRESET_CATEGORY_ORDER = ['Momentum','Trend','Volatility','Volume','Derivatives','ICT','Confluence'];
 const RECENT_PRESETS_KEY = 'scn-recent-presets-v1';
 const RECENT_PRESETS_MAX = 4;
 function getRecentPresetIds(){
@@ -5144,6 +5196,68 @@ function renderPresetCard(p, domId){
       <div class="pc-desc-wrap"><div class="pc-desc">${p.desc}</div></div>
     </div>`;
 }
+/* Per-category framing for the "How to use these" page — the item list itself
+   is always built from PRESETS' own title/desc, so it can't drift out of sync
+   with what the cards actually say; only the intro/caveat are hand-written. */
+const CATEGORY_INFO_META = {
+  Momentum: {
+    intro: 'Single-metric reads on direction or exhaustion \u2014 RSI, 24h change, Stoch RSI crosses, RSI divergence and ATH proximity. Treat these as an early flag, not a full setup: combine two with <b>Add screens</b> + <b>Match: ALL</b> (e.g. Oversold reversal + Bullish RSI divergence) to cut down on noise.',
+    caveat: 'RSI, Stoch RSI and divergence are read off the current, still-forming candle \u2014 a screen matching mid-bar can stop matching before the candle closes.'
+  },
+  Trend: {
+    intro: 'Confirms an existing trend (Golden/Death cross, ADX) or locates price inside the current swing (the retracement screens). The ATR- and %-based versions of the same retracement level are two ways to size the same zone \u2014 edit the multiple or percentage in the condition builder to widen or tighten it.',
+    caveat: "ADX only measures how strong a trend is, not which way it runs \u2014 pair it with a directional screen (EMA cross, 24h change) to get direction."
+  },
+  Volatility: {
+    intro: 'Both screens track Bollinger Band width. Volatility squeeze flags the compression itself; Squeeze breakout adds a volume filter to catch the move as it starts. Watch a coin on Volatility squeeze first, then switch to Squeeze breakout once it\u2019s on your radar.',
+    caveat: 'A tight BB width can sit unresolved for a long time \u2014 treat it as something to watch, not an entry on its own.'
+  },
+  Volume: {
+    intro: 'Reads participation and where price sits in its daily range. Volume surge flags unusual activity; Near 24h high/low flags location. Pair Volume surge with Near 24h high for a breakout read, or with Near 24h low for a capitulation read.',
+    caveat: "Volume alone doesn't say which direction it's coming from \u2014 check price action or a Momentum screen alongside it."
+  },
+  Derivatives: {
+    intro: 'Funding rate and open interest read positioning, not price. Funding shows who\u2019s paying whom; OI change shows whether fresh money or short-covering is behind a move. Pair with a Momentum or Trend screen to confirm price is actually moving with the positioning.',
+    caveat: "Funding and OI depend on the derivatives API responding for that symbol \u2014 if a scan comes back empty on these, that data just wasn't available that run."
+  },
+  ICT: {
+    intro: 'Smart Money Concepts vocabulary \u2014 sweeps, FVGs, BOS/CHoCH, OTE, order/breaker blocks, premium/discount and NDOG/NWOG gaps. Each card here flags one piece of structure on its own; the Confluence group below stacks several of these into complete setups. You can also check a single coin against all of these from the analysis modal\u2019s "Custom screens matched" popover.',
+    caveat: "These are rule-based, geometric reads of the visible candles \u2014 they don't track liquidity beyond what's shown, so a sweep or FVG can already be mitigated by the time you see it flagged."
+  },
+  Confluence: {
+    intro: 'Each card stacks several of the single-condition screens above into one higher-probability combo. Tap a card to load it, then use <b>Add screens</b> + <b>Match: ALL</b> to combine two for rare, high-conviction hits, or <b>Match: ANY</b> to widen the net. Flip direction, sweep side and funding sign to mirror any card to a short setup.',
+    caveat: 'Not backtested on your universe or timeframe. Stacking 2\u20133+ conditions on ALL can shrink matches to near zero on quiet days \u2014 check the "X matches out of Y scanned" line after saving.'
+  }
+};
+function renderCategoryInfo(cat){
+  return `
+    <div class="screen-info-row">
+      <button type="button" class="screen-info-btn" onclick="Scanner.openCategoryInfo('${cat}')">\u2139 How to use these</button>
+    </div>`;
+}
+function buildCategoryInfoBody(cat){
+  const items = PRESETS.filter(p=>p.cat===cat);
+  const meta = CATEGORY_INFO_META[cat] || {intro:'',caveat:''};
+  return `
+    <p>${meta.intro}</p>
+    <ul>
+      ${items.map(p => `<li><b>${p.title}</b> \u2014 ${p.desc}</li>`).join('')}
+    </ul>
+    ${meta.caveat ? `<p class="screen-info-caveat">${meta.caveat}</p>` : ''}`;
+}
+function openCategoryInfo(cat){
+  const titleEl = document.getElementById('screenInfoTitle');
+  const bodyEl = document.getElementById('screenInfoBody');
+  if(titleEl) titleEl.textContent = `\u2139 How to use ${cat} screens`;
+  if(bodyEl) bodyEl.innerHTML = buildCategoryInfoBody(cat);
+  const modal = document.getElementById('screenInfoModal');
+  if(modal) modal.classList.add('open');
+}
+function closeCategoryInfo(event){
+  if(event && event.target !== document.getElementById('screenInfoModal')) return;
+  const modal = document.getElementById('screenInfoModal');
+  if(modal) modal.classList.remove('open');
+}
 function renderPresets(){
   const recentItems = getRecentPresetItems();
   let html = `
@@ -5171,6 +5285,7 @@ function renderPresets(){
         <div class="preset-cards-grid">
           ${items.map(p => renderPresetCard(p, `preset-${p.id}`)).join('')}
         </div>
+        ${renderCategoryInfo(cat)}
       </details>`;
   }
   document.getElementById('scnPresetGrid').innerHTML = html;
@@ -5862,7 +5977,7 @@ renderPresets();
 applyPreset('breakout');
 
 
-window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, clearConditions, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker };
+window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, clearConditions, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker, openCategoryInfo, closeCategoryInfo };
 })();
 
 </script>
