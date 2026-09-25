@@ -807,6 +807,20 @@
   #scannerPane .builder-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
   #scannerPane .builder-row + .builder-row{margin-top:10px;}
   #scannerPane .builder-row .field-inline{min-width:0;max-width:100%;}
+  /* Metric: its own full-width row */
+  #scannerPane .field-metric{width:100%;}
+  #scannerPane .field-metric select{width:100%;}
+  /* Operator / Value / Match: share one row, each field shrinking rather than wrapping to a new line */
+  #scannerPane .builder-row-fields{flex-wrap:nowrap;}
+  #scannerPane .builder-row-fields .field-inline{flex:1 1 0;}
+  #scannerPane .builder-row-fields .field-inline:last-child{flex:0 0 auto;}
+  /* Add condition / Add screens / Clear: one row; the buttons shrink and their own text wraps rather than the row */
+  #scannerPane .builder-row-actions{display:block;}
+  #scannerPane .builder-row-actions .add-btns{flex-wrap:nowrap;}
+  #scannerPane .builder-row-actions .add-condition-btn{flex:1 1 0;min-width:0;justify-content:center;text-align:center;white-space:normal;line-height:1.25;padding:9px 8px;}
+  #scannerPane .clear-conditions-btn{color:#FF8A8A;border-color:rgba(255,110,110,.4);}
+  #scannerPane .clear-conditions-btn:hover{border-color:#FF6E6E;background:rgba(255,110,110,.08);}
+  #scannerPane .clear-conditions-btn:disabled{opacity:.35;cursor:not-allowed;border-color:var(--border-strong);color:var(--muted);background:none;}
 #scannerPane select, #scannerPane input[type=number], #scannerPane input[type=text]{
     background:var(--panel2);border:1px solid var(--border);color:var(--text);
     border-radius:9px;padding:9px 11px;font:500 12.5px var(--font-mono);outline:none;
@@ -1570,11 +1584,13 @@
       <div class="panel-sub" id="scnMatchModeSub">A coin must satisfy every condition below</div>
       <span class="scn-chevron">▾</span>
     </summary>
-    <div class="builder-row">
-      <div class="field-inline">
+    <div class="builder-row builder-row-metric">
+      <div class="field-inline field-metric">
         <label>Metric</label>
         <select id="scnMetricSelect"></select>
       </div>
+    </div>
+    <div class="builder-row builder-row-fields">
       <div class="field-inline">
         <label>Operator</label>
         <select id="scnOperatorSelect"></select>
@@ -1584,17 +1600,18 @@
         <input type="number" id="scnValueInput" step="any" style="width:110px;">
       </div>
       <div class="field-inline">
-        <label>&nbsp;</label>
-        <div class="add-btns"><button class="add-condition-btn" onclick="Scanner.addConditionFromForm()">+ Add condition</button><button class="add-condition-btn add-screens-btn" onclick="Scanner.openScreenPicker()">▣ Add screens</button></div>
-      </div>
-    </div>
-    <div class="builder-row">
-      <div class="field-inline">
         <label>Match</label>
         <div class="match-toggle">
           <button id="scnMatchAllBtn" class="active" onclick="Scanner.setMatchMode('all')">ALL</button>
           <button id="scnMatchAnyBtn" onclick="Scanner.setMatchMode('any')">ANY</button>
         </div>
+      </div>
+    </div>
+    <div class="builder-row builder-row-actions">
+      <div class="add-btns">
+        <button class="add-condition-btn" onclick="Scanner.addConditionFromForm()">+ Add condition</button>
+        <button class="add-condition-btn add-screens-btn" onclick="Scanner.openScreenPicker()">▣ Add screens</button>
+        <button class="add-condition-btn clear-conditions-btn" id="scnClearBtn" onclick="Scanner.clearConditions()">✕ Clear</button>
       </div>
     </div>
     <div class="chips-row" id="scnChipsRow"><span class="empty-chips">No conditions yet — add one above or pick a quick screen.</span></div>
@@ -1622,14 +1639,14 @@
           <label>Timeframe</label>
           <div class="tf-toggle" id="scnTfToggle">
             <button data-tf="1h">1H</button>
-            <button data-tf="4h" class="active">4H</button>
-            <button data-tf="1d">1D</button>
+            <button data-tf="4h">4H</button>
+            <button data-tf="1d" class="active">1D</button>
             <button data-tf="1w">1W</button>
           </div>
         </div>
         <div class="field-inline">
           <label>Min 24h volume ($)</label>
-          <input type="number" id="scnMinVolume" value="3000000">
+          <input type="number" id="scnMinVolume" value="10000000">
         </div>
       </div>
       <button class="run-btn" id="scnRunBtn" onclick="Scanner.runScan()">
@@ -4823,7 +4840,7 @@ let matchMode = 'all';
 let allResults = [];
 let sortKey = 'change24h';
 let sortDir = -1;
-let currentInterval = '4h';
+let currentInterval = '1d';
 
 function populateMetricSelect(){
   const sel = document.getElementById('scnMetricSelect');
@@ -4853,6 +4870,11 @@ function addConditionFromForm(){
   renderChips();
 }
 function removeCondition(i){ conditions.splice(i,1); renderChips(); }
+function clearConditions(){
+  if(!conditions.length) return;
+  conditions = [];
+  renderChips();
+}
 function renderChips(){
   updateSaveBtn();
   const row = document.getElementById('scnChipsRow');
@@ -5237,6 +5259,8 @@ function hideToast(){ if(toastEl) toastEl.classList.remove('show'); }
 
 /* ---- save flow (Condition builder) ---- */
 function updateSaveBtn(){
+  const clearBtn = document.getElementById('scnClearBtn');
+  if(clearBtn) clearBtn.disabled = !conditions.length;
   const btn = document.getElementById('scnSaveBtn');
   if(!btn) return;
   btn.disabled = !conditions.length;
@@ -5839,7 +5863,7 @@ renderPresets();
 applyPreset('breakout');
 
 
-window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker };
+window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, clearConditions, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker };
 })();
 
 </script>
