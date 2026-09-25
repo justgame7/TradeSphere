@@ -827,10 +827,9 @@
     max-width:100%;box-sizing:border-box;
   }
 #scannerPane select:focus, #scannerPane input:focus{border-color:var(--accent);}
-#scannerPane #scnMetricSelect{width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#scannerPane #scnMetricSelect{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #scannerPane #scnOperatorSelect{width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 @media(max-width:380px){
-  #scannerPane #scnMetricSelect{width:150px;}
   #scannerPane #scnOperatorSelect{width:120px;}
 }
 #scannerPane .add-condition-btn{
@@ -945,7 +944,7 @@
   /* ---------------- Save custom screen ---------------- */
   #scannerPane .save-screen{margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);}
   #scannerPane .save-screen-btn{
-    display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+    display:flex;width:100%;align-items:center;justify-content:center;gap:8px;cursor:pointer;
     background:linear-gradient(135deg,rgba(53,224,192,.14),rgba(124,140,255,.14));
     border:1px solid rgba(53,224,192,.35);color:var(--accent);
     border-radius:11px;padding:9px 15px;font:600 12px var(--font-display);
