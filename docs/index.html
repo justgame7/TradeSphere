@@ -487,7 +487,7 @@
   .movers-error{font-size:11px;color:var(--faint);padding:8px 2px;}
   .movers-section.skeleton .mover-chip{opacity:.5;}
 
-  /* ---- Top 100 Coins modal (bottom sheet) ---- */
+  /* ---- All Coins modal (bottom sheet) ---- */
   .top50-backdrop{
     position:fixed;inset:0;z-index:200;
     background:rgba(5,7,13,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -554,6 +554,11 @@
   .top50-rank{width:20px;flex-shrink:0;text-align:center;font:700 11px var(--font-mono);color:var(--faint);}
   .top50-rank.top3{color:var(--amber);}
   .top50-logo{width:32px;height:32px;border-radius:50%;flex-shrink:0;background:var(--panel2);object-fit:cover;}
+  .top50-logo-fallback{
+    display:flex;align-items:center;justify-content:center;
+    font:700 10px var(--font-mono);color:var(--faint);letter-spacing:.01em;
+    border:1px solid var(--border-soft);text-transform:uppercase;
+  }
   .top50-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px;}
   .top50-sym-row{display:flex;align-items:baseline;gap:6px;}
   .top50-sym{font:700 13px var(--font-ui);color:var(--text);}
@@ -1096,9 +1101,9 @@
             <!-- Sits outside the scrollable #tickerRow (not inside it), so it
                  never scrolls off-screen or gets edge-clipped like it did when
                  it lived inside the row's own horizontal scroller. Icon is a
-                 small ascending bar chart to read as "rankings / Top 100" at a
+                 small ascending bar chart to read as "rankings / all coins" at a
                  glance, rather than the generic app-grid glyph it used to be. -->
-            <button class="ticker-refresh top50-trigger" id="top50Btn" type="button" aria-label="Browse top 100 coins" title="Top 100 coins">
+            <button class="ticker-refresh top50-trigger" id="top50Btn" type="button" aria-label="Browse all coins" title="All coins">
               <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="12" width="4.4" height="9" rx="1.2"/><rect x="9.8" y="7" width="4.4" height="14" rx="1.2"/><rect x="16.6" y="3" width="4.4" height="18" rx="1.2"/></svg>
             </button>
           </div>
@@ -1320,12 +1325,12 @@
   </div>
 
   <div class="top50-backdrop" id="top50Backdrop"></div>
-  <div class="top50-modal" id="top50Modal" role="dialog" aria-modal="true" aria-label="Top 100 coins">
+  <div class="top50-modal" id="top50Modal" role="dialog" aria-modal="true" aria-label="All coins">
     <div class="top50-handle"></div>
     <div class="top50-head">
       <div class="top50-head-row">
         <div class="top50-title">
-          <span class="top50-title-main">Top 100 Coins</span>
+          <span class="top50-title-main" id="top50TitleMain">All Coins</span>
           <span class="top50-title-sub"><span class="live-dot"></span><span id="top50Updated">—</span></span>
         </div>
         <button class="top50-close" id="top50CloseBtn" type="button" aria-label="Close">
@@ -1459,7 +1464,7 @@ const TICKER_CACHE_KEY = 'ts_home_ticker_cache_v1';
 const TICKER_REFRESH_MS = 20000;
 // The /fapi/v1/ticker/24hr response already contains every Binance USDT-M
 // perpetual symbol, not just the 3 shown in the ticker row - captured here
-// so the Top 100 Coins modal can use "is this actually listed on Binance" as
+// so the All Coins modal can use "is this actually listed on Binance" as
 // a quality filter on top of CoinGecko's market-cap ranking, with zero extra
 // network calls. Persisted to localStorage so it survives a reload even
 // before the first ticker fetch of a session completes.
@@ -1481,8 +1486,45 @@ const BINANCE_SYMBOLS_CACHE_KEY = 'ts_home_binance_symbols_cache_v1';
 // to hit the futures API for a coin uses the real ticker instead of
 // guessing base+"USDT".
 const BINANCE_SYMBOL_MAP_CACHE_KEY = 'ts_home_binance_symbol_map_cache_v1';
+// The full Binance USDT-M perpetual universe (525+ contracts as of writing,
+// grows as Binance lists more) - one row per unique base asset, captured
+// from the same /fapi/v1/ticker/24hr response above (no extra network call).
+// This is what the "All Coins" modal iterates over now, instead of being
+// capped to whatever CoinGecko's top-N market-cap page happens to contain -
+// every actively-trading Binance USDT-M perp shows up, decorated with
+// CoinGecko's name/logo/market-cap when a match is found and falling back to
+// Binance's own ticker price/change/volume when it isn't.
+const BINANCE_PERP_UNIVERSE_CACHE_KEY = 'ts_home_binance_perp_universe_cache_v1';
 let binanceBaseAssets = null;
 let binanceSymbolMap = null;
+let binancePerpUniverse = null;
+function readBinancePerpUniverseCache(){
+  try{
+    const raw = localStorage.getItem(BINANCE_PERP_UNIVERSE_CACHE_KEY);
+    const arr = raw ? JSON.parse(raw) : null;
+    return (arr && arr.length) ? arr : null;
+  }catch(e){ return null; }
+}
+function writeBinancePerpUniverseCache(arr){
+  try{ localStorage.setItem(BINANCE_PERP_UNIVERSE_CACHE_KEY, JSON.stringify(arr)); }catch(e){}
+}
+function getBinancePerpUniverse(){
+  if(binancePerpUniverse && binancePerpUniverse.length) return binancePerpUniverse;
+  return readBinancePerpUniverseCache();
+}
+// A tiny handful of Binance USDT-M bases carry a literal numeral in their
+// real name/ticker (not a 1000x-style multiplier contract) - CoinGecko lists
+// these under the same numeral-prefixed symbol, so once a CoinGecko match is
+// found the numeral is never stripped for them and price never needs
+// adjusting. This list only matters as a fallback for the rare coin that
+// has NO CoinGecko match at all (see buildAllCoinsList) - everything else
+// resolves the numeral question by matching CoinGecko directly.
+const BINANCE_REAL_NUMERAL_BASES = new Set(['1000SATS','1000RATS','1000CAT','1000CHEEMS','1000WHY']);
+function guessBinanceMultiplier(rawBase){
+  const m = /^(10{3,7})[A-Z]/.exec(rawBase || '');
+  if(!m || BINANCE_REAL_NUMERAL_BASES.has(rawBase)) return 1;
+  return parseInt(m[1], 10) || 1;
+}
 function readBinanceSymbolsCache(){
   try{
     const raw = localStorage.getItem(BINANCE_SYMBOLS_CACHE_KEY);
@@ -1648,6 +1690,8 @@ async function loadTicker(opts){
     const map = {};
     const allBases = new Set();
     const symbolMap = {};
+    const seenPerpBase = new Set();
+    const perpUniverse = [];
     data.forEach(row => {
       if(wanted.has(row.symbol)) map[row.symbol] = row;
       // Strip the USDT quote suffix, then register BOTH the raw base and
@@ -1657,9 +1701,13 @@ async function loadTicker(opts){
       // given coin carries the numeral or not depends on whether it's a
       // real part of the name, and registering both forms means the match
       // succeeds either way without having to guess which case it is.
+      // This same "USDT" suffix check also means only true USDT-M
+      // perpetuals survive - quarterly delivery contracts come back from
+      // this endpoint as e.g. "BTCUSDT_250926" and don't end in "USDT", so
+      // they're excluded automatically without a separate exchangeInfo call.
       if(row.symbol && row.symbol.endsWith('USDT')){
         const rawBase = row.symbol.slice(0, -4);
-        const strippedBase = rawBase.replace(/^\d+/, '');
+        const strippedBase = rawBase.replace(/^\d+/, '') || rawBase;
         [rawBase, strippedBase].forEach(base => {
           if(!base) return;
           allBases.add(base);
@@ -1671,6 +1719,17 @@ async function loadTicker(opts){
             symbolMap[base] = row.symbol;
           }
         });
+        // One row per unique coin (keyed by the digit-stripped base) for the
+        // "All Coins" modal - the full 525+ USDT-M perpetual universe, not
+        // just whichever 100 happen to also rank in CoinGecko's top page.
+        if(!seenPerpBase.has(strippedBase)){
+          seenPerpBase.add(strippedBase);
+          perpUniverse.push({
+            base: strippedBase, rawBase, futuresSymbol: row.symbol,
+            lastPrice: row.lastPrice, priceChangePercent: row.priceChangePercent,
+            quoteVolume: row.quoteVolume
+          });
+        }
       }
     });
     renderTicker(map);
@@ -1681,6 +1740,8 @@ async function loadTicker(opts){
     writeBinanceSymbolsCache(allBases);
     binanceSymbolMap = symbolMap;
     writeBinanceSymbolMapCache(symbolMap);
+    binancePerpUniverse = perpUniverse;
+    writeBinancePerpUniverseCache(perpUniverse);
     updateTickerLabel();
   }catch(err){
     console.warn('[home ticker] fetch failed:', err && err.message);
@@ -1858,16 +1919,23 @@ async function loadMovers(){
   }
 }
 
-/* ================= Home: Top 100 Coins modal =================
-   Used to just reuse the Top Movers strip's per_page=100 CoinGecko fetch,
-   but after excluding stablecoins and restricting to coins with an active
-   Binance USDT-M perpetual (the quality filter below), 100 raw rows don't
-   leave enough candidates for a genuine top 100 - so the modal fetches its
-   own deeper feed at per_page=250 (CoinGecko's per-request max). This fires
-   only on demand when the modal is opened, not on the movers strip's 5-min
-   polling loop, to stay easy on CoinGecko's free-tier rate limit (see
-   learnings.md). */
-const TOP100_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&price_change_percentage=24h&sparkline=false';
+/* ================= Home: All Coins modal =================
+   The coin universe here is now every Binance USDT-M perpetual (525+,
+   built for free off the ticker/24hr response already fetched above in
+   loadTicker - see binancePerpUniverse), not a CoinGecko page capped at
+   100. CoinGecko is used only to *decorate* each Binance coin with a name,
+   logo, market cap and globally-aggregated price/volume where a match
+   exists. To cover as much of that 525+ universe as possible (Binance
+   requires meaningful liquidity to list a perp, so almost all of them rank
+   well inside CoinGecko's overall top page), this fetches several
+   per_page=250 pages (CoinGecko's per-request max) instead of just one.
+   Still fires only on demand when the modal is opened, not on the movers
+   strip's 5-min polling loop, to stay easy on CoinGecko's free-tier rate
+   limit (see learnings.md). */
+const TOP_COINS_PAGE_COUNT = 3; // 3 x 250 = top 750 by market cap
+function topCoinsPageUrl(page){
+  return 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=' + page + '&price_change_percentage=24h&sparkline=false';
+}
 const TOP100_CACHE_KEY = 'ts_home_top100_cache_v1';
 const STABLECOIN_SYMBOLS = new Set([
   'usdt','usdc','dai','fdusd','tusd','usde','usdp','pyusd','gusd','usdd',
@@ -1881,6 +1949,7 @@ let top100LastTs = null;
 const top50Btn = document.getElementById('top50Btn');
 const top50Backdrop = document.getElementById('top50Backdrop');
 const top50Modal = document.getElementById('top50Modal');
+const top50TitleMain = document.getElementById('top50TitleMain');
 const top50CloseBtn = document.getElementById('top50CloseBtn');
 const top50SearchInput = document.getElementById('top50Search');
 const top50SortRow = document.getElementById('top50SortRow');
@@ -1919,31 +1988,73 @@ function getTop50SourceList(){
 
 async function loadTop100(){
   try{
-    const data = await tickerFetchJSON(TOP100_URL);
-    if(!Array.isArray(data)) throw new Error('Unexpected CoinGecko markets response shape');
+    const pages = await Promise.allSettled(
+      Array.from({ length: TOP_COINS_PAGE_COUNT }, (_, i) => tickerFetchJSON(topCoinsPageUrl(i + 1)))
+    );
+    const data = [];
+    pages.forEach(p => { if(p.status === 'fulfilled' && Array.isArray(p.value)) data.push(...p.value); });
+    if(!data.length) throw new Error('No CoinGecko market-cap pages succeeded');
     top100LastRaw = data;
     top100LastTs = Date.now();
     writeTop100Cache(data);
     renderTop50List();
   }catch(err){
-    console.warn('[top100 modal] fetch failed:', err && err.message);
+    console.warn('[all coins modal] fetch failed:', err && err.message);
     renderTop50List();
   }
 }
 
+// Builds one row per Binance USDT-M perpetual (the full 525+ universe),
+// decorated with CoinGecko's name/logo/market-cap/global price+volume
+// wherever a match exists. A coin with no CoinGecko match still gets a row -
+// name/logo are left blank and price/change/volume fall back to Binance's
+// own ticker fields (with a best-effort /1000-style multiplier correction,
+// see guessBinanceMultiplier) - so every coin the app can actually open a
+// Technical Breakdown for is browsable here, not just the well-covered ones.
+function buildAllCoinsList(){
+  const cgRaw = getTop50SourceList() || [];
+  const cgBySymbol = new Map();
+  cgRaw.forEach(c => {
+    if(!c || !c.symbol) return;
+    const sym = c.symbol.toLowerCase();
+    if(STABLECOIN_SYMBOLS.has(sym)) return;
+    if(!cgBySymbol.has(sym)) cgBySymbol.set(sym, c); // pages arrive market-cap-desc, first match wins
+  });
+  const perpUniverse = getBinancePerpUniverse() || [];
+  const rows = [];
+  perpUniverse.forEach(p => {
+    const baseLower = p.base.toLowerCase();
+    if(STABLECOIN_SYMBOLS.has(baseLower)) return;
+    const cg = cgBySymbol.get(baseLower) || cgBySymbol.get(p.rawBase.toLowerCase());
+    if(cg){
+      rows.push({
+        symbol: p.base, futuresSymbol: p.futuresSymbol,
+        name: cg.name || '', image: cg.image || '',
+        current_price: typeof cg.current_price === 'number' ? cg.current_price : null,
+        price_change_percentage_24h: typeof cg.price_change_percentage_24h === 'number' ? cg.price_change_percentage_24h : null,
+        total_volume: typeof cg.total_volume === 'number' ? cg.total_volume : null,
+        market_cap: typeof cg.market_cap === 'number' ? cg.market_cap : null
+      });
+    }else{
+      const price = parseFloat(p.lastPrice);
+      const chg = parseFloat(p.priceChangePercent);
+      const vol = parseFloat(p.quoteVolume);
+      const mult = guessBinanceMultiplier(p.rawBase);
+      rows.push({
+        symbol: p.base, futuresSymbol: p.futuresSymbol,
+        name: '', image: '',
+        current_price: isFinite(price) ? price / mult : null,
+        price_change_percentage_24h: isFinite(chg) ? chg : null,
+        total_volume: isFinite(vol) ? vol : null,
+        market_cap: null
+      });
+    }
+  });
+  return rows;
+}
+
 function getFilteredSortedTop50(){
-  const raw = getTop50SourceList() || [];
-  let list = raw.filter(c => c && c.symbol && !STABLECOIN_SYMBOLS.has(c.symbol.toLowerCase()));
-  // CoinGecko's market-cap ranking occasionally surfaces low-float or
-  // questionable-data tokens (e.g. tokenized RWA products) far above their
-  // real standing. Restricting to coins with an active Binance USDT-M
-  // perpetual contract acts as a quality filter - it's also exactly the
-  // universe screener.html can actually analyze, so every coin tapped here
-  // is guaranteed to open real data rather than a "not found" error.
-  const binanceSet = getBinanceBaseAssets();
-  if(binanceSet && binanceSet.size){
-    list = list.filter(c => binanceSet.has((c.symbol || '').toUpperCase()));
-  }
+  let list = buildAllCoinsList();
   if(top50SearchQuery){
     const q = top50SearchQuery.toLowerCase();
     list = list.filter(c => (c.symbol || '').toLowerCase().includes(q) || (c.name || '').toLowerCase().includes(q));
@@ -1954,9 +2065,17 @@ function getFilteredSortedTop50(){
                        - (typeof a.price_change_percentage_24h === 'number' ? a.price_change_percentage_24h : -Infinity));
   }else if(top50SortMode === 'volume'){
     list.sort((a, b) => (b.total_volume || 0) - (a.total_volume || 0));
+  }else{
+    // 'market_cap': coins without a CoinGecko-sourced market cap sink to the
+    // bottom (there's nothing to rank them by), tie-broken by volume.
+    list.sort((a, b) => {
+      const am = typeof a.market_cap === 'number' ? a.market_cap : -1;
+      const bm = typeof b.market_cap === 'number' ? b.market_cap : -1;
+      if(bm !== am) return bm - am;
+      return (b.total_volume || 0) - (a.total_volume || 0);
+    });
   }
-  // 'market_cap': the source list already arrives market_cap_desc-sorted from CoinGecko.
-  return list.slice(0, 100);
+  return list;
 }
 
 function renderTop50Skeleton(){
@@ -1980,13 +2099,17 @@ function renderTop50Skeleton(){
 
 function renderTop50List(){
   const list = getFilteredSortedTop50();
+  const haveSource = !!(getBinancePerpUniverse() && getBinancePerpUniverse().length);
   top50List.classList.remove('top50-skeleton');
-  top50UpdatedEl.textContent = top100LastTs ? formatTickerUpdatedLabel(top100LastTs) : (getTop50SourceList() ? 'cached' : '—');
+  top50UpdatedEl.textContent = top100LastTs ? formatTickerUpdatedLabel(top100LastTs) : (haveSource ? 'cached' : '—');
+  if(top50TitleMain){
+    top50TitleMain.textContent = 'All Coins' + (list.length ? ' · ' + list.length.toLocaleString('en-US') : '');
+  }
 
   if(!list.length){
-    const noData = !getTop50SourceList();
+    const noData = !haveSource;
     top50List.innerHTML = '<div class="' + (noData ? 'top50-error' : 'top50-empty') + '">' +
-      (noData ? 'Top coins unavailable right now' : 'No coins match your search') + '</div>';
+      (noData ? 'Coins unavailable right now' : 'No coins match your search') + '</div>';
     return;
   }
 
@@ -1999,15 +2122,26 @@ function renderTop50List(){
     const hasChg = typeof chg === 'number';
     const chgText = hasChg ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : '—';
     const dirClass = hasChg ? (chg >= 0 ? 'up' : 'down') : '';
+    const priceText = typeof coin.current_price === 'number' ? formatTop50Price(coin.current_price) : '—';
+    // Coins with no CoinGecko match have no logo to show - a blank/empty
+    // img src would otherwise re-request the current page in some browsers,
+    // so those get a plain initials avatar instead of an <img> at all.
+    const avatarHTML = coin.image
+      ? '<img class="top50-logo" src="' + coin.image + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
+      : '<div class="top50-logo top50-logo-fallback">' + (coin.symbol || '').slice(0, 3) + '</div>';
+    const nameHTML = coin.name ? '<span class="top50-name">' + coin.name + '</span>' : '';
+    const metaText = typeof coin.market_cap === 'number'
+      ? 'Vol ' + formatTop50Compact(coin.total_volume) + ' · MCap ' + formatTop50Compact(coin.market_cap)
+      : (typeof coin.total_volume === 'number' ? 'Vol ' + formatTop50Compact(coin.total_volume) + ' · Binance perp' : 'Binance perp');
     row.innerHTML =
       '<span class="top50-rank' + (i < 3 ? ' top3' : '') + '">' + (i + 1) + '</span>' +
-      '<img class="top50-logo" src="' + (coin.image || '') + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' +
+      avatarHTML +
       '<div class="top50-body">' +
-        '<div class="top50-sym-row"><span class="top50-sym">' + (coin.symbol || '').toUpperCase() + '</span><span class="top50-name">' + (coin.name || '') + '</span></div>' +
-        '<span class="top50-meta">Vol ' + formatTop50Compact(coin.total_volume) + ' · MCap ' + formatTop50Compact(coin.market_cap) + '</span>' +
+        '<div class="top50-sym-row"><span class="top50-sym">' + (coin.symbol || '').toUpperCase() + '</span>' + nameHTML + '</div>' +
+        '<span class="top50-meta">' + metaText + '</span>' +
       '</div>' +
       '<div class="top50-right">' +
-        '<span class="top50-price">' + formatTop50Price(coin.current_price) + '</span>' +
+        '<span class="top50-price">' + priceText + '</span>' +
         '<span class="top50-chg ' + dirClass + '">' + chgText + '</span>' +
       '</div>';
     row.addEventListener('click', () => openScreenerForCoin(coin));
@@ -2027,10 +2161,11 @@ function renderTop50List(){
 function openScreenerForCoin(coin){
   // Don't just append "USDT" - Binance lists some low-price bases (SHIB,
   // PEPE, BONK, ...) under a digit-prefixed contract like "1000SHIBUSDT",
-  // so naively building "SHIBUSDT" 404s. resolveBinanceFuturesSymbol() looks
-  // up the real exchange symbol from the futures list the home ticker
-  // already fetched, falling back to base+"USDT" if the map isn't ready yet.
-  const symbol = resolveBinanceFuturesSymbol(coin.symbol || '');
+  // so naively building "SHIBUSDT" 404s. Rows built by buildAllCoinsList()
+  // already carry the exact exchange symbol they came from
+  // (coin.futuresSymbol); resolveBinanceFuturesSymbol() is kept only as a
+  // fallback for any caller that passes a plain coin/base without one.
+  const symbol = coin.futuresSymbol || resolveBinanceFuturesSymbol(coin.symbol || '');
   closeTop50Modal();
   if(window.TechAnalysis){
     window.TechAnalysis.openSymbol(symbol);
@@ -5274,7 +5409,7 @@ function openFor(symbol, tfWanted){
   document.body.style.overflow = 'hidden';
   // Same history-buffer trick as openTop50Modal() in the outer script: this
   // overlay opens without changing currentPage (it's only ever triggered
-  // from Home - the ticker cards or a Top 100 Coins row), so without a
+  // from Home - the ticker cards or an All Coins row), so without a
   // pushed entry a real Back (predictive-back gesture, an installed PWA's
   // own Back) has nothing to consume and falls straight through to exiting
   // the app instead of reaching the popstate handler that already knows how
