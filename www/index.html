@@ -396,6 +396,7 @@
   .ticker-refresh.spinning svg{transform:rotate(360deg);}
   .ticker-refresh.flipped svg{transform:rotate(180deg);}
   .ticker-refresh:active{border-color:var(--accent);color:var(--accent);}
+  #cardDensityBtn.active{color:var(--accent);border-color:rgba(53,224,192,.4);background:rgba(53,224,192,.08);}
   .top50-trigger{color:var(--accent);border-color:rgba(53,224,192,.32);background:rgba(53,224,192,.06);align-self:center;}
   .top50-trigger svg{width:14px;height:14px;}
   .ticker-row-wrap{
@@ -714,20 +715,6 @@
     box-shadow:0 8px 18px -4px rgba(var(--glow,53,224,192),.5), inset 0 1px 0 rgba(255,255,255,.3);
   }
 
-  .modern-grid .card-arrow{
-    position:absolute;top:14px;right:14px;
-    width:22px;height:22px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    background:rgba(255,255,255,.04);
-    color:var(--muted);
-    transition:transform .18s ease, color .18s ease, background .18s ease;
-  }
-  .modern-grid .modern-card:hover .card-arrow{
-    color:var(--text);
-    background:rgba(var(--glow,53,224,192),.2);
-    transform:translate(2px,-2px);
-  }
-
   /* Hero + banner full-width rows (first/last card in each section) */
   .modern-grid .modern-card--hero,
   .modern-grid .modern-card--banner{
@@ -743,8 +730,6 @@
   .modern-grid .modern-card--banner .home-title{font-size:15px;}
   .modern-grid .modern-card--hero > span:last-child,
   .modern-grid .modern-card--banner > span:last-child{flex:1;min-width:0;}
-  .modern-grid .modern-card--banner .card-arrow{top:50%;transform:translateY(-50%);}
-  .modern-grid .modern-card--banner:hover .card-arrow{transform:translate(2px,-50%);}
 
   /* Optional descriptive chip row, used on a hero card when its page has
      natural sub-categories worth calling out (e.g. Screener's scan types). */
@@ -781,6 +766,43 @@
   .modern-grid .modern-card:nth-child(4){animation-delay:.14s;}
   .modern-grid .modern-card:nth-child(5){animation-delay:.18s;}
   .modern-grid .modern-card:nth-child(6){animation-delay:.22s;}
+
+  /* ---- Compact home card density ----
+     Toggled by Trading Settings > Home Card Layout (Normal/Compact), stored
+     under CARD_DENSITY_STORAGE_KEY and applied as a body class in JS below.
+     Turns every modern-card (grid, hero and banner alike) into a slim
+     icon+title row - description and hero-chips hidden - so more cards fit
+     on screen at once without scrolling, which matters most on small phones.
+     Selectors here are written a class deeper/heavier than the normal-density
+     rules above (plus the "body" qualifier) purely so they win on
+     specificity and apply uniformly to hero/banner cards too, without
+     needing separate hero/banner overrides. */
+  body.density-compact .category-section{margin:0 0 14px;}
+  body.density-compact .modern-grid.home-grid{gap:7px;}
+  body.density-compact .modern-grid .modern-card{
+    flex-direction:row;
+    align-items:center;
+    gap:10px;
+    padding:9px 11px;
+    border-radius:13px;
+    animation:none;
+  }
+  body.density-compact .modern-grid .modern-card:hover{transform:none;}
+  body.density-compact .modern-grid .modern-card::before{width:60%;height:60%;opacity:.75;}
+  body.density-compact .modern-grid .modern-card .home-icon{
+    width:30px;height:30px;border-radius:9px;font-size:14px;
+    box-shadow:0 4px 10px -2px rgba(var(--glow,53,224,192),.5), inset 0 1px 0 rgba(255,255,255,.28);
+  }
+  body.density-compact .modern-grid .modern-card--live .home-icon::after{
+    width:7px;height:7px;top:-1px;right:-1px;
+  }
+  body.density-compact .modern-grid .modern-card > span:last-child{flex:1;min-width:0;}
+  body.density-compact .modern-grid .modern-card .home-title{
+    font-size:12.5px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  body.density-compact .modern-grid .modern-card .home-desc,
+  body.density-compact .modern-grid .hero-chips{display:none;}
 
   /* ---- Full-screen analysis overlay ---- */
   .analysis-overlay{
@@ -1225,6 +1247,9 @@
               <span class="ticker-updated" id="tickerUpdated"></span>
             </div>
             <div class="ticker-eyebrow-actions">
+              <button class="ticker-refresh" id="cardDensityBtn" type="button" aria-label="Switch to compact view" title="Switch to compact view" aria-pressed="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1.2"/><rect x="3" y="10" width="18" height="4" rx="1.2"/><rect x="3" y="16" width="18" height="4" rx="1.2"/></svg>
+              </button>
               <button class="ticker-refresh" id="toggleAllBtn" type="button" aria-label="Collapse all" title="Collapse all">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 8 12 3 17 8"/><polyline points="7 21 12 16 17 21"/></svg>
               </button>
@@ -1282,32 +1307,26 @@
                     <span class="hero-chip">EMA</span>
                   </span>
                 </span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card modern-card--live" type="button" data-page="watchlist">
                 <span class="home-icon">👀</span>
                 <span><span class="home-title">Watchlist</span><span class="home-desc">Live BTC, ETH, SOL & HYPE prices</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card" type="button" data-page="meridian">
                 <span class="home-icon">🧭</span>
                 <span><span class="home-title">Meridian</span><span class="home-desc">Portfolio & wallet manager</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card modern-card--live" type="button" data-page="liquidations">
                 <span class="home-icon">💥</span>
                 <span><span class="home-title">Long/Short & Liquidations</span><span class="home-desc">Ratios, open interest & live liq feed</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card" type="button" data-page="macro">
                 <span class="home-icon">📊</span>
                 <span><span class="home-title">Macro & Indices</span><span class="home-desc">Equities, dollar, rates & global risk</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card modern-card--banner" type="button" data-page="calendar">
                 <span class="home-icon">📅</span>
                 <span><span class="home-title">Calendar</span><span class="home-desc">Upcoming macro and crypto events</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
             </div>
           </div>
@@ -1318,22 +1337,18 @@
               <button class="home-card modern-card modern-card--hero" type="button" data-page="youtube">
                 <span class="home-icon">▶️</span>
                 <span><span class="home-title">YouTube Crypto</span><span class="home-desc">Recent uploads</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
-              </button>
-              <button class="home-card modern-card" type="button" data-page="news">
-                <span class="home-icon">📰</span>
-                <span><span class="home-title">News</span><span class="home-desc">Latest crypto market stories</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card" type="button" data-page="trump-truth">
                 <span class="home-icon">🚀</span>
                 <span><span class="home-title">Trump's Truth SM</span><span class="home-desc">Latest posts on crypto & clarity</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
+              </button>
+              <button class="home-card modern-card" type="button" data-page="news">
+                <span class="home-icon">📰</span>
+                <span><span class="home-title">News</span><span class="home-desc">Latest crypto market stories</span></span>
               </button>
               <button class="home-card modern-card modern-card--banner" type="button" data-page="pulse">
                 <span class="home-icon">🐋</span>
                 <span><span class="home-title">Whale & Social Pulse</span><span class="home-desc">Exchange flows & X accounts</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
             </div>
           </div>
@@ -1344,32 +1359,26 @@
               <button class="home-card modern-card modern-card--hero modern-card--live" type="button" data-page="season">
                 <span class="home-icon">🌗</span>
                 <span><span class="home-title">Season Index</span><span class="home-desc">Bitcoin vs Altcoin season, live</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card" type="button" data-page="defi">
                 <span class="home-icon">💧</span>
                 <span><span class="home-title">DeFi & TVL</span><span class="home-desc">Chains, protocols, DEX volume & unlocks</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card" type="button" data-page="etf">
                 <span class="home-icon">🏦</span>
                 <span><span class="home-title">ETF Flows</span><span class="home-desc">BTC, ETH, SOL &amp; HYPE spot ETF flows</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
-              </button>
-              <button class="home-card modern-card" type="button" data-page="btc-returns">
-                <span class="home-icon">📆</span>
-                <span><span class="home-title">Bitcoin Returns</span><span class="home-desc">Monthly, quarterly &amp; yearly performance</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card" type="button" data-page="fear-greed">
                 <span class="home-icon">🌡️</span>
                 <span><span class="home-title">Fear &amp; Greed Index</span><span class="home-desc">Crypto market sentiment, 0-100</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
+              </button>
+              <button class="home-card modern-card" type="button" data-page="btc-returns">
+                <span class="home-icon">📆</span>
+                <span><span class="home-title">Bitcoin Returns</span><span class="home-desc">Monthly, quarterly &amp; yearly performance</span></span>
               </button>
               <button class="home-card modern-card modern-card--banner" type="button" data-page="predictions">
                 <span class="home-icon">🎯</span>
                 <span><span class="home-title">Prediction Markets</span><span class="home-desc">Fed, CPI, ETFs & crypto policy odds</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
             </div>
           </div>
@@ -1380,12 +1389,10 @@
               <button class="home-card modern-card modern-card--banner" type="button" data-page="sizing">
                 <span class="home-icon">🧮</span>
                 <span><span class="home-title">Position Sizing</span><span class="home-desc">Risk-based quantity calculator</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
               <button class="home-card modern-card modern-card--banner" type="button" data-page="settings">
                 <span class="home-icon">⚙️</span>
                 <span><span class="home-title">Trading Settings</span><span class="home-desc">Portfolio, exchange & YouTube channels</span></span>
-                <span class="card-arrow"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12L12 4M12 4H6M12 4V10"/></svg></span>
               </button>
             </div>
           </div>
@@ -2434,6 +2441,34 @@ setInterval(() => {
 document.addEventListener('visibilitychange', () => {
   if(!document.hidden && currentPage === 'home' && isMoversEnabled()) loadMovers();
 });
+
+/* ================= Home: card density (Normal/Compact) =================
+   Self-contained here - a button of its own next to Collapse/Expand All
+   (top of the ticker row, applies to every category section at once, no
+   per-section button) toggles it and saves the choice to localStorage
+   directly, so it works without ever opening the Settings page. It still
+   reads/writes the same key trading-settings.html's Home Card Layout option
+   uses, so the two stay in sync if that's used too, but neither depends on
+   the other. Applied as a body class - the actual sizing lives in the
+   body.density-compact CSS rules above, scoped to .modern-card so it covers
+   every section (Markets, News & Social, Insights, Tools) in one go. */
+const CARD_DENSITY_STORAGE_KEY = 'crypto-screener-card-density';
+const cardDensityBtn = document.getElementById('cardDensityBtn');
+function applyCardDensity(compact){
+  document.body.classList.toggle('density-compact', compact);
+  cardDensityBtn.classList.toggle('active', compact);
+  const label = compact ? 'Switch to normal view' : 'Switch to compact view';
+  cardDensityBtn.setAttribute('aria-label', label);
+  cardDensityBtn.setAttribute('title', label);
+  cardDensityBtn.setAttribute('aria-pressed', String(compact));
+}
+applyCardDensity(localStorage.getItem(CARD_DENSITY_STORAGE_KEY) === 'compact');
+cardDensityBtn.addEventListener('click', () => {
+  const next = !document.body.classList.contains('density-compact');
+  localStorage.setItem(CARD_DENSITY_STORAGE_KEY, next ? 'compact' : 'normal');
+  applyCardDensity(next);
+});
+
 // The Settings page (trading-settings.html) lives in its own iframe; when it
 // writes either key, this top-level document gets a native "storage" event
 // (same-origin, different document) - react instantly rather than waiting
@@ -2443,6 +2478,8 @@ window.addEventListener('storage', (e) => {
     applyMoversVisibility();
   }else if(e.key === MOVERS_COUNT_STORAGE_KEY && isMoversEnabled() && moversLastRaw){
     renderMoversStrip(moversLastRaw);
+  }else if(e.key === CARD_DENSITY_STORAGE_KEY){
+    applyCardDensity(e.newValue === 'compact');
   }
 });
 // Pause the auto-scroll while the user is touching/pointing at either row so
