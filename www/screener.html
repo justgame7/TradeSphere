@@ -1733,7 +1733,7 @@
   </div>
 </div>
 
-<!-- Scan history — last 10 Custom Screens runs kept locally on this device.
+<!-- Scan history — last 25 Custom Screens runs kept locally on this device.
      Opened via the history icon next to "last scan" in the stats row. Stores
      which screen (Quick screen / saved) or ad-hoc condition set was run, when,
      and a capped snapshot of what matched at the time (see recordScanHistory),
@@ -5741,7 +5741,7 @@ function undoDeleteSaved(){
 }
 
 /* =========================================================================
-   Scan history — the last 10 Custom Screens runs, kept locally on this
+   Scan history — the last 25 Custom Screens runs, kept locally on this
    device. Each entry records WHAT was run (a Quick screen / saved screen by
    name, or a snapshot of ad-hoc conditions), WHEN, and a capped snapshot of
    what matched at the time, so a past run's output can still be reviewed via
@@ -5749,7 +5749,7 @@ function undoDeleteSaved(){
    history icon next to "last scan".
    ========================================================================= */
 const SCAN_HISTORY_KEY = 'scn-scan-history-v1';
-const SCAN_HISTORY_MAX = 10;
+const SCAN_HISTORY_MAX = 25;
 // Per-run cap on stored matched-coin snapshots — a very loose screen could
 // otherwise match hundreds of coins; the history list only ever needs enough
 // to review, not the full universe.
@@ -5815,6 +5815,9 @@ function shTypeMeta(entry){
   if(entry.type === 'preset') return { label:'Quick screen', icon: entry.icon || '◆', color: entry.color || 'linear-gradient(135deg,#35E0C0,#1fb99e)' };
   if(entry.type === 'saved')  return { label:'Saved screen', icon: '★', color: entry.color || 'linear-gradient(135deg,#7C8CFF,#4f5bd5)' };
   return { label:'Custom', icon:'⚙', color:'linear-gradient(135deg,#8B93A3,#565F70)' };
+}
+function shAbsoluteTime(ts){
+  return new Date(ts).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
 }
 function shRelativeTime(ts){
   const s = Math.round((Date.now() - ts) / 1000);
@@ -6025,7 +6028,7 @@ function openHistoryOutput(id){
   const meta = shTypeMeta(entry);
   document.getElementById('scanHistoryOutputTitle').textContent = entry.name ? entry.name : 'Custom conditions';
   document.getElementById('scanHistoryOutputSubtitle').textContent =
-    `${entry.matches} match${entry.matches===1?'':'es'} of ${entry.universe} scanned · ${SH_TF_LABEL[entry.interval]||entry.interval} · ${meta.label} · ${shRelativeTime(entry.ts)}`;
+    `${entry.matches} match${entry.matches===1?'':'es'} · ${SH_TF_LABEL[entry.interval]||entry.interval} · ${meta.label} · ${shAbsoluteTime(entry.ts)}`;
   document.getElementById('scanHistoryOutputModal').classList.add('open'); // open first — render failures must never hide the modal itself
   if(entry.results === undefined){
     // A run recorded before this snapshot feature existed — nothing to show.
