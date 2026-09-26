@@ -422,6 +422,14 @@
   body.ta-open .trade-modal{z-index:52;}
   body.ta-open .analysis-modal{z-index:53;}
   body.ta-open .price-action-modal{z-index:54;}
+  /* The two rules above exist so a modal opened FROM WITHIN the Technical
+     Breakdown overlay stacks above it. scanHistoryModal/scanHistoryOutputModal
+     reuse those same classes for their own base styling, but the Breakdown can
+     now be opened FROM one of them too (the output view's coin button) — in
+     that direction it must render above them instead, so pin their z-index
+     back down regardless of ta-open. */
+  body.ta-open #scanHistoryModal,
+  body.ta-open #scanHistoryOutputModal{z-index:11;}
   .price-action-link{display:block;width:100%;margin-top:10px;background:rgba(53,224,192,.08);border:1px solid rgba(53,224,192,.3);color:var(--accent);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border-radius:7px;padding:8px 10px;cursor:pointer;text-align:left;}
   .price-action-link:hover{background:rgba(53,224,192,.16);border-color:var(--accent);}
   .decision-price-action{display:block;width:100%;margin:12px 0 0;text-align:center;}
@@ -1122,6 +1130,59 @@
 #scannerPane .empty-state .es-icon{font-size:34px;margin-bottom:10px;opacity:.6;}
 #scannerPane .empty-state .es-title{font-weight:600;color:var(--muted);font-size:14px;margin-bottom:5px;}
 #scannerPane .empty-state .es-sub{font-size:12px;max-width:360px;margin:0 auto;line-height:1.5;}
+  /* Scan-history "View output" reuses the same results-table look as the
+     live scanner table above, but scanHistoryOutputModal sits outside
+     #scannerPane in the DOM (it's a global overlay, like the other
+     analysis-modals), so the rules are duplicated under its own id. */
+#scanHistoryOutputModal .table-scroll{overflow-x:auto;border:none;border-radius:0;border-top:1px solid var(--border);}
+#scanHistoryOutputModal table{width:100%;border-collapse:collapse;min-width:720px;}
+#scanHistoryOutputModal thead th{
+    text-align:left;font:600 10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.05em;
+    padding:10px 12px;background:var(--panel2);border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;
+    position:sticky;top:0;
+  }
+#scanHistoryOutputModal thead th:hover{color:var(--muted);}
+#scanHistoryOutputModal thead th.sorted{color:var(--accent);}
+#scanHistoryOutputModal tbody td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;white-space:nowrap;}
+#scanHistoryOutputModal tbody tr{transition:background .1s;}
+#scanHistoryOutputModal tbody tr:hover{background:rgba(255,255,255,0.02);}
+#scanHistoryOutputModal tbody tr:last-child td{border-bottom:none;}
+#scanHistoryOutputModal .sym-cell{display:flex;align-items:center;gap:10px;}
+  #scanHistoryOutputModal .sym-cell-btn{
+    background:none;border:none;padding:2px 4px 2px 2px;margin:-2px 0 -2px -4px;
+    border-radius:10px;cursor:pointer;text-align:left;font-family:inherit;color:inherit;
+    transition:background .12s;
+  }
+  #scanHistoryOutputModal .sym-cell-btn:hover,#scanHistoryOutputModal .sym-cell-btn:focus-visible{background:rgba(53,224,192,0.08);}
+  #scanHistoryOutputModal .sym-cell-btn:hover .sym-badge,#scanHistoryOutputModal .sym-cell-btn:focus-visible .sym-badge{box-shadow:0 0 0 2px var(--accent-dim);}
+  #scanHistoryOutputModal .sym-cell-btn:focus-visible{outline:none;}
+#scanHistoryOutputModal .sym-badge{width:30px;height:30px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font:700 10.5px var(--font-mono);color:#fff;}
+#scanHistoryOutputModal .sym-name{font-weight:700;font-size:13px;}
+#scanHistoryOutputModal .sym-sub{font:500 10px var(--font-mono);color:var(--faint);}
+#scanHistoryOutputModal .mono{font-family:var(--font-mono);}
+#scanHistoryOutputModal .chg-pos{color:var(--accent);}
+#scanHistoryOutputModal .chg-neg{color:var(--red);}
+#scanHistoryOutputModal .spark{display:block;}
+#scanHistoryOutputModal .badge{display:inline-flex;align-items:center;gap:4px;font:600 10.5px var(--font-mono);padding:4px 8px;border-radius:20px;white-space:nowrap;}
+#scanHistoryOutputModal .badge-bull{background:rgba(53,224,192,0.1);color:var(--accent);border:1px solid rgba(53,224,192,0.3);}
+#scanHistoryOutputModal .badge-bear{background:rgba(255,77,109,0.1);color:var(--red);border:1px solid rgba(255,77,109,0.3);}
+#scanHistoryOutputModal .badge-neutral{background:rgba(139,147,166,0.1);color:var(--muted);border:1px solid var(--border);}
+#scanHistoryOutputModal .matched-chips{display:flex;flex-wrap:wrap;gap:4px;max-width:220px;white-space:normal;}
+#scanHistoryOutputModal .matched-chip{font:600 9.5px var(--font-mono);padding:3px 7px;border-radius:20px;background:rgba(124,140,255,0.1);color:#B7C0FF;border:1px solid rgba(124,140,255,0.25);}
+#scanHistoryOutputModal .row-actions{display:flex;gap:6px;}
+#scanHistoryOutputModal .icon-btn{
+    width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);
+    color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;text-decoration:none;
+  }
+#scanHistoryOutputModal .icon-btn:hover{border-color:var(--border-strong);color:var(--text);}
+#scanHistoryOutputModal .icon-btn.added{color:var(--accent);border-color:rgba(53,224,192,0.35);}
+  #scanHistoryOutputModal .icon-btn.lookup{color:var(--accent);border-color:rgba(53,224,192,0.3);}
+#scanHistoryOutputModal .empty-state{
+    text-align:center;padding:60px 20px;color:var(--faint);
+  }
+#scanHistoryOutputModal .empty-state .es-icon{font-size:34px;margin-bottom:10px;opacity:.6;}
+#scanHistoryOutputModal .empty-state .es-title{font-weight:600;color:var(--muted);font-size:14px;margin-bottom:5px;}
+#scanHistoryOutputModal .empty-state .es-sub{font-size:12px;max-width:360px;margin:0 auto;line-height:1.5;}
 #scannerPane .footer-note{margin-top:26px;text-align:center;color:var(--faint);font-size:11px;font-family:var(--font-mono);line-height:1.7;}
 
   /* -- hero stats row (merged layout) -- */
@@ -1383,6 +1444,105 @@
     .analysis-row-label{font-size:12px;}
     .analysis-row-value{font-size:12px;}
   }
+
+  /* ---------------- Scan history (Custom Screens) ---------------- */
+  #scannerPane .sh-icon-btn{
+    position:relative;width:30px;height:30px;border-radius:9px;flex:none;padding:0;
+    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:none;
+    transition:color .15s,border-color .15s;
+  }
+  #scannerPane .sh-icon-btn:hover{color:var(--accent);border-color:var(--accent-dim);}
+  #scannerPane .sh-badge-count{
+    position:absolute;top:-6px;right:-6px;min-width:15px;height:15px;padding:0 4px;
+    border-radius:8px;background:var(--accent);color:#04140F;
+    font:700 9.5px var(--font-mono);display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 2px var(--panel2);
+  }
+
+  .scan-history-dialog{width:min(760px,100%);}
+  .sh-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:2px 0 14px;}
+  .sh-filters{display:flex;gap:6px;flex-wrap:wrap;}
+  .sh-filter{
+    font:600 11px var(--font-mono);color:var(--muted);background:var(--panel2);
+    border:1px solid var(--border);border-radius:20px;padding:6px 12px;cursor:pointer;box-shadow:none;
+    transition:color .15s,border-color .15s,background .15s;
+  }
+  .sh-filter:hover{color:var(--text);}
+  .sh-filter.active{color:var(--accent);border-color:var(--accent-dim);background:rgba(53,224,192,.08);}
+  .sh-clear-btn{
+    font:600 11px var(--font-mono);color:var(--faint);background:transparent;border:1px solid var(--border);
+    border-radius:20px;padding:6px 12px;cursor:pointer;box-shadow:none;transition:color .15s,border-color .15s;
+  }
+  .sh-clear-btn:hover{color:var(--red);border-color:var(--red-dim);}
+
+  .sh-timeline{display:flex;flex-direction:column;}
+  .sh-item{display:flex;align-items:stretch;gap:12px;position:relative;}
+  .sh-rail{position:relative;display:flex;flex-direction:column;align-items:center;flex:none;width:16px;}
+  .sh-rail::before{content:'';position:absolute;top:18px;bottom:0;left:7px;width:1px;background:var(--border-soft);}
+  .sh-item:last-child .sh-rail::before{display:none;}
+  .sh-dot{width:15px;height:15px;border-radius:50%;flex:none;margin-top:2px;box-shadow:0 0 0 3px var(--panel);}
+  .sh-card{
+    flex:1 1 auto;min-width:0;background:var(--panel2);border:1px solid var(--border-soft);
+    border-radius:12px;padding:12px 14px;margin-bottom:12px;
+  }
+  .sh-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .sh-name-wrap{display:flex;align-items:center;gap:8px;min-width:0;}
+  .sh-type-icon{
+    width:22px;height:22px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;
+    font-size:11.5px;color:#04140F;
+  }
+  .sh-name{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sh-time{font:600 10.5px var(--font-mono);color:var(--faint);white-space:nowrap;}
+  .sh-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  .sh-badge{
+    font:600 9.5px var(--font-mono);letter-spacing:.03em;color:var(--muted);
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:6px;padding:2px 7px;text-transform:uppercase;
+  }
+  .sh-badge-tf{color:var(--blue);}
+  .sh-badge-type{color:var(--accent);}
+  .sh-conds{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+  .sh-cond-chip{
+    font:500 11px var(--font-display);color:var(--text);background:var(--panel);
+    border:1px solid var(--border-soft);border-radius:7px;padding:3px 8px;
+  }
+  .sh-cond-chip-more{cursor:pointer;color:var(--accent);border-color:var(--accent-dim);}
+  .sh-cond-chip-more:hover{background:rgba(53,224,192,.08);}
+  .sh-stats-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft);font-size:12px;color:var(--text);}
+  .sh-stats-row .sh-dim{color:var(--faint);}
+  .sh-stats-actions{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;}
+  .sh-rerun-btn{
+    font:700 11px var(--font-mono);color:var(--accent);background:rgba(53,224,192,.08);
+    border:1px solid var(--accent-dim);border-radius:8px;padding:5px 11px;cursor:pointer;box-shadow:none;
+    transition:background .15s,transform .1s;
+  }
+  .sh-rerun-btn:hover{background:rgba(53,224,192,.16);}
+  .sh-rerun-btn:active{transform:scale(.96);}
+  .sh-view-btn{
+    font:700 11px var(--font-mono);color:var(--muted);background:var(--panel);
+    border:1px solid var(--border);border-radius:8px;padding:5px 11px;cursor:pointer;box-shadow:none;
+    transition:background .15s,color .15s,transform .1s;
+  }
+  .sh-view-btn:hover{color:var(--text);border-color:var(--border-strong);}
+  .sh-view-btn:active{transform:scale(.96);}
+  .sh-output-trunc{font:600 11px var(--font-mono);color:var(--faint);margin:0 0 10px;padding:8px 12px;background:var(--panel2);border:1px solid var(--border-soft);border-radius:8px;}
+
+  .sh-empty{text-align:center;padding:40px 20px;color:var(--faint);}
+  .sh-empty-icon{font-size:30px;margin-bottom:10px;opacity:.6;}
+  .sh-empty-title{font-weight:700;color:var(--text);font-size:14px;margin-bottom:6px;}
+  .sh-empty-sub{font-size:12px;line-height:1.5;max-width:380px;margin:0 auto;}
+
+  @keyframes shRunPulse{0%,100%{box-shadow:0 0 0 0 rgba(53,224,192,.55);}50%{box-shadow:0 0 0 8px rgba(53,224,192,0);}}
+  .run-btn.sh-pulse{animation:shRunPulse 1.4s ease-out 2;}
+
+  @media(max-width:520px){
+    .sh-card-top{flex-direction:column;align-items:flex-start;gap:4px;}
+    .sh-stats-actions{margin-left:0;width:100%;}
+    .sh-view-btn,.sh-rerun-btn{flex:1;text-align:center;}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .run-btn.sh-pulse{animation:none;}
+  }
 </style>
 </head>
 <body>
@@ -1573,6 +1733,58 @@
   </div>
 </div>
 
+<!-- Scan history — last 10 Custom Screens runs kept locally on this device.
+     Opened via the history icon next to "last scan" in the stats row. Stores
+     which screen (Quick screen / saved) or ad-hoc condition set was run, when,
+     and a capped snapshot of what matched at the time (see recordScanHistory),
+     so a past run's output can still be reviewed via "View output" even after
+     a fresh scan changes the picture. -->
+<div class="analysis-modal price-action-modal" id="scanHistoryModal" onclick="Scanner.closeHistory(event)">
+  <div class="analysis-dialog scan-history-dialog" role="dialog" aria-modal="true" aria-labelledby="scanHistoryTitle" onclick="event.stopPropagation()">
+    <div class="trade-head" style="position:static;">
+      <div class="header-title-wrap">
+        <div>
+          <h2 id="scanHistoryTitle">🕘 Scan history</h2>
+          <p class="screen-match-subtitle" id="scanHistorySubtitle">—</p>
+        </div>
+      </div>
+      <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="Scanner.closeHistory()">×</button></div>
+    </div>
+    <div class="sh-toolbar">
+      <div class="sh-filters" id="shFilters">
+        <button type="button" class="sh-filter active" data-filter="all" onclick="Scanner.setHistoryFilter('all')">All</button>
+        <button type="button" class="sh-filter" data-filter="preset" onclick="Scanner.setHistoryFilter('preset')">Quick screens</button>
+        <button type="button" class="sh-filter" data-filter="saved" onclick="Scanner.setHistoryFilter('saved')">Saved</button>
+        <button type="button" class="sh-filter" data-filter="custom" onclick="Scanner.setHistoryFilter('custom')">Custom</button>
+      </div>
+      <button type="button" class="sh-clear-btn" id="shClearBtn" onclick="Scanner.clearHistory()">Clear</button>
+    </div>
+    <div id="scanHistoryBody" class="sh-timeline"></div>
+  </div>
+</div>
+
+<!-- Scan history output — read-only snapshot of the coins that matched one
+     specific past run (see recordScanHistory). Opened from a history item's
+     "View output" button; sits above scanHistoryModal, so Back (hardware
+     button, swipe-back gesture, or an installed PWA's own Back) closes just
+     this and returns to the history list rather than the Custom Screens page
+     underneath it — see the shared push/pop helpers in the Scan history
+     script block. -->
+<div class="analysis-modal price-action-modal" id="scanHistoryOutputModal" onclick="Scanner.closeHistoryOutput(event)">
+  <div class="analysis-dialog scan-history-dialog" role="dialog" aria-modal="true" aria-labelledby="scanHistoryOutputTitle" onclick="event.stopPropagation()">
+    <div class="trade-head" style="position:static;">
+      <div class="header-title-wrap">
+        <div>
+          <h2 id="scanHistoryOutputTitle">Run output</h2>
+          <p class="screen-match-subtitle" id="scanHistoryOutputSubtitle">—</p>
+        </div>
+      </div>
+      <div class="analysis-actions"><button class="close-btn" type="button" aria-label="Close" onclick="Scanner.closeHistoryOutput()">×</button></div>
+    </div>
+    <div id="scanHistoryOutputBody"></div>
+  </div>
+</div>
+
 <div id="scannerPane" style="display:none;">
 
 
@@ -1582,6 +1794,10 @@
       <span class="live-chip"><span class="live-dot"></span>LIVE · USDT-M</span>
       <div class="tb-stat"><span class="v" id="scnTbUniverse">—</span><span class="k">universe</span></div>
       <div class="tb-stat"><span class="v" id="scnTbLastScan">—</span><span class="k">last scan</span></div>
+      <button type="button" class="sh-icon-btn" id="scnHistoryBtn" aria-label="Scan history" title="Scan history" onclick="Scanner.openHistory()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+        <span class="sh-badge-count" id="scnHistoryCount" style="display:none;">0</span>
+      </button>
     </div>
   </div>
 
@@ -4871,6 +5087,10 @@ let allResults = [];
 let sortKey = 'change24h';
 let sortDir = -1;
 let currentInterval = '1d';
+// Which named screen (if any) the current `conditions` array came from, so a
+// completed run can be attributed to it in Scan history. null = ad-hoc/custom
+// conditions. Reset to null by any manual edit (add/remove/clear condition).
+let activeRunContext = null; // {type:'preset'|'saved', id, name, icon, color}
 
 function populateMetricSelect(){
   const sel = document.getElementById('scnMetricSelect');
@@ -4897,12 +5117,14 @@ function addConditionFromForm(){
   const value = metric.noValue ? null : parseFloat(document.getElementById('scnValueInput').value);
   if(!metric.noValue && !Number.isFinite(value)){ return; }
   conditions.push({ metric: metricKey, operator, value });
+  activeRunContext = null; // hand-edited -> no longer tied to a named screen
   renderChips();
 }
-function removeCondition(i){ conditions.splice(i,1); renderChips(); }
+function removeCondition(i){ conditions.splice(i,1); activeRunContext = null; renderChips(); }
 function clearConditions(){
   if(!conditions.length) return;
   conditions = [];
+  activeRunContext = null;
   renderChips();
 }
 function renderChips(){
@@ -5295,6 +5517,7 @@ function applyPreset(id){
   if(!preset) return;
   conditions = preset.conds.map(c=>({...c}));
   matchMode = preset.mode;
+  activeRunContext = { type:'preset', id:preset.id, name:preset.title, icon:preset.icon, color:preset.color };
   setMatchMode(preset.mode);
   renderChips();
   recordRecentPreset(id);
@@ -5433,6 +5656,7 @@ function confirmSaveScreen(){
   if(!persistSavedScreens(list)){ showToast('Couldn’t save — device storage unavailable'); return; }
   closeSaveScreen();
   savedGroupOpen = true;
+  activeRunContext = { type:'saved', id:record.id, name:record.name, icon:'★', color:SAVED_PALETTE[record.ci % SAVED_PALETTE.length].g };
   renderPresets();
   markSavedActive(record.id, true);
   showToast(idx>=0 ? `Updated “${name}”` : `Saved “${name}” to Quick screens`);
@@ -5482,6 +5706,8 @@ function applySaved(id){
   const s = loadSavedScreens().find(x => x.id === id);
   if(!s) return;
   conditions = s.conds.map(c => ({...c}));
+  const pal = SAVED_PALETTE[s.ci % SAVED_PALETTE.length];
+  activeRunContext = { type:'saved', id:s.id, name:s.name, icon:'★', color:pal.g };
   setMatchMode(s.mode);
   renderChips();
   renderPresets();
@@ -5512,6 +5738,367 @@ function undoDeleteSaved(){
     if(e.key === 'Enter'){ e.preventDefault(); confirmSaveScreen(); }
     else if(e.key === 'Escape'){ e.preventDefault(); closeSaveScreen(); }
   });
+}
+
+/* =========================================================================
+   Scan history — the last 10 Custom Screens runs, kept locally on this
+   device. Each entry records WHAT was run (a Quick screen / saved screen by
+   name, or a snapshot of ad-hoc conditions), WHEN, and a capped snapshot of
+   what matched at the time, so a past run's output can still be reviewed via
+   "View output" even after a fresh run contradicts it. Opened from the
+   history icon next to "last scan".
+   ========================================================================= */
+const SCAN_HISTORY_KEY = 'scn-scan-history-v1';
+const SCAN_HISTORY_MAX = 10;
+// Per-run cap on stored matched-coin snapshots — a very loose screen could
+// otherwise match hundreds of coins; the history list only ever needs enough
+// to review, not the full universe.
+const SCAN_HISTORY_RESULTS_CAP = 150;
+const SH_TF_LABEL = { '1h':'1H', '4h':'4H', '1d':'1D', '1w':'1W' };
+let shFilter = 'all';
+let lastClearedHistory = null; // for the Undo toast
+
+function loadScanHistory(){
+  let arr = [];
+  try{ arr = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY)) || []; }catch(e){ arr = []; }
+  if(!Array.isArray(arr)) return [];
+  return arr.filter(x => x && typeof x.id === 'string' && typeof x.ts === 'number' && Array.isArray(x.conds)).slice(0, SCAN_HISTORY_MAX);
+}
+function persistScanHistory(list){
+  try{ localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(list.slice(0, SCAN_HISTORY_MAX))); return true; }
+  catch(e){ return false; }
+}
+function updateHistoryBadge(){
+  const el = document.getElementById('scnHistoryCount');
+  if(!el) return;
+  const n = loadScanHistory().length;
+  el.textContent = n;
+  el.style.display = n ? 'flex' : 'none';
+}
+// A matched row carries 30+ computed fields (full ICT/SMC + TA metrics) — far
+// more than a history snapshot needs. Keep just enough to redraw a results-style
+// row in "View output": identity, the columns that table shows, and what it
+// matched on.
+function trimResultForHistory(r){
+  return {
+    symbol: r.symbol, price: r.price, change24h: r.change24h, rsi: r.rsi,
+    macdHist: r.macdHist, volRatio: r.volRatio, matched: r.matched || [],
+    priceAboveEma200: r.priceAboveEma200, spark: r.spark,
+  };
+}
+// Called once a scan finishes — records what was run, when, and (capped) what matched.
+function recordScanHistory({ universe, matches, results }){
+  const entry = {
+    id: 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    ts: Date.now(),
+    type: activeRunContext ? activeRunContext.type : 'custom',
+    name: activeRunContext ? activeRunContext.name : null,
+    icon: activeRunContext ? activeRunContext.icon : null,
+    color: activeRunContext ? activeRunContext.color : null,
+    presetId: (activeRunContext && activeRunContext.type === 'preset') ? activeRunContext.id : null,
+    savedId: (activeRunContext && activeRunContext.type === 'saved') ? activeRunContext.id : null,
+    mode: matchMode,
+    interval: currentInterval,
+    minVolume: parseFloat(document.getElementById('scnMinVolume').value) || 0,
+    conds: conditions.map(c => ({...c})),
+    universe, matches,
+    results: (results || []).slice(0, SCAN_HISTORY_RESULTS_CAP).map(trimResultForHistory),
+  };
+  const list = loadScanHistory();
+  list.unshift(entry);
+  persistScanHistory(list);
+  updateHistoryBadge();
+  if(document.getElementById('scanHistoryModal')?.classList.contains('open')) renderScanHistory();
+}
+
+function shTypeMeta(entry){
+  if(entry.type === 'preset') return { label:'Quick screen', icon: entry.icon || '◆', color: entry.color || 'linear-gradient(135deg,#35E0C0,#1fb99e)' };
+  if(entry.type === 'saved')  return { label:'Saved screen', icon: '★', color: entry.color || 'linear-gradient(135deg,#7C8CFF,#4f5bd5)' };
+  return { label:'Custom', icon:'⚙', color:'linear-gradient(135deg,#8B93A3,#565F70)' };
+}
+function shRelativeTime(ts){
+  const s = Math.round((Date.now() - ts) / 1000);
+  if(s < 5) return 'just now';
+  if(s < 60) return `${s}s ago`;
+  const m = Math.round(s / 60);
+  if(m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if(h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  if(d < 7) return `${d}d ago`;
+  return new Date(ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+}
+
+// Like condLabel(), but never throws — a history entry can outlive the exact
+// metric catalog it was recorded against (e.g. after an app update), and one
+// unrecognized condition shouldn't blank out the whole history list.
+function condLabelSafe(c){
+  try{
+    if(c.type === 'screen') return `▣ ${c.name}`;
+    const m = METRIC_BY_KEY[c.metric];
+    if(!m) return c.metric || 'condition';
+    const valTxt = m.noValue ? '' : ` ${c.value}${m.unit}`;
+    return `${m.label} ${c.operator}${valTxt}`;
+  }catch(e){ return 'condition'; }
+}
+function renderHistoryItem(e){
+  const meta = shTypeMeta(e);
+  const condLabels = (e.conds || []).map(condLabelSafe);
+  const shown = condLabels.slice(0, 4);
+  const rest = condLabels.slice(4);
+  let condsHtml = shown.map(c => `<span class="sh-cond-chip">${escSaved(c)}</span>`).join('');
+  if(rest.length){
+    condsHtml += `<span class="sh-cond-chip sh-cond-chip-more" data-more-label="+${rest.length} more" onclick="Scanner.toggleHistoryConds(this)">+${rest.length} more</span>`;
+    condsHtml += rest.map(c => `<span class="sh-cond-chip" style="display:none;">${escSaved(c)}</span>`).join('');
+  }
+  if(!condLabels.length) condsHtml = '<span class="sh-dim">No conditions recorded</span>';
+  return `
+    <div class="sh-item">
+      <div class="sh-rail"><span class="sh-dot" style="background:${meta.color}"></span></div>
+      <div class="sh-card">
+        <div class="sh-card-top">
+          <div class="sh-name-wrap">
+            <span class="sh-type-icon" style="background:${meta.color}">${meta.icon}</span>
+            <span class="sh-name">${e.name ? escSaved(e.name) : 'Custom conditions'}</span>
+          </div>
+          <span class="sh-time" title="${escSaved(new Date(e.ts).toLocaleString())}">${shRelativeTime(e.ts)}</span>
+        </div>
+        <div class="sh-badges">
+          <span class="sh-badge sh-badge-tf">${SH_TF_LABEL[e.interval] || e.interval}</span>
+          <span class="sh-badge">${e.mode === 'any' ? 'match ANY' : 'match ALL'}</span>
+          <span class="sh-badge sh-badge-type">${meta.label}</span>
+        </div>
+        <div class="sh-conds">${condsHtml}</div>
+        <div class="sh-stats-row">
+          <span><b>${e.matches}</b> match${e.matches === 1 ? '' : 'es'}</span>
+          <span class="sh-dim">of ${e.universe} scanned</span>
+          <div class="sh-stats-actions">
+            ${e.matches > 0 ? `<button type="button" class="sh-view-btn" onclick="Scanner.openHistoryOutput('${e.id}')">👁 View output</button>` : ''}
+            <button type="button" class="sh-rerun-btn" onclick="Scanner.rerunHistory('${e.id}')">↻ Re-run</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+function toggleHistoryConds(btn){
+  let next = btn.nextElementSibling;
+  const opening = btn.textContent !== 'show less';
+  while(next && next.classList && next.classList.contains('sh-cond-chip') && next !== btn){
+    if(next.dataset.moreLabel === undefined) next.style.display = opening ? '' : 'none';
+    next = next.nextElementSibling;
+  }
+  btn.textContent = opening ? 'show less' : btn.dataset.moreLabel;
+}
+function renderScanHistory(){
+  const listAll = loadScanHistory();
+  const list = shFilter === 'all' ? listAll : listAll.filter(e => e.type === shFilter);
+  const body = document.getElementById('scanHistoryBody');
+  const sub = document.getElementById('scanHistorySubtitle');
+  if(sub) sub.textContent = listAll.length
+    ? `${listAll.length} of the last ${SCAN_HISTORY_MAX} runs · kept on this device`
+    : `Kept on this device — up to ${SCAN_HISTORY_MAX} runs`;
+  const clearBtn = document.getElementById('shClearBtn');
+  if(clearBtn) clearBtn.style.display = listAll.length ? '' : 'none';
+  if(!listAll.length){
+    body.innerHTML = `<div class="sh-empty"><div class="sh-empty-icon">🕘</div><div class="sh-empty-title">No scans yet</div><div class="sh-empty-sub">Run a Quick screen or build your own conditions above — each run shows up here, with the last ${SCAN_HISTORY_MAX} kept on this device.</div></div>`;
+    return;
+  }
+  if(!list.length){
+    body.innerHTML = `<div class="sh-empty"><div class="sh-empty-icon">🔍</div><div class="sh-empty-title">Nothing for this filter</div><div class="sh-empty-sub">Try a different filter above.</div></div>`;
+    return;
+  }
+  body.innerHTML = list.map(renderHistoryItem).join('');
+}
+/* =========================================================================
+   Back-button stacking for the two Scan-history overlays. scanHistoryModal
+   sits directly over the Custom Screens page; scanHistoryOutputModal (opened
+   from a history item's "View output") sits over scanHistoryModal in turn.
+   A real Back — hardware button, swipe-back gesture, or an installed PWA's
+   own Back — should close just the topmost of the two per press and reveal
+   whatever's underneath; a manual close (× / tap outside) should end up in
+   the same place rather than leaving a stray forward-history entry, so both
+   paths route through the same push/pop helpers. shSuppressPop distinguishes
+   a popstate WE triggered (via history.back() from a manual close) from a
+   real one, so the manual-close path doesn't also run the "something's still
+   open, close it" logic a second time for the same press.
+   ========================================================================= */
+let shSuppressPop = false;
+function shPushLevel(flag){
+  if(!history.state || !history.state[flag]) history.pushState({ [flag]: true }, '', location.href);
+}
+function shPopLevel(){
+  shSuppressPop = true;
+  history.back();
+}
+window.addEventListener('popstate', () => {
+  if(shSuppressPop){ shSuppressPop = false; return; }
+  // A coin opened from the output view's Technical Breakdown overlay can sit on
+  // top of both of these; it pushes/pops its own 'analysis' history entry (see
+  // TechAnalysis's own popstate listener, registered after this one), so when
+  // it's the topmost thing open, defer to that listener and do nothing here —
+  // otherwise a single Back press would incorrectly close two overlays at once.
+  const analysisOverlay = document.getElementById('analysisOverlay');
+  if(analysisOverlay && analysisOverlay.classList.contains('open')) return;
+  const outputModal = document.getElementById('scanHistoryOutputModal');
+  const historyModal = document.getElementById('scanHistoryModal');
+  if(outputModal && outputModal.classList.contains('open')){ closeHistoryOutputDom(); return; }
+  if(historyModal && historyModal.classList.contains('open')){ closeHistoryDom(); return; }
+});
+
+function openHistory(){
+  shFilter = 'all';
+  document.querySelectorAll('.sh-filter').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
+  document.getElementById('scanHistoryModal').classList.add('open'); // open first — render failures must never hide the modal itself
+  try{ renderScanHistory(); }
+  catch(e){ document.getElementById('scanHistoryBody').innerHTML = '<div class="sh-empty"><div class="sh-empty-icon">⚠</div><div class="sh-empty-title">Couldn’t load history</div></div>'; }
+  shPushLevel('scanHistory');
+}
+function closeHistoryDom(){
+  const modal = document.getElementById('scanHistoryModal');
+  if(modal) modal.classList.remove('open');
+}
+function closeHistory(event){
+  if(event && event.target !== document.getElementById('scanHistoryModal')) return;
+  closeHistoryDom();
+  shPopLevel();
+}
+
+// Read-only snapshot of one past run's matched coins (see recordScanHistory /
+// trimResultForHistory) — reuses the live results table's visual language,
+// including the symbol button that opens the Technical Breakdown overlay.
+// That overlay can therefore end up stacked on top of this one, which is why
+// the popstate handler above checks for it first (see the analysisOverlay
+// guard) before touching either scan-history level — never re-fires the scan.
+let shOutputEntryId = null;
+function renderHistoryOutputRow(r){
+  const base = r.symbol.replace(/USDT$/,'');
+  const up = r.change24h >= 0;
+  const color = colorForSymbol(r.symbol);
+  const trendBadge = r.priceAboveEma200===null || r.priceAboveEma200===undefined ? `<span class="badge badge-neutral">—</span>`
+    : r.priceAboveEma200 ? `<span class="badge badge-bull">▲ above EMA200</span>` : `<span class="badge badge-bear">▼ below EMA200</span>`;
+  const tvUrl = `https://www.tradingview.com/chart/?symbol=BINANCE:${r.symbol}.P`;
+  const already = isInWatchlist(r.symbol);
+  return `<tr>
+    <td><button type="button" class="sym-cell sym-cell-btn" onclick="TechAnalysis.openSymbol('${r.symbol}')" title="Technical breakdown for ${base}">
+      <div class="sym-badge" style="background:linear-gradient(135deg,${color},#151821);">${base.slice(0,4)}</div>
+      <div><div class="sym-name">${base}</div><div class="sym-sub">USDT-M PERP</div></div>
+    </button></td>
+    <td class="mono">${fmtPrice(r.price)}</td>
+    <td class="mono ${up?'chg-pos':'chg-neg'}">${up?'+':''}${fmtNum(r.change24h,2)}%</td>
+    <td>${trendBadge}</td>
+    <td>${sparkSVG(r.spark, up)}</td>
+    <td class="mono">${fmtNum(r.rsi,1)}</td>
+    <td class="mono ${r.macdHist>0?'chg-pos':(r.macdHist<0?'chg-neg':'')}">${fmtNum(r.macdHist,4)}</td>
+    <td class="mono">${r.volRatio!==null&&r.volRatio!==undefined?fmtNum(r.volRatio,2)+'×':'—'}</td>
+    <td><div class="matched-chips">${(r.matched||[]).map(m=>`<span class="matched-chip">${m}</span>`).join('') || '<span class="matched-chip">any</span>'}</div></td>
+    <td><div class="row-actions">
+      <a class="icon-btn" href="${tvUrl}" target="_blank" rel="noopener noreferrer" title="Open chart">↗</a>
+      <button class="icon-btn${already?' added':''}" ${already?'disabled':''} onclick="Scanner.addToWatchlist('${r.symbol}', this)" title="Add to watchlist">${already?'✓':'+'}</button>
+    </div></td>
+  </tr>`;
+}
+function renderHistoryOutputTable(rows, truncNote){
+  const body = document.getElementById('scanHistoryOutputBody');
+  if(!rows.length){
+    body.innerHTML = `<div class="empty-state">
+      <div class="es-icon">◎</div>
+      <div class="es-title">No matches</div>
+      <div class="es-sub">Nothing in the scanned universe satisfied these conditions on this run.</div>
+    </div>`;
+    return;
+  }
+  body.innerHTML = `
+    ${truncNote ? `<div class="sh-output-trunc">${truncNote}</div>` : ''}
+    <div class="table-scroll">
+    <table>
+      <thead><tr>
+        <th>Symbol</th><th>Price</th><th>24h %</th><th>Trend</th><th>Chart</th><th>RSI</th><th>MACD</th><th>Vol ×</th><th>Matched</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${rows.map(renderHistoryOutputRow).join('')}</tbody>
+    </table>
+    </div>`;
+}
+function openHistoryOutput(id){
+  const entry = loadScanHistory().find(x => x.id === id);
+  if(!entry) return;
+  shOutputEntryId = id;
+  const meta = shTypeMeta(entry);
+  document.getElementById('scanHistoryOutputTitle').textContent = entry.name ? entry.name : 'Custom conditions';
+  document.getElementById('scanHistoryOutputSubtitle').textContent =
+    `${entry.matches} match${entry.matches===1?'':'es'} of ${entry.universe} scanned · ${SH_TF_LABEL[entry.interval]||entry.interval} · ${meta.label} · ${shRelativeTime(entry.ts)}`;
+  document.getElementById('scanHistoryOutputModal').classList.add('open'); // open first — render failures must never hide the modal itself
+  if(entry.results === undefined){
+    // A run recorded before this snapshot feature existed — nothing to show.
+    document.getElementById('scanHistoryOutputBody').innerHTML = '<div class="sh-empty"><div class="sh-empty-icon">🕘</div><div class="sh-empty-title">Output wasn’t kept for this run</div><div class="sh-empty-sub">This run happened before output snapshots were added — re-run it to capture fresh results.</div></div>';
+  }else{
+    const truncNote = entry.results.length < entry.matches ? `Showing the first ${entry.results.length} of ${entry.matches} matches.` : null;
+    try{ renderHistoryOutputTable(entry.results, truncNote); }
+    catch(e){ document.getElementById('scanHistoryOutputBody').innerHTML = '<div class="sh-empty"><div class="sh-empty-icon">⚠</div><div class="sh-empty-title">Couldn’t load this run’s output</div></div>'; }
+  }
+  shPushLevel('scanHistoryOutput');
+}
+function closeHistoryOutputDom(){
+  const modal = document.getElementById('scanHistoryOutputModal');
+  if(modal) modal.classList.remove('open');
+  shOutputEntryId = null;
+}
+function closeHistoryOutput(event){
+  if(event && event.target !== document.getElementById('scanHistoryOutputModal')) return;
+  closeHistoryOutputDom();
+  shPopLevel();
+}
+function setHistoryFilter(filter){
+  shFilter = filter;
+  document.querySelectorAll('.sh-filter').forEach(b => b.classList.toggle('active', b.dataset.filter === filter));
+  renderScanHistory();
+}
+function clearHistory(){
+  const list = loadScanHistory();
+  if(!list.length) return;
+  lastClearedHistory = list;
+  persistScanHistory([]);
+  updateHistoryBadge();
+  renderScanHistory();
+  showToast('Scan history cleared', 'Undo', undoClearHistory);
+}
+function undoClearHistory(){
+  if(!lastClearedHistory) return;
+  persistScanHistory(lastClearedHistory);
+  lastClearedHistory = null;
+  updateHistoryBadge();
+  renderScanHistory();
+}
+// Reloads a past run's screen/conditions + timeframe into the builder so the
+// user can review or tap "Run scan" again — never re-fires the scan itself.
+function rerunHistory(id){
+  const entry = loadScanHistory().find(x => x.id === id);
+  if(!entry) return;
+  const tfBtn = document.querySelector(`#scnTfToggle button[data-tf="${entry.interval}"]`);
+  if(tfBtn) tfBtn.click();
+  if(Number.isFinite(entry.minVolume) && entry.minVolume > 0){
+    document.getElementById('scnMinVolume').value = entry.minVolume;
+  }
+  let applied = false;
+  if(entry.type === 'preset' && entry.presetId && PRESETS.some(p => p.id === entry.presetId)){
+    applyPreset(entry.presetId);
+    applied = true;
+  }else if(entry.type === 'saved' && entry.savedId && loadSavedScreens().some(s => s.id === entry.savedId)){
+    applySaved(entry.savedId);
+    applied = true;
+  }
+  if(!applied){
+    conditions = (entry.conds || []).map(c => ({...c}));
+    activeRunContext = null;
+    setMatchMode(entry.mode === 'any' ? 'any' : 'all');
+    renderChips();
+    renderPresets();
+  }
+  closeHistory();
+  const bar = document.querySelector('.scan-bar');
+  if(bar) bar.scrollIntoView({ behavior:'smooth', block:'center' });
+  const runBtn = document.getElementById('scnRunBtn');
+  if(runBtn){ runBtn.classList.add('sh-pulse'); setTimeout(() => runBtn.classList.remove('sh-pulse'), 1500); }
+  showToast(entry.name ? `Loaded “${entry.name}” — tap Run scan` : 'Loaded conditions — tap Run scan');
 }
 
 /* =========================================================================
@@ -5814,6 +6401,7 @@ async function runScan(){
     allResults = scanned.filter(r => r.passed);
 
     document.getElementById('scnTbLastScan').textContent = new Date().toLocaleTimeString();
+    recordScanHistory({ universe: symbols.length, matches: allResults.length, results: allResults });
     setStatus(`Done — ${allResults.length} matches out of ${symbols.length} scanned (${failedCount} skipped, below-volume excluded).`);
     sortAndRender();
   }catch(e){
@@ -5975,9 +6563,10 @@ function exportCSV(){
 populateMetricSelect();
 renderPresets();
 applyPreset('breakout');
+updateHistoryBadge();
 
 
-window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, clearConditions, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker, openCategoryInfo, closeCategoryInfo };
+window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, clearConditions, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker, openCategoryInfo, closeCategoryInfo, openHistory, closeHistory, openHistoryOutput, closeHistoryOutput, setHistoryFilter, clearHistory, rerunHistory, toggleHistoryConds };
 })();
 
 </script>
