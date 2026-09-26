@@ -6035,7 +6035,8 @@ function openHistoryOutput(id){
     document.getElementById('scanHistoryOutputBody').innerHTML = '<div class="sh-empty"><div class="sh-empty-icon">🕘</div><div class="sh-empty-title">Output wasn’t kept for this run</div><div class="sh-empty-sub">This run happened before output snapshots were added — re-run it to capture fresh results.</div></div>';
   }else{
     const truncNote = entry.results.length < entry.matches ? `Showing the first ${entry.results.length} of ${entry.matches} matches.` : null;
-    try{ renderHistoryOutputTable(entry.results, truncNote); }
+    const sortedResults = [...entry.results].sort((a,b) => ((b.change24h ?? -Infinity) - (a.change24h ?? -Infinity)));
+    try{ renderHistoryOutputTable(sortedResults, truncNote); }
     catch(e){ document.getElementById('scanHistoryOutputBody').innerHTML = '<div class="sh-empty"><div class="sh-empty-icon">⚠</div><div class="sh-empty-title">Couldn’t load this run’s output</div></div>'; }
   }
   shPushLevel('scanHistoryOutput');
