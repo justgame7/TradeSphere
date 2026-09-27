@@ -527,14 +527,23 @@
   }
   .top50-close:active{border-color:var(--red);color:var(--red);}
   .top50-search-wrap{position:relative;margin-bottom:10px;}
-  .top50-search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--faint);pointer-events:none;}
+  .top50-search-wrap>svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--faint);pointer-events:none;}
   .top50-search{
-    width:100%;padding:10px 12px 10px 34px;border-radius:12px;
+    width:100%;padding:10px 34px 10px 34px;border-radius:12px;
     background:var(--panel);border:1px solid var(--border-soft);color:var(--text);
     font:600 13px var(--font-ui);outline:none;transition:border-color .15s ease;
+    text-transform:uppercase;
   }
-  .top50-search::placeholder{color:var(--faint);}
+  .top50-search::placeholder{color:var(--faint);text-transform:none;}
   .top50-search:focus{border-color:var(--accent);}
+  .top50-search-clear{
+    position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    width:20px;height:20px;border-radius:50%;display:none;align-items:center;justify-content:center;
+    border:none;background:var(--border-soft);color:var(--muted);cursor:pointer;padding:0;
+    transition:background .15s ease,color .15s ease;
+  }
+  .top50-search-clear svg{position:static;width:11px;height:11px;pointer-events:none;color:inherit;}
+  .top50-search-clear:active{background:var(--red);color:#fff;}
   .top50-sort-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;}
   .top50-sort-row::-webkit-scrollbar{display:none;}
   .top50-sort-btn{
@@ -1511,6 +1520,9 @@
       <div class="top50-search-wrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input class="top50-search" id="top50Search" type="text" placeholder="Search coin or symbol" autocomplete="off" spellcheck="false">
+        <button class="top50-search-clear" id="top50SearchClear" type="button" aria-label="Clear search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+        </button>
       </div>
       <div class="top50-sort-row" id="top50SortRow">
         <button class="top50-sort-btn active" data-sort="market_cap" type="button">Market Cap</button>
@@ -1632,7 +1644,7 @@ const TICKER_COINS = [
   { symbol:'ETH',  binanceSymbol:'ETHUSDT'  },
 ];
 const TICKER_CACHE_KEY = 'ts_home_ticker_cache_v1';
-const TICKER_REFRESH_MS = 20000;
+const TICKER_REFRESH_MS = 60000;
 // The /fapi/v1/ticker/24hr response already contains every Binance USDT-M
 // perpetual symbol, not just the 3 shown in the ticker row - captured here
 // so the All Coins modal can use "is this actually listed on Binance" as
@@ -2384,14 +2396,35 @@ top50Btn.addEventListener('click', openTop50Modal);
 top50CloseBtn.addEventListener('click', closeTop50Modal);
 top50Backdrop.addEventListener('click', closeTop50Modal);
 
+const top50SearchClearBtn = document.getElementById('top50SearchClear');
+function updateTop50SearchClearVisibility(){
+  top50SearchClearBtn.style.display = top50SearchInput.value ? 'flex' : 'none';
+}
 let top50SearchDebounce = null;
 top50SearchInput.addEventListener('input', () => {
+  // Force uppercase as-typed (search itself is already case-insensitive -
+  // this is purely so what's on screen always reads as uppercase). Cursor
+  // always lands at the end after reassigning .value, which is fine here
+  // since these are short symbol/name queries typed left-to-right, not
+  // edited mid-string.
+  const upper = top50SearchInput.value.toUpperCase();
+  if(upper !== top50SearchInput.value) top50SearchInput.value = upper;
+  updateTop50SearchClearVisibility();
   clearTimeout(top50SearchDebounce);
   top50SearchDebounce = setTimeout(() => {
     top50SearchQuery = top50SearchInput.value.trim();
     renderTop50List();
   }, 120);
 });
+top50SearchClearBtn.addEventListener('click', () => {
+  clearTimeout(top50SearchDebounce);
+  top50SearchInput.value = '';
+  top50SearchQuery = '';
+  updateTop50SearchClearVisibility();
+  top50SearchInput.focus();
+  renderTop50List();
+});
+updateTop50SearchClearVisibility();
 top50SortRow.querySelectorAll('.top50-sort-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     top50SortRow.querySelectorAll('.top50-sort-btn').forEach(b => b.classList.remove('active'));
