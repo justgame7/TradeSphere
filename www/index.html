@@ -4767,8 +4767,7 @@ const GROUPS = [
   { key:'structure', name:'Market Structure', icon:'🏗️', color:'#5B8CFF', members:[
     ['bias','Structure Trend'],['swingHigh','Last Swing High'],['swingLow','Last Swing Low'],
     ['support','Nearest Support'],['resistance','Nearest Resistance'],
-    ['pivP','Pivot (P)'],['pivR1','Pivot R1'],['pivR2','Pivot R2'],['pivS1','Pivot S1'],['pivS2','Pivot S2'],
-    ['fib382','Fib 0.382'],['fib5','Fib 0.5'],['fib618','Fib 0.618']
+    ['fib5','Fib 0.5'],['fib618','Fib 0.618']
   ]},
   { key:'trend', name:'Trend', icon:'📈', color:'var(--accent)', members:[
     ['ema20','EMA 20'],['ema50','EMA 50'],['ema100','EMA 100'],['ema200','EMA 200'],
@@ -5012,15 +5011,10 @@ function computeValues(candles, tf, ticker, derivs, btcCandles, ethCandles){
   const res = Number.isFinite(nl.resistance) ? nl.resistance : dc.high; // ditto above
   set('support', px(sup), 'pos', dist(sup, price));
   set('resistance', px(res), 'neg', dist(res, price));
-  const pv = pivots(candles);
-  set('pivP', px(pv.P), side(pv.P));
-  set('pivR1', px(pv.R1)); set('pivR2', px(pv.R2));
-  set('pivS1', px(pv.S1)); set('pivS2', px(pv.S2));
   // Fib retracement anchors off the same extended swing high/low as the
   // display above, not the raw (possibly stale) confirmed pivot.
   const swEff = { sh: effSh ? [...sw.sh.slice(0,-1), effSh] : sw.sh, sl: effSl ? [...sw.sl.slice(0,-1), effSl] : sw.sl };
   const fib = fibLevels(swEff);
-  set('fib382', fib ? px(fib.f382) : '—', fib?side(fib.f382):'');
   set('fib5',   fib ? px(fib.f5)   : '—', fib?side(fib.f5):'');
   set('fib618', fib ? px(fib.f618) : '—', fib?side(fib.f618):'');
 
@@ -5030,8 +5024,7 @@ function computeValues(candles, tf, ticker, derivs, btcCandles, ethCandles){
     swingHigh: effSh,
     swingLow: effSl,
     support: sup, resistance: res,
-    pivP: pv.P, pivR1: pv.R1, pivR2: pv.R2, pivS1: pv.S1, pivS2: pv.S2,
-    fib382: fib ? fib.f382 : NaN, fib5: fib ? fib.f5 : NaN, fib618: fib ? fib.f618 : NaN
+    fib5: fib ? fib.f5 : NaN, fib618: fib ? fib.f618 : NaN
   };
 
   /* ---- Derivatives ---- */
@@ -5205,7 +5198,7 @@ let ichimokuOverlayEnabled = false; // "Chart" checkbox in the Ichimoku header �
 // Trend ('Bullish'/'Bearish'/'Range') is a text label, not a price level,
 // so that one stays disabled/greyed like the non-chartable Trend/Volatility
 // members above.
-const STRUCTURE_CHARTABLE = new Set(['swingHigh','swingLow','support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382','fib5','fib618']);
+const STRUCTURE_CHARTABLE = new Set(['swingHigh','swingLow','support','resistance','fib5','fib618']);
 // Swing High/Low and the two most-watched fib retracement levels (0.5,
 // 0.618) are the only Market Structure levels traders reliably want
 // auto-added, so the header "Chart" checkbox sweeps in just those four.
@@ -5213,7 +5206,7 @@ const STRUCTURE_CHARTABLE = new Set(['swingHigh','swingLow','support','resistanc
 // and are left for manual, deliberate checking — they stay individually
 // chartable, just only ever get checked by hand, never swept in by "select
 // all".
-const STRUCTURE_MASTER_EXCLUDE = new Set(['support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382']);
+const STRUCTURE_MASTER_EXCLUDE = new Set(['support','resistance']);
 let structureMemberOverlay = new Set(); // individually-checked Market Structure member keys shown on the Chart
 let structureOverlayEnabled = true; // "Chart" checkbox in the Market Structure header — shows only Swing High/Low + Fib 0.5/0.618, see STRUCTURE_MASTER_EXCLUDE; checked by default
 // Volume members that resolve to an actual price level: VWAP and the Volume
@@ -5911,7 +5904,7 @@ function drawTaChart(){
     const msLevels = [];
     if(structureShown('swingHigh') && latestStructure.swingHigh) msLevels.push(latestStructure.swingHigh.price);
     if(structureShown('swingLow') && latestStructure.swingLow) msLevels.push(latestStructure.swingLow.price);
-    ['support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382','fib5','fib618'].forEach(k=>{
+    ['support','resistance','fib5','fib618'].forEach(k=>{
       if(structureShown(k)) msLevels.push(latestStructure[k]);
     });
     msLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
@@ -6173,13 +6166,11 @@ function drawIchimokuCloud(ctx, bars, startIdx, x, y, ich){
 // full visible window from the left edge instead.
 const MARKET_STRUCTURE_LINE_COLOR = {
   swingHigh:'#ff5470', swingLow:'#35e0c0', support:'#35e0c0', resistance:'#ff5470',
-  pivP:'#f0c24b', pivR1:'#ff5470', pivR2:'#ff5470', pivS1:'#35e0c0', pivS2:'#35e0c0',
-  fib382:'#a78bfa', fib5:'#a78bfa', fib618:'#a78bfa'
+  fib5:'#a78bfa', fib618:'#a78bfa'
 };
 const MARKET_STRUCTURE_LABEL = {
   swingHigh:'SH', swingLow:'SL', support:'S', resistance:'R',
-  pivP:'P', pivR1:'R1', pivR2:'R2', pivS1:'S1', pivS2:'S2',
-  fib382:'0.382', fib5:'0.5', fib618:'0.618'
+  fib5:'0.5', fib618:'0.618'
 };
 function drawMarketStructureOverlay(ctx, bars, startIdx, x, y, width, height, pad){
   if(!latestStructure || !(structureOverlayEnabled || structureMemberOverlay.size)) return;
@@ -6202,7 +6193,7 @@ function drawMarketStructureOverlay(ctx, bars, startIdx, x, y, width, height, pa
   };
   if(structureShown('swingHigh') && ms.swingHigh) line(ms.swingHigh.price, MARKET_STRUCTURE_LINE_COLOR.swingHigh, MARKET_STRUCTURE_LABEL.swingHigh, ms.swingHigh.idx);
   if(structureShown('swingLow') && ms.swingLow) line(ms.swingLow.price, MARKET_STRUCTURE_LINE_COLOR.swingLow, MARKET_STRUCTURE_LABEL.swingLow, ms.swingLow.idx, true);
-  ['support','resistance','pivP','pivR1','pivR2','pivS1','pivS2','fib382','fib5','fib618'].forEach(k=>{
+  ['support','resistance','fib5','fib618'].forEach(k=>{
     if(structureShown(k)) line(ms[k], MARKET_STRUCTURE_LINE_COLOR[k], MARKET_STRUCTURE_LABEL[k]);
   });
 }
