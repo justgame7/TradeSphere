@@ -1325,6 +1325,27 @@
   }
   .analysis-bar-toggle button:hover{color:var(--text);}
   .analysis-bar-toggle button.active{background:var(--grp-color,var(--accent));color:#07130f;}
+  /* TradingView chart toggle in the Chart section header (swaps the canvas for a TradingView chart of the coin). */
+  .analysis-tv-btn{
+    display:flex;align-items:center;gap:4px;flex:none;
+    font:700 10.5px var(--font-mono);letter-spacing:.03em;color:var(--faint);
+    padding:4px 9px;border-radius:20px;border:1px solid var(--border);
+    background:var(--panel);cursor:pointer;user-select:none;
+    transition:border-color .15s,color .15s,background .15s;
+  }
+  .analysis-tv-btn svg{width:12px;height:12px;flex:none;}
+  .analysis-tv-btn:hover{border-color:var(--accent);color:var(--text);}
+  .analysis-tv-btn.active{background:rgba(53,224,192,.14);border-color:rgba(53,224,192,.5);color:var(--accent);}
+  .index-study-toggle{display:flex;gap:6px;flex-wrap:wrap;}
+  .index-study-toggle button{
+    flex:0 0 auto;padding:5px 11px;border-radius:20px;font:700 10.5px var(--font-mono);
+    letter-spacing:.03em;color:var(--muted);background:var(--panel);border:1px solid var(--border-soft);
+    cursor:pointer;transition:all .15s ease;
+  }
+  .index-study-toggle button.active{background:rgba(53,224,192,.14);border-color:rgba(53,224,192,.5);color:var(--accent);}
+  .index-chart-wrap{margin-top:10px;height:420px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+  .index-chart-frame{width:100%;height:100%;border:0;display:block;}
+  @media(max-width:700px){.index-chart-wrap{height:320px;}}
   .analysis-group-card.collapsed .analysis-group-chevron{transform:rotate(-90deg);}
   .analysis-group-card.collapsed .analysis-group-head{margin-bottom:0;padding-bottom:10px;}
   .analysis-group-card.collapsed{padding-bottom:4px;}
@@ -8130,6 +8151,31 @@ let ictOverlayEnabled = false; // "Chart" checkbox in the ICT section header —
 let ictMemberOverlay = new Set(['bos','choch']); // individually-checked ICT member keys — used whenever the header checkbox is off; Break of Structure + Change of Character checked by default
 const BAR_COUNTS = [30,45,90,180]; // Chart section's selectable window sizes
 let chartBarCount = 45; // currently selected window size
+// Chart section's TradingView mode (header "TV" button): swaps the canvas for a TradingView Advanced Chart of the
+// coin's own perp, with one-at-a-time study chips (same set and study ids as index.html's Market Indices breakdown).
+let tvChartMode = false;
+let tvChartStudy = new Set(['supertrend']);
+const TV_STUDY_BUTTONS = [['ichimoku','Ichimoku'],['supertrend','Supertrend'],['bb','Bollinger'],['ema','EMA'],['rsi','RSI'],['macd','MACD'],['cci','CCI(34)'],['swing','Swing']];
+const TV_STUDY_MAP = {
+  ichimoku: 'IchimokuCloud@tv-basicstudies',
+  supertrend: 'STD;Supertrend',
+  bb: 'BB@tv-basicstudies',
+  // One button -> three EMA lines (20 / 50 / 200), one study instance each, with per-instance colours.
+  ema: [[20, '#FFD54F'], [50, '#4FC3F7'], [200, '#E040FB']].map(([n, c]) => {
+    const ov = { 'Plot.color': c, 'Plot.linewidth': 2, 'plot.color': c, 'plot.linewidth': 2, 'plot_0.color': c };
+    return {
+      id: 'MAExp@tv-basicstudies',
+      inputs: { length: n },
+      override: ov,
+      overrides: ov,
+      styles: { plot_0: { color: c, linewidth: 2 }, Plot: { color: c, linewidth: 2 } }
+    };
+  }),
+  rsi: 'RSI@tv-basicstudies',
+  macd: 'MACD@tv-basicstudies',
+  cci: { id: 'CCI@tv-basicstudies', inputs: { length: 34 } },
+  swing: 'PivotPointsHighLow@tv-basicstudies'
+};
 // Trend indicators that can be drawn straight onto the price Chart (same $
 // scale, no separate panel needed). MACD, ADX/±DI and Aroon live on their
 // own 0–100 or unbounded scale and can't be meaningfully overlaid on a
@@ -8364,6 +8410,74 @@ function syncRatioChartFrames(){
   if(rseFrame) rseFrame.src = ratioChartSrc('ETHUSDT', currentTf);
 }
 
+// ---- Chart section: TradingView mode ----
+// TradingView's Advanced Chart widget loaded via srcdoc, pointed at the coin's own perp on the exchange the
+// breakdown's candles came from. NB: "<\/script>" must stay escaped inside this inline script.
+function tvCoinSymbol(){
+  return `${currentSource === 'Bybit' ? 'BYBIT' : 'BINANCE'}:${currentSymbol}.P`;
+}
+function tvChartDoc(){
+  const cfg = {
+    autosize: true,
+    symbol: tvCoinSymbol(),
+    interval: tradingViewInterval(currentTf),
+    timezone: 'Etc/UTC',
+    theme: 'dark',
+    style: '1',
+    locale: 'en',
+    backgroundColor: '#0b0e14',
+    hide_top_toolbar: true,
+    hide_side_toolbar: true,
+    hide_volume: true,
+    allow_symbol_change: false,
+    save_image: false,
+    withdateranges: false,
+    studies: Array.from(tvChartStudy).flatMap(k => TV_STUDY_MAP[k] || []),
+    support_host: 'https://www.tradingview.com'
+  };
+  const json = JSON.stringify(cfg).replace(/</g, '\\u003c');
+  return '<!doctype html><html><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<style>html,body{margin:0;height:100%;background:#0b0e14;overflow:hidden}' +
+    '.tradingview-widget-container,.tradingview-widget-container__widget{height:100%;width:100%}</style></head><body>' +
+    '<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div>' +
+    '<script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>' + json + '<\/script>' +
+    '</div></body></html>';
+}
+// Loads (or reloads) the TradingView iframe when what it shows no longer matches the current symbol / source /
+// timeframe / study. Only runs while the Chart card is expanded - a TradingView widget rendered inside a
+// display:none body lays out at zero size. Safe to call any time; a no-op when the frame is already current.
+function syncTvChartFrame(){
+  const frame = el('taTvFrame');
+  if(!frame || !tvChartMode || !currentSymbol || !latestValues) return; // wait for the load to settle (currentSource is only right then)
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(chartIdx<0 || collapsedGroups.has(chartIdx)) return;
+  const key = [tvCoinSymbol(), currentTf, Array.from(tvChartStudy).join(',')].join('|');
+  if(frame.dataset.key === key) return;
+  frame.dataset.key = key;
+  frame.srcdoc = tvChartDoc();
+}
+function clearTvChartFrame(){
+  const frame = el('taTvFrame');
+  if(!frame) return;
+  delete frame.dataset.key;
+  frame.srcdoc = '<!doctype html><body style="margin:0;background:#0b0e14">';
+}
+function setTvChartMode(on){
+  tvChartMode = !!on;
+  const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
+  if(tvChartMode && chartIdx>=0) collapsedGroups.delete(chartIdx); // show it straight away
+  renderGroups(latestValues);
+}
+function setTvStudy(key){
+  // One study at a time: tapping the active one turns it off (plain chart), another switches to it alone.
+  const wasActive = tvChartStudy.has(key);
+  tvChartStudy.clear();
+  if(!wasActive) tvChartStudy.add(key);
+  document.querySelectorAll('#taGroupsGrid .taTvStudy').forEach(b=>b.classList.toggle('active', tvChartStudy.has(b.dataset.study)));
+  syncTvChartFrame();
+}
+
 // Renders one BTC/ETH subsection inside the merged "Relative Strength" card:
 // its own small heading (label only, no toggle) followed by its metric rows,
 // the ratio-chart iframe (always shown), and the computed summary. Kept
@@ -8410,7 +8524,10 @@ function renderGroups(values){
   grid.innerHTML = GROUPS.map((g,idx)=>{
     const collapsed = collapsedGroups.has(idx);
     const body = g.isChart
-      ? `<div class="analysis-chart-wrap"><canvas id="taChartCanvas"></canvas><div class="analysis-chart-empty" id="taChartEmpty">No chart data yet</div></div>`
+      ? (tvChartMode
+        ? `<div class="index-chart-wrap" style="margin-top:0;"><iframe id="taTvFrame" class="index-chart-frame" title="TradingView chart"></iframe></div>
+           <div class="index-study-toggle" style="margin-top:10px;">${TV_STUDY_BUTTONS.map(([k,l])=>`<button type="button" class="taTvStudy${tvChartStudy.has(k)?' active':''}" data-study="${k}"${k==='swing'?' title="Mark swing highs / lows"':''}>${l}</button>`).join('')}</div>`
+        : `<div class="analysis-chart-wrap"><canvas id="taChartCanvas"></canvas><div class="analysis-chart-empty" id="taChartEmpty">No chart data yet</div></div>`)
       : g.subs
         ? g.subs.map(sub => renderRelStrengthSub(sub, values)).join('')
         : g.members.map(([key,label])=>{
@@ -8479,7 +8596,8 @@ function renderGroups(values){
           <input type="checkbox" class="taVolumeChartToggle" ${volumeOverlayEnabled ? 'checked' : ''}>
         </label>` : ''}
         ${g.isChart
-          ? `<div class="analysis-bar-toggle">${BAR_COUNTS.map(n=>`<button type="button" class="taBarCountBtn${n===chartBarCount?' active':''}" data-bars="${n}">${n}</button>`).join('')}</div>`
+          ? `<button type="button" class="analysis-tv-btn taTvBtn${tvChartMode ? ' active' : ''}" aria-pressed="${tvChartMode}" title="${tvChartMode ? 'Back to the built-in chart' : 'Open TradingView chart'}" aria-label="TradingView chart"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5v2.5M4 9.5v4M8 4.5v2M8 10v2.5M12 2v2M12 8.5v3"></path><rect x="2.6" y="5" width="2.8" height="4.5" rx=".6"></rect><rect x="6.6" y="6.5" width="2.8" height="3.5" rx=".6"></rect><rect x="10.6" y="4" width="2.8" height="4.5" rx=".6"></rect></svg>TV</button>`
+          + (tvChartMode ? '' : `<div class="analysis-bar-toggle">${BAR_COUNTS.map(n=>`<button type="button" class="taBarCountBtn${n===chartBarCount?' active':''}" data-bars="${n}">${n}</button>`).join('')}</div>`)
           : `<div class="analysis-group-count">${g.subs ? g.subs.reduce((a,s)=>a+s.members.length,0) : g.members.length}</div>`}
         <button type="button" class="analysis-group-chevron" aria-label="Toggle ${esc(g.name)} section" aria-expanded="${collapsed ? 'false' : 'true'}">⌄</button>
       </div>
@@ -8496,6 +8614,8 @@ function renderGroups(values){
   // iframe that was there, so point a fresh one at TradingView if its
   // checkbox is currently on.
   syncRatioChartFrames();
+  // ...and the TradingView chart frame in the Chart section's TV mode.
+  syncTvChartFrame();
 }
 
 function toggleGroup(idx){
@@ -8510,6 +8630,7 @@ function toggleGroup(idx){
   }
   updateToggleAllBtn();
   drawTaChart(); // no-op unless this was the chart section opening
+  syncTvChartFrame(); // same, for TV mode
 }
 function grid_card(idx){ return document.querySelector(`.analysis-group-card[data-idx="${idx}"]`); }
 
@@ -8695,6 +8816,7 @@ function toggleAllGroups(){
   });
   updateToggleAllBtn();
   drawTaChart();
+  syncTvChartFrame();
 }
 
 // Draws the last `chartBarCount` candles (45/90/180, picked in the section
@@ -9321,6 +9443,7 @@ function openFor(symbol, tfWanted){
 }
 function close(){
   loadToken++;
+  clearTvChartFrame(); // stop the TradingView widget while the overlay is closed
   el('analysisOverlay').classList.remove('open');
   document.body.classList.remove('ta-open');
   document.body.style.overflow = '';
@@ -9415,6 +9538,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   el('taGroupsGrid').addEventListener('click', e=>{
     const barBtn = e.target.closest('.taBarCountBtn');
     if(barBtn){ setChartBarCount(parseInt(barBtn.dataset.bars, 10)); return; }
+    if(e.target.closest('.taTvBtn')){ setTvChartMode(!tvChartMode); return; }
+    const tvStudyBtn = e.target.closest('.taTvStudy');
+    if(tvStudyBtn){ setTvStudy(tvStudyBtn.dataset.study); return; }
     const head = e.target.closest('.analysis-group-head');
     if(!head) return;
     const card = head.closest('.analysis-group-card');
