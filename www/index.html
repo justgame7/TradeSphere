@@ -591,6 +591,15 @@
   }
   .top50-skeleton .top50-row{pointer-events:none;}
 
+  /* ---- Market Indices button (top50 modal header, left of the close X) ---- */
+  .top50-indices-btn{
+    width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--border);background:var(--panel);border-radius:10px;color:var(--muted);cursor:pointer;
+    transition:border-color .15s ease,color .15s ease;
+  }
+  .top50-indices-btn{margin-left:auto;}
+  .top50-indices-btn:active{border-color:var(--accent);color:var(--accent);}
+
   /* ---- Recently visited ---- */
   .recent-section{margin:0 0 18px;position:relative;z-index:1;}
   .recent-section.hidden{display:none;}
@@ -862,6 +871,18 @@
   }
   .analysis-tf-toggle button:hover{color:var(--accent);}
   .analysis-tf-toggle button.active{background:var(--accent);color:#07130f;box-shadow:0 2px 10px rgba(53,224,192,.35);}
+  /* Coin breakdown toggle (#taTfToggle): five timeframes (15m 1H 4H 1D 1W) but the box stays the
+     size of three (133px, same as before). The outer box clips; the inner .tf-track scrolls sideways
+     to reach 15m/1H, and opens scrolled to the right end so 4H/1D/1W show, as before. */
+  .analysis-tf-toggle.tf-scroll{box-sizing:border-box;width:133px;flex:none;overflow:hidden;}
+  .tf-track{
+    display:flex;gap:2px;width:100%;overflow-x:auto;overflow-y:hidden;
+    scroll-snap-type:x mandatory;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .tf-track::-webkit-scrollbar{display:none;}
+  .tf-track button{flex:0 0 40px;width:40px;padding:8px 0;text-align:center;scroll-snap-align:start;}
+  .analysis-tf-toggle.tf-scroll button.active{box-shadow:none;}
   .analysis-status-row{display:flex;align-items:center;gap:8px;margin:0 0 16px;color:var(--faint);font:600 11px var(--font-mono);letter-spacing:.03em;}
   .analysis-status-row .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none;}
 
@@ -1022,6 +1043,26 @@
   .analysis-status-row.is-ok .dot{background:var(--accent);animation:none;}
   .analysis-status-row.is-error{color:var(--red);}
   .analysis-status-row.is-error .dot{background:var(--red);animation:none;}
+
+  /* ---- Index Breakdown overlay (Market Indices row -> TOTAL/BTC.D/etc chart).
+     Reuses .analysis-overlay/.analysis-shell/.analysis-topbar/.analysis-price/
+     .analysis-change/.analysis-close/.analysis-tf-toggle wholesale (see the
+     Technical Breakdown overlay CSS above) - these are the only genuinely new
+     rules, for the stat chips + TradingView chart frame + study picker. ---- */
+  .index-stats-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .index-stat-chip{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:8px 12px;min-width:120px;flex:1 1 140px;}
+  .index-stat-chip-label{display:block;font:600 10px var(--font-mono);color:var(--faint);letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px;}
+  .index-stat-chip-value{display:block;font:700 13px var(--font-mono);color:var(--text);}
+  .index-study-toggle{display:flex;gap:6px;flex-wrap:wrap;}
+  .index-study-toggle button{
+    flex:0 0 auto;padding:5px 11px;border-radius:20px;font:700 10.5px var(--font-mono);
+    letter-spacing:.03em;color:var(--muted);background:var(--panel);border:1px solid var(--border-soft);
+    cursor:pointer;transition:all .15s ease;
+  }
+  .index-study-toggle button.active{background:rgba(53,224,192,.14);border-color:rgba(53,224,192,.5);color:var(--accent);}
+  .index-chart-wrap{margin-top:10px;height:420px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+  .index-chart-frame{width:100%;height:100%;border:0;display:block;}
+  @media(max-width:700px){.index-chart-wrap{height:320px;}}
 
   /* ---- Coin info modal (opened from the technical breakdown header's "i" icon) ---- */
   .coininfo-modal{
@@ -1513,6 +1554,9 @@
           <span class="top50-title-main" id="top50TitleMain">All Coins</span>
           <span class="top50-title-sub"><span class="live-dot"></span><span id="top50Updated">—</span></span>
         </div>
+        <button class="top50-indices-btn" id="top50IndicesBtn" type="button" aria-label="Market indices" title="Market indices">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 3.8V12l6.2 3.4"/></svg>
+        </button>
         <button class="top50-close" id="top50CloseBtn" type="button" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
         </button>
@@ -1531,6 +1575,23 @@
       </div>
     </div>
     <div class="top50-list" id="top50List"></div>
+  </div>
+
+  <div class="top50-backdrop" id="indicesBackdrop"></div>
+  <div class="top50-modal" id="indicesModal" role="dialog" aria-modal="true" aria-label="Market indices">
+    <div class="top50-handle"></div>
+    <div class="top50-head">
+      <div class="top50-head-row">
+        <div class="top50-title">
+          <span class="top50-title-main">Market Indices</span>
+          <span class="top50-title-sub"><span class="live-dot"></span><span id="indicesUpdated">—</span></span>
+        </div>
+        <button class="top50-close" id="indicesCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="top50-list" id="indicesList"></div>
   </div>
 </div>
 
@@ -1580,10 +1641,13 @@
         </div>
       </div>
       <div class="analysis-controls">
-        <div class="analysis-tf-toggle" id="taTfToggle">
+        <div class="analysis-tf-toggle tf-scroll" id="taTfToggle"><div class="tf-track">
+          <button type="button" data-tf="15m">15m</button>
+          <button type="button" data-tf="1h">1H</button>
           <button type="button" data-tf="4h">4H</button>
           <button type="button" data-tf="1d" class="active">1D</button>
           <button type="button" data-tf="1w">1W</button>
+        </div>
         </div>
         <!-- "Copy all values" is hidden, not removed — the button and copyValues()
              below are left fully intact so this can be switched back on later. -->
@@ -1604,6 +1668,60 @@
 <div class="ta-embed-overlay" id="taEmbedOverlay" onclick="if(event.target===this)TechAnalysis.closeAnalysis()">
   <div class="ta-embed-inner" id="taEmbedInner">
     <button class="ta-embed-close" id="taEmbedClose" type="button" aria-label="Close analysis" onclick="TechAnalysis.closeAnalysis()">×</button>
+  </div>
+</div>
+
+<!-- Index Breakdown overlay (opened from a Market Indices row - TOTAL, BTC.D, etc.).
+     Top-level sibling of analysisOverlay for the same reason coinInfoModal is: always
+     renders regardless of which page/overlay is active. -->
+<div class="analysis-overlay" id="indexOverlay" role="dialog" aria-modal="true" aria-label="Market index breakdown">
+  <div class="analysis-shell">
+    <div class="analysis-topbar">
+      <div class="analysis-id">
+        <div class="analysis-symbol-icon" id="tiSymbolIcon">—</div>
+        <div class="analysis-id-text">
+          <div class="analysis-symbol" id="tiSymbolText">—</div>
+          <div class="analysis-meta">
+            <span id="tiValue" class="analysis-price">—</span>
+            <span id="tiChange" class="analysis-change"></span>
+          </div>
+        </div>
+      </div>
+      <div class="analysis-controls">
+        <div class="analysis-tf-toggle" id="tiTfToggle">
+          <button type="button" data-tf="4h">4H</button>
+          <button type="button" data-tf="1d" class="active">1D</button>
+          <button type="button" data-tf="1w">1W</button>
+        </div>
+        <button type="button" class="analysis-close" id="tiCloseBtn" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div class="analysis-status-row"><span class="dot" style="background:var(--accent);"></span><span>Chart &amp; studies from TradingView (CRYPTOCAP) - no candle history for this ticker on Binance/CoinDCX</span></div>
+    <div class="index-stats-grid" id="tiStatsGrid"></div>
+    <div class="analysis-group-card" style="grid-column:1/-1;">
+      <div class="analysis-group-head" style="cursor:default;">
+        <span class="analysis-group-title">Chart</span>
+        <div class="index-study-toggle" id="tiStudyToggle">
+          <button type="button" data-study="ichimoku" class="active">Ichimoku</button>
+          <button type="button" data-study="supertrend">Supertrend</button>
+          <button type="button" data-study="bb">Bollinger</button>
+          <button type="button" data-study="ema">EMA</button>
+          <button type="button" data-study="rsi">RSI</button>
+          <button type="button" data-study="macd">MACD</button>
+          <button type="button" id="tiSwingBtn" data-swing="1" title="Mark swing highs / lows">Swing</button>
+        </div>
+      </div>
+      <div class="index-chart-wrap"><iframe id="tiChartFrame" class="index-chart-frame" loading="lazy" title="Market index chart"></iframe></div>
+    </div>
+    <div class="analysis-group-card collapsed" id="tiTechCard" style="grid-column:1/-1;margin-top:14px;">
+      <div class="analysis-group-head" id="tiTechHead">
+        <span class="analysis-group-title">Technical Summary</span>
+        <button type="button" class="analysis-group-chevron" id="tiTechChevron" aria-label="Toggle Technical Summary section" aria-expanded="false">&#8964;</button>
+      </div>
+      <div class="analysis-group-body">
+        <div class="index-chart-wrap" style="height:500px;"><iframe id="tiTechFrame" class="index-chart-frame" title="Market index technical summary"></iframe></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2693,6 +2811,11 @@ function handleAndroidBack(){
     return;
   }
 
+  if(indicesModal && indicesModal.classList.contains('open')){
+    closeIndicesModal();
+    return;
+  }
+
   const taEmbedEl = document.getElementById('taEmbedOverlay');
   if(taEmbedEl && taEmbedEl.classList.contains('open') && window.TechAnalysis){
     window.TechAnalysis.closeAnalysis();
@@ -2708,6 +2831,11 @@ function handleAndroidBack(){
   const techOverlay = document.getElementById('analysisOverlay');
   if(techOverlay && techOverlay.classList.contains('open') && window.TechAnalysis){
     window.TechAnalysis.close();
+    return;
+  }
+
+  if(indexOverlay && indexOverlay.classList.contains('open')){
+    closeIndexBreakdown();
     return;
   }
 
@@ -2807,6 +2935,11 @@ window.addEventListener('popstate', event => {
     syncHistoryForCurrentPage();
     return;
   }
+  if(indicesModal && indicesModal.classList.contains('open')){
+    closeIndicesModal();
+    syncHistoryForCurrentPage();
+    return;
+  }
   const taEmbedPS = document.getElementById('taEmbedOverlay');
   if(taEmbedPS && taEmbedPS.classList.contains('open') && window.TechAnalysis){
     window.TechAnalysis.closeAnalysis();
@@ -2824,6 +2957,11 @@ window.addEventListener('popstate', event => {
   const techOverlayPS = document.getElementById('analysisOverlay');
   if(techOverlayPS && techOverlayPS.classList.contains('open') && window.TechAnalysis){
     window.TechAnalysis.close();
+    syncHistoryForCurrentPage();
+    return;
+  }
+  if(indexOverlay && indexOverlay.classList.contains('open')){
+    closeIndexBreakdown();
     syncHistoryForCurrentPage();
     return;
   }
@@ -2983,6 +3121,487 @@ function closeCoinInfo(event){
   document.getElementById('coinInfoModal').classList.remove('open');
 }
 
+/* ================= Home: Market Indices (TOTAL / BTC.D / etc.) =================
+   Opened from the new button in the All Coins modal header, left of its X.
+   Binance and CoinDCX don't list these as tradable instruments - TOTAL,
+   TOTAL2/3, OTHERS, TOTALDEFI and the *.D dominance ratios are TradingView's
+   own CRYPTOCAP index family, so there's no OHLC candle history to pull the
+   way openScreenerForCoin() does for a real coin. Snapshot values (current
+   cap/dominance + 24h change) come from CoinGecko's free, keyless /global,
+   /global/decentralized_finance_defi and a small top-10 coins/markets page
+   (all three via the same tickerFetchJSON proxy chain everything else here
+   uses); the breakdown chart itself is TradingView's own widgetembed iframe
+   - see openIndexBreakdown() below. */
+const MARKET_INDICES = [
+  { id:'TOTAL',     tv:'TOTAL',     badge:'\u03a3',   label:'Total Market Cap',      kind:'usd' },
+  { id:'TOTAL2',    tv:'TOTAL2',    badge:'T2',       label:'Total Cap ex-BTC',      kind:'usd' },
+  { id:'TOTAL3',    tv:'TOTAL3',    badge:'T3',       label:'Total Cap ex-BTC/ETH',  kind:'usd' },
+  { id:'OTHERS',    tv:'OTHERS',    badge:'OTH',      label:'Others (ex-Top 10)',    kind:'usd' },
+  { id:'TOTALDEFI', tv:'TOTALDEFI', badge:'DFI',      label:'Total DeFi Market Cap', kind:'usd' },
+  { id:'BTC.D',     tv:'BTC.D',     badge:'\u20bf',   label:'Bitcoin Dominance',     kind:'pct' },
+  { id:'ETH.D',     tv:'ETH.D',     badge:'\u039e',   label:'Ethereum Dominance',    kind:'pct' },
+  { id:'USDT.D',    tv:'USDT.D',    badge:'T',        label:'Tether Dominance',      kind:'pct' },
+  { id:'USDC.D',    tv:'USDC.D',    badge:'C',        label:'USD Coin Dominance',    kind:'pct' }
+];
+const INDICES_CACHE_KEY = 'ts_home_indices_cache_v1';
+const INDICES_GLOBAL_URL = 'https://api.coingecko.com/api/v3/global';
+const INDICES_DEFI_URL = 'https://api.coingecko.com/api/v3/global/decentralized_finance_defi';
+const INDICES_TOP10_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false';
+
+let indicesLastRows = null; // computed per-id row data, keyed by MARKET_INDICES[].id
+let indicesLastTs = null;
+
+const indicesBtn = document.getElementById('top50IndicesBtn');
+const indicesBackdrop = document.getElementById('indicesBackdrop');
+const indicesModal = document.getElementById('indicesModal');
+const indicesCloseBtn = document.getElementById('indicesCloseBtn');
+const indicesListEl = document.getElementById('indicesList');
+const indicesUpdatedEl = document.getElementById('indicesUpdated');
+
+function formatIndexCompact(n){
+  const num = Number(n) || 0;
+  const sign = num < 0 ? '-' : '';
+  const abs = Math.abs(num);
+  if(abs >= 1e12) return sign + '$' + (abs / 1e12).toFixed(2) + 'T';
+  if(abs >= 1e9)  return sign + '$' + (abs / 1e9).toFixed(2) + 'B';
+  if(abs >= 1e6)  return sign + '$' + (abs / 1e6).toFixed(2) + 'M';
+  return sign + '$' + abs.toFixed(0);
+}
+function formatIndexPercent(n){ return (Number(n) || 0).toFixed(2) + '%'; }
+function indexPctChange(now, prev){
+  if(typeof now !== 'number' || typeof prev !== 'number' || !isFinite(prev) || prev === 0) return null;
+  return ((now - prev) / prev) * 100;
+}
+
+function readIndicesCache(){
+  try{ const raw = localStorage.getItem(INDICES_CACHE_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function writeIndicesCache(rows){
+  try{ localStorage.setItem(INDICES_CACHE_KEY, JSON.stringify({ data:rows, ts:Date.now() })); }catch(e){}
+}
+function getIndicesSourceRows(){
+  if(indicesLastRows) return indicesLastRows;
+  const cached = readIndicesCache();
+  return (cached && cached.data) ? cached.data : null;
+}
+
+// Turns the three raw CoinGecko snapshots into one row per MARKET_INDICES
+// entry. 24h change is computed exactly (not just carried over from /global)
+// wherever the pieces allow it - TOTAL2/TOTAL3/OTHERS back out BTC/ETH/top-10
+// market caps a day ago from each coin's own market_cap_change_percentage_24h,
+// and the *.D rows convert that into a percentage-point dominance delta
+// (dominance is already a %, so a plain relative change reads oddly next to
+// it). Anything that can't be computed - TOTALDEFI's 24h change, or any row
+// if the top-10 fetch failed - is left out of the row and renders as "—",
+// same as every other "no data yet" case in this modal.
+function computeMarketIndices(global, defi, top10){
+  const totalNow = global.total_market_cap && global.total_market_cap.usd;
+  const totalVolume = global.total_volume && global.total_volume.usd;
+  const totalChg = typeof global.market_cap_change_percentage_24h_usd === 'number' ? global.market_cap_change_percentage_24h_usd : null;
+  const pct = global.market_cap_percentage || {};
+  const totalPrev = (typeof totalNow === 'number' && typeof totalChg === 'number') ? totalNow / (1 + totalChg / 100) : null;
+
+  const findCoin = sym => Array.isArray(top10) ? top10.find(c => c && c.symbol && c.symbol.toLowerCase() === sym) : null;
+  const btcCoin = findCoin('btc'), ethCoin = findCoin('eth'), usdtCoin = findCoin('usdt'), usdcCoin = findCoin('usdc');
+
+  function coinPrevMcap(coin){
+    if(!coin || typeof coin.market_cap !== 'number' || typeof coin.market_cap_change_percentage_24h !== 'number') return null;
+    return coin.market_cap / (1 + coin.market_cap_change_percentage_24h / 100);
+  }
+  const btcMcapNow = btcCoin ? btcCoin.market_cap : (typeof totalNow === 'number' && typeof pct.btc === 'number' ? totalNow * pct.btc / 100 : null);
+  const ethMcapNow = ethCoin ? ethCoin.market_cap : (typeof totalNow === 'number' && typeof pct.eth === 'number' ? totalNow * pct.eth / 100 : null);
+  const btcMcapPrev = coinPrevMcap(btcCoin);
+  const ethMcapPrev = coinPrevMcap(ethCoin);
+
+  let top10SumNow = null, top10SumPrev = null;
+  if(Array.isArray(top10) && top10.length){
+    top10SumNow = 0; top10SumPrev = 0; let prevOk = true;
+    top10.forEach(c => {
+      if(typeof c.market_cap === 'number') top10SumNow += c.market_cap;
+      const prevM = coinPrevMcap(c);
+      if(prevM === null) prevOk = false; else top10SumPrev += prevM;
+    });
+    if(!prevOk) top10SumPrev = null;
+  }
+
+  const rows = {};
+  rows.TOTAL = {
+    value: totalNow, changePct: totalChg,
+    meta: typeof totalVolume === 'number' ? '24h Vol ' + formatIndexCompact(totalVolume) : ''
+  };
+  if(typeof totalNow === 'number' && typeof btcMcapNow === 'number'){
+    const now = totalNow - btcMcapNow;
+    const prev = (totalPrev !== null && btcMcapPrev !== null) ? totalPrev - btcMcapPrev : null;
+    rows.TOTAL2 = { value: now, changePct: indexPctChange(now, prev), meta: 'Alts + ETH, ex-BTC' };
+  }
+  if(typeof totalNow === 'number' && typeof btcMcapNow === 'number' && typeof ethMcapNow === 'number'){
+    const now = totalNow - btcMcapNow - ethMcapNow;
+    const prev = (totalPrev !== null && btcMcapPrev !== null && ethMcapPrev !== null) ? totalPrev - btcMcapPrev - ethMcapPrev : null;
+    rows.TOTAL3 = { value: now, changePct: indexPctChange(now, prev), meta: 'Alts, ex-BTC & ETH' };
+  }
+  if(typeof totalNow === 'number' && top10SumNow !== null){
+    const now = totalNow - top10SumNow;
+    const prev = (totalPrev !== null && top10SumPrev !== null) ? totalPrev - top10SumPrev : null;
+    rows.OTHERS = { value: now, changePct: indexPctChange(now, prev), meta: 'Market cap outside the top 10' };
+  }
+  if(defi && defi.defi_market_cap != null){
+    const defiMcap = parseFloat(defi.defi_market_cap);
+    const defiDom = parseFloat(defi.defi_dominance);
+    rows.TOTALDEFI = {
+      value: isFinite(defiMcap) ? defiMcap : null, changePct: null,
+      meta: isFinite(defiDom) ? 'DeFi Dominance ' + formatIndexPercent(defiDom) : ''
+    };
+  }
+
+  // Dominance (*.D) rows: value is CoinGecko's own market_cap_percentage
+  // figure; the 24h delta is worked out in percentage POINTS (54.10% ->
+  // 54.55% shows as "+0.45pt"), not a relative %, since a relative change
+  // of an already-percentage value reads confusingly next to it.
+  function domRow(nowPct, coin, mcapLabel){
+    if(typeof nowPct !== 'number') return null;
+    const chg = coin && typeof coin.market_cap_change_percentage_24h === 'number' ? coin.market_cap_change_percentage_24h : null;
+    const prevPct = (chg !== null && typeof totalChg === 'number') ? nowPct * (1 + totalChg / 100) / (1 + chg / 100) : null;
+    const deltaPts = prevPct !== null ? (nowPct - prevPct) : null;
+    const mcap = coin && typeof coin.market_cap === 'number' ? coin.market_cap : null;
+    return { value: nowPct, deltaPts, meta: mcap !== null ? mcapLabel + ' MCap ' + formatIndexCompact(mcap) : '' };
+  }
+  const btcD = domRow(pct.btc, btcCoin, 'BTC'); if(btcD) rows['BTC.D'] = btcD;
+  const ethD = domRow(pct.eth, ethCoin, 'ETH'); if(ethD) rows['ETH.D'] = ethD;
+  const usdtD = domRow(pct.usdt, usdtCoin, 'USDT'); if(usdtD) rows['USDT.D'] = usdtD;
+  const usdcD = domRow(pct.usdc, usdcCoin, 'USDC'); if(usdcD) rows['USDC.D'] = usdcD;
+
+  return rows;
+}
+
+async function loadMarketIndices(){
+  try{
+    const [globalRes, defiRes, top10Res] = await Promise.allSettled([
+      tickerFetchJSON(INDICES_GLOBAL_URL),
+      tickerFetchJSON(INDICES_DEFI_URL),
+      tickerFetchJSON(INDICES_TOP10_URL)
+    ]);
+    const global = globalRes.status === 'fulfilled' && globalRes.value ? globalRes.value.data : null;
+    if(!global) throw new Error('CoinGecko /global unavailable');
+    const defi = defiRes.status === 'fulfilled' && defiRes.value ? defiRes.value.data : null;
+    const top10 = top10Res.status === 'fulfilled' && Array.isArray(top10Res.value) ? top10Res.value : null;
+    indicesLastRows = computeMarketIndices(global, defi, top10);
+    indicesLastTs = Date.now();
+    writeIndicesCache(indicesLastRows);
+    renderIndicesList();
+  }catch(err){
+    console.warn('[market indices] fetch failed:', err && err.message);
+    renderIndicesList();
+  }
+}
+
+function renderIndicesList(){
+  const rows = getIndicesSourceRows();
+  if(!rows){
+    indicesListEl.innerHTML = '<div class="top50-error">Market indices unavailable right now</div>';
+    return;
+  }
+  indicesListEl.innerHTML = '';
+  MARKET_INDICES.forEach((def, i) => {
+    const d = rows[def.id];
+    const row = document.createElement('div');
+    row.className = 'top50-row';
+    row.style.animationDelay = Math.min(i * 22, 200) + 'ms';
+    const hasValue = d && typeof d.value === 'number';
+    const valueText = hasValue ? (def.kind === 'pct' ? formatIndexPercent(d.value) : formatIndexCompact(d.value)) : '—';
+    let chgText = '—', dirClass = '';
+    if(def.kind === 'pct'){
+      if(d && typeof d.deltaPts === 'number'){
+        chgText = (d.deltaPts >= 0 ? '+' : '') + d.deltaPts.toFixed(2) + 'pt';
+        dirClass = d.deltaPts >= 0 ? 'up' : 'down';
+      }
+    }else if(d && typeof d.changePct === 'number'){
+      chgText = (d.changePct >= 0 ? '+' : '') + d.changePct.toFixed(2) + '%';
+      dirClass = d.changePct >= 0 ? 'up' : 'down';
+    }
+    row.innerHTML =
+      '<span class="top50-rank">' + (i + 1) + '</span>' +
+      '<div class="top50-logo top50-logo-fallback">' + def.badge + '</div>' +
+      '<div class="top50-body">' +
+        '<div class="top50-sym-row"><span class="top50-sym">' + def.id + '</span><span class="top50-name">' + def.label + '</span></div>' +
+        '<span class="top50-meta">' + (d && d.meta ? d.meta : 'CRYPTOCAP index') + '</span>' +
+      '</div>' +
+      '<div class="top50-right">' +
+        '<span class="top50-price">' + valueText + '</span>' +
+        '<span class="top50-chg ' + dirClass + '">' + chgText + '</span>' +
+      '</div>';
+    row.addEventListener('click', () => openIndexBreakdown(def, d));
+    indicesListEl.appendChild(row);
+  });
+}
+
+function openIndicesModal(){
+  indicesBackdrop.classList.add('open');
+  indicesModal.classList.add('open');
+  // Same history-buffer trick as openTop50Modal() just above - see its
+  // comment for why a full-screen bottom sheet needs its own pushed entry.
+  if(!history.state || !history.state.indices){
+    history.pushState({ page: currentPage, indices: true }, '', location.href);
+  }
+  if(getIndicesSourceRows()) renderIndicesList();
+  else indicesListEl.innerHTML = '<div class="top50-empty">Loading market indices…</div>';
+  loadMarketIndices();
+}
+function closeIndicesModal(){
+  indicesBackdrop.classList.remove('open');
+  indicesModal.classList.remove('open');
+  if(history.state && history.state.indices){
+    history.replaceState({ page: currentPage }, '', location.href);
+  }
+}
+indicesBtn.addEventListener('click', openIndicesModal);
+indicesCloseBtn.addEventListener('click', closeIndicesModal);
+indicesBackdrop.addEventListener('click', closeIndicesModal);
+
+setInterval(() => {
+  if(indicesModal.classList.contains('open')){
+    indicesUpdatedEl.textContent = indicesLastTs ? formatTickerUpdatedLabel(indicesLastTs) : '—';
+  }
+}, 5000);
+
+/* ================= Index Breakdown overlay =================
+   Mirrors the Technical Breakdown overlay's look (reuses its
+   .analysis-overlay/.analysis-shell/.analysis-topbar/.analysis-price/
+   .analysis-change/.analysis-close/.analysis-tf-toggle classes wholesale -
+   see analysisOverlay's CSS above), but there's no Binance/CoinDCX candle
+   history for a CRYPTOCAP index to run the local Ichimoku/RSI/MACD engine
+   on, so the chart itself is TradingView's own widgetembed iframe - the same
+   embed host the Relative Strength ratio chart already uses inside the
+   TechAnalysis module further down this file, preloaded with the Ichimoku
+   Cloud study since that's this suite's own default lens (RSI/MACD are one
+   tap away via the chip row below the chart). */
+const INDEX_STUDY_MAP = {
+  ichimoku: 'IchimokuCloud@tv-basicstudies',
+  supertrend: 'STD;Supertrend',
+  bb: 'BB@tv-basicstudies',
+  // One button -> three EMA lines (20 / 50 / 200), one study instance each.
+  // Per-instance colours. The embed didn't honour lower-case "plot.color" alone
+  // (all three lines came out the same blue), so send the capitalised form the
+  // TradingView study-override docs use ("Plot.color") too, under every
+  // container key the study loader might read; unused keys are ignored.
+  ema: [[20, '#FFD54F'], [50, '#4FC3F7'], [200, '#E040FB']].map(([n, c]) => {
+    const ov = { 'Plot.color': c, 'Plot.linewidth': 2, 'plot.color': c, 'plot.linewidth': 2, 'plot_0.color': c };
+    return {
+      id: 'MAExp@tv-basicstudies',
+      inputs: { length: n },
+      override: ov,
+      overrides: ov,
+      styles: { plot_0: { color: c, linewidth: 2 }, Plot: { color: c, linewidth: 2 } }
+    };
+  }),
+  rsi: 'RSI@tv-basicstudies',
+  macd: 'MACD@tv-basicstudies'
+};
+// Independent on/off overlay (not one of the exclusive Ichimoku/RSI/MACD picks):
+// TradingView's built-in swing high/low marker, drawn on top of whichever study is active.
+const INDEX_SWING_STUDY = 'PivotPointsHighLow@tv-basicstudies';
+let indexSwingOn = false;
+let indexCurrentDef = null;
+let indexCurrentTf = '1d';
+// Set of active study keys: holds at most one (none = plain chart). Swing is tracked separately.
+let indexActiveStudy = new Set(['ichimoku']);
+
+const indexOverlay = document.getElementById('indexOverlay');
+const tiSymbolIcon = document.getElementById('tiSymbolIcon');
+const tiSymbolText = document.getElementById('tiSymbolText');
+const tiValue = document.getElementById('tiValue');
+const tiChange = document.getElementById('tiChange');
+const tiStatsGrid = document.getElementById('tiStatsGrid');
+const tiChartFrame = document.getElementById('tiChartFrame');
+const tiTechFrame = document.getElementById('tiTechFrame');
+const tiTfToggle = document.getElementById('tiTfToggle');
+const tiStudyToggle = document.getElementById('tiStudyToggle');
+const tiCloseBtn = document.getElementById('tiCloseBtn');
+
+// Tiny local copy of the same interval-code map the TechAnalysis module
+// carries for its own ratio-chart iframe (see that module's
+// tradingViewInterval() for why it isn't shared - same reasoning applies
+// here, this lives outside that IIFE).
+function indexTfInterval(tf){
+  return { '1d':'D', '1w':'W', '4h':'240' }[tf] || 'D';
+}
+// Builds a tiny standalone page that runs TradingView's current Advanced Chart
+// widget script. The legacy /widgetembed/ URL silently ignored the `studies`
+// param (no Ichimoku/RSI/MACD ever appeared), whereas this widget takes the
+// study list and hide_volume as real config options. Loaded via srcdoc so the
+// chart iframe needs no extra file. NB: the closing script tag must be escaped
+// ("<\/script>") or it would end THIS inline script early.
+function indexChartDoc(def, tf, study){
+  const cfg = {
+    autosize: true,
+    symbol: 'CRYPTOCAP:' + def.tv,
+    interval: indexTfInterval(tf),
+    timezone: 'Etc/UTC',
+    theme: 'dark',
+    style: '1',
+    locale: 'en',
+    backgroundColor: '#0b0e14',
+    hide_top_toolbar: true,
+    hide_side_toolbar: true,
+    hide_volume: true,
+    allow_symbol_change: false,
+    save_image: false,
+    withdateranges: false,
+    studies: Array.from(study).flatMap(k => INDEX_STUDY_MAP[k] || []).concat(indexSwingOn ? [INDEX_SWING_STUDY] : []),
+    support_host: 'https://www.tradingview.com'
+  };
+  const json = JSON.stringify(cfg).replace(/</g, '\\u003c');
+  return '<!doctype html><html><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<style>html,body{margin:0;height:100%;background:#0b0e14;overflow:hidden}' +
+    '.tradingview-widget-container,.tradingview-widget-container__widget{height:100%;width:100%}</style></head><body>' +
+    '<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div>' +
+    '<script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>' + json + '<\/script>' +
+    '</div></body></html>';
+}
+function setIndexChart(def, tf, study){
+  tiChartFrame.removeAttribute('src');
+  tiChartFrame.srcdoc = indexChartDoc(def, tf, study);
+}
+function clearIndexChart(){
+  tiChartFrame.srcdoc = '<!doctype html><body style="margin:0;background:#0b0e14">';
+  tiTechFrame.srcdoc = '<!doctype html><body style="margin:0;background:#0b0e14">';
+  indexTechStale = true;
+}
+// TradingView's Technical Analysis widget: buy/sell summary gauge plus the
+// oscillator and moving-average gauges for the same CRYPTOCAP symbol and the
+// timeframe currently picked in the 4H/1D/1W toggle. Same srcdoc approach (and
+// same "<\/script>" escaping) as indexChartDoc() above.
+function indexTechDoc(def, tf){
+  const cfg = {
+    interval: { '4h':'4h', '1d':'1D', '1w':'1W' }[tf] || '1D',
+    width: '100%',
+    height: '100%',
+    isTransparent: true,
+    symbol: 'CRYPTOCAP:' + def.tv,
+    showIntervalTabs: true,
+    displayMode: 'multiple',
+    locale: 'en',
+    colorTheme: 'dark'
+  };
+  const json = JSON.stringify(cfg).replace(/</g, '\\u003c');
+  return '<!doctype html><html><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<style>html,body{margin:0;height:100%;background:#0b0e14;overflow:auto}' +
+    '.tradingview-widget-container,.tradingview-widget-container__widget{height:100%;width:100%}</style></head><body>' +
+    '<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div>' +
+    '<script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>' + json + '<\/script>' +
+    '</div></body></html>';
+}
+function setIndexTech(def, tf){
+  tiTechFrame.removeAttribute('src');
+  tiTechFrame.srcdoc = indexTechDoc(def, tf);
+}
+// The Technical Summary card starts collapsed and only loads its widget when
+// opened (a TradingView widget rendered inside a display:none frame lays out
+// at zero size). indexTechStale = "what's in the frame is not for the current
+// index/timeframe", so it reloads on expand, or immediately if already open.
+let indexTechStale = true;
+const tiTechCard = document.getElementById('tiTechCard');
+const tiTechChevron = document.getElementById('tiTechChevron');
+function refreshIndexTech(){
+  if(!indexCurrentDef || !indexTechStale || tiTechCard.classList.contains('collapsed')) return;
+  setIndexTech(indexCurrentDef, indexCurrentTf);
+  indexTechStale = false;
+}
+function setIndexTechCollapsed(collapsed){
+  tiTechCard.classList.toggle('collapsed', collapsed);
+  tiTechChevron.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  refreshIndexTech();
+}
+document.getElementById('tiTechHead').addEventListener('click', () => {
+  setIndexTechCollapsed(!tiTechCard.classList.contains('collapsed'));
+});
+function renderIndexStats(def, d){
+  const chips = [];
+  if(d && d.meta) chips.push({ label: def.kind === 'pct' ? 'Market Cap' : 'Detail', value: d.meta });
+  if(indicesLastTs) chips.push({ label:'Updated', value: formatTickerUpdatedLabel(indicesLastTs) });
+  chips.push({ label:'Source', value:'CoinGecko snapshot · TradingView chart' });
+  tiStatsGrid.innerHTML = chips.map(c =>
+    '<div class="index-stat-chip"><span class="index-stat-chip-label">' + c.label + '</span><span class="index-stat-chip-value">' + c.value + '</span></div>'
+  ).join('');
+}
+function openIndexBreakdown(def, d){
+  indexCurrentDef = def;
+  indexCurrentTf = '1d';
+  indexActiveStudy = new Set(['ichimoku']);
+  indexSwingOn = false;
+  document.getElementById('tiSwingBtn').classList.remove('active');
+  tiTfToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tf === '1d'));
+  tiStudyToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.study === 'ichimoku'));
+  tiSymbolIcon.textContent = def.badge;
+  tiSymbolText.textContent = def.id;
+  const hasValue = d && typeof d.value === 'number';
+  tiValue.textContent = hasValue ? (def.kind === 'pct' ? formatIndexPercent(d.value) : formatIndexCompact(d.value)) : '—';
+  if(def.kind === 'pct' && d && typeof d.deltaPts === 'number'){
+    tiChange.textContent = (d.deltaPts >= 0 ? '+' : '') + d.deltaPts.toFixed(2) + 'pt 24h';
+    tiChange.className = 'analysis-change ' + (d.deltaPts >= 0 ? 'up' : 'down');
+  }else if(d && typeof d.changePct === 'number'){
+    tiChange.textContent = (d.changePct >= 0 ? '+' : '') + d.changePct.toFixed(2) + '% 24h';
+    tiChange.className = 'analysis-change ' + (d.changePct >= 0 ? 'up' : 'down');
+  }else{
+    tiChange.textContent = '';
+    tiChange.className = 'analysis-change';
+  }
+  renderIndexStats(def, d);
+  setIndexChart(def, indexCurrentTf, indexActiveStudy);
+  indexTechStale = true;
+  setIndexTechCollapsed(true);
+  indexOverlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  // Same "dismiss the sheet underneath, then push a fresh history entry for
+  // the overlay" sequence openScreenerForCoin() uses for a real coin -
+  // closeIndicesModal() collapses the list's own buffer entry first so a
+  // single Back press from the breakdown lands back on Home, not the list.
+  closeIndicesModal();
+  // The All Coins sheet (z-index 200/201) is still open beneath the list and
+  // would cover this overlay (z-index 50), so dismiss it too.
+  closeTop50Modal();
+  if(!history.state || !history.state.indexBreakdown){
+    history.pushState({ page: currentPage, indexBreakdown: true }, '', location.href);
+  }
+}
+function closeIndexBreakdown(){
+  indexOverlay.classList.remove('open');
+  document.body.style.overflow = '';
+  clearIndexChart();
+  if(history.state && history.state.indexBreakdown){
+    history.replaceState({ page: currentPage }, '', location.href);
+  }
+}
+tiCloseBtn.addEventListener('click', closeIndexBreakdown);
+indexOverlay.addEventListener('click', e => { if(e.target === indexOverlay) closeIndexBreakdown(); });
+tiTfToggle.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-tf]'); if(!btn || !indexCurrentDef) return;
+  indexCurrentTf = btn.dataset.tf;
+  tiTfToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+  setIndexChart(indexCurrentDef, indexCurrentTf, indexActiveStudy);
+  indexTechStale = true;
+  refreshIndexTech();
+});
+tiStudyToggle.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-study]'); if(!btn || !indexCurrentDef) return;
+  const key = btn.dataset.study;
+  // One study at a time: tapping the active one turns it off (plain chart),
+  // tapping a different one switches to it alone. Swing is separate (see below).
+  const wasActive = indexActiveStudy.has(key);
+  indexActiveStudy.clear();
+  if(!wasActive) indexActiveStudy.add(key);
+  tiStudyToggle.querySelectorAll('button[data-study]').forEach(b => b.classList.toggle('active', indexActiveStudy.has(b.dataset.study)));
+  setIndexChart(indexCurrentDef, indexCurrentTf, indexActiveStudy);
+});
+
+tiStudyToggle.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-swing]'); if(!btn || !indexCurrentDef) return;
+  indexSwingOn = !indexSwingOn;
+  btn.classList.toggle('active', indexSwingOn);
+  setIndexChart(indexCurrentDef, indexCurrentTf, indexActiveStudy);
+});
+
 // initial state
 activatePage('home');
 
@@ -3007,9 +3626,9 @@ let taHost = FAPI_HOSTS[0];
 const SPOT_HOSTS = ["https://api.binance.com","https://api1.binance.com","https://api2.binance.com"];
 let taSpotHost = SPOT_HOSTS[0];
 const BYBIT = 'https://api.bybit.com';
-const BYBIT_TF = { '4h':'240', '1d':'D', '1w':'W' };
+const BYBIT_TF = { '15m':'15', '1h':'60', '4h':'240', '1d':'D', '1w':'W' };
 const BARS = 500;                 // candles pulled per timeframe
-const PERIODS_PER_YEAR = { '4h':2190, '1d':365, '1w':52 };
+const PERIODS_PER_YEAR = { '15m':35040, '1h':8760, '4h':2190, '1d':365, '1w':52 };
 
 async function timedFetch(url, ms=12000){
   const ctl = new AbortController();
@@ -4551,14 +5170,14 @@ function normalizeSymbol(raw){
   if(!s.endsWith('USDT')) s += 'USDT';
   return s;
 }
-const tfLabel = tf => tf==='4h' ? '4 Hour' : tf==='1w' ? 'Weekly' : 'Daily';
+const tfLabel = tf => ({ '15m':'15 Minute', '1h':'1 Hour', '4h':'4 Hour', '1w':'Weekly' })[tf] || 'Daily';
 // TradingView's widget-embed interval codes for the same 4H/1D/1W set used
 // throughout this module. Only needed by the Relative Strength ratio-chart
 // iframe (ratioChartSrc below) — the outer screener.html has its own copy of
 // this used by the Cloud Breakout chart-link button, but that script isn't
 // part of this shell, so the TechAnalysis module carries its own.
 function tradingViewInterval(tf){
-  return {'1d':'D','1w':'W','4h':'240'}[tf] || 'D';
+  return {'1d':'D','1w':'W','4h':'240','1h':'60','15m':'15'}[tf] || 'D';
 }
 function tvChartUrl(symbol, tf, source){
   const exchangePrefix = source === 'Bybit' ? 'BYBIT' : 'BINANCE';
@@ -5634,12 +6253,11 @@ function openSymbol(raw, tf){
 function openFor(symbol, tfWanted){
   if(tfWanted && BYBIT_TF[tfWanted]){
     currentTf = tfWanted;
-    document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===currentTf));
   } else if(symbol !== currentSymbol){  // a fresh coin always opens on the daily
     currentTf = '1d';
-    document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf==='1d'));
   }
   el('analysisOverlay').classList.add('open');
+  syncTfToggle(currentTf, true);  // after 'open' so the toggle has layout and can be scrolled
   document.body.style.overflow = 'hidden';
   // Same history-buffer trick as openTop50Modal() in the outer script: this
   // overlay opens without changing currentPage (it's only ever triggered
@@ -5667,10 +6285,25 @@ function close(){
     history.replaceState({ page: currentPage }, '', location.href);
   }
 }
+/* Marks the active timeframe button and makes sure it is inside the 3-slot scroll window.
+   Default view (4H/1D/1W) is the scrolled-right-end; 15m/1H live off to the left. */
+function syncTfToggle(tf, resetScroll){
+  const box = document.querySelector('#taTfToggle .tf-track'); if(!box) return;
+  box.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.tf===tf));
+  const a = box.querySelector('button.active'); if(!a) return;
+  const left = a.offsetLeft, right = left + a.offsetWidth;
+  if(resetScroll){
+    box.scrollLeft = (tf==='15m' || tf==='1h') ? 0 : box.scrollWidth;
+  } else if(left < box.scrollLeft){
+    box.scrollLeft = left - 3;
+  } else if(right > box.scrollLeft + box.clientWidth){
+    box.scrollLeft = right - box.clientWidth + 3;
+  }
+}
 function setTf(tf){
   if(tf === currentTf && latestValues) return;
   currentTf = tf;
-  document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===tf));
+  syncTfToggle(tf, false);
   if(currentSymbol) load(currentSymbol, tf);
 }
 function refresh(){ if(currentSymbol) load(currentSymbol, currentTf); }
@@ -5723,6 +6356,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(e.key==='Enter'){ e.preventDefault(); open(); }
     });
   }
+  document.querySelector('#taTfToggle .tf-track').addEventListener('wheel', e=>{
+    const box = e.currentTarget;
+    if(box.scrollWidth <= box.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    box.scrollLeft += e.deltaY;
+  }, { passive:false });
   el('taTfToggle').addEventListener('click', e=>{
     const btn = e.target.closest('button[data-tf]');
     if(btn) setTf(btn.dataset.tf);
