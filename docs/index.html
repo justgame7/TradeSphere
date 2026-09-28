@@ -1053,6 +1053,8 @@
   .index-stat-chip{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:8px 12px;min-width:120px;flex:1 1 140px;}
   .index-stat-chip-label{display:block;font:600 10px var(--font-mono);color:var(--faint);letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px;}
   .index-stat-chip-value{display:block;font:700 13px var(--font-mono);color:var(--text);}
+  /* LTP chip fallback only (see loadIndexLtp): TradingView's Single Quote widget, used when the plain price can't be fetched. */
+  .index-ltp-frame{display:block;width:100%;height:100px;border:0;background:transparent;}
   .index-study-toggle{display:flex;gap:6px;flex-wrap:wrap;}
   .index-study-toggle button{
     flex:0 0 auto;padding:5px 11px;border-radius:20px;font:700 10.5px var(--font-mono);
@@ -1698,7 +1700,6 @@
         <button type="button" class="analysis-close" id="tiCloseBtn" aria-label="Close">✕</button>
       </div>
     </div>
-    <div class="analysis-status-row"><span class="dot" style="background:var(--accent);"></span><span>Chart &amp; studies from TradingView (CRYPTOCAP) - no candle history for this ticker on Binance/CoinDCX</span></div>
     <div class="index-stats-grid" id="tiStatsGrid"></div>
     <div class="analysis-group-card" style="grid-column:1/-1;">
       <div class="analysis-group-head" style="cursor:default;">
@@ -1724,6 +1725,7 @@
         <div class="index-chart-wrap" style="height:500px;"><iframe id="tiTechFrame" class="index-chart-frame" title="Market index technical summary"></iframe></div>
       </div>
     </div>
+    <div class="analysis-status-row" style="margin:16px 0 0;"><span class="dot" style="background:var(--accent);"></span><span>Chart &amp; studies from TradingView (CRYPTOCAP) - no candle history for this ticker on Binance/CoinDCX</span></div>
   </div>
 </div>
 
@@ -3483,6 +3485,9 @@ function setIndexChart(def, tf, study){
 function clearIndexChart(){
   tiChartFrame.srcdoc = '<!doctype html><body style="margin:0;background:#0b0e14">';
   tiTechFrame.srcdoc = '<!doctype html><body style="margin:0;background:#0b0e14">';
+  indexLtpToken++;
+  const ltpFrame = document.getElementById('tiLtpFrame');
+  if(ltpFrame) ltpFrame.srcdoc = '<!doctype html><body style="margin:0;background:transparent">';
   indexTechStale = true;
 }
 // TradingView's Technical Analysis widget: buy/sell summary gauge plus the
@@ -3534,14 +3539,59 @@ function setIndexTechCollapsed(collapsed){
 document.getElementById('tiTechHead').addEventListener('click', () => {
   setIndexTechCollapsed(!tiTechCard.classList.contains('collapsed'));
 });
+// TradingView's Single Quote widget for the same CRYPTOCAP symbol as the chart - only used as the
+// LTP chip's fallback. Same srcdoc approach (and same "<\/script>" escaping) as indexChartDoc() above.
+function indexQuoteDoc(def){
+  const cfg = {
+    symbol: 'CRYPTOCAP:' + def.tv,
+    width: '100%',
+    isTransparent: true,
+    colorTheme: 'dark',
+    locale: 'en'
+  };
+  const json = JSON.stringify(cfg).replace(/</g, '\\u003c');
+  return '<!doctype html><html><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<style>html,body{margin:0;background:transparent;overflow:hidden}</style></head><body>' +
+    '<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div>' +
+    '<script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js" async>' + json + '<\/script>' +
+    '</div></body></html>';
+}
+// LTP chip: the last price of the same CRYPTOCAP symbol the chart below plots, read straight from
+// TradingView (not the CoinGecko snapshot) and shown as plain text at the Detail chip's size. Goes
+// through the same direct -> Worker -> public-proxy chain as the rest of the page. If the price can't
+// be read, the chip falls back to TradingView's own quote widget rather than showing a wrong number.
+let indexLtpToken = 0;
+async function loadIndexLtp(def){
+  const token = ++indexLtpToken;
+  const url = 'https://scanner.tradingview.com/symbol?symbol=' + encodeURIComponent('CRYPTOCAP:' + def.tv) + '&fields=close&no_404=true';
+  let price = null;
+  try{
+    const j = await tickerFetchJSON(url);
+    const n = j ? Number(j.close) : NaN;
+    if(isFinite(n) && n > 0) price = n;
+  }catch(e){}
+  if(token !== indexLtpToken) return;   // a different index was opened meanwhile
+  const holder = document.getElementById('tiLtpValue');
+  if(!holder) return;
+  if(price !== null){
+    holder.textContent = def.kind === 'pct' ? formatIndexPercent(price) : formatIndexCompact(price);
+    return;
+  }
+  const wrap = holder.closest('.index-stat-chip-value');
+  if(!wrap) return;
+  wrap.innerHTML = '<iframe id="tiLtpFrame" class="index-ltp-frame" title="Last traded price" scrolling="no"></iframe>';
+  document.getElementById('tiLtpFrame').srcdoc = indexQuoteDoc(def);
+}
 function renderIndexStats(def, d){
   const chips = [];
+  chips.push({ label:'LTP', value:'<span id="tiLtpValue">…</span>' });
   if(d && d.meta) chips.push({ label: def.kind === 'pct' ? 'Market Cap' : 'Detail', value: d.meta });
   if(indicesLastTs) chips.push({ label:'Updated', value: formatTickerUpdatedLabel(indicesLastTs) });
-  chips.push({ label:'Source', value:'CoinGecko snapshot · TradingView chart' });
   tiStatsGrid.innerHTML = chips.map(c =>
     '<div class="index-stat-chip"><span class="index-stat-chip-label">' + c.label + '</span><span class="index-stat-chip-value">' + c.value + '</span></div>'
   ).join('');
+  loadIndexLtp(def);
 }
 function openIndexBreakdown(def, d){
   indexCurrentDef = def;
