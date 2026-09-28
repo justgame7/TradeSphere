@@ -3545,19 +3545,25 @@ function openSettings(){
       return;
     }
 
-    // Scoped to one financial year: only that year's closed crypto trades
-    // are removed. Open holdings and cash balance are left exactly as they
-    // are — this only purges historical log entries, not live positions.
+    // Scoped to one financial year: that year's closed crypto trades are
+    // removed and their net P&L is taken back out of the cash balance, the
+    // same way deleting a single closed trade does (see deleteHistoryEntry).
+    // Open holdings are left untouched.
     const fyYear = Number(scope.slice(3));
     const label = fyLabel(fyYear);
-    const typed = prompt(`This deletes every closed crypto trade recorded in ${label}. Open positions and your cash balance are not affected. This can't be undone.\n\nType danger-zone-clear-all-data to confirm:`);
+    const { start: fyStart, end: fyEnd } = fyBounds(fyYear);
+    const inYear = r => r.date >= fyStart && r.date < fyEnd;
+    const yearPnl = (state.markets.crypto.realized || []).filter(inYear).reduce((s,r)=>s + (r.pnl||0), 0);
+    const typed = prompt(`This deletes every closed crypto trade recorded in ${label} and reduces your balance by that year's net P&L (${fmtMoney(yearPnl, MARKET_META.crypto.prefix)}). Open positions are not affected. This can't be undone.\n\nType danger-zone-clear-all-data to confirm:`);
     if(typed === null) return;
     if(typed.trim() !== 'danger-zone-clear-all-data'){
       toast('Not cleared — text didn\'t match', 'error');
       return;
     }
-    const { start, end } = fyBounds(fyYear);
-    state.markets.crypto.realized = (state.markets.crypto.realized || []).filter(r => !(r.date >= start && r.date < end));
+    state.markets.crypto.realized = (state.markets.crypto.realized || []).filter(r => !inYear(r));
+    if(state.markets.crypto.cashBalance !== undefined){
+      state.markets.crypto.cashBalance -= yearPnl;
+    }
     saveState();
     renderAll();
     closeModal(modalSettings);
