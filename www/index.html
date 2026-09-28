@@ -4765,9 +4765,9 @@ const GROUPS = [
     ['pdZone','Premium / Discount Zone'],['displacement','Displacement']
   ]},
   { key:'structure', name:'Market Structure', icon:'🏗️', color:'#5B8CFF', members:[
-    ['bias','Structure Trend'],['swingHigh','Last Swing High'],['swingLow','Last Swing Low'],
-    ['support','Nearest Support'],['resistance','Nearest Resistance'],
-    ['fib5','Fib 0.5'],['fib618','Fib 0.618']
+    ['bias','Structure Trend'],['fib5','Fib 0.5'],['fib618','Fib 0.618'],
+    ['swingHigh','Last Swing High'],['swingLow','Last Swing Low'],
+    ['support','Nearest Support'],['resistance','Nearest Resistance']
   ]},
   { key:'trend', name:'Trend', icon:'📈', color:'var(--accent)', members:[
     ['ema20','EMA 20'],['ema50','EMA 50'],['ema100','EMA 100'],['ema200','EMA 200'],
@@ -5338,10 +5338,10 @@ function esc(s){ return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&l
 // Which groups are collapsed, by index into GROUPS. Persists across refreshes
 // and timeframe switches (re-renders reuse it) so the user's layout choice
 // sticks until they explicitly toggle a section or Expand/Collapse All.
-// Chart starts expanded — it's the section most people want to see first;
+// Chart and Market Structure start expanded — the sections most people want to see first;
 // every other section starts collapsed so the numbers are available on
 // demand without crowding the initial view.
-let collapsedGroups = new Set(GROUPS.map((g,i)=>i).filter(i=>GROUPS[i].key!=='chart'));
+let collapsedGroups = new Set(GROUPS.map((g,i)=>i).filter(i=>GROUPS[i].key!=='chart' && GROUPS[i].key!=='structure'));
 
 // The Relative Strength section's BTC / ETH sub-headings used to have a
 // "Load ratio chart" checkbox — separate from every other chart toggle
