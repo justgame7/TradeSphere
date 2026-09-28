@@ -1261,6 +1261,18 @@
   }
   .analysis-tf-toggle button:hover{color:var(--accent);}
   .analysis-tf-toggle button.active{background:var(--accent);color:#07130f;box-shadow:0 2px 10px rgba(53,224,192,.35);}
+  /* Coin breakdown toggle (#taTfToggle): five timeframes (15m 1H 4H 1D 1W) but the box stays the
+     size of three (133px, same as before). The outer box clips; the inner .tf-track scrolls sideways
+     to reach 15m/1H, and opens scrolled to the right end so 4H/1D/1W show, as before. */
+  .analysis-tf-toggle.tf-scroll{box-sizing:border-box;width:133px;flex:none;overflow:hidden;}
+  .tf-track{
+    display:flex;gap:2px;width:100%;overflow-x:auto;overflow-y:hidden;
+    scroll-snap-type:x mandatory;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .tf-track::-webkit-scrollbar{display:none;}
+  .tf-track button{flex:0 0 40px;width:40px;padding:8px 0;text-align:center;scroll-snap-align:start;}
+  .analysis-tf-toggle.tf-scroll button.active{box-shadow:none;}
   .analysis-status-row{display:flex;align-items:center;gap:8px;margin:0 0 16px;color:var(--faint);font:600 11px var(--font-mono);letter-spacing:.03em;}
   .analysis-status-row .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none;}
 
@@ -3035,7 +3047,7 @@ function analysisInterval(){
   return document.getElementById('timeframe').value;
 }
 function tradingViewInterval(tf){
-  return {'1d':'D','1w':'W','4h':'240'}[tf] || 'D';
+  return {'1d':'D','1w':'W','4h':'240','1h':'60','15m':'15'}[tf] || 'D';
 }
 function timeframeLabel(tf){
   return tf === '1w' ? 'Weekly' : (tf === '4h' ? '4-Hour' : 'Daily');
@@ -6623,10 +6635,13 @@ window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, remov
         </div>
       </div>
       <div class="analysis-controls">
-        <div class="analysis-tf-toggle" id="taTfToggle">
+        <div class="analysis-tf-toggle tf-scroll" id="taTfToggle"><div class="tf-track">
+          <button type="button" data-tf="15m">15m</button>
+          <button type="button" data-tf="1h">1H</button>
           <button type="button" data-tf="4h">4H</button>
           <button type="button" data-tf="1d" class="active">1D</button>
           <button type="button" data-tf="1w">1W</button>
+        </div>
         </div>
         <!-- "Copy all values" is hidden, not removed — the button and copyValues()
              below are left fully intact so this can be switched back on later. -->
@@ -6649,7 +6664,7 @@ window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, remov
    Flow:  symbol typed -> normalised to a USDT perp ticker -> validated against
    Binance USDT-M futures first, falling back to Bybit USDT linear perps when
    the symbol isn't listed there (same order the Cloud Breakout search uses) ->
-   klines + ticker + derivatives pulled for the selected timeframe (4H/1D/1W,
+   klines + ticker + derivatives pulled for the selected timeframe (15m/1H/4H/1D/1W,
    daily default) -> every indicator below computed locally from those candles.
 
    Only values are rendered: a number, level, range or state per row. Colour is
@@ -6672,9 +6687,9 @@ let taHost = FAPI_HOSTS[0];
 const SPOT_HOSTS = ["https://api.binance.com","https://api1.binance.com","https://api2.binance.com"];
 let taSpotHost = SPOT_HOSTS[0];
 const BYBIT = 'https://api.bybit.com';
-const BYBIT_TF = { '4h':'240', '1d':'D', '1w':'W' };
+const BYBIT_TF = { '15m':'15', '1h':'60', '4h':'240', '1d':'D', '1w':'W' };
 const BARS = 500;                 // candles pulled per timeframe
-const PERIODS_PER_YEAR = { '4h':2190, '1d':365, '1w':52 };
+const PERIODS_PER_YEAR = { '15m':35040, '1h':8760, '4h':2190, '1d':365, '1w':52 };
 
 async function timedFetch(url, ms=12000){
   const ctl = new AbortController();
@@ -8216,8 +8231,8 @@ function normalizeSymbol(raw){
   if(!s.endsWith('USDT')) s += 'USDT';
   return s;
 }
-const tfLabel = tf => tf==='4h' ? '4 Hour' : tf==='1w' ? 'Weekly' : 'Daily';
-function tvInterval(tf){ return {'1d':'D','1w':'W','4h':'240'}[tf] || 'D'; }
+const tfLabel = tf => ({ '15m':'15 Minute', '1h':'1 Hour', '4h':'4 Hour', '1w':'Weekly' })[tf] || 'Daily';
+function tvInterval(tf){ return {'1d':'D','1w':'W','4h':'240','1h':'60','15m':'15'}[tf] || 'D'; }
 function tvChartUrl(symbol, tf, source){
   const exchangePrefix = source === 'Bybit' ? 'BYBIT' : 'BINANCE';
   const tvSymbol = `${exchangePrefix}:${symbol}.P`;
@@ -9286,13 +9301,12 @@ function openSymbol(raw, tf){
 function openFor(symbol, tfWanted){
   if(tfWanted && BYBIT_TF[tfWanted]){
     currentTf = tfWanted;
-    document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===currentTf));
   } else if(symbol !== currentSymbol){  // a fresh coin always opens on the daily
     currentTf = '1d';
-    document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf==='1d'));
   }
   el('analysisOverlay').classList.add('open');
   document.body.classList.add('ta-open');
+  syncTfToggle(currentTf, true);  // after 'open' so the toggle has layout and can be scrolled
   document.body.style.overflow = 'hidden';
   // Push a history entry so a real Back (hardware button, swipe-back gesture,
   // or an installed PWA's own Back) closes this overlay and returns to the
@@ -9317,10 +9331,25 @@ function close(){
     history.replaceState({}, '', location.href);
   }
 }
+/* Marks the active timeframe button and makes sure it is inside the 3-slot scroll window.
+   Default view (4H/1D/1W) is the scrolled-right-end; 15m/1H live off to the left. */
+function syncTfToggle(tf, resetScroll){
+  const box = document.querySelector('#taTfToggle .tf-track'); if(!box) return;
+  box.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.tf===tf));
+  const a = box.querySelector('button.active'); if(!a) return;
+  const left = a.offsetLeft, right = left + a.offsetWidth;
+  if(resetScroll){
+    box.scrollLeft = (tf==='15m' || tf==='1h') ? 0 : box.scrollWidth;
+  } else if(left < box.scrollLeft){
+    box.scrollLeft = left - 3;
+  } else if(right > box.scrollLeft + box.clientWidth){
+    box.scrollLeft = right - box.clientWidth + 3;
+  }
+}
 function setTf(tf){
   if(tf === currentTf && latestValues) return;
   currentTf = tf;
-  document.querySelectorAll('#taTfToggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===tf));
+  syncTfToggle(tf, false);
   if(currentSymbol) load(currentSymbol, tf);
 }
 function refresh(){ if(currentSymbol) load(currentSymbol, currentTf); }
@@ -9373,6 +9402,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(e.key==='Enter'){ e.preventDefault(); open(); }
     });
   }
+  document.querySelector('#taTfToggle .tf-track').addEventListener('wheel', e=>{
+    const box = e.currentTarget;
+    if(box.scrollWidth <= box.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    box.scrollLeft += e.deltaY;
+  }, { passive:false });
   el('taTfToggle').addEventListener('click', e=>{
     const btn = e.target.closest('button[data-tf]');
     if(btn) setTf(btn.dataset.tf);
