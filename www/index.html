@@ -1704,17 +1704,18 @@
     <div class="analysis-group-card" style="grid-column:1/-1;">
       <div class="analysis-group-head" style="cursor:default;">
         <span class="analysis-group-title">Chart</span>
-        <div class="index-study-toggle" id="tiStudyToggle">
-          <button type="button" data-study="ichimoku" class="active">Ichimoku</button>
-          <button type="button" data-study="supertrend">Supertrend</button>
-          <button type="button" data-study="bb">Bollinger</button>
-          <button type="button" data-study="ema">EMA</button>
-          <button type="button" data-study="rsi">RSI</button>
-          <button type="button" data-study="macd">MACD</button>
-          <button type="button" id="tiSwingBtn" data-swing="1" title="Mark swing highs / lows">Swing</button>
-        </div>
       </div>
       <div class="index-chart-wrap"><iframe id="tiChartFrame" class="index-chart-frame" loading="lazy" title="Market index chart"></iframe></div>
+      <div class="index-study-toggle" id="tiStudyToggle" style="margin-top:10px;">
+        <button type="button" data-study="ichimoku">Ichimoku</button>
+        <button type="button" data-study="supertrend" class="active">Supertrend</button>
+        <button type="button" data-study="bb">Bollinger</button>
+        <button type="button" data-study="ema">EMA</button>
+        <button type="button" data-study="rsi">RSI</button>
+        <button type="button" data-study="macd">MACD</button>
+        <button type="button" data-study="cci">CCI(34)</button>
+        <button type="button" data-study="swing" title="Mark swing highs / lows">Swing</button>
+      </div>
     </div>
     <div class="analysis-group-card collapsed" id="tiTechCard" style="grid-column:1/-1;margin-top:14px;">
       <div class="analysis-group-head" id="tiTechHead">
@@ -3375,9 +3376,9 @@ setInterval(() => {
    history for a CRYPTOCAP index to run the local Ichimoku/RSI/MACD engine
    on, so the chart itself is TradingView's own widgetembed iframe - the same
    embed host the Relative Strength ratio chart already uses inside the
-   TechAnalysis module further down this file, preloaded with the Ichimoku
-   Cloud study since that's this suite's own default lens (RSI/MACD are one
-   tap away via the chip row below the chart). */
+   TechAnalysis module further down this file, preloaded with the Supertrend
+   study as the default (Ichimoku/RSI/MACD/CCI are one tap away via the chip
+   row below the chart). */
 const INDEX_STUDY_MAP = {
   ichimoku: 'IchimokuCloud@tv-basicstudies',
   supertrend: 'STD;Supertrend',
@@ -3398,16 +3399,15 @@ const INDEX_STUDY_MAP = {
     };
   }),
   rsi: 'RSI@tv-basicstudies',
-  macd: 'MACD@tv-basicstudies'
+  macd: 'MACD@tv-basicstudies',
+  cci: { id: 'CCI@tv-basicstudies', inputs: { length: 34 } },
+  // TradingView's built-in swing high/low marker - one of the exclusive picks like the rest.
+  swing: 'PivotPointsHighLow@tv-basicstudies'
 };
-// Independent on/off overlay (not one of the exclusive Ichimoku/RSI/MACD picks):
-// TradingView's built-in swing high/low marker, drawn on top of whichever study is active.
-const INDEX_SWING_STUDY = 'PivotPointsHighLow@tv-basicstudies';
-let indexSwingOn = false;
 let indexCurrentDef = null;
 let indexCurrentTf = '1d';
 // Set of active study keys: holds at most one (none = plain chart). Swing is tracked separately.
-let indexActiveStudy = new Set(['ichimoku']);
+let indexActiveStudy = new Set(['supertrend']);
 
 const indexOverlay = document.getElementById('indexOverlay');
 const tiSymbolIcon = document.getElementById('tiSymbolIcon');
@@ -3466,7 +3466,7 @@ function indexChartDoc(def, tf, study){
     allow_symbol_change: false,
     save_image: false,
     withdateranges: false,
-    studies: Array.from(study).flatMap(k => INDEX_STUDY_MAP[k] || []).concat(indexSwingOn ? [INDEX_SWING_STUDY] : []),
+    studies: Array.from(study).flatMap(k => INDEX_STUDY_MAP[k] || []),
     support_host: 'https://www.tradingview.com'
   };
   const json = JSON.stringify(cfg).replace(/</g, '\\u003c');
@@ -3596,11 +3596,9 @@ function renderIndexStats(def, d){
 function openIndexBreakdown(def, d){
   indexCurrentDef = def;
   indexCurrentTf = '1d';
-  indexActiveStudy = new Set(['ichimoku']);
-  indexSwingOn = false;
-  document.getElementById('tiSwingBtn').classList.remove('active');
+  indexActiveStudy = new Set(['supertrend']);
   tiTfToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tf === '1d'));
-  tiStudyToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.study === 'ichimoku'));
+  tiStudyToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.study === 'supertrend'));
   tiSymbolIcon.textContent = def.badge;
   tiSymbolText.textContent = def.id;
   const hasValue = d && typeof d.value === 'number';
@@ -3662,18 +3660,11 @@ tiStudyToggle.addEventListener('click', e => {
   const btn = e.target.closest('button[data-study]'); if(!btn || !indexCurrentDef) return;
   const key = btn.dataset.study;
   // One study at a time: tapping the active one turns it off (plain chart),
-  // tapping a different one switches to it alone. Swing is separate (see below).
+  // tapping a different one (Swing included) switches to it alone.
   const wasActive = indexActiveStudy.has(key);
   indexActiveStudy.clear();
   if(!wasActive) indexActiveStudy.add(key);
   tiStudyToggle.querySelectorAll('button[data-study]').forEach(b => b.classList.toggle('active', indexActiveStudy.has(b.dataset.study)));
-  setIndexChart(indexCurrentDef, indexCurrentTf, indexActiveStudy);
-});
-
-tiStudyToggle.addEventListener('click', e => {
-  const btn = e.target.closest('button[data-swing]'); if(!btn || !indexCurrentDef) return;
-  indexSwingOn = !indexSwingOn;
-  btn.classList.toggle('active', indexSwingOn);
   setIndexChart(indexCurrentDef, indexCurrentTf, indexActiveStudy);
 });
 
