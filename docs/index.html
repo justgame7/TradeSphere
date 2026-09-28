@@ -1789,7 +1789,7 @@ const TICKER_REFRESH_MS = 60000;
 // a quality filter on top of CoinGecko's market-cap ranking, with zero extra
 // network calls. Persisted to localStorage so it survives a reload even
 // before the first ticker fetch of a session completes.
-const BINANCE_SYMBOLS_CACHE_KEY = 'ts_home_binance_symbols_cache_v1';
+const BINANCE_SYMBOLS_CACHE_KEY = 'ts_home_binance_symbols_cache_v2';
 // Binance runs "leverage token" style contracts for a handful of low-price
 // bases (1000SHIBUSDT, 1000PEPEUSDT, 1000BONKUSDT, 1000000MOGUSDT, ...) -
 // the exchange symbol carries a digit multiplier the plain base asset
@@ -1806,7 +1806,7 @@ const BINANCE_SYMBOLS_CACHE_KEY = 'ts_home_binance_symbols_cache_v1';
 // "1000SHIBUSDT", and "1000SATS" -> "1000SATSUSDT") so anything that needs
 // to hit the futures API for a coin uses the real ticker instead of
 // guessing base+"USDT".
-const BINANCE_SYMBOL_MAP_CACHE_KEY = 'ts_home_binance_symbol_map_cache_v1';
+const BINANCE_SYMBOL_MAP_CACHE_KEY = 'ts_home_binance_symbol_map_cache_v2';
 // The full Binance USDT-M perpetual universe (525+ contracts as of writing,
 // grows as Binance lists more) - one row per unique base asset, captured
 // from the same /fapi/v1/ticker/24hr response above (no extra network call).
@@ -1815,10 +1815,21 @@ const BINANCE_SYMBOL_MAP_CACHE_KEY = 'ts_home_binance_symbol_map_cache_v1';
 // every actively-trading Binance USDT-M perp shows up, decorated with
 // CoinGecko's name/logo/market-cap when a match is found and falling back to
 // Binance's own ticker price/change/volume when it isn't.
-const BINANCE_PERP_UNIVERSE_CACHE_KEY = 'ts_home_binance_perp_universe_cache_v1';
+const BINANCE_PERP_UNIVERSE_CACHE_KEY = 'ts_home_binance_perp_universe_cache_v2';
 let binanceBaseAssets = null;
 let binanceSymbolMap = null;
 let binancePerpUniverse = null;
+const BINANCE_TRADING_PERPS_CACHE_KEY = 'ts_home_binance_trading_perps_cache_v1';
+function readBinanceTradingPerpsCache(){
+  try{
+    const raw = localStorage.getItem(BINANCE_TRADING_PERPS_CACHE_KEY);
+    const arr = raw ? JSON.parse(raw) : null;
+    return (arr && arr.length) ? new Set(arr) : null;
+  }catch(e){ return null; }
+}
+function writeBinanceTradingPerpsCache(setObj){
+  try{ localStorage.setItem(BINANCE_TRADING_PERPS_CACHE_KEY, JSON.stringify(Array.from(setObj))); }catch(e){}
+}
 function readBinancePerpUniverseCache(){
   try{
     const raw = localStorage.getItem(BINANCE_PERP_UNIVERSE_CACHE_KEY);
@@ -2007,6 +2018,24 @@ async function loadTicker(opts){
   try{
     const data = await tickerFetchJSON('https://fapi.binance.com/fapi/v1/ticker/24hr');
     if(!Array.isArray(data)) throw new Error('Unexpected Binance ticker response shape');
+    // Same universe rule the screener uses (getUSDTPerpetualSymbols in
+    // screener.html): PERPETUAL + USDT-quoted + status TRADING per
+    // exchangeInfo. The 24hr ticker feed alone also carries contracts that
+    // are settling/pre-delivery/delisted, which is why All Coins was showing
+    // far more rows than the screener actually scans. If exchangeInfo can't
+    // be fetched, fall back to the last good allow-list rather than the
+    // unfiltered feed, so the list never balloons back up.
+    let tradingPerps = null;
+    try{
+      const info = await tickerFetchJSON('https://fapi.binance.com/fapi/v1/exchangeInfo');
+      if(info && Array.isArray(info.symbols)){
+        tradingPerps = new Set(info.symbols
+          .filter(s => s.contractType === 'PERPETUAL' && s.quoteAsset === 'USDT' && s.status === 'TRADING')
+          .map(s => s.symbol));
+        writeBinanceTradingPerpsCache(tradingPerps);
+      }
+    }catch(e){ console.warn('[home ticker] exchangeInfo failed:', e && e.message); }
+    if(!tradingPerps) tradingPerps = readBinanceTradingPerpsCache();
     const wanted = new Set(TICKER_COINS.map(c => c.binanceSymbol));
     const map = {};
     const allBases = new Set();
@@ -2026,7 +2055,7 @@ async function loadTicker(opts){
       // perpetuals survive - quarterly delivery contracts come back from
       // this endpoint as e.g. "BTCUSDT_250926" and don't end in "USDT", so
       // they're excluded automatically without a separate exchangeInfo call.
-      if(row.symbol && row.symbol.endsWith('USDT')){
+      if(row.symbol && row.symbol.endsWith('USDT') && (!tradingPerps || tradingPerps.has(row.symbol))){
         const rawBase = row.symbol.slice(0, -4);
         const strippedBase = rawBase.replace(/^\d+/, '') || rawBase;
         [rawBase, strippedBase].forEach(base => {
@@ -2063,6 +2092,14 @@ async function loadTicker(opts){
     writeBinanceSymbolMapCache(symbolMap);
     binancePerpUniverse = perpUniverse;
     writeBinancePerpUniverseCache(perpUniverse);
+    // Diagnostic: which USDT-suffixed tickers were dropped because they are
+    // not PERPETUAL + TRADING on exchangeInfo. Open the browser console (or
+    // type window.removedFromAllCoins) to see the list.
+    if(tradingPerps){
+      const removed = data.filter(r => r.symbol && r.symbol.endsWith('USDT') && !tradingPerps.has(r.symbol)).map(r => r.symbol.slice(0, -4)).sort();
+      window.removedFromAllCoins = removed;
+      console.info('[all coins] kept ' + perpUniverse.length + ' Binance USDT-M perps; removed ' + removed.length + ':', removed.join(', '));
+    }
     updateTickerLabel();
   }catch(err){
     console.warn('[home ticker] fetch failed:', err && err.message);
