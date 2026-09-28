@@ -1688,11 +1688,13 @@
         </div>
       </div>
       <div class="analysis-controls">
-        <div class="analysis-tf-toggle" id="tiTfToggle">
+        <div class="analysis-tf-toggle tf-scroll" id="tiTfToggle"><div class="tf-track">
+          <button type="button" data-tf="15m">15m</button>
+          <button type="button" data-tf="1h">1H</button>
           <button type="button" data-tf="4h">4H</button>
           <button type="button" data-tf="1d" class="active">1D</button>
           <button type="button" data-tf="1w">1W</button>
-        </div>
+        </div></div>
         <button type="button" class="analysis-close" id="tiCloseBtn" aria-label="Close">✕</button>
       </div>
     </div>
@@ -3422,7 +3424,23 @@ const tiCloseBtn = document.getElementById('tiCloseBtn');
 // tradingViewInterval() for why it isn't shared - same reasoning applies
 // here, this lives outside that IIFE).
 function indexTfInterval(tf){
-  return { '1d':'D', '1w':'W', '4h':'240' }[tf] || 'D';
+  return { '1d':'D', '1w':'W', '4h':'240', '1h':'60', '15m':'15' }[tf] || 'D';
+}
+// Same 3-slot scrolling toggle as the coin breakdown's (see .tf-scroll/.tf-track CSS): keeps the
+// active button inside the window. resetScroll=true is the on-open view - 4H/1D/1W showing (scrolled
+// to the right end) unless the active one is 15m/1H.
+function syncIndexTfToggle(tf, resetScroll){
+  const box = document.querySelector('#tiTfToggle .tf-track'); if(!box) return;
+  box.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tf === tf));
+  const a = box.querySelector('button.active'); if(!a) return;
+  const left = a.offsetLeft, right = left + a.offsetWidth;
+  if(resetScroll){
+    box.scrollLeft = (tf === '15m' || tf === '1h') ? 0 : box.scrollWidth;
+  }else if(left < box.scrollLeft){
+    box.scrollLeft = left - 3;
+  }else if(right > box.scrollLeft + box.clientWidth){
+    box.scrollLeft = right - box.clientWidth + 3;
+  }
 }
 // Builds a tiny standalone page that runs TradingView's current Advanced Chart
 // widget script. The legacy /widgetembed/ URL silently ignored the `studies`
@@ -3469,11 +3487,11 @@ function clearIndexChart(){
 }
 // TradingView's Technical Analysis widget: buy/sell summary gauge plus the
 // oscillator and moving-average gauges for the same CRYPTOCAP symbol and the
-// timeframe currently picked in the 4H/1D/1W toggle. Same srcdoc approach (and
+// timeframe currently picked in the 15m/1H/4H/1D/1W toggle. Same srcdoc approach (and
 // same "<\/script>" escaping) as indexChartDoc() above.
 function indexTechDoc(def, tf){
   const cfg = {
-    interval: { '4h':'4h', '1d':'1D', '1w':'1W' }[tf] || '1D',
+    interval: { '15m':'15m', '1h':'1h', '4h':'4h', '1d':'1D', '1w':'1W' }[tf] || '1D',
     width: '100%',
     height: '100%',
     isTransparent: true,
@@ -3552,6 +3570,7 @@ function openIndexBreakdown(def, d){
   indexTechStale = true;
   setIndexTechCollapsed(true);
   indexOverlay.classList.add('open');
+  syncIndexTfToggle(indexCurrentTf, true);  // after 'open' so the toggle has layout
   document.body.style.overflow = 'hidden';
   // Same "dismiss the sheet underneath, then push a fresh history entry for
   // the overlay" sequence openScreenerForCoin() uses for a real coin -
@@ -3575,10 +3594,16 @@ function closeIndexBreakdown(){
 }
 tiCloseBtn.addEventListener('click', closeIndexBreakdown);
 indexOverlay.addEventListener('click', e => { if(e.target === indexOverlay) closeIndexBreakdown(); });
+tiTfToggle.querySelector('.tf-track').addEventListener('wheel', e => {
+  const box = e.currentTarget;
+  if(box.scrollWidth <= box.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+  e.preventDefault();
+  box.scrollLeft += e.deltaY;
+}, { passive:false });
 tiTfToggle.addEventListener('click', e => {
   const btn = e.target.closest('button[data-tf]'); if(!btn || !indexCurrentDef) return;
   indexCurrentTf = btn.dataset.tf;
-  tiTfToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+  syncIndexTfToggle(indexCurrentTf, false);
   setIndexChart(indexCurrentDef, indexCurrentTf, indexActiveStudy);
   indexTechStale = true;
   refreshIndexTech();
