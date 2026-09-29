@@ -1782,7 +1782,7 @@ const TICKER_COINS = [
   { symbol:'ETH',  binanceSymbol:'ETHUSDT'  },
 ];
 const TICKER_CACHE_KEY = 'ts_home_ticker_cache_v1';
-const TICKER_REFRESH_MS = 60000;
+const TICKER_REFRESH_MS = 45000; // Binance prices (home ticker + All Coins): refreshed once at app start, then every 45s while the app is open
 // The /fapi/v1/ticker/24hr response already contains every Binance USDT-M
 // perpetual symbol, not just the 3 shown in the ticker row - captured here
 // so the All Coins modal can use "is this actually listed on Binance" as
@@ -2101,6 +2101,7 @@ async function loadTicker(opts){
       console.info('[all coins] kept ' + perpUniverse.length + ' Binance USDT-M perps; removed ' + removed.length + ':', removed.join(', '));
     }
     updateTickerLabel();
+    refreshAllCoinsIfOpen();
   }catch(err){
     console.warn('[home ticker] fetch failed:', err && err.message);
     if(!tickerLastData){
@@ -2123,11 +2124,16 @@ if(tickerCached && tickerCached.data){
 }
 loadTicker();
 tickerRefreshBtn.addEventListener('click', () => loadTicker({ manual:true }));
+// Single 45s refresh loop while the app is open and visible. Opening the
+// All Coins modal never triggers its own fetch - it just renders whatever
+// this loop last loaded.
 setInterval(() => {
-  if(currentPage === 'home' && !document.hidden) loadTicker();
+  if(!document.hidden) loadTicker();
 }, TICKER_REFRESH_MS);
+// Coming back from the background: only refetch if the data is actually
+// older than one refresh interval.
 document.addEventListener('visibilitychange', () => {
-  if(!document.hidden && currentPage === 'home') loadTicker();
+  if(!document.hidden && (!tickerLastTs || Date.now() - tickerLastTs > TICKER_REFRESH_MS)) loadTicker();
 });
 
 /* ================= Home: top gainers / losers rolling strip =================
@@ -2355,10 +2361,10 @@ async function loadTop100(){
     top100LastRaw = data;
     top100LastTs = Date.now();
     writeTop100Cache(data);
-    renderTop50List();
+    renderTop50List({ keepScroll:true });
   }catch(err){
     console.warn('[all coins modal] fetch failed:', err && err.message);
-    renderTop50List();
+    renderTop50List({ keepScroll:true });
   }
 }
 
@@ -2384,29 +2390,32 @@ function buildAllCoinsList(){
     const baseLower = p.base.toLowerCase();
     if(STABLECOIN_SYMBOLS.has(baseLower)) return;
     const cg = cgBySymbol.get(baseLower) || cgBySymbol.get(p.rawBase.toLowerCase());
-    if(cg){
-      rows.push({
-        symbol: p.base, futuresSymbol: p.futuresSymbol,
-        name: cg.name || '', image: cg.image || '',
-        current_price: typeof cg.current_price === 'number' ? cg.current_price : null,
-        price_change_percentage_24h: typeof cg.price_change_percentage_24h === 'number' ? cg.price_change_percentage_24h : null,
-        total_volume: typeof cg.total_volume === 'number' ? cg.total_volume : null,
-        market_cap: typeof cg.market_cap === 'number' ? cg.market_cap : null
-      });
+    // Price / 24h % / volume always come from the Binance USDT-M perp ticker
+    // (refreshed every 45s by loadTicker). CoinGecko only supplies the
+    // name, logo and market cap.
+    const price = parseFloat(p.lastPrice);
+    const chg = parseFloat(p.priceChangePercent);
+    const vol = parseFloat(p.quoteVolume);
+    // Binance 1000x-style contracts quote per-1000 units. When CoinGecko has
+    // a match, infer the multiplier from the price ratio (rounded to a power
+    // of 10) so it is right even for bases not in the hard-coded list; a real
+    // numeral ticker like 1000SATS has a ratio near 1 and stays at 1.
+    let mult = 1;
+    const cgPrice = cg && typeof cg.current_price === 'number' ? cg.current_price : null;
+    if(cgPrice && cgPrice > 0 && isFinite(price) && price > 0){
+      const pow = Math.round(Math.log10(price / cgPrice));
+      mult = pow >= 1 ? Math.pow(10, Math.min(pow, 7)) : 1;
     }else{
-      const price = parseFloat(p.lastPrice);
-      const chg = parseFloat(p.priceChangePercent);
-      const vol = parseFloat(p.quoteVolume);
-      const mult = guessBinanceMultiplier(p.rawBase);
-      rows.push({
-        symbol: p.base, futuresSymbol: p.futuresSymbol,
-        name: '', image: '',
-        current_price: isFinite(price) ? price / mult : null,
-        price_change_percentage_24h: isFinite(chg) ? chg : null,
-        total_volume: isFinite(vol) ? vol : null,
-        market_cap: null
-      });
+      mult = guessBinanceMultiplier(p.rawBase);
     }
+    rows.push({
+      symbol: p.base, futuresSymbol: p.futuresSymbol,
+      name: cg ? (cg.name || '') : '', image: cg ? (cg.image || '') : '',
+      current_price: isFinite(price) ? price / mult : null,
+      price_change_percentage_24h: isFinite(chg) ? chg : null,
+      total_volume: isFinite(vol) ? vol : null,
+      market_cap: cg && typeof cg.market_cap === 'number' ? cg.market_cap : null
+    });
   });
   return rows;
 }
@@ -2455,11 +2464,18 @@ function renderTop50Skeleton(){
   top50List.innerHTML = rows.join('');
 }
 
-function renderTop50List(){
+function renderTop50List(opts){
+  opts = opts || {};
+  const prevScroll = opts.keepScroll ? top50List.scrollTop : 0;
   const list = getFilteredSortedTop50();
   const haveSource = !!(getBinancePerpUniverse() && getBinancePerpUniverse().length);
   top50List.classList.remove('top50-skeleton');
-  top50UpdatedEl.textContent = top100LastTs ? formatTickerUpdatedLabel(top100LastTs) : (haveSource ? 'cached' : '—');
+  // Freshness of the Binance perp prices (tickerLastTs), not CoinGecko's.
+  const ageSecs = tickerLastTs ? (Date.now() - tickerLastTs) / 1000 : null;
+  const isStale = ageSecs === null ? haveSource : ageSecs > 150;
+  top50UpdatedEl.textContent = ageSecs === null ? (haveSource ? 'cached' : '\u2014')
+    : (isStale ? 'stale \u00b7 ' : '') + formatTickerUpdatedLabel(tickerLastTs);
+  top50UpdatedEl.style.color = isStale ? 'var(--amber)' : '';
   if(top50TitleMain){
     top50TitleMain.textContent = 'All Coins' + (list.length ? ' · ' + list.length.toLocaleString('en-US') : '');
   }
@@ -2475,7 +2491,8 @@ function renderTop50List(){
   list.forEach((coin, i) => {
     const row = document.createElement('div');
     row.className = 'top50-row';
-    row.style.animationDelay = Math.min(i * 18, 260) + 'ms';
+    if(opts.keepScroll) row.style.animation = 'none';
+    else row.style.animationDelay = Math.min(i * 18, 260) + 'ms';
     const chg = coin.price_change_percentage_24h;
     const hasChg = typeof chg === 'number';
     const chgText = hasChg ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : '—';
@@ -2505,6 +2522,12 @@ function renderTop50List(){
     row.addEventListener('click', () => openScreenerForCoin(coin));
     top50List.appendChild(row);
   });
+  if(opts.keepScroll) top50List.scrollTop = prevScroll;
+}
+
+// Called by loadTicker() after every successful Binance refresh (app start + every 45s).
+function refreshAllCoinsIfOpen(){
+  if(top50Modal && top50Modal.classList.contains('open')) renderTop50List({ keepScroll:true });
 }
 
 // Tapping a coin opens the Technical Breakdown overlay (the same
@@ -2548,7 +2571,13 @@ function openTop50Modal(){
   }else{
     renderTop50Skeleton();
   }
-  loadTop100();
+  // Prices: no fetch on open - the app-level 45s loop (see TICKER_REFRESH_MS)
+  // keeps them fresh. Only fetch here if nothing has loaded yet at all
+  // (no cache and the boot fetch hasn't finished / failed).
+  if(!getBinancePerpUniverse() || !getBinancePerpUniverse().length) loadTicker();
+  // Names / logos / market caps change slowly - only re-fetch CoinGecko if
+  // older than 10 min (avoids the free-tier 429s that left the list on cache).
+  if(!top100LastTs || Date.now() - top100LastTs > 600000) loadTop100();
 }
 function closeTop50Modal(){
   top50Backdrop.classList.remove('open');
@@ -2611,7 +2640,11 @@ top50SortRow.querySelectorAll('.top50-sort-btn').forEach(btn => {
 
 setInterval(() => {
   if(top50Modal.classList.contains('open')){
-    top50UpdatedEl.textContent = top100LastTs ? formatTickerUpdatedLabel(top100LastTs) : '—';
+    const ageSecs = tickerLastTs ? (Date.now() - tickerLastTs) / 1000 : null;
+    const isStale = ageSecs === null || ageSecs > 150;
+    top50UpdatedEl.textContent = ageSecs === null ? '\u2014'
+      : (isStale ? 'stale \u00b7 ' : '') + formatTickerUpdatedLabel(tickerLastTs);
+    top50UpdatedEl.style.color = isStale ? 'var(--amber)' : '';
   }
 }, 5000);
 
