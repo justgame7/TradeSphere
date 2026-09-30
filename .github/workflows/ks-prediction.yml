@@ -1,0 +1,43 @@
+name: fetch-kalshi
+on:
+  schedule: [{ cron: "*/10 * * * *" }]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch
+        run: |
+          mkdir -p data
+          BASE="https://external-api.kalshi.com/trade-api/v2/markets"
+          # Crypto series are daily, so only pull markets closing in the next 2 days.
+          # Unknown or empty series are skipped with a log line and do not fail the job.
+          for s in KXFED KXCPI KXRECSSNBER KXGDP KXPAYROLLS KXU3 KXBTCD KXETHD KXSOLD KXXRPD; do
+            extra=""
+            case "$s" in KXBTCD|KXETHD|KXSOLD|KXXRPD) extra="&max_close_ts=$(date -d '+2 days' +%s)";; esac
+            cursor=""; : > "$s.nd"; ok=1
+            for p in 1 2 3 4 5 6 7 8; do
+              curl -sf --retry 5 --retry-delay 15 --retry-all-errors -A "personal-dashboard/1.0" \
+                "$BASE?series_ticker=$s&status=open&limit=200$extra${cursor:+&cursor=$cursor}" -o page.json || { ok=0; break; }
+              jq -c '.markets[]' page.json >> "$s.nd"
+              cursor=$(jq -r '.cursor // ""' page.json)
+              [ -z "$cursor" ] && break
+              sleep 3
+            done
+            if [ "$ok" = 1 ] && [ -s "$s.nd" ]; then
+              jq -s '{updated:(now|todate),markets:map({t:.ticker,e:.event_ticker,s:.yes_sub_title,k:.floor_strike,c:.close_time,b:.yes_bid_dollars,a:.yes_ask_dollars,l:.last_price_dollars,v:.volume_fp,title:.title})}' "$s.nd" > "data/$s.json"
+            else
+              echo "no data for $s"
+            fi
+            sleep 3
+          done
+          rm -f ./*.nd page.json
+      - name: Commit
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || (git commit -m "update data" && git push)
