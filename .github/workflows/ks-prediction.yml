@@ -38,9 +38,17 @@ jobs:
             sleep 3
           done
           rm -f ./*.nd page.json
+
       - name: Commit
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
           git add data
-          git diff --cached --quiet || (git commit -m "update data" && git push)
+          git diff --cached --quiet && exit 0
+          git commit -m "update data"
+          for i in 1 2 3 4 5; do
+            if git pull --rebase -X theirs origin main && git push; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            sleep $((RANDOM % 10 + 3))
+          done
+          echo "push failed after retries"; exit 1
