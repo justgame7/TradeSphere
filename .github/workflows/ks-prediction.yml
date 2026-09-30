@@ -1,7 +1,10 @@
 name: fetch-kalshi
 on:
-  schedule: [{ cron: "*/10 * * * *" }]
-  workflow_dispatch:
+  schedule:
+    # Top of every 10 minutes, UTC. GitHub's scheduler can run a few minutes late
+    # under load on the free tier — that's normal.
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
 permissions:
   contents: write
 jobs:
