@@ -1,0 +1,29 @@
+{
+  "updated": "2026-09-30T18:33:09Z",
+  "markets": [
+    {
+      "t": "KXRECSSNBER-27",
+      "e": "KXRECSSNBER-27",
+      "s": "Yes",
+      "k": null,
+      "c": "2028-01-31T13:25:00Z",
+      "b": "0.1900",
+      "a": "0.2000",
+      "l": "0.2000",
+      "v": "527759.95",
+      "title": "Will there be a recession in 2027?"
+    },
+    {
+      "t": "KXRECSSNBER-26",
+      "e": "KXRECSSNBER-26",
+      "s": "Starts",
+      "k": null,
+      "c": "2027-01-31T13:25:00Z",
+      "b": "0.0400",
+      "a": "0.0500",
+      "l": "0.0400",
+      "v": "3594652.54",
+      "title": "Will there be a recession in 2026?"
+    }
+  ]
+}
