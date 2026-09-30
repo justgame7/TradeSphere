@@ -1,563 +1,198 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Prediction Markets</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#0A0C10;
-    --panel:#12151B;
-    --panel2:#171B22;
-    --border:#232833;
-    --border-soft:#1B1F28;
-    --text:#E6E9EF;
-    --muted:#8B93A3;
-    --faint:#565F70;
-    --accent:#35E0C0;
-    --accent-dim:#1E7F6F;
-    --red:#FF5470;
-    --red-dim:#7A2E3B;
-    --amber:#F5A623;
-    --blue:#5B8CFF;
-    --violet:#A78BFA;
-    --orange:#FF8A4C;
-    --font-display:'Space Grotesk', sans-serif;
-    --font-mono:'JetBrains Mono', monospace;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    font-family:var(--font-display);
-    background:var(--bg);
-    color:var(--text);
-    padding:28px 20px 70px;
-    background-image:
-      radial-gradient(circle at 12% 0%, rgba(53,224,192,0.06), transparent 40%),
-      radial-gradient(circle at 92% 15%, rgba(91,140,255,0.05), transparent 35%);
-  }
-  .wrap{max-width:1080px;margin:0 auto;}
-
-  /* ---- Top header ---- */
-  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
-  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text);}
-  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
-  .header-right{display:flex;align-items:center;gap:10px;}
-  .updated-label{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);white-space:nowrap;}
-  .updated-label.label-error{color:var(--red);}
-  .refresh-btn{
-    background:var(--panel);border:1px solid var(--border);color:var(--text);
-    width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  }
-  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
-  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
-  .refresh-btn.spinning svg{transform:rotate(360deg);}
-  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 18px;max-width:720px;}
-
-  /* ---- Disclaimer / about panel ---- */
-  .notice{
-    background:var(--panel);border:1px solid var(--border);border-radius:12px;
-    padding:14px 16px;margin:22px 0 22px;font-size:12px;line-height:1.6;color:var(--muted);
-  }
-  .notice b{color:var(--text);}
-  .notice-summary{display:flex;align-items:center;gap:8px;}
-  .notice-toggle{
-    flex-shrink:0;width:20px;height:20px;padding:0;border-radius:6px;
-    background:var(--panel2);border:1px solid var(--border);color:var(--muted);
-    font:700 13px var(--font-mono);line-height:1;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;
-    transition:transform .15s, color .15s, border-color .15s;
-  }
-  .notice-toggle:hover{border-color:var(--accent);color:var(--accent);}
-  .notice-toggle.open{transform:rotate(45deg);}
-  .notice-details{margin-top:10px;}
-  .notice-details[hidden]{display:none;}
-  .notice .src-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-  .src-tag{
-    display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--font-mono);
-    padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
-  }
-  .src-tag .dot{width:6px;height:6px;border-radius:50%;}
-  .src-tag.polymarket .dot{background:var(--blue);}
-
-  .degraded-banner{
-    background:rgba(255,84,112,.08);border:1px solid rgba(255,84,112,.25);color:#ffb3c1;
-    border-radius:10px;padding:10px 14px;font:12px var(--font-mono);margin-bottom:18px;
-    display:none;
-  }
-  .degraded-banner.show{display:block;}
-
-  /* ---- Topic grid ---- */
-  .topic-grid{display:grid;grid-template-columns:1fr;gap:14px;}
-  @media(min-width:760px){ .topic-grid{grid-template-columns:1fr 1fr;} }
-
-  .topic-card{
-    background:var(--panel);border:1px solid var(--border);border-radius:14px;
-    padding:16px 18px;display:flex;flex-direction:column;gap:12px;
-    transition:border-color .15s, transform .15s;
-  }
-  .topic-card:hover{border-color:var(--border-soft);transform:translateY(-2px);}
-  .topic-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
-  .topic-title{font-size:16.5px;font-weight:700;line-height:1.35;}
-  .topic-blurb{color:var(--faint);font-size:12.5px;line-height:1.5;margin-top:3px;}
-
-  .poll{
-    background:var(--panel2);border:1px solid var(--border-soft);border-radius:10px;
-    padding:11px 12px;display:flex;flex-direction:column;gap:7px;
-    transition:border-color .15s;
-  }
-  .poll:hover{border-color:var(--border);}
-  .poll-head-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
-  .poll-meta{font:11px var(--font-mono);color:var(--faint);white-space:nowrap;flex-shrink:0;}
-  .poll-question{font-size:14.5px;font-weight:600;line-height:1.4;color:var(--text);flex:1;min-width:0;}
-
-  .outcome-row{display:flex;flex-direction:column;gap:3px;}
-  .outcome-label-row{display:flex;justify-content:space-between;align-items:baseline;font:13px var(--font-mono);}
-  .outcome-label-row .lbl{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;}
-  .outcome-label-row .pct{color:var(--text);font-weight:700;flex-shrink:0;}
-  .outcome-bar-bg{height:6px;border-radius:4px;background:var(--border-soft);overflow:hidden;}
-  .outcome-bar-fill{height:100%;border-radius:4px;background:var(--accent);transition:width .5s ease;}
-  .outcome-bar-fill.c1{background:var(--accent);}
-  .outcome-bar-fill.c2{background:var(--blue);}
-  .outcome-bar-fill.c3{background:var(--amber);}
-  .outcome-bar-fill.c4{background:var(--violet);}
-
-  .poll-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px;}
-  .poll-vol{font:12px var(--font-mono);color:var(--faint);}
-  .poll-link{
-    font:600 12px var(--font-mono);color:var(--accent);text-decoration:none;
-    display:inline-flex;align-items:center;gap:4px;
-  }
-  .poll-link:hover{text-decoration:underline;}
-
-  .topic-empty{color:var(--faint);font:11.5px var(--font-mono);padding:6px 2px;}
-
-  .page-skeleton{display:flex;flex-direction:column;gap:14px;}
-  .skel-card{height:170px;border-radius:14px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 37%,var(--panel) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;}
-  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
-
-  .error-state{
-    padding:34px 20px;text-align:center;color:#ffb3c1;font:12.5px var(--font-mono);
-    border:1px dashed rgba(255,84,112,.3);border-radius:12px;line-height:1.7;
-  }
-  .retry-btn{
-    margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text);
-    padding:8px 16px;border-radius:8px;font:600 12px var(--font-mono);cursor:pointer;
-  }
-  .retry-btn:hover{border-color:var(--accent);color:var(--accent);}
-
-  .page-footer{color:var(--faint);font-size:11.5px;line-height:1.6;margin-top:26px;padding-top:16px;border-top:1px solid var(--border-soft);max-width:700px;}
-</style>
-</head>
-<body>
+:root{--bg:#07080d;--g:rgba(255,255,255,.045);--gb:rgba(255,255,255,.09);--fg:#e8eaf2;--mut:#8a90a6;--acc:#8b7cff;--acc2:#36d3e8;--amb:#ffb547;--up:#2fe3a0;--dn:#ff6b7d;--r:18px}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--fg);font:14px/1.45 'Space Grotesk',system-ui,sans-serif;background:var(--bg);
+background-image:radial-gradient(900px 500px at 12% -10%,rgba(139,124,255,.22),transparent 60%),radial-gradient(700px 500px at 100% 0,rgba(54,211,232,.14),transparent 60%);background-attachment:fixed;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.mono{font-family:'JetBrains Mono',monospace}
+.wrap{max-width:1280px;margin:auto;padding:20px 16px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em}
+.sub{color:var(--mut);margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:99px;background:var(--g);border:1px solid var(--gb);font-size:12px;color:var(--mut)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--up);box-shadow:0 0 0 0 var(--up);animation:pl 2s infinite}
+.stale .dot{background:var(--amb);animation:none}.err .dot{background:var(--dn);animation:none}
+@keyframes pl{70%{box-shadow:0 0 0 7px transparent}}
+button,input,select{font:inherit;color:inherit}
+.btn{background:var(--g);border:1px solid var(--gb);border-radius:12px;padding:8px 14px;cursor:pointer;backdrop-filter:blur(12px)}
+.btn:hover{border-color:var(--acc)}.btn:focus-visible,input:focus-visible,.chip:focus-visible,.card:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:22px 0 18px}
+.kpi{background:var(--g);border:1px solid var(--gb);border-radius:var(--r);padding:14px 16px;backdrop-filter:blur(16px);cursor:pointer}
+.kpi small{color:var(--mut);display:block}.kpi b{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.kpi:first-child{background:linear-gradient(135deg,rgba(139,124,255,.25),rgba(54,211,232,.1));border-color:rgba(139,124,255,.4)}
+.bar2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.chip{padding:7px 14px;border-radius:99px;background:var(--g);border:1px solid var(--gb);cursor:pointer;color:var(--mut)}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#0a0a14;font-weight:600}
+input[type=search]{background:var(--g);border:1px solid var(--gb);border-radius:12px;padding:8px 12px;width:200px}
+select{background:#12131c;border:1px solid var(--gb);border-radius:12px;padding:8px}
+label.tg{display:flex;gap:6px;align-items:center;color:var(--mut);cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.card{background:var(--g);border:1px solid var(--gb);border-radius:var(--r);padding:16px;backdrop-filter:blur(16px);cursor:pointer;transition:border-color .2s,transform .2s}
+.card:hover{border-color:rgba(139,124,255,.6);transform:translateY(-2px)}
+.top{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--mut)}
+.tag{padding:2px 9px;border-radius:99px;background:rgba(139,124,255,.18);color:#c4bcff;font-weight:600}
+.tag.c{background:rgba(54,211,232,.16);color:#8ae8f6}
+.card h3{margin:10px 0 6px;font-size:15px;font-weight:600;line-height:1.3}
+.hl{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.hl b{font-size:28px;letter-spacing:-.02em}.hl small{color:var(--mut)}
+.up{color:var(--up)}.dn{color:var(--dn)}.thin{color:var(--amb);font-size:11px;border:1px solid rgba(255,181,71,.4);border-radius:99px;padding:1px 8px;margin-left:auto}
+.row{display:grid;grid-template-columns:84px 1fr 40px;gap:8px;align-items:center;margin:4px 0;font-size:12px}
+.row span:last-child{text-align:right}
+.trk{position:relative;height:10px;border-radius:6px;background:rgba(255,255,255,.07)}
+.trk i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:linear-gradient(90deg,var(--acc),var(--acc2));width:0;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.trk.lo i{opacity:.45}
+.trk:after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;border-left:1px dashed var(--amb);opacity:.7}
+.note,.empty{color:var(--mut);font-size:12px}
+.empty{text-align:center;padding:50px 0}
+.skel{height:190px;border-radius:var(--r);background:linear-gradient(100deg,var(--g) 30%,rgba(255,255,255,.09) 50%,var(--g) 70%);background-size:200% 100%;animation:sk 1.4s infinite}
+@keyframes sk{to{background-position:-200% 0}}
+.ov{position:fixed;inset:0;background:rgba(3,4,8,.72);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:14px;z-index:9}
+.ov.on{display:flex}
+.modal{background:#0d0e16;border:1px solid var(--gb);border-radius:22px;width:min(760px,100%);max-height:88vh;overflow:auto;padding:22px}
+.mh{display:flex;justify-content:space-between;gap:10px;align-items:start}
+.modal table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
+.modal th,.modal td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--gb)}
+.modal th:first-child,.modal td:first-child{text-align:left}
+.seg{display:inline-flex;border:1px solid var(--gb);border-radius:12px;overflow:hidden;margin:12px 0}
+.seg button{background:none;border:0;padding:6px 14px;cursor:pointer;color:var(--mut)}.seg .on{background:var(--acc);color:#0a0a14;font-weight:600}
+.embed header,.embed .foot{display:none}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(max-width:520px){h1{font-size:23px}input[type=search]{width:100%}.grid{grid-template-columns:1fr}}
+</style></head><body>
 <div class="wrap">
-
-  <div class="topheader">
-    <div class="eyebrow"><span class="dot"></span>Prediction Markets</div>
-    <div class="header-right">
-      <span class="updated-label" id="updatedLabel"></span>
-      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      </button>
-    </div>
-  </div>
-  <p class="sub">Live implied odds on macro and crypto-policy events that tend to move the market: Fed decisions, inflation prints, ETFs, and pending crypto legislation.</p>
-
-  <div class="degraded-banner" id="degradedBanner"></div>
-
-  <div id="content"></div>
-
-  <div class="notice">
-    <div class="notice-summary">
-      <b>Read-only market data, not a trading venue.</b>
-      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeDetails" aria-label="Show more details">+</button>
-    </div>
-    <div class="notice-details" id="noticeDetails" hidden>
-      Odds shown are implied probabilities (the current price of a "Yes" contract) pulled directly from Polymarket's public data feed, for research and context only — this page doesn't place trades or hold funds. Polymarket's own availability varies by jurisdiction. Check local rules before trading.
-      <div class="src-tags">
-        <span class="src-tag polymarket"><span class="dot"></span>Polymarket · gamma-api.polymarket.com</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="page-footer">Each card shows the single most actively-traded matching market per topic on Polymarket. Refreshes automatically on open and every 15 minutes, or tap the refresh button any time. Not financial advice.</div>
+<header>
+ <div><h1>Prediction markets</h1><div class="sub">What traders are betting on for the events that move crypto.</div></div>
+ <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill" id="st"><i class="dot"></i><span id="up">Loading…</span></span><button class="btn" id="rf">Refresh</button></div>
+</header>
+<section class="kpis" id="kpis"></section>
+<div class="bar2">
+ <div class="chips" id="chips" role="tablist"></div>
+ <input type="search" id="q" placeholder="Search events" aria-label="Search events">
+ <select id="per" aria-label="Events per series"><option value="2">Next 2 events</option><option value="4">Next 4 events</option><option value="99">All open events</option></select>
+ <label class="tg"><input type="checkbox" id="thin"> Hide thin markets</label>
 </div>
-
+<main class="grid" id="grid"></main>
+<p class="note foot">Data: Kalshi public market data via scheduled GitHub Action. A market with a tight bid/ask spread uses the midpoint; otherwise the last traded price. Thin markets are noisy. This is a sentiment signal, not advice or a forecast.</p>
+</div>
+<div class="ov" id="ov"><div class="modal" id="md" role="dialog" aria-modal="true"></div></div>
 <script>
-// ============================================================================
-// TOPICS - hand-picked, crypto-relevant prediction-market subjects. Polymarket
-// is queried live via free-text search (its /public-search endpoint actually
-// supports this, unlike its /events endpoint).
-// ============================================================================
-const TOPICS = [
-  {
-    id: 'fed-rate',
-    label: 'Next Fed rate decision',
-    blurb: 'Cuts/hikes drive risk appetite and crypto liquidity directly.',
-    pmQuery: 'fed interest rate decision',
-  },
-  {
-    id: 'cpi',
-    label: 'CPI / inflation print',
-    blurb: 'Hot CPI = fewer cuts priced in = usually risk-off for crypto.',
-    pmQuery: 'CPI inflation report',
-  },
-  {
-    id: 'recession',
-    label: 'US recession odds',
-    blurb: 'Recession calls reprice risk assets broadly, crypto included.',
-    pmQuery: 'US recession 2026',
-  },
-  {
-    id: 'btc-price',
-    label: 'Bitcoin price targets',
-    blurb: 'Where the market thinks BTC ends up by a given date.',
-    pmQuery: 'bitcoin price by end of year',
-  },
-  {
-    id: 'eth-price',
-    label: 'Ethereum price targets',
-    blurb: 'ETH-specific price milestones traders are pricing in.',
-    pmQuery: 'ethereum price by end of year',
-  },
-  {
-    id: 'sol-price',
-    label: 'Solana price targets',
-    blurb: 'SOL price milestones and comparative strength vs ETH.',
-    pmQuery: 'solana price target',
-  },
-  {
-    id: 'stablecoin-act',
-    label: 'Stablecoin regulation (GENIUS Act)',
-    blurb: 'Federal stablecoin framework — direct impact on USDT/USDC rails.',
-    pmQuery: 'GENIUS Act stablecoin regulation',
-  },
-  {
-    id: 'market-structure-act',
-    label: 'Crypto market structure bill (CLARITY Act)',
-    blurb: 'Defines SEC vs CFTC jurisdiction over crypto assets.',
-    pmQuery: 'CLARITY Act crypto market structure bill',
-  },
-  {
-    id: 'crypto-etf',
-    label: 'New crypto ETF approvals',
-    blurb: 'Spot ETF decisions for altcoins beyond BTC/ETH (SOL, XRP, etc).',
-    pmQuery: 'SEC crypto ETF approval',
-  },
-  {
-    id: 'gov-shutdown',
-    label: 'US government shutdown',
-    blurb: 'Shutdowns delay economic data releases the market trades around.',
-    pmQuery: 'government shutdown',
-  },
-  {
-    id: 'fed-chair',
-    label: 'Fed leadership / chair outlook',
-    blurb: 'Who runs the Fed shapes the rate path markets price in.',
-    pmQuery: 'next Federal Reserve chair',
-  },
+if(/embed=1/.test(location.search))document.body.classList.add('embed');
+// Data is written to the repo-root data/ folder by the Action, which GitHub Pages (/docs) does not serve,
+// so read it from the raw GitHub URL. Works in the browser and inside the Android (Capacitor) app.
+const BASE=localStorage.getItem('prediction-markets-data-base')||'https://raw.githubusercontent.com/justfagame9/crypto-screener/main/data/';
+const SNAP='prediction-markets-snapshots';
+// Add a series here AND in the GitHub Action list. Missing data files just show "no data".
+const SERIES=[
+ {f:'KXBTCD',t:'Bitcoin',cat:'Crypto',u:'$',c:'c',kpi:1},
+ {f:'KXETHD',t:'Ethereum',cat:'Crypto',u:'$',c:'c',kpi:1},
+ {f:'KXSOLD',t:'Solana',cat:'Crypto',u:'$',c:'c'},
+ {f:'KXXRPD',t:'XRP',cat:'Crypto',u:'$',c:'c'},
+ {f:'KXFED',t:'Fed funds',cat:'Fed & rates',u:'%',kpi:1},
+ {f:'KXCPI',t:'CPI m/m',cat:'Inflation',u:'%',kpi:1},
+ {f:'KXRECSSNBER',t:'Recession',cat:'Growth & jobs',u:'%',kpi:1},
+ {f:'KXGDP',t:'GDP',cat:'Growth & jobs',u:'%'},
+ {f:'KXPAYROLLS',t:'Payrolls',cat:'Growth & jobs',u:'n'},
+ {f:'KXU3',t:'Unemployment',cat:'Growth & jobs',u:'%'}
 ];
+const CATS=['All','Crypto','Fed & rates','Inflation','Growth & jobs'];
+const S={cat:'All',q:'',thin:false,per:2,ev:[],upd:null,missing:[]};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const prob=m=>{const b=+m.b,a=+m.a,l=+m.l;if(a>0&&a-b<=.10)return{p:(a+b)/2,q:1};return l>0?{p:l,q:0}:null};
+const fmt=(k,u)=>u==='$'?'$'+Math.round(k).toLocaleString():u==='n'?Math.round(k).toLocaleString():(+k).toFixed(2).replace(/0$/,'')+'%';
+const fd=(d,u)=>(d>=0?'+':'−')+fmt(Math.abs(d),u);
+const cross=r=>{for(let i=1;i<r.length;i++){const a=r[i-1],b=r[i];if(a.p>=.5&&b.p<.5)return a.k+(a.p-.5)/(a.p-b.p)*(b.k-a.k)}return null};
+const cd=c=>{const m=(new Date(c)-Date.now())/6e4;if(m<60)return Math.max(1,Math.round(m))+'m';if(m<2880)return Math.round(m/60)+'h';return Math.round(m/1440)+'d'};
+const day=c=>new Date(c).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+const snaps=()=>{try{return JSON.parse(localStorage.getItem(SNAP)||'{}')}catch(e){return{}}};
 
-const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
-const PROXY_TIMEOUT_MS = 8000;
-const CACHE_KEY = 'crypto-prediction-markets-cache-v1';
-
-// Reuse the same personal Cloudflare Worker already used by youtube.html/news.html
-// for CORS passthrough. IMPORTANT: if your Worker has a target-domain allowlist,
-// make sure gamma-api.polymarket.com is on it, or these requests will be
-// rejected by the Worker itself even though the Worker is reachable.
-const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
-function buildWorkerProxyUrl(u){
-  return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
+async function load(){
+ $('grid').innerHTML='<div class="skel"></div>'.repeat(6);
+ const res=await Promise.allSettled(SERIES.map(s=>fetch(BASE+s.f+'.json?'+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()})));
+ const prev=snaps(),next={...prev},now=Date.now();S.ev=[];S.missing=[];S.upd=null;
+ res.forEach((r,i)=>{
+  const s=SERIES[i];
+  if(r.status!=='fulfilled'||!r.value.markets){S.missing.push(s.t);return}
+  const d=r.value;if(!S.upd||d.updated<S.upd)S.upd=d.updated;
+  const g={};d.markets.filter(m=>new Date(m.c)>now).forEach(m=>(g[m.e]=g[m.e]||[]).push(m));
+  Object.entries(g).sort((a,b)=>new Date(a[1][0].c)-new Date(b[1][0].c)).forEach(([e,ms],n)=>{
+   const rows=ms.map(m=>{const p=prob(m);return p&&{k:m.k==null?null:+m.k,s:m.s,p:p.p,q:p.q,v:+m.v||0}}).filter(Boolean);
+   const lad=rows.filter(r=>r.k!=null).length>=3;
+   if(lad)rows.sort((a,b)=>a.k-b.k);else rows.sort((a,b)=>b.p-a.p);
+   const x=lad?cross(rows):null,top=lad?null:rows[0];
+   const val=lad?x:top&&top.p,ok=rows.filter(r=>r.q).length/(rows.length||1);
+   const old=prev[e];let dl=null;
+   if(old&&val!=null&&old.v!=null)dl=val-old.v;
+   if(val!=null&&(!old||now-old.t>18e5))next[e]={v:val,t:now};
+   S.ev.push({e,s,n,lad,rows,val,ok,thin:ok<.3,dl,title:ms[0].title,c:ms[0].c,vol:rows.reduce((a,r)=>a+r.v,0)});
+  });
+ });
+ try{localStorage.setItem(SNAP,JSON.stringify(next))}catch(e){}
+ head();render();
 }
-const CORS_PROXIES = [
-  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-  (u) => `https://proxy.corsfix.com/?${u}`,
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-];
-
-async function fetchWithTimeout(url, ms){
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  try{
-    return await fetch(url, { cache: 'no-store', signal: controller.signal });
-  }finally{
-    clearTimeout(timer);
-  }
+function head(){
+ const st=$('st');st.className='pill';
+ if(S.upd){const m=Math.round((Date.now()-new Date(S.upd))/6e4);$('up').textContent='Updated '+m+' min ago'+(m>90?' · stale, check the GitHub Action':'');if(m>90)st.classList.add('stale')}
+ else{$('up').textContent='No data loaded';st.classList.add('err')}
+ $('kpis').innerHTML=SERIES.filter(s=>s.kpi).map(s=>{
+  const e=S.ev.find(x=>x.s===s&&x.n===0);if(!e||e.val==null)return'';
+  const big=s.f==='KXRECSSNBER'?Math.round(e.val*100)+'%':fmt(e.val,s.u);
+  return'<div class="kpi" data-k="'+s.f+'"><small>'+esc(s.t)+(s.f==='KXRECSSNBER'?' odds':' 50% line')+'</small><b class="mono">'+big+'</b><small>closes in '+cd(e.c)+'</small></div>'}).join('');
 }
-
-async function fetchJSONDirect(url){
-  const res = await fetchWithTimeout(url, PROXY_TIMEOUT_MS);
-  if(!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+function vis(e){return e.lad?e.rows.filter(r=>r.p>.03&&r.p<.97):e.rows.slice(0,5)}
+function dhtml(e){if(e.dl==null)return'';const z=Math.abs(e.dl)<(e.s.u==='$'?1:.005);
+ const t=e.lad?fd(e.dl,e.s.u):(e.dl>=0?'+':'−')+Math.abs(Math.round(e.dl*100))+' pts';
+ return z?'':'<span class="mono '+(e.dl>=0?'up':'dn')+'">'+t+'</span>'}
+function ladder(rows,u,lad,lo){
+ return rows.map(r=>'<div class="row"><span class="mono">'+esc(lad?fmt(r.k,u):r.s)+'</span><div class="trk'+(lo?' lo':'')+'"><i data-w="'+Math.round(r.p*100)+'"></i></div><span class="mono">'+Math.round(r.p*100)+'%</span></div>').join('')}
+function render(){
+ $('chips').innerHTML=CATS.map(c=>'<button class="chip'+(c===S.cat?' on':'')+'" data-c="'+c+'">'+c+'</button>').join('');
+ const q=S.q.toLowerCase();
+ const list=S.ev.filter(e=>(S.cat==='All'||e.s.cat===S.cat)&&(!q||(e.title+e.s.t).toLowerCase().includes(q))&&e.n<S.per&&!(S.thin&&e.thin));
+ $('grid').innerHTML=list.length?list.map(e=>{
+  const rec=e.s.f==='KXRECSSNBER',v=e.val;
+  const hv=v==null?'n/a':e.lad?fmt(v,e.s.u):Math.round(v*100)+'%';
+  return'<article class="card" tabindex="0" data-e="'+esc(e.e)+'"><div class="top"><span class="tag '+(e.s.c||'')+'">'+esc(e.s.t)+'</span><span class="mono">closes in '+cd(e.c)+'</span></div>'+
+  '<h3>'+esc(e.title)+'</h3><div class="hl"><b class="mono">'+hv+'</b><small>'+(e.lad?'50% line':'top outcome')+'</small>'+dhtml(e)+(e.thin?'<span class="thin">thin</span>':'')+'</div>'+
+  (vis(e).length?ladder(vis(e),e.s.u,e.lad):'<div class="note">Too one-sided to show.</div>')+'</article>'}).join(''):
+  '<div class="empty">No events match. Clear the search or show thin markets.'+(S.missing.length?'<br>No data for: '+esc(S.missing.join(', '))+'.':'')+'</div>';
+ requestAnimationFrame(()=>document.querySelectorAll('.trk i').forEach(i=>i.style.width=i.dataset.w+'%'));
 }
-
-// Worker first (most reliable, also routes around any ISP-level block on the
-// target domain since the request originates from the Worker's edge, not the
-// user's network), then race the public CORS proxies as fallback.
-async function fetchJSONViaProxyChain(url){
-  if(WORKER_PROXY_URL){
-    try{
-      const res = await fetchWithTimeout(buildWorkerProxyUrl(url), PROXY_TIMEOUT_MS);
-      if(!res.ok) throw new Error('worker HTTP ' + res.status);
-      return await res.json();
-    }catch(err){
-      console.warn('[proxy] worker failed:', err && err.message);
-    }
-  }
-  return await Promise.any(CORS_PROXIES.map(buildProxyUrl => (async () => {
-    const res = await fetchWithTimeout(buildProxyUrl(url), PROXY_TIMEOUT_MS);
-    if(!res.ok) throw new Error('proxy HTTP ' + res.status);
-    return await res.json();
-  })()));
+let mode='cum';
+function modal(id){
+ const e=S.ev.find(x=>x.e===id);if(!e)return;
+ const u=e.s.u;let rows=e.rows,lo=false;
+ if(e.lad&&mode==='rng'){lo=true;rows=e.rows.map((r,i)=>({...r,p:Math.max(0,r.p-(e.rows[i+1]?e.rows[i+1].p:0))}))}
+ $('md').innerHTML='<div class="mh"><div><span class="tag '+(e.s.c||'')+'">'+esc(e.s.t)+'</span><h2 style="margin:10px 0 2px;font-size:20px">'+esc(e.title)+'</h2><div class="note">Closes '+day(e.c)+' · volume '+Math.round(e.vol).toLocaleString()+' contracts · '+Math.round(e.ok*100)+'% of quotes tight</div></div><button class="btn" data-x="1" aria-label="Close">✕</button></div>'+
+ (e.lad?'<div class="seg"><button data-m="cum" class="'+(mode==='cum'?'on':'')+'">Chance of going above</button><button data-m="rng" class="'+(mode==='rng'?'on':'')+'">Chance of landing between</button></div>':'<div style="height:12px"></div>')+
+ ladder(rows,u,e.lad,lo)+
+ '<table class="mono"><tr><th>'+(e.lad?'Level':'Outcome')+'</th><th>Chance</th><th>Volume</th><th>Quote</th></tr>'+e.rows.map(r=>'<tr><td>'+esc(e.lad?fmt(r.k,u):r.s)+'</td><td>'+(r.p*100).toFixed(1)+'%</td><td>'+Math.round(r.v).toLocaleString()+'</td><td>'+(r.q?'tight':'last trade')+'</td></tr>').join('')+'</table>'+
+ '<div style="margin-top:14px"><button class="btn" data-csv="'+esc(id)+'">Download CSV</button></div>';
+ $('md').dataset.id=id;$('ov').classList.add('on');
+ requestAnimationFrame(()=>document.querySelectorAll('#md .trk i').forEach(i=>i.style.width=i.dataset.w+'%'));
 }
-
-// ---------------- Polymarket ----------------
-// Direct fetch first since Gamma is a fully public, CORS-open API; falls back
-// to the proxy chain only if that fails (network hiccup, temporary CORS issue).
-async function fetchPolymarket(topic){
-  const url = `https://gamma-api.polymarket.com/public-search?q=${encodeURIComponent(topic.pmQuery)}`;
-  let data;
-  try{
-    data = await fetchJSONDirect(url);
-  }catch(err){
-    data = await fetchJSONViaProxyChain(url);
-  }
-  const events = Array.isArray(data && data.events) ? data.events : [];
-  if(!events.length) return null;
-
-  // Prefer an open (not closed) event with the highest volume.
-  const candidates = events.filter(e => !e.closed && Array.isArray(e.markets) && e.markets.length);
-  const pool = candidates.length ? candidates : events.filter(e => Array.isArray(e.markets) && e.markets.length);
-  if(!pool.length) return null;
-  const event = pool.reduce((best, e) => (parseFloat(e.volume) || 0) > (parseFloat(best.volume) || 0) ? e : best, pool[0]);
-
-  let outcomes = [];
-  if(event.markets.length === 1){
-    const m = event.markets[0];
-    const labels = safeParseArray(m.outcomes);
-    const prices = safeParseArray(m.outcomePrices).map(Number);
-    outcomes = labels.map((label, i) => ({ label, prob: prices[i] || 0 }));
-  }else{
-    outcomes = event.markets.map(m => {
-      const prices = safeParseArray(m.outcomePrices).map(Number);
-      return { label: m.groupItemTitle || m.question || '?', prob: prices[0] || 0 };
-    });
-  }
-  outcomes.sort((a, b) => b.prob - a.prob);
-  outcomes = outcomes.slice(0, 4);
-  if(!outcomes.length) return null;
-
-  return {
-    source: 'Polymarket',
-    question: event.title || event.markets[0].question || topic.label,
-    outcomes,
-    volume: parseFloat(event.volume) || 0,
-    endDate: event.endDate || null,
-    url: event.slug ? `https://polymarket.com/event/${event.slug}` : 'https://polymarket.com'
-  };
-}
-
-function safeParseArray(value){
-  if(Array.isArray(value)) return value;
-  if(typeof value !== 'string') return [];
-  try{ const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; }
-  catch(err){ return []; }
-}
-
-// ---------------- Formatting ----------------
-function fmtPct(p){ return Math.round((p || 0) * 100) + '%'; }
-function fmtVolume(v){
-  if(!v) return '';
-  if(v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M vol';
-  if(v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K vol';
-  return '$' + Math.round(v) + ' vol';
-}
-function fmtEndDate(iso){
-  if(!iso) return '';
-  const d = new Date(iso);
-  if(isNaN(d.getTime())) return '';
-  const diffDays = Math.round((d.getTime() - Date.now()) / 86400000);
-  const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  if(diffDays < 0) return dateStr;
-  if(diffDays === 0) return `${dateStr} · today`;
-  if(diffDays === 1) return `${dateStr} · tmrw`;
-  return `${dateStr} · ${diffDays}d`;
-}
-function escapeHtml(value){
-  return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-}
-
-// ---------------- Rendering ----------------
-function renderPoll(poll){
-  const barColors = ['c1', 'c2', 'c3', 'c4'];
-  const outcomeRows = poll.outcomes.map((o, i) => `
-    <div class="outcome-row">
-      <div class="outcome-label-row"><span class="lbl">${escapeHtml(o.label)}</span><span class="pct">${fmtPct(o.prob)}</span></div>
-      <div class="outcome-bar-bg"><div class="outcome-bar-fill ${barColors[i % barColors.length]}" style="width:${Math.max(2, Math.round(o.prob * 100))}%"></div></div>
-    </div>`).join('');
-
-  return `
-    <div class="poll">
-      <div class="poll-head-row">
-        <div class="poll-question">${escapeHtml(poll.question)}</div>
-        <span class="poll-meta">${escapeHtml(fmtEndDate(poll.endDate))}</span>
-      </div>
-      ${outcomeRows}
-      <div class="poll-foot">
-        <span class="poll-vol">${escapeHtml(fmtVolume(poll.volume))}</span>
-        <a class="poll-link" href="${poll.url}" target="_blank" rel="noopener noreferrer">View ↗</a>
-      </div>
-    </div>`;
-}
-
-function renderTopics(results){
-  const el = document.getElementById('content');
-  const cards = TOPICS.map(topic => {
-    const r = results[topic.id];
-    if(!r || !r.polymarket) return '';
-    const polls = renderPoll(r.polymarket);
-    return `
-      <div class="topic-card">
-        <div class="topic-head">
-          <div><div class="topic-title">${escapeHtml(topic.label)}</div><div class="topic-blurb">${escapeHtml(topic.blurb)}</div></div>
-        </div>
-        ${polls}
-      </div>`;
-  }).filter(Boolean);
-
-  if(!cards.length){
-    el.innerHTML = `<div class="error-state">No live markets matched right now.<br><button class="retry-btn" id="retryBtn" type="button">Try again</button></div>`;
-    document.getElementById('retryBtn').addEventListener('click', loadAll);
-    return;
-  }
-  el.innerHTML = `<div class="topic-grid">${cards.join('')}</div>`;
-}
-
-function renderSkeleton(){
-  document.getElementById('content').innerHTML = `<div class="page-skeleton">${'<div class="skel-card"></div>'.repeat(4)}</div>`;
-}
-
-function updateLastUpdatedLabel(failed){
-  const el = document.getElementById('updatedLabel');
-  el.classList.toggle('label-error', !!failed);
-  if(!lastUpdated){ el.textContent = failed ? 'Refresh failed - see console' : ''; return; }
-  const mins = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 60000));
-  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
-  el.textContent = (failed ? 'Refresh failed, showing cached · ' : 'Updated ') + ago;
-}
-
-function showDegradedBanner(text){
-  const el = document.getElementById('degradedBanner');
-  if(!text){ el.classList.remove('show'); el.textContent = ''; return; }
-  el.textContent = text;
-  el.classList.add('show');
-}
-
-// ---------------- Cache (stale-while-revalidate, same pattern as youtube.html) ----------------
-let lastResults = null;
-let lastUpdated = null;
-
-function saveCache(){
-  try{
-    localStorage.setItem(CACHE_KEY, JSON.stringify({
-      lastUpdated: lastUpdated ? lastUpdated.toISOString() : null,
-      results: lastResults
-    }));
-  }catch(err){ /* storage unavailable - not critical */ }
-}
-function loadCache(){
-  try{
-    const raw = localStorage.getItem(CACHE_KEY);
-    if(!raw) return false;
-    const cached = JSON.parse(raw);
-    if(!cached.results) return false;
-    lastResults = cached.results;
-    lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated) : null;
-    return true;
-  }catch(err){ return false; }
-}
-
-// ---------------- Main load ----------------
-async function loadAll(){
-  const btn = document.getElementById('refreshBtn');
-  btn.classList.add('spinning');
-
-  if(lastResults){
-    renderTopics(lastResults);
-    updateLastUpdatedLabel();
-  }else{
-    renderSkeleton();
-  }
-
-  let pmFailures = 0;
-  const results = {};
-
-  await Promise.all(TOPICS.map(async topic => {
-    let pm = null;
-    try{
-      pm = await fetchPolymarket(topic);
-    }catch(err){
-      pmFailures++;
-      console.warn(`[${topic.label}] Polymarket failed:`, err && err.message);
-    }
-    results[topic.id] = { polymarket: pm };
-  }));
-
-  const anyResult = Object.values(results).some(r => r.polymarket);
-  let failed = false;
-
-  if(!anyResult){
-    failed = true;
-    if(!lastResults){
-      document.getElementById('content').innerHTML = `
-        <div class="error-state">
-          Couldn't load any prediction-market data right now (Polymarket unavailable).<br>
-          If you have a Cloudflare Worker configured for this app, make sure gamma-api.polymarket.com
-          is allowed through it. Check the console for per-topic errors.
-          <br><button class="retry-btn" id="retryBtn" type="button">Try again</button>
-        </div>`;
-      document.getElementById('retryBtn').addEventListener('click', loadAll);
-    }
-  }else{
-    lastResults = results;
-    lastUpdated = new Date();
-    saveCache();
-    renderTopics(results);
-  }
-
-  // Non-blocking heads-up if Polymarket failed for some (but not all) topics
-  // this refresh - the full-failure case is already covered by the error
-  // state above, so no banner needed there.
-  if(pmFailures > 0 && anyResult){
-    showDegradedBanner(`Polymarket data unavailable for ${pmFailures} of ${TOPICS.length} topics this refresh.`);
-  }else{
-    showDegradedBanner(null);
-  }
-
-  updateLastUpdatedLabel(failed);
-  setTimeout(() => btn.classList.remove('spinning'), 400);
-}
-
-document.getElementById('refreshBtn').addEventListener('click', loadAll);
-
-document.getElementById('noticeToggle').addEventListener('click', () => {
-  const btn = document.getElementById('noticeToggle');
-  const details = document.getElementById('noticeDetails');
-  const willOpen = details.hidden;
-  details.hidden = !willOpen;
-  btn.classList.toggle('open', willOpen);
-  btn.setAttribute('aria-expanded', String(willOpen));
+function csv(id){const e=S.ev.find(x=>x.e===id);
+ const t='event,level_or_outcome,probability,volume,quote\n'+e.rows.map(r=>[id,'"'+(e.lad?r.k:r.s)+'"',r.p.toFixed(4),r.v,r.q?'tight':'last'].join(',')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download=id+'.csv';a.click()}
+document.addEventListener('click',ev=>{
+ const t=ev.target,c=t.closest('[data-c]'),k=t.closest('[data-k]'),card=t.closest('.card'),m=t.closest('[data-m]');
+ if(c){S.cat=c.dataset.c;render()}
+ else if(m){mode=m.dataset.m;modal($('md').dataset.id)}
+ else if(t.closest('[data-csv]'))csv(t.closest('[data-csv]').dataset.csv);
+ else if(t.closest('[data-x]')||t===$('ov'))$('ov').classList.remove('on');
+ else if(k){const e=S.ev.find(x=>x.s.f===k.dataset.k&&x.n===0);if(e)modal(e.e)}
+ else if(card)modal(card.dataset.e);
 });
-
-loadCache();
-loadAll();
-setInterval(loadAll, REFRESH_INTERVAL_MS);
-setInterval(updateLastUpdatedLabel, 60000);
-</script>
-</body>
-</html>
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('ov').classList.remove('on');if(e.key==='Enter'&&document.activeElement.classList.contains('card'))modal(document.activeElement.dataset.e)});
+$('q').oninput=e=>{S.q=e.target.value;render()};
+$('per').onchange=e=>{S.per=+e.target.value;render()};
+$('thin').onchange=e=>{S.thin=e.target.checked;render()};
+$('rf').onclick=load;
+load();setInterval(load,5*6e4);
+</script></body></html>
