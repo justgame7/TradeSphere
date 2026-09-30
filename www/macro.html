@@ -27,6 +27,7 @@
     --violet:#9B8CF2;
     --teal:#3ED9A6;
     --coral:#FF6B6E;
+    --pink:#E58BC8;
     --font-display:'Space Grotesk', sans-serif;
     --font-body:'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-mono:'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
@@ -227,7 +228,7 @@
     font-weight:600;
   }
   .tab:not(.active):hover{border-color:var(--text-3);color:var(--text-1);}
-  /* Compact tabs: section colour swatch + initial (matches the group-head chip) */
+  /* Tabs: section colour swatch + full group name (matches the group-head chip) */
   .tab-mini{display:inline-flex;align-items:center;gap:7px;}
   .tab-mini .tab-dot{width:8px;height:8px;border-radius:2px;flex:none;}
   .tab-mini.active .tab-dot{box-shadow:0 0 0 1.5px #0B1120;}
@@ -390,6 +391,13 @@
   .cp-wrap{height:340px;margin:0 0 10px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
   .cp-frame{width:100%;height:100%;border:0;display:block;}
   @media (max-width:480px){.cp-wrap{height:300px;}}
+  /* Yahoo Finance fallback chart */
+  .cp-yf{display:none;width:100%;height:100%;position:relative;}
+  .cp-yf-legend{position:absolute;left:10px;top:8px;z-index:5;pointer-events:none;font-family:var(--font-mono);font-size:11px;color:var(--text-2);line-height:1.5;text-shadow:0 0 4px #0b0e14,0 0 4px #0b0e14;}
+  .cp-yf-legend b{color:var(--text-1,#e6ebf5);font-weight:600;}
+  .cp-yf-msg{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-2);font-size:13px;text-align:center;padding:16px;}
+  .cp-yf-msg button{font-family:var(--font-mono);font-size:11.5px;font-weight:600;color:var(--teal);background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;}
+  .cp-tf .cp-src{margin-left:auto;border-style:dashed;font-size:11px;color:var(--text-3);}
 
   @media (max-width:480px){
     .pulse-number{font-size:52px;}
@@ -454,11 +462,12 @@
 
 <nav class="tabs" id="tabs">
   <button class="tab active" data-filter="all">All groups</button>
-  <button class="tab tab-mini" data-filter="stocks" title="Stock indices" aria-label="Stock indices"><span class="tab-dot" style="background:var(--gold)"></span>S</button>
-  <button class="tab tab-mini" data-filter="dollar" title="Dollar &amp; related" aria-label="Dollar &amp; related"><span class="tab-dot" style="background:var(--blue)"></span>D</button>
-  <button class="tab tab-mini" data-filter="commodities" title="Commodities" aria-label="Commodities"><span class="tab-dot" style="background:var(--coral)"></span>C</button>
-  <button class="tab tab-mini" data-filter="global" title="Global indices" aria-label="Global indices"><span class="tab-dot" style="background:var(--violet)"></span>G</button>
-  <button class="tab tab-mini" data-filter="crypto" title="Crypto-Native Sentiment" aria-label="Crypto-Native Sentiment"><span class="tab-dot" style="background:var(--teal)"></span>C</button>
+  <button class="tab tab-mini" data-filter="stocks" title="Stock indices" aria-label="Stock indices"><span class="tab-dot" style="background:var(--gold)"></span>Stock indices</button>
+  <button class="tab tab-mini" data-filter="futures" title="Futures" aria-label="Futures"><span class="tab-dot" style="background:var(--pink)"></span>Futures</button>
+  <button class="tab tab-mini" data-filter="dollar" title="Dollar &amp; related" aria-label="Dollar &amp; related"><span class="tab-dot" style="background:var(--blue)"></span>Dollar &amp; related</button>
+  <button class="tab tab-mini" data-filter="commodities" title="Commodities" aria-label="Commodities"><span class="tab-dot" style="background:var(--coral)"></span>Commodities</button>
+  <button class="tab tab-mini" data-filter="global" title="Global indices" aria-label="Global indices"><span class="tab-dot" style="background:var(--violet)"></span>Global indices</button>
+  <button class="tab tab-mini" data-filter="crypto" title="Crypto-Native Sentiment" aria-label="Crypto-Native Sentiment"><span class="tab-dot" style="background:var(--teal)"></span>Crypto-Native Sentiment</button>
 </nav>
 
 <main id="groups"></main>
@@ -513,6 +522,18 @@
         ]
       },
       {
+        id: "futures",
+        title: "Futures",
+        note: "Index futures trade near-24h — they lead the cash open.",
+        color: "var(--pink)",
+        items: [
+          { id:"esf", name:"S&P 500 Futures", ticker:"ES", tag:"E-mini S&P 500 — overnight risk lead", value:0, change:0, unit:"pt", live:true, symbol:"ES=F" },
+          { id:"nqf", name:"Nasdaq 100 Futures", ticker:"NQ", tag:"E-mini Nasdaq 100 — tech / high-beta lead", value:0, change:0, unit:"pt", live:true, symbol:"NQ=F" },
+          { id:"ymf", name:"Dow Jones Futures", ticker:"YM", tag:"E-mini Dow — blue-chip lead", value:0, change:0, unit:"pt", live:true, symbol:"YM=F" },
+          { id:"niftyf", name:"Nifty 50 Futures", ticker:"GIFT", tag:"GIFT Nifty — chart only (no free price feed)", value:0, change:0, unit:"pt", live:true, noPrice:true, chartSymbol:"^NSEI", chartNote:"Nifty spot" }
+        ]
+      },
+      {
         id: "dollar",
         title: "Dollar & related",
         note: "A strong dollar has historically pressured crypto.",
@@ -521,7 +542,8 @@
           { id:"dxy", name:"US Dollar Index", ticker:"DXY", tag:"Inverse correlation to BTC", value:0, change:0, unit:"", live:true, symbol:"DX-Y.NYB" },
           { id:"eurusd", name:"EUR / USD", ticker:"EURUSD", tag:"Dollar strength mirror", value:0, change:0, unit:"", live:true, symbol:"EURUSD=X" },
           { id:"usdinr", name:"USD / INR", ticker:"USDINR", tag:"Rupee vs. dollar — local FX cross-check", value:0, change:0, unit:"", live:true, symbol:"INR=X" },
-          { id:"us10y", name:"US 10Y Treasury Yield", ticker:"US10Y", tag:"Liquidity & rate-cut pricing", value:0, change:0, unit:"%", live:true, isYield:true, symbol:"^TNX", yieldScale:0.1 }
+          { id:"us10y", name:"US 10Y Treasury Yield", ticker:"US10Y", tag:"Liquidity & rate-cut pricing", value:0, change:0, unit:"%", live:true, isYield:true, symbol:"^TNX", yieldScale:0.1 },
+          { id:"us30y", name:"US 30Y Treasury Yield", ticker:"US30Y", tag:"Long-end yields — term premium & duration risk", value:0, change:0, unit:"%", live:true, isYield:true, symbol:"^TYX", yieldScale:0.1 }
         ]
       },
       {
@@ -590,6 +612,7 @@
     return "$" + fmtNum(n);
   }
   function formatValue(item){
+    if (item.noPrice) return "\u2014";
     if (item.unit === "usd-compact") return fmtCompactUSD(item.value);
     if (item.unit === "idx") return fmtNum(item.value, {decimals:0});
     if (item.unit === "%") return fmtNum(item.value, {decimals:2}) + "%";
@@ -598,6 +621,7 @@
     return fmtNum(item.value);
   }
   function formatChange(item){
+    if (item.noPrice) return "chart only";
     var c = item.change;
     var sign = c > 0 ? "+" : (c < 0 ? "" : "");
     if (item.isYield) return sign + c.toFixed(2) + " bps day";
@@ -608,6 +632,7 @@
   /* crypto trades 24/7 so it's always "live"; everything else reflects the
      exchange's real market state, resolved in fetchYahoo() via currentTradingPeriod */
   function statusLabel(item){
+    if (item.noPrice) return { text:"CHART", cls:"closed" };
     if (item.source === 'coingecko' || item.source === 'alternative') return { text:"LIVE", cls:"open" };
     if (!item.statusText) return { text:"…", cls:"closed" };
     return { text:item.statusText, cls:item.statusCls };
@@ -698,12 +723,21 @@
      Edit TV_SYMBOLS to remap any row to a different TV ticker.
      Rows with no entry (Fear & Greed has no TradingView symbol)
      simply aren't expandable.
+
+     YAHOO FALLBACK: some TradingView symbols (TVC:DXY etc.) show
+     "This symbol is only available on TradingView" inside the embed,
+     and the page can't detect that (the widget is cross-origin). So
+     every row that has a Yahoo `symbol` gets a "Use Yahoo" button in
+     its chart panel that swaps in a Yahoo Finance chart (same
+     timeframes + studies). The choice is remembered per row. Add row
+     ids to YF_FIRST below to make Yahoo the default for them.
      ============================================================ */
   var TV_SYMBOLS = {
-    spx:'FOREXCOM:SPXUSD', ndx:'FOREXCOM:NSXUSD', dji:'FOREXCOM:DJI', rut:'TVC:RUT', vix:'TVC:VIX',
-    dxy:'TVC:DXY', eurusd:'FX:EURUSD', usdinr:'FX_IDC:USDINR', us10y:'TVC:US10Y',
-    gold:'TVC:GOLD', silver:'TVC:SILVER', copper:'CAPITALCOM:COPPER', wti:'TVC:USOIL', brent:'TVC:UKOIL', natgas:'CAPITALCOM:NATURALGAS',
-    n225:'TVC:NI225', ftse:'TVC:UKX', dax:'TVC:DAX', shcomp:'TVC:SHCOMP', hsi:'TVC:HSI', nifty50:'NSE:NIFTY',
+    spx:'SP:SPX', ndx:'NASDAQ:NDX', dji:'DJ:DJI', rut:'TVC:RUT', vix:'TVC:VIX',
+    dxy:'TVC:DXY', eurusd:'FX:EURUSD', usdinr:'FX_IDC:USDINR', us10y:'TVC:US10Y', us30y:'TVC:US30Y',
+    esf:'CME_MINI:ES1!', nqf:'CME_MINI:NQ1!', ymf:'CBOT_MINI:YM1!', niftyf:'NSEIX:NIFTY1!',
+    gold:'TVC:GOLD', silver:'TVC:SILVER', copper:'COMEX:HG1!', wti:'TVC:USOIL', brent:'TVC:UKOIL', natgas:'NYMEX:NG1!',
+    n225:'TVC:NI225', ftse:'TVC:UKX', dax:'TVC:DAX', shcomp:'SSE:000001', hsi:'TVC:HSI', nifty50:'NSE:NIFTY',
     btcdom:'CRYPTOCAP:BTC.D', totalmcap:'CRYPTOCAP:TOTAL', total2:'CRYPTOCAP:TOTAL2', total3:'CRYPTOCAP:TOTAL3',
     usdtdom:'CRYPTOCAP:USDT.D', stabledom:'CRYPTOCAP:STABLE.C.D'
   };
@@ -724,7 +758,7 @@
     cci:{ id:'CCI@tv-basicstudies', inputs:{length:34} },
     swing:'PivotPointsHighLow@tv-basicstudies'
   };
-  var chartState = { id:null, tf:'1d', study:'supertrend' };
+  var chartState = { id:null, tf:'1d', study:'supertrend', src:'tv' };
   var BLANK_DOC = '<!doctype html><body style="margin:0;background:#0b0e14">';
 
   function tvInterval(tf){
@@ -749,14 +783,235 @@
       '<script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>' + json + '<\/script>' +
       '</div></body></html>';
   }
+
+  /* ---- Yahoo Finance fallback chart (lightweight-charts v5) ---- */
+  var YF_FIRST = [                       // rows that open on Yahoo by default (crypto stays on TradingView)
+    'spx','ndx','dji','rut','vix',                       // stock indices
+    'esf','nqf','ymf','niftyf',                          // futures (CME symbols are blocked in TradingView's embed; Nifty has no TV-safe symbol)
+    'dxy','us10y','us30y',                               // dollar & rates
+    'copper','natgas',                                   // commodities
+    'n225','ftse','dax','hsi','nifty50'                  // global indices (Shanghai stays on TradingView)
+  ];
+  var LWC_URL = 'https://cdn.jsdelivr.net/npm/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js';
+  var SRC_KEY = 'riskline_chart_src_v2';   // bumped: clears older saved choices so the YF_FIRST defaults apply
+  var srcPref = {};
+  try { srcPref = JSON.parse(localStorage.getItem(SRC_KEY) || '{}') || {}; } catch(e){ srcPref = {}; }
+  function saveSrcPref(){ try { localStorage.setItem(SRC_KEY, JSON.stringify(srcPref)); } catch(e){} }
+  function yfSym(it){ return it && (it.symbol || it.chartSymbol); }
+  function hasYahoo(id){ return !!yfSym(findItem(id)); }
+  function pickSrc(id){
+    if (!hasYahoo(id)) return 'tv';
+    if (srcPref[id]) return srcPref[id];
+    return YF_FIRST.indexOf(id) >= 0 ? 'yf' : 'tv';
+  }
+
+  var YF_TF = {            // tf -> [yahoo interval, yahoo range, aggregate-to-4h?]
+    '15m':['15m','1mo',false], '1h':['60m','3mo',false], '4h':['60m','6mo',true],
+    '1d':['1d','2y',false], '1w':['1wk','10y',false], '1M':['1mo','20y',false]
+  };
+  var yfCache = {}, yfChart = null, yfToken = 0, lwcPromise = null;
+
+  function loadLWC(){
+    if (window.LightweightCharts) return Promise.resolve();
+    if (lwcPromise) return lwcPromise;
+    lwcPromise = new Promise(function(res, rej){
+      var sc = document.createElement('script');
+      sc.src = LWC_URL; sc.onload = function(){ res(); };
+      sc.onerror = function(){ lwcPromise = null; rej(new Error('chart library failed to load')); };
+      document.head.appendChild(sc);
+    });
+    return lwcPromise;
+  }
+
+  function fetchYahooBars(symbol, tf){
+    var cfg = YF_TF[tf] || YF_TF['1d'];
+    var key = symbol + '|' + tf, hit = yfCache[key];
+    if (hit && Date.now() - hit.at < 60000) return Promise.resolve(hit.bars);
+    var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(symbol) +
+              '?range=' + cfg[1] + '&interval=' + cfg[0];
+    return fetchJSONDirect(url).catch(function(){ return fetchJSONViaProxyChain(url); }).then(function(json){
+      var r = json && json.chart && json.chart.result && json.chart.result[0];
+      if (!r || !r.timestamp) throw new Error('no data');
+      var q = r.indicators.quote[0], bars = [], last = -1;
+      for (var i = 0; i < r.timestamp.length; i++){
+        var o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i], t = r.timestamp[i];
+        if ([o,h,l,c].some(function(v){ return typeof v !== 'number' || !isFinite(v); })) continue;
+        if (t <= last) continue;
+        last = t; bars.push({ time:t, open:o, high:h, low:l, close:c });
+      }
+      if (cfg[2]){                                   // Yahoo has no 4h: build it from 60m bars
+        var agg = [], cur = null;
+        bars.forEach(function(b){
+          var bk = Math.floor(b.time / 14400) * 14400;
+          if (cur && cur.time === bk){ cur.high = Math.max(cur.high, b.high); cur.low = Math.min(cur.low, b.low); cur.close = b.close; }
+          else { cur = { time:bk, open:b.open, high:b.high, low:b.low, close:b.close }; agg.push(cur); }
+        });
+        bars = agg;
+      }
+      if (bars.length < 2) throw new Error('no data');
+      yfCache[key] = { at:Date.now(), bars:bars };
+      return bars;
+    });
+  }
+
+  /* ---- indicator maths ---- */
+  function calcSMA(v, n){ var o=[], s=0; for (var i=0;i<v.length;i++){ s+=v[i]; if(i>=n) s-=v[i-n]; o.push(i>=n-1 ? s/n : null); } return o; }
+  function calcEMA(v, n){ var o=[], k=2/(n+1), p=null; for (var i=0;i<v.length;i++){ if(i<n-1){o.push(null);continue;} if(p===null){ var s=0; for(var j=i-n+1;j<=i;j++) s+=v[j]; p=s/n; } else p=v[i]*k+p*(1-k); o.push(p);} return o; }
+  function calcRMA(v, n){ var o=[], p=null; for (var i=0;i<v.length;i++){ if(i<n-1){o.push(null);continue;} if(p===null){ var s=0; for(var j=i-n+1;j<=i;j++) s+=v[j]; p=s/n; } else p=(p*(n-1)+v[i])/n; o.push(p);} return o; }
+  function calcRSI(c, n){
+    var g=[0], l=[0]; for (var i=1;i<c.length;i++){ var d=c[i]-c[i-1]; g.push(Math.max(d,0)); l.push(Math.max(-d,0)); }
+    var ag=calcRMA(g.slice(1),n), al=calcRMA(l.slice(1),n), o=[null];
+    for (var j=0;j<ag.length;j++) o.push(ag[j]===null ? null : (al[j]===0 ? 100 : 100-100/(1+ag[j]/al[j])));
+    return o;
+  }
+  function calcSupertrend(b, n, mult){
+    var tr=[]; for (var i=0;i<b.length;i++){ var pc = i ? b[i-1].close : b[i].close; tr.push(Math.max(b[i].high-b[i].low, Math.abs(b[i].high-pc), Math.abs(b[i].low-pc))); }
+    var atr=calcRMA(tr,n), out=[], fu=null, fl=null, dir=1;
+    for (var k=0;k<b.length;k++){
+      if (atr[k]===null){ out.push(null); continue; }
+      var mid=(b[k].high+b[k].low)/2, bu=mid+mult*atr[k], bl=mid-mult*atr[k], pcl=k ? b[k-1].close : b[k].close;
+      fu = (fu===null || bu<fu || pcl>fu) ? bu : fu;
+      fl = (fl===null || bl>fl || pcl<fl) ? bl : fl;
+      if (dir===1 && b[k].close<fl) dir=-1; else if (dir===-1 && b[k].close>fu) dir=1;
+      out.push({ v: dir===1 ? fl : fu, up: dir===1 });
+    }
+    return out;
+  }
+  function donchianMid(b, n){ var o=[]; for (var i=0;i<b.length;i++){ if(i<n-1){o.push(null);continue;} var hi=-Infinity, lo=Infinity; for(var j=i-n+1;j<=i;j++){ hi=Math.max(hi,b[j].high); lo=Math.min(lo,b[j].low);} o.push((hi+lo)/2);} return o; }
+
+  function pts(times, vals, off){       // build line data, optionally shifting by `off` bars (needs future times)
+    var o=[]; off = off||0;
+    for (var i=0;i<vals.length;i++){ var j=i+off; if (vals[i]===null || vals[i]===undefined || j<0 || j>=times.length) continue; o.push({ time:times[j], value:vals[i] }); }
+    return o;
+  }
+
+  function yfDestroy(){
+    yfToken++;
+    if (yfChart){ try{ yfChart.remove(); }catch(e){} yfChart = null; }
+  }
+
+  function yfRender(panel, item){
+    var host = panel.querySelector('.cp-yf');
+    yfDestroy();
+    var token = yfToken;
+    host.innerHTML = '<div class="cp-yf-msg">Loading Yahoo Finance chart…</div>';
+    var tf = chartState.tf, study = chartState.study;
+    Promise.all([ loadLWC(), fetchYahooBars(yfSym(item), tf) ]).then(function(res){
+      if (token !== yfToken) return;
+      var bars = res[1], L = window.LightweightCharts;
+      if (item.yieldScale && item.yieldScale !== 1){        // ^TNX / ^TYX quote yield x10 - match the row's scaling
+        bars = bars.map(function(b){ return { time:b.time, open:b.open*item.yieldScale, high:b.high*item.yieldScale, low:b.low*item.yieldScale, close:b.close*item.yieldScale }; });
+      }
+      host.innerHTML = '<div class="cp-yf-legend"></div>';
+      var el = document.createElement('div'); el.style.cssText = 'position:absolute;inset:0;'; host.appendChild(el);
+      var intraday = (tf === '15m' || tf === '1h' || tf === '4h');
+      var chart = yfChart = L.createChart(el, {
+        autoSize:true,
+        layout:{ background:{ type:'solid', color:'#0b0e14' }, textColor:'#8b95a7', fontSize:11, panes:{ separatorColor:'#1c2333' } },
+        grid:{ vertLines:{ color:'rgba(255,255,255,.04)' }, horzLines:{ color:'rgba(255,255,255,.04)' } },
+        rightPriceScale:{ borderColor:'#1c2333' },
+        timeScale:{ borderColor:'#1c2333', timeVisible:intraday, secondsVisible:false, rightOffset:study==='ichimoku' ? 12 : 4 },
+        crosshair:{ mode:0 }
+      });
+      var candles = chart.addSeries(L.CandlestickSeries, {
+        upColor:'#3ed9a6', downColor:'#ff6b6b', wickUpColor:'#3ed9a6', wickDownColor:'#ff6b6b', borderVisible:false, priceLineVisible:true
+      });
+      candles.setData(bars);
+      var times = bars.map(function(b){ return b.time; }), closes = bars.map(function(b){ return b.close; });
+      function line(color, w, pane, extra){
+        return chart.addSeries(L.LineSeries, Object.assign({ color:color, lineWidth:w||1, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false }, extra||{}), pane||0);
+      }
+      var subPane = false;
+
+      if (study === 'supertrend'){
+        var st = calcSupertrend(bars, 10, 3), s = line('#3ed9a6', 2), d = [];
+        st.forEach(function(p,i){ if (p) d.push({ time:times[i], value:p.v, color:p.up ? '#3ed9a6' : '#ff6b6b' }); });
+        s.setData(d);
+      } else if (study === 'bb'){
+        var m = calcSMA(closes,20), up=[], lo=[];
+        for (var i=0;i<closes.length;i++){
+          if (m[i]===null){ up.push(null); lo.push(null); continue; }
+          var v=0; for (var j=i-19;j<=i;j++) v+=Math.pow(closes[j]-m[i],2);
+          var sd=Math.sqrt(v/20); up.push(m[i]+2*sd); lo.push(m[i]-2*sd);
+        }
+        line('#4FC3F7',1).setData(pts(times,up)); line('#FFD54F',1).setData(pts(times,m)); line('#4FC3F7',1).setData(pts(times,lo));
+      } else if (study === 'ema'){
+        [[20,'#FFD54F'],[50,'#4FC3F7'],[200,'#E040FB']].forEach(function(p){ line(p[1],2).setData(pts(times, calcEMA(closes,p[0]))); });
+      } else if (study === 'ichimoku'){
+        var step = times[times.length-1] - times[times.length-2], ft = times.slice();
+        for (var f=1; f<=26; f++) ft.push(times[times.length-1] + step*f);
+        var tenkan=donchianMid(bars,9), kijun=donchianMid(bars,26), sb=donchianMid(bars,52), sa=[];
+        for (var q=0;q<bars.length;q++) sa.push(tenkan[q]===null||kijun[q]===null ? null : (tenkan[q]+kijun[q])/2);
+        line('#4FC3F7',1).setData(pts(ft,tenkan)); line('#ff8a65',1).setData(pts(ft,kijun));
+        line('rgba(62,217,166,.8)',1).setData(pts(ft,sa,26)); line('rgba(255,107,107,.8)',1).setData(pts(ft,sb,26));
+        line('rgba(180,180,200,.6)',1).setData(pts(ft,closes,-26));
+      } else if (study === 'swing'){
+        var mk=[], N=5;
+        for (var a=N;a<bars.length-N;a++){
+          var isH=true, isL=true;
+          for (var z=a-N;z<=a+N;z++){ if(z===a) continue; if(bars[z].high>=bars[a].high) isH=false; if(bars[z].low<=bars[a].low) isL=false; }
+          if (isH) mk.push({ time:times[a], position:'aboveBar', color:'#ff6b6b', shape:'arrowDown' });
+          if (isL) mk.push({ time:times[a], position:'belowBar', color:'#3ed9a6', shape:'arrowUp' });
+        }
+        L.createSeriesMarkers(candles, mk);
+      } else if (study === 'rsi'){
+        subPane = true;
+        var rs = line('#B39DDB',2,1); rs.setData(pts(times, calcRSI(closes,14)));
+        rs.createPriceLine({ price:70, color:'rgba(255,107,107,.5)', lineWidth:1, lineStyle:2, axisLabelVisible:false });
+        rs.createPriceLine({ price:30, color:'rgba(62,217,166,.5)', lineWidth:1, lineStyle:2, axisLabelVisible:false });
+      } else if (study === 'macd'){
+        subPane = true;
+        var e12=calcEMA(closes,12), e26=calcEMA(closes,26), ml=[];
+        for (var x=0;x<closes.length;x++) ml.push(e12[x]===null||e26[x]===null ? null : e12[x]-e26[x]);
+        var first = ml.findIndex(function(v){ return v!==null; }), sig = calcEMA(ml.slice(first),9);
+        var sigFull = ml.map(function(_,i){ return i<first ? null : sig[i-first]; });
+        var hist = chart.addSeries(L.HistogramSeries, { priceLineVisible:false, lastValueVisible:false }, 1), hd=[];
+        for (var y=0;y<ml.length;y++) if (ml[y]!==null && sigFull[y]!==null){ var hv=ml[y]-sigFull[y]; hd.push({ time:times[y], value:hv, color:hv>=0 ? 'rgba(62,217,166,.7)' : 'rgba(255,107,107,.7)' }); }
+        hist.setData(hd);
+        line('#4FC3F7',1,1).setData(pts(times,ml)); line('#FFD54F',1,1).setData(pts(times,sigFull));
+      } else if (study === 'cci'){
+        subPane = true;
+        var tp = bars.map(function(b){ return (b.high+b.low+b.close)/3; }), ts = calcSMA(tp,34), cc=[];
+        for (var u=0;u<tp.length;u++){
+          if (ts[u]===null){ cc.push(null); continue; }
+          var md=0; for (var w=u-33;w<=u;w++) md+=Math.abs(tp[w]-ts[u]); md/=34;
+          cc.push(md===0 ? 0 : (tp[u]-ts[u])/(0.015*md));
+        }
+        var cs = line('#FFB74D',2,1); cs.setData(pts(times,cc));
+        cs.createPriceLine({ price:100, color:'rgba(255,255,255,.25)', lineWidth:1, lineStyle:2, axisLabelVisible:false });
+        cs.createPriceLine({ price:-100, color:'rgba(255,255,255,.25)', lineWidth:1, lineStyle:2, axisLabelVisible:false });
+      }
+      if (subPane){ try{ var ps = chart.panes(); ps[0].setStretchFactor(3); ps[1].setStretchFactor(1); }catch(e){} }
+
+      // visible window: last ~90 bars, so it opens zoomed in like the TradingView one
+      var n = bars.length, show = Math.min(n, 90);
+      chart.timeScale().setVisibleLogicalRange({ from:n-show, to:n+ (study==='ichimoku' ? 12 : 4) });
+
+      // legend with live OHLC on hover
+      var lg = host.querySelector('.cp-yf-legend');
+      function fmt(v){ return v >= 1000 ? v.toLocaleString('en-US',{maximumFractionDigits:2}) : v.toFixed(v < 10 ? 4 : 2); }
+      function setLegend(b){ lg.innerHTML = '<b>' + item.ticker + '</b> · ' + tf.toUpperCase() + ' · Yahoo' + (item.chartNote ? ' (' + item.chartNote + ')' : '') + '<br>O ' + fmt(b.open) + ' H ' + fmt(b.high) + ' L ' + fmt(b.low) + ' C ' + fmt(b.close); }
+      setLegend(bars[n-1]);
+      chart.subscribeCrosshairMove(function(p){
+        var d = p.seriesData && p.seriesData.get(candles);
+        setLegend(d && d.open !== undefined ? d : bars[n-1]);
+      });
+    }).catch(function(err){
+      if (token !== yfToken) return;
+      console.warn('[yahoo chart] ' + item.symbol + ':', err && err.message);
+      host.innerHTML = '<div class="cp-yf-msg"><div>Couldn\u2019t load the Yahoo chart for ' + item.ticker + '.</div><button type="button" data-yfretry>Retry</button></div>';
+    });
+  }
+
   function buildPanel(item){
     var p = document.createElement('div');
     p.className = 'chart-panel';
     p.dataset.panel = item.id;
     p.hidden = true;
     p.innerHTML =
-      '<div class="cp-tf">' + TV_TFS.map(function(t){ return '<button type="button" data-tf="'+t[0]+'">'+t[1]+'</button>'; }).join('') + '</div>' +
-      '<div class="cp-wrap"><iframe class="cp-frame" title="' + item.name + ' chart"></iframe></div>' +
+      '<div class="cp-tf">' + TV_TFS.map(function(t){ return '<button type="button" data-tf="'+t[0]+'">'+t[1]+'</button>'; }).join('') +
+        ((item.symbol || item.chartSymbol) ? '<button type="button" class="cp-src" data-src></button>' : '') + '</div>' +
+      '<div class="cp-wrap"><iframe class="cp-frame" title="' + item.name + ' chart"></iframe><div class="cp-yf"></div></div>' +
       '<div class="cp-studies">' + TV_STUDY_BTNS.map(function(s){
         return '<button type="button" data-study="'+s[0]+'"' + (s[0]==='swing' ? ' title="Mark swing highs / lows"' : '') + '>'+s[1]+'</button>';
       }).join('') + '</div>';
@@ -767,16 +1022,26 @@
   function syncPanelButtons(p){
     Array.prototype.forEach.call(p.querySelectorAll('[data-tf]'), function(b){ b.classList.toggle('active', b.dataset.tf === chartState.tf); });
     Array.prototype.forEach.call(p.querySelectorAll('[data-study]'), function(b){ b.classList.toggle('active', b.dataset.study === chartState.study); });
+    var sb = p.querySelector('[data-src]');
+    if (sb) sb.textContent = chartState.src === 'yf' ? 'Use TradingView \u203a' : 'Blank / error? Use Yahoo \u203a';
   }
   function loadChart(){
     var p = panelFor(chartState.id); if (!p) return;
-    var f = p.querySelector('.cp-frame');
-    f.srcdoc = tvChartDoc(TV_SYMBOLS[chartState.id], chartState.tf, chartState.study);
+    var f = p.querySelector('.cp-frame'), y = p.querySelector('.cp-yf');
+    if (chartState.src === 'yf' && hasYahoo(chartState.id)){
+      f.srcdoc = BLANK_DOC; f.style.display = 'none'; y.style.display = 'block';
+      yfRender(p, findItem(chartState.id));
+    } else {
+      yfDestroy(); y.style.display = 'none'; y.innerHTML = '';
+      f.style.display = 'block';
+      f.srcdoc = tvChartDoc(TV_SYMBOLS[chartState.id], chartState.tf, chartState.study);
+    }
   }
   function closeChart(){
     var id = chartState.id; if (!id) return;
     var p = panelFor(id), r = rowFor(id);
-    if (p){ p.hidden = true; p.querySelector('.cp-frame').srcdoc = BLANK_DOC; }
+    yfDestroy();
+    if (p){ p.hidden = true; p.querySelector('.cp-frame').srcdoc = BLANK_DOC; p.querySelector('.cp-yf').innerHTML = ''; }
     if (r){ r.classList.remove('open'); r.setAttribute('aria-expanded','false'); }
     chartState.id = null;
   }
@@ -784,7 +1049,7 @@
     if (chartState.id === id){ closeChart(); return; }
     closeChart();                                   // one chart at a time keeps the phone light
     var p = panelFor(id), r = rowFor(id); if (!p || !r) return;
-    chartState = { id:id, tf:'1d', study:'supertrend' };
+    chartState = { id:id, tf:'1d', study:'supertrend', src:pickSrc(id) };
     p.hidden = false;
     r.classList.add('open'); r.setAttribute('aria-expanded','true');
     syncPanelButtons(p);
@@ -793,6 +1058,18 @@
   }
 
   document.getElementById('groups').addEventListener('click', function(e){
+    var srcBtn = e.target.closest('[data-src]');
+    var retry = e.target.closest('[data-yfretry]');
+    if (srcBtn || retry){
+      var sp = e.target.closest('.chart-panel');
+      if (!sp || sp.dataset.panel !== chartState.id) return;
+      if (srcBtn){
+        chartState.src = chartState.src === 'yf' ? 'tv' : 'yf';
+        srcPref[chartState.id] = chartState.src; saveSrcPref();
+      } else { yfCache = {}; }
+      syncPanelButtons(sp); loadChart();
+      return;
+    }
     var tfBtn = e.target.closest('.cp-tf button');
     var stBtn = e.target.closest('.cp-studies button');
     if (tfBtn || stBtn){
@@ -875,7 +1152,7 @@
       CONFIG.groups.forEach(function(group){
         group.items.forEach(function(item){
           var c = document.querySelector('[data-spark="'+item.id+'"]');
-          if (c && c.clientWidth > 0) drawSpark(c, buildSpark(item), item.change >= 0);
+          if (c && c.clientWidth > 0 && !item.noPrice) drawSpark(c, buildSpark(item), item.change >= 0);
         });
       });
     });
