@@ -366,6 +366,31 @@
   }
   .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);}
 
+
+  /* ---------- Expandable TradingView chart panel (per row) ---------- */
+  .row.chartable{cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .row.chartable:focus-visible{outline:1px solid var(--teal);outline-offset:-1px;}
+  .row.open{background:var(--bg-row-hover);}
+  .row-chev{width:14px;height:14px;color:var(--text-3);transition:transform .18s ease;flex:none;}
+  .row.open .row-chev{transform:rotate(180deg);color:var(--teal);}
+  .group-body > .row:nth-last-child(2){border-bottom:none;}
+  .chart-panel{padding:10px 14px 14px;background:rgba(6,10,20,.55);border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);}
+  .chart-panel[hidden]{display:none;}
+  .group-body > .chart-panel:last-child{border-bottom:none;}
+  .cp-tf,.cp-studies{display:flex;gap:6px;flex-wrap:wrap;}
+  .cp-tf{margin-bottom:10px;}
+  .cp-tf button,.cp-studies button{
+    font-family:var(--font-mono);font-size:11.5px;font-weight:600;color:var(--text-2);
+    background:var(--bg-elev);border:1px solid var(--border);border-radius:999px;padding:6px 12px;cursor:pointer;
+  }
+  .cp-tf button{padding:5px 11px;border-radius:8px;}
+  .cp-tf button:hover,.cp-studies button:hover{color:var(--teal);}
+  .cp-tf button.active{background:var(--teal);border-color:var(--teal);color:#06130e;}
+  .cp-studies button.active{background:rgba(62,217,166,.14);border-color:rgba(62,217,166,.5);color:var(--teal);}
+  .cp-wrap{height:340px;margin:0 0 10px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .cp-frame{width:100%;height:100%;border:0;display:block;}
+  @media (max-width:480px){.cp-wrap{height:300px;}}
+
   @media (max-width:480px){
     .pulse-number{font-size:52px;}
     .pulse-stats{grid-template-columns:repeat(3,1fr);}
@@ -664,6 +689,130 @@
     return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
   }
 
+
+  /* ============================================================
+     TradingView chart panels - tap a row to expand its chart.
+     Same Advanced Chart widget + study set as the Market Indices
+     breakdown in index.html (Supertrend preselected, one study at
+     a time, tap the active one again for a plain chart).
+     Edit TV_SYMBOLS to remap any row to a different TV ticker.
+     Rows with no entry (Fear & Greed has no TradingView symbol)
+     simply aren't expandable.
+     ============================================================ */
+  var TV_SYMBOLS = {
+    spx:'FOREXCOM:SPXUSD', ndx:'FOREXCOM:NSXUSD', dji:'FOREXCOM:DJI', rut:'TVC:RUT', vix:'TVC:VIX',
+    dxy:'TVC:DXY', eurusd:'FX:EURUSD', usdinr:'FX_IDC:USDINR', us10y:'TVC:US10Y',
+    gold:'TVC:GOLD', silver:'TVC:SILVER', copper:'CAPITALCOM:COPPER', wti:'TVC:USOIL', brent:'TVC:UKOIL', natgas:'CAPITALCOM:NATURALGAS',
+    n225:'TVC:NI225', ftse:'TVC:UKX', dax:'TVC:DAX', shcomp:'TVC:SHCOMP', hsi:'TVC:HSI', nifty50:'NSE:NIFTY',
+    btcdom:'CRYPTOCAP:BTC.D', totalmcap:'CRYPTOCAP:TOTAL', total2:'CRYPTOCAP:TOTAL2', total3:'CRYPTOCAP:TOTAL3',
+    usdtdom:'CRYPTOCAP:USDT.D', stabledom:'CRYPTOCAP:STABLE.C.D'
+  };
+  var TV_TFS = [['15m','15m','15'],['1h','1H','60'],['4h','4H','240'],['1d','1D','D'],['1w','1W','W'],['1M','1M','M']];
+  var TV_STUDY_BTNS = [['ichimoku','Ichimoku'],['supertrend','Supertrend'],['bb','Bollinger'],['ema','EMA'],['rsi','RSI'],['macd','MACD'],['cci','CCI(34)'],['swing','Swing']];
+  var TV_STUDIES = {
+    ichimoku:'IchimokuCloud@tv-basicstudies',
+    supertrend:'STD;Supertrend',
+    bb:'BB@tv-basicstudies',
+    ema:[[20,'#FFD54F'],[50,'#4FC3F7'],[200,'#E040FB']].map(function(p){
+      var n=p[0], c=p[1];
+      var ov={'Plot.color':c,'Plot.linewidth':2,'plot.color':c,'plot.linewidth':2,'plot_0.color':c};
+      return { id:'MAExp@tv-basicstudies', inputs:{length:n}, override:ov, overrides:ov,
+               styles:{plot_0:{color:c,linewidth:2},Plot:{color:c,linewidth:2}} };
+    }),
+    rsi:'RSI@tv-basicstudies',
+    macd:'MACD@tv-basicstudies',
+    cci:{ id:'CCI@tv-basicstudies', inputs:{length:34} },
+    swing:'PivotPointsHighLow@tv-basicstudies'
+  };
+  var chartState = { id:null, tf:'1d', study:'supertrend' };
+  var BLANK_DOC = '<!doctype html><body style="margin:0;background:#0b0e14">';
+
+  function tvInterval(tf){
+    for (var i=0;i<TV_TFS.length;i++) if (TV_TFS[i][0] === tf) return TV_TFS[i][2];
+    return 'D';
+  }
+  // srcdoc page running TradingView's Advanced Chart widget (closing script tag escaped on purpose).
+  function tvChartDoc(symbol, tf, study){
+    var cfg = {
+      autosize:true, symbol:symbol, interval:tvInterval(tf), timezone:'Etc/UTC', theme:'dark', style:'1', locale:'en',
+      backgroundColor:'#0b0e14', hide_top_toolbar:true, hide_side_toolbar:true, hide_volume:true,
+      allow_symbol_change:false, save_image:false, withdateranges:false,
+      studies: study ? [].concat(TV_STUDIES[study] || []) : [],
+      support_host:'https://www.tradingview.com'
+    };
+    var json = JSON.stringify(cfg).replace(/</g, '\\u003c');
+    return '<!doctype html><html><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<style>html,body{margin:0;height:100%;background:#0b0e14;overflow:hidden}' +
+      '.tradingview-widget-container,.tradingview-widget-container__widget{height:100%;width:100%}</style></head><body>' +
+      '<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div>' +
+      '<script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>' + json + '<\/script>' +
+      '</div></body></html>';
+  }
+  function buildPanel(item){
+    var p = document.createElement('div');
+    p.className = 'chart-panel';
+    p.dataset.panel = item.id;
+    p.hidden = true;
+    p.innerHTML =
+      '<div class="cp-tf">' + TV_TFS.map(function(t){ return '<button type="button" data-tf="'+t[0]+'">'+t[1]+'</button>'; }).join('') + '</div>' +
+      '<div class="cp-wrap"><iframe class="cp-frame" title="' + item.name + ' chart"></iframe></div>' +
+      '<div class="cp-studies">' + TV_STUDY_BTNS.map(function(s){
+        return '<button type="button" data-study="'+s[0]+'"' + (s[0]==='swing' ? ' title="Mark swing highs / lows"' : '') + '>'+s[1]+'</button>';
+      }).join('') + '</div>';
+    return p;
+  }
+  function panelFor(id){ return document.querySelector('[data-panel="'+id+'"]'); }
+  function rowFor(id){ return document.querySelector('[data-chart="'+id+'"]'); }
+  function syncPanelButtons(p){
+    Array.prototype.forEach.call(p.querySelectorAll('[data-tf]'), function(b){ b.classList.toggle('active', b.dataset.tf === chartState.tf); });
+    Array.prototype.forEach.call(p.querySelectorAll('[data-study]'), function(b){ b.classList.toggle('active', b.dataset.study === chartState.study); });
+  }
+  function loadChart(){
+    var p = panelFor(chartState.id); if (!p) return;
+    var f = p.querySelector('.cp-frame');
+    f.srcdoc = tvChartDoc(TV_SYMBOLS[chartState.id], chartState.tf, chartState.study);
+  }
+  function closeChart(){
+    var id = chartState.id; if (!id) return;
+    var p = panelFor(id), r = rowFor(id);
+    if (p){ p.hidden = true; p.querySelector('.cp-frame').srcdoc = BLANK_DOC; }
+    if (r){ r.classList.remove('open'); r.setAttribute('aria-expanded','false'); }
+    chartState.id = null;
+  }
+  function openChart(id){
+    if (chartState.id === id){ closeChart(); return; }
+    closeChart();                                   // one chart at a time keeps the phone light
+    var p = panelFor(id), r = rowFor(id); if (!p || !r) return;
+    chartState = { id:id, tf:'1d', study:'supertrend' };
+    p.hidden = false;
+    r.classList.add('open'); r.setAttribute('aria-expanded','true');
+    syncPanelButtons(p);
+    loadChart();
+    setTimeout(function(){ try{ p.scrollIntoView({ block:'nearest', behavior:'smooth' }); }catch(e){} }, 60);
+  }
+
+  document.getElementById('groups').addEventListener('click', function(e){
+    var tfBtn = e.target.closest('.cp-tf button');
+    var stBtn = e.target.closest('.cp-studies button');
+    if (tfBtn || stBtn){
+      var p = e.target.closest('.chart-panel');
+      if (!p || p.dataset.panel !== chartState.id) return;
+      if (tfBtn) chartState.tf = tfBtn.dataset.tf;
+      else chartState.study = (chartState.study === stBtn.dataset.study) ? null : stBtn.dataset.study;  // tap active = plain chart
+      syncPanelButtons(p);
+      loadChart();
+      return;
+    }
+    var row = e.target.closest('.row.chartable');
+    if (row) openChart(row.dataset.chart);
+  });
+  document.getElementById('groups').addEventListener('keydown', function(e){
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var row = e.target.closest && e.target.closest('.row.chartable');
+    if (row && e.target === row){ e.preventDefault(); openChart(row.dataset.chart); }
+  });
+
   /* ---------------- render ---------------- */
   function render(){
     var main = document.getElementById('groups');
@@ -704,7 +853,17 @@
             '<div class="val" data-val="'+item.id+'">' + formatValue(item) + '</div>' +
             '<div class="chg ' + changeClass(item.change) + '" data-chg="'+item.id+'">' + formatChange(item) + '</div>' +
           '</div>';
+        if (TV_SYMBOLS[item.id]){
+          row.classList.add('chartable');
+          row.dataset.chart = item.id;
+          row.setAttribute('role','button');
+          row.setAttribute('aria-expanded','false');
+          row.tabIndex = 0;
+          row.querySelector('.iname').insertAdjacentHTML('beforeend',
+            '<svg class="row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+        }
         body.appendChild(row);
+        if (TV_SYMBOLS[item.id]) body.appendChild(buildPanel(item));
       });
 
       sec.appendChild(body);
@@ -1151,6 +1310,7 @@
 
   function setGroupCollapsed(sec, collapsed){
     sec.classList.toggle('collapsed', collapsed);
+    if (collapsed && chartState.id && sec.querySelector('[data-panel="'+chartState.id+'"]')) closeChart();
     var btn = sec.querySelector('.group-toggle');
     if (btn) btn.setAttribute('aria-expanded', String(!collapsed));
     if (!collapsed) redrawGroupSparks(sec);
