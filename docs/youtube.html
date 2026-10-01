@@ -201,6 +201,8 @@
   .filter-btn .count{color:var(--faint);}
   .filter-btn.active .count{color:var(--accent-dim);}
 
+  .type-tabs{margin-bottom:18px;}
+
   /* ---- Video grid ---- */
   .grid{
     display:grid;
@@ -303,6 +305,8 @@
       </button>
     </div>
   </div>
+
+  <div class="filters type-tabs" id="typeTabs"></div>
 
   <div id="heroWrap"></div>
 
@@ -442,13 +446,21 @@ const CORS_PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 const PROXY_TIMEOUT_MS = 7000; // don't let a hung/slow proxy stall the whole load
-const CACHE_KEY = 'crypto-youtube-cache-v1';
+const CACHE_KEY = 'crypto-youtube-cache-v2'; // v2: videos now carry an isShort flag
 
 let activeFilter = 'all';
+let activeTab = 'videos'; // 'videos' | 'shorts'
 let allVideos = [];
 let lastUpdated = null;
 let lastRefreshFailed = false;
 let lastFailedChannels = [];
+
+// YouTube's feed has no duration field, but it links Shorts as /shorts/<id>
+// (regular uploads use /watch?v=<id>). A #shorts hashtag in the title is a
+// secondary hint for channels that tag them.
+function looksLikeShort(link, title){
+  return /\/shorts\//i.test(link || '') || /#shorts?\b/i.test(title || '');
+}
 
 function getText(el, tag){
   const node = el.getElementsByTagName(tag)[0];
@@ -484,6 +496,8 @@ function parseFeed(xmlText, channel){
       videoId = idText.split(':').pop();
     }
     const title = getText(entry, 'title');
+    const linkEl = entry.getElementsByTagName('link')[0];
+    const feedLink = (linkEl && linkEl.getAttribute('href')) || '';
     const publishedRaw = getText(entry, 'published');
     const published = publishedRaw ? new Date(publishedRaw) : null;
     const thumbEl = entry.getElementsByTagName('media:thumbnail')[0];
@@ -494,6 +508,7 @@ function parseFeed(xmlText, channel){
       published,
       thumb,
       url: `https://www.youtube.com/watch?v=${videoId}`,
+      isShort: looksLikeShort(feedLink, title),
       channel
     };
   }).filter(v => v.videoId && v.published);
@@ -533,6 +548,7 @@ async function fetchViaRss2Json(channel, feedUrl){
       published,
       thumb: (item.thumbnail && item.thumbnail.trim()) || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
       url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : link,
+      isShort: looksLikeShort(link, item.title),
       channel
     };
   }).filter(v => v.videoId && v.published);
@@ -605,10 +621,35 @@ function timeAgo(date){
   return `${days}d ago`;
 }
 
+function buildTabs(){
+  const cutoff = Date.now() - DAYS_WINDOW * 86400000;
+  const recent = allVideos
+    .filter(v => v.published.getTime() >= cutoff)
+    .filter(v => activeFilter === 'all' || v.channel.id === activeFilter);
+  const shortsCount = recent.filter(v => v.isShort).length;
+  const videosCount = recent.length - shortsCount;
+  const el = document.getElementById('typeTabs');
+  el.innerHTML = `
+    <button class="filter-btn ${activeTab==='videos'?'active':''}" data-tab="videos">
+      Videos <span class="count">${videosCount}</span>
+    </button>
+    <button class="filter-btn ${activeTab==='shorts'?'active':''}" data-tab="shorts">
+      Shorts <span class="count">${shortsCount}</span>
+    </button>`;
+  el.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      render();
+    });
+  });
+}
+
 function buildFilters(){
   const el = document.getElementById('filters');
   const cutoff = Date.now() - DAYS_WINDOW * 86400000;
-  const recentVideos = allVideos.filter(v => v.published.getTime() >= cutoff);
+  const recentVideos = allVideos
+    .filter(v => v.published.getTime() >= cutoff)
+    .filter(v => !!v.isShort === (activeTab === 'shorts'));
   const counts = { all: recentVideos.length };
   CHANNELS.forEach(c => { counts[c.id] = recentVideos.filter(v => v.channel.id === c.id).length; });
 
@@ -654,11 +695,11 @@ function renderHero(list){
     </a>`;
 }
 
-function renderGrid(list){
+function renderGrid(list, hasHero = true){
   const el = document.getElementById('videoGrid');
-  const rest = list.slice(1);
+  const rest = hasHero ? list.slice(1) : list;
   if(!list.length){
-    el.innerHTML = `<div class="empty">No videos from ${activeFilter === 'all' ? 'these channels' : CHANNELS.find(c=>c.id===activeFilter)?.name || 'this channel'} in the last ${DAYS_WINDOW} days.</div>`;
+    el.innerHTML = `<div class="empty">No ${activeTab === 'shorts' ? 'Shorts' : 'videos'} from ${activeFilter === 'all' ? 'these channels' : CHANNELS.find(c=>c.id===activeFilter)?.name || 'this channel'} in the last ${DAYS_WINDOW} days.</div>`;
     return;
   }
   if(!rest.length){ el.innerHTML = ''; return; }
@@ -685,14 +726,17 @@ function escapeHtml(s){
 }
 
 function render(){
+  buildTabs();
   buildFilters();
   const cutoff = Date.now() - DAYS_WINDOW * 86400000;
+  const isShortsTab = activeTab === 'shorts';
   const list = allVideos
     .filter(v => v.published.getTime() >= cutoff)
+    .filter(v => !!v.isShort === isShortsTab)
     .filter(v => activeFilter === 'all' || v.channel.id === activeFilter)
     .sort((a,b) => b.published - a.published);
-  renderHero(list);
-  renderGrid(list);
+  renderHero(isShortsTab ? [] : list); // hero = latest regular video only
+  renderGrid(list, !isShortsTab);
 }
 
 function renderSkeleton(){
@@ -711,11 +755,13 @@ function renderSkeleton(){
   grid.innerHTML = html;
   document.getElementById('heroWrap').innerHTML = '';
   document.getElementById('filters').innerHTML = '';
+  document.getElementById('typeTabs').innerHTML = '';
 }
 
 function renderErrorState(err){
   document.getElementById('heroWrap').innerHTML = '';
   document.getElementById('filters').innerHTML = '';
+  document.getElementById('typeTabs').innerHTML = '';
   document.getElementById('videoGrid').innerHTML = `
     <div class="error-state">
       Couldn't load videos right now (${escapeHtml(err && err.message ? err.message : 'network error')}).<br>
