@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-01T16:27:48Z",
+  "updated": "2026-10-01T16:48:12Z",
   "markets": [
     {
       "t": "KXU3-26NOV-T5.0",
@@ -392,7 +392,7 @@
       "k": 4.6,
       "c": "2026-10-02T12:29:00Z",
       "b": "0.0000",
-      "a": "0.0200",
+      "a": "0.0100",
       "l": "0.0100",
       "v": "7193.67",
       "title": "Will the unemployment rate (U-3) be above 4.6% in September?"
@@ -404,7 +404,7 @@
       "k": 4.5,
       "c": "2026-10-02T12:29:00Z",
       "b": "0.0000",
-      "a": "0.0100",
+      "a": "0.0200",
       "l": "0.0100",
       "v": "4303.22",
       "title": "Will the unemployment rate (U-3) be above 4.5% in September?"
@@ -441,8 +441,8 @@
       "c": "2026-10-02T12:29:00Z",
       "b": "0.0800",
       "a": "0.0900",
-      "l": "0.0900",
-      "v": "71903.31",
+      "l": "0.0800",
+      "v": "73403.31",
       "title": "Will the unemployment rate (U-3) be above 4.2% in September?"
     },
     {
@@ -466,7 +466,7 @@
       "b": "0.6900",
       "a": "0.7000",
       "l": "0.7000",
-      "v": "52373.62",
+      "v": "52583.62",
       "title": "Will the unemployment rate (U-3) be above 4.0% in September?"
     },
     {
