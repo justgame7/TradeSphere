@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-02T22:53:40Z",
+  "updated": "2026-10-02T23:14:03Z",
   "markets": [
     {
       "t": "KXFED-27APR-T6.00",
@@ -2251,7 +2251,7 @@
       "s": "Above 0.25%",
       "k": 0.25,
       "c": "2027-04-28T17:55:00Z",
-      "b": "0.8300",
+      "b": "0.8500",
       "a": "0.9900",
       "l": "0.9900",
       "v": "2223.85",
@@ -2746,7 +2746,7 @@
       "b": "0.0700",
       "a": "0.0800",
       "l": "0.0800",
-      "v": "141084.17",
+      "v": "141085.17",
       "title": "Will the upper bound of the federal funds rate be above 4.50% following the Fed's Dec 9, 2026 meeting?"
     },
     {
@@ -2756,9 +2756,9 @@
       "k": 4.25,
       "c": "2026-12-09T18:55:00Z",
       "b": "0.1900",
-      "a": "0.2300",
-      "l": "0.2300",
-      "v": "43829.18",
+      "a": "0.2200",
+      "l": "0.1900",
+      "v": "43850.18",
       "title": "Will the upper bound of the federal funds rate be above 4.25% following the Fed's Dec 9, 2026 meeting?"
     },
     {
@@ -2781,8 +2781,8 @@
       "c": "2026-12-09T18:55:00Z",
       "b": "0.9200",
       "a": "0.9500",
-      "l": "0.9100",
-      "v": "46372.33",
+      "l": "0.9200",
+      "v": "46374.33",
       "title": "Will the upper bound of the federal funds rate be above 3.75% following the Fed's Dec 9, 2026 meeting?"
     },
     {
@@ -2899,10 +2899,10 @@
       "s": "Above 4.00%",
       "k": 4,
       "c": "2026-10-28T17:55:00Z",
-      "b": "0.1600",
-      "a": "0.1900",
-      "l": "0.1900",
-      "v": "164483.49",
+      "b": "0.1500",
+      "a": "0.2100",
+      "l": "0.2200",
+      "v": "164489.49",
       "title": "Will the upper bound of the federal funds rate be above 4.00% following the Fed's Oct 28, 2026 meeting?"
     },
     {
