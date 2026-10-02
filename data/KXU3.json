@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-02T07:22:32Z",
+  "updated": "2026-10-02T07:47:33Z",
   "markets": [
     {
       "t": "KXU3-26NOV-T5.0",
@@ -55,8 +55,8 @@
       "s": "Above 4.6%",
       "k": 4.6,
       "c": "2026-12-04T13:29:00Z",
-      "b": "0.0400",
-      "a": "0.0800",
+      "b": "0.0200",
+      "a": "0.0900",
       "l": "0.1200",
       "v": "719.00",
       "title": "Will the unemployment rate (U-3) be above 4.6% in November?"
@@ -152,7 +152,7 @@
       "k": 3.8,
       "c": "2026-12-04T13:29:00Z",
       "b": "0.9000",
-      "a": "0.9500",
+      "a": "0.9400",
       "l": "0.9200",
       "v": "1157.00",
       "title": "Will the unemployment rate (U-3) be above 3.8% in November?"
@@ -442,7 +442,7 @@
       "b": "0.0500",
       "a": "0.0600",
       "l": "0.0600",
-      "v": "83990.25",
+      "v": "83994.15",
       "title": "Will the unemployment rate (U-3) be above 4.2% in September?"
     },
     {
@@ -466,7 +466,7 @@
       "b": "0.6900",
       "a": "0.7100",
       "l": "0.7100",
-      "v": "73779.79",
+      "v": "74088.10",
       "title": "Will the unemployment rate (U-3) be above 4.0% in September?"
     },
     {
