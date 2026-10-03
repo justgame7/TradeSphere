@@ -1083,6 +1083,17 @@
   .pl-empty .pl-chip{margin:10px 4px 0;}
   .pl-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:2px 0 6px;font:700 10.5px var(--font-mono);color:var(--muted);}
   .pl-leg i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle;}
+  .pl-gtc{margin-top:12px;padding:11px 12px;border:1px solid rgba(120,135,170,.22);border-radius:12px;background:rgba(255,255,255,.015);}
+  .pl-gtc-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font:700 13px var(--font-ui);color:#e8ecf7;}
+  .pl-gtc-chip{font:700 9.5px var(--font-mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid;}
+  .pl-gtc-chip.t-good{color:var(--accent);border-color:rgba(53,224,192,.4);background:rgba(53,224,192,.08);}
+  .pl-gtc-chip.t-warn{color:var(--amber);border-color:rgba(255,184,64,.4);background:rgba(255,184,64,.08);}
+  .pl-gtc-chip.t-info{color:var(--blue);border-color:rgba(91,140,255,.4);background:rgba(91,140,255,.08);}
+  .pl-gtc-m{margin:7px 0 9px;font:500 12.5px/1.5 var(--font-ui);color:#cdd3e4;}
+  .pl-gtc .pl-notes b{color:#e8ecf7;font-weight:700;}
+  .pl-gtfoot{margin:12px 2px 0;font:500 11px/1.5 var(--font-ui);color:var(--muted);}
+  .pl-leg label{display:inline-flex;align-items:center;cursor:pointer;}
+  .pl-leg input[type=checkbox]{width:14px;height:14px;margin:0 0 0 7px;cursor:pointer;}
   .pl-subseg{display:flex;justify-content:flex-start;margin:6px 0 2px;}
   .pl-subseg .pl-seg{width:auto;}
   .pl-sk{border-radius:12px;background:linear-gradient(90deg,var(--panel2) 25%,var(--border-soft) 50%,var(--panel2) 75%);background-size:200% 100%;animation:plsk 1.3s linear infinite;}
@@ -6778,7 +6789,7 @@ const lsGet = k => { try{ return JSON.parse(localStorage.getItem(k) || 'null'); 
 const lsSet = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
 
 const S = { open:false, token:0, symbol:'', base:'', name:'', ticker:'', cgId:null, logo:'', range:'90D', newsWin:'7D',
-            wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, volMeta:null, gdErr:'', gt:{}, gt2:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', overlayPrice:true, gtSrc:'3m', gtMode:'same' };
+            wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, volMeta:null, gdErr:'', gt:{}, gt2:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', overlayPrice:true, gtSrc:'3m', gtMode:'same', gtShow:{ a:true, b:true } };
 
 /* ---------- network: direct -> Worker -> public proxies ---------- */
 async function fetchT(url, ms){
@@ -7034,7 +7045,7 @@ function gaugeSvg(score, color){
 async function loadPrice(symbol, tk){
   const urls = ['https://api.binance.com/api/v3/klines?interval=1d&limit=1000&symbol=' + symbol, 'https://fapi.binance.com/fapi/v1/klines?interval=1d&limit=1000&symbol=' + symbol];
   for(const u of urls){
-    try{ const d = await getJSON(u, { timeout:9000 }); if(tk !== S.token) return; S.price = d.map(k => ({ t:+k[0], v:+k[4] })); paintAttention(); return; }catch(e){}
+    try{ const d = await getJSON(u, { timeout:9000 }); if(tk !== S.token) return; S.price = d.map(k => ({ t:+k[0], v:+k[4] })); paintAttention(); paintGT(); return; }catch(e){}
   }
 }
 function gdTimeline(d){
@@ -7345,94 +7356,127 @@ function pearson(a, b){
   let sxy = 0, sxx = 0, syy = 0; for(let i = 0; i < n; i++){ sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) ** 2; syy += (y[i] - my) ** 2; }
   return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null;
 }
-/* Trend read of ONE Google Trends series: spike vs. its usual level, how fast it faded, where it sits now, recent direction.
-   Everything is computed from the series, on the SAME full window the chart draws (3 months or 5 years). */
-function gtTrend(s, kind, nm){
-  const wk = kind === '5y', win = wk ? '5 years' : '3 months', unitW = wk ? 'weeks' : 'days', n = s.length;
-  const vals = s.map(p => p.v), srt = vals.slice().sort((x, y) => x - y);
-  const med = n % 2 ? srt[(n - 1) / 2] : (srt[n / 2 - 1] + srt[n / 2]) / 2;
-  let pi = 0; for(let i = 1; i < n; i++) if(vals[i] >= vals[pi]) pi = i;
-  const pk = s[pi], peakV = vals[pi] || 1, nowV = mean(vals.slice(-3)), nowPct = nowV / peakV * 100;
-  const thin = !(med > 0), vsBase = thin ? null : nowV / med - 1, spike = thin ? null : peakV / med;
-  const pct = v => Math.round(Math.abs(v) * 100);
+/* =====================================================================================================
+   Google Trends read (v2). Built from published research and trader practice:
+   • Search interest mostly FOLLOWS price and volume (returns Granger-cause searches for most altcoins), and retail
+     search peaks tend to land near local/cycle tops, so a spike alone is not a buy signal; it is context.
+   • Low attention = quiet, trader-driven phase; a rise from a quiet base (after price stabilises) is the classic early sign.
+   • Google Trends counts every search that CONTAINS the word, so names like "Avalanche" or "Near" mix in non-crypto
+     searches; the check below uses the name, price reaction and crypto-specific searches to estimate how crypto-driven the curve is.
+   • Every price cross-check uses the coin's own daily closes (S.price). Nothing here is a trade signal.
+   ===================================================================================================== */
+const GT_AMBIG_NAMES = {
+  'avalanche':'snow avalanches', 'near':'the everyday word “near”', 'near protocol':'“near me” searches', 'chainlink':'chain-link fences', 'link':'web links',
+  'cosmos':'space and the TV series', 'polygon':'the geometric shape', 'stellar':'the everyday word', 'terra':'land / terrain', 'sui':'the everyday word “sui”', 'pepe':'the Pepe meme',
+  'flow':'the everyday word “flow”', 'gas':'fuel and gas prices', 'dash':'the everyday word “dash”', 'sand':'beach sand', 'the sandbox':'the Sandbox game', 'gala':'gala events',
+  'core':'the everyday word “core”', 'jupiter':'the planet', 'mantle':'Earth’s mantle', 'optimism':'the everyday word', 'harmony':'the everyday word', 'ocean protocol':'the ocean',
+  'maker':'the everyday word “maker”', 'compound':'the everyday word', 'safe':'safes and safety', 'stacks':'the everyday word', 'render':'rendering / graphics', 'beam':'light beams',
+  'flux':'the everyday word', 'band protocol':'music bands', 'ontology':'the philosophy term', 'theta':'the Greek letter', 'kava':'the kava drink', 'fantom':'“phantom”', 'hive':'beehives',
+  'ark':'Noah’s ark and the game', 'iota':'the Greek letter', 'ripple':'the ripple effect', 'tron':'the Tron films', 'sei':'the Japanese word', 'ton':'the unit of weight', 'toncoin':'the unit of weight',
+  'bonk':'the slang word', 'wormhole':'the physics term', 'immutable':'the everyday word', 'celestia':'“celestial”', 'eos':'Canon EOS cameras', 'neo':'The Matrix', 'wax':'candle wax',
+  'oasis':'the band and oasis', 'icon':'the everyday word', 'blur':'the everyday word', 'magic':'the everyday word', 'shiba inu':'the dog breed', 'floki':'the Viking character',
+  'convex':'the geometry term', 'curve':'curves in general', 'mina':'the first name', 'dent':'dents', 'ardor':'the everyday word', 'internet computer':'the everyday term', 'constellation':'star constellations', 'ens':'the everyday word'
+};
+function gtAmbigName(name){
+  const n = String(name || '').toLowerCase().replace(/\s*\(.*\)\s*$/, '').trim();
+  if(GT_AMBIG_NAMES[n]) return GT_AMBIG_NAMES[n];
+  const f = n.split(/\s+/)[0]; return (n.indexOf(' ') > 0 && GT_AMBIG_NAMES[f] && f !== 'the') ? GT_AMBIG_NAMES[f] : null;
+}
+function gtPriceAt(t){
+  const p = S.price; if(!p || p.length < 30) return null;
+  let lo = 0, hi = p.length - 1; while(lo < hi){ const m = (lo + hi) >> 1; if(p[m].t < t) lo = m + 1; else hi = m; }
+  if(lo > 0 && Math.abs(p[lo - 1].t - t) < Math.abs(p[lo].t - t)) lo--;
+  return Math.abs(p[lo].t - t) <= 4 * DAY ? p[lo].v : null;
+}
+function gtMedian(a){ if(!a.length) return null; const x = a.slice().sort((p, q) => p - q), m = x.length >> 1; return x.length % 2 ? x[m] : (x[m - 1] + x[m]) / 2; }
+/* s = Google Trends series; opts = { label, kind:'3m'|'5y', isTicker, term (the exact query when it differs, e.g. "ONE crypto"), peer (crypto-specific series to cross-check) } */
+function gtRead(s, kind, o){
+  const wk = kind === '5y', unit = wk ? 'weeks' : 'days', n = s.length, vals = s.map(p => p.v), med = gtMedian(vals);
+  const pct = v => Math.round(Math.abs(v) * 100), sg = c => Math.abs(c) < 0.005 ? '0%' : (c > 0 ? '+' : '−') + pct(c) + '%';
   const span = d => { d = Math.max(1, Math.round(d)); return d < 14 ? d + (d === 1 ? ' day' : ' days') : Math.round(d / 7) + ' weeks'; };
-  const sm = vals.map((_, i) => mean(vals.slice(Math.max(0, i - 1), i + 2)));   // 3-point smoothing, used only to time the fade
-  const chg = m => { if(n < 2 * m) return null; const r = mean(vals.slice(-m)), pr = mean(vals.slice(-2 * m, -m)); return pr > 0 ? r / pr - 1 : null; };
-  const kL = wk ? 13 : 14, kS = wk ? 4 : 7, kTxt = wk ? 'quarter' : '2 weeks', cL = chg(kL), cS = chg(kS);
-  const lab = c => c == null ? null : c >= 0.08 ? 'rising' : c <= -0.08 ? 'falling' : 'flat';
-  const dirTxt = c => c == null ? 'n/a' : pct(c) < 1 ? 'flat' : (c >= 0 ? 'up ' : 'down ') + pct(c) + '%';
-  const isSpike = spike != null && spike >= 1.4, peaking = isSpike && pi >= n - 3;
-  const daysSincePeak = (s[n - 1].t - pk.t) / DAY;
+  const zeros = vals.filter(v => v <= 1).length / n;
+  if(!(med > 0) || zeros >= 0.4) return { label:'Low volume', tone:'warn', meaning:'Too few searches for Google to draw a reliable curve (mostly zeros). Ignore this chart; use news and social instead.', bullets:[] };
+  let pi = 0; for(let i = 1; i < n; i++) if(vals[i] >= vals[pi]) pi = i;
+  const pk = s[pi], peakV = vals[pi] || 1, nowV = mean(vals.slice(-3)), nowPct = nowV / peakV * 100, vsBase = nowV / med - 1, spike = peakV / med;
+  const rank = vals.filter(v => v < nowV).length / n;
+  const sm = vals.map((_, i) => mean(vals.slice(Math.max(0, i - 1), i + 2)));
+  const kL = wk ? 13 : 14, chg = m => { if(n < 2 * m) return null; const r = mean(vals.slice(-m)), pr = mean(vals.slice(-2 * m, -m)); return pr > 0 ? r / pr - 1 : null; };
+  const cL = chg(kL), cS = chg(wk ? 4 : 7), kTxt = wk ? 'the last quarter' : 'the last 2 weeks';
+  const falling = (cL != null && cL <= -0.08) || (cS != null && cS <= -0.08) && !(cL != null && cL >= 0.08);
+  const isSpike = spike >= 1.5, peaking = isSpike && pi >= n - 3;
   let halfD = null, baseD = null;
-  if(isSpike && !peaking){
-    const half = med + (peakV - med) / 2;
-    for(let j = pi + 1; j < n; j++){
-      if(halfD === null && sm[j] <= half) halfD = (s[j].t - pk.t) / DAY;
-      if(sm[j] <= med){ baseD = (s[j].t - pk.t) / DAY; break; }
-    }
+  if(isSpike && !peaking){ const half = med + (peakV - med) / 2; for(let j = pi + 1; j < n; j++){ if(halfD === null && sm[j] <= half) halfD = (s[j].t - pk.t) / DAY; if(sm[j] <= med){ baseD = (s[j].t - pk.t) / DAY; break; } } }
+  const burst = baseD !== null && baseD <= (wk ? 28 : 7), sinceD = (s[n - 1].t - pk.t) / DAY;
+  /* ---- 1. phase ---- */
+  let st;
+  if(vsBase >= 0.4 && rank >= 0.85) st = (cS != null && cS < -0.15) ? 'cooling' : 'surge';
+  else if(cS != null && cS >= 0.25 && vsBase < 0.15 && (cL == null || cL >= 0)) st = 'waking';
+  else if(vsBase < -0.15 && falling) st = 'fading';
+  else if(vsBase <= -0.35 && rank <= 0.25) st = 'quiet';
+  else st = 'steady';
+  const PH = {
+    surge:{ label:'Attention surge', tone:'warn', meaning:'Public interest is far above normal and still building. Searches usually follow price and peak late in a run, so confirm with volume before chasing.', watch:'Searches peaking while price stalls or volume fades is often the late stage.' },
+    cooling:{ label:'Elevated, cooling', tone:'info', meaning:'Interest is still well above normal but past its high; the crowd is already rotating out.', watch:'Whether searches settle above normal (lasting interest) or drop back to it (hype over).' },
+    waking:{ label:'Attention returning', tone:'good', meaning:'Interest is rising from a quiet base. Early rises like this come before the crowd is in, but only count if volume follows.', watch:'Searches holding above normal for several ' + unit + ' together with rising volume.' },
+    fading:{ label:'Fading', tone:'warn', meaning:'Interest is below normal and still dropping, so there is no public demand behind the coin right now.', watch:'A base forming below normal, then a first rise, before expecting public demand to return.' },
+    quiet:{ label:'Quiet', tone:'info', meaning:'Interest sits well below normal and is not moving. Price is being driven by traders, not the public; search gives no direction here.', watch:'A rise above normal after price stabilises is the usual first sign of returning retail.' },
+    steady:{ label:'Steady', tone:'info', meaning:'Interest is stable around its usual level; nothing in search points to a change in public attention.', watch:'A jump to 1.5× normal or more would mark a new attention phase.' }
+  }[st];
+  const bullets = [];
+  /* ---- 2. level now ---- */
+  const lvl = vsBase > 0.15 ? pct(vsBase) + '% above normal' : vsBase < -0.15 ? pct(vsBase) + '% below normal' : 'near normal';
+  const rk = rank >= 0.5 ? 'higher than ' + Math.min(99, Math.round(rank * 100)) + '% of the ' + unit : 'lower than ' + Math.min(99, Math.round((1 - rank) * 100)) + '% of the ' + unit;
+  bullets.push({ c:vsBase < -0.15 ? 'warn' : vsBase > 0.15 ? 'good' : 'info', lead:'Now', t:`${Math.round(nowPct)}% of its peak (${dFmt(pk.t)}), ${lvl}; ${rk}.` });
+  /* ---- 3. spike quality + price at the spike ---- */
+  const hasPx = S.price && S.price.length >= 30, lastPx = hasPx ? S.price[S.price.length - 1].t : 0, w = wk ? 7 * DAY : 3 * DAY, step = wk ? 7 * DAY : DAY;
+  const mvAt = t => { const b = gtPriceAt(t - w), a = gtPriceAt(Math.min(t + w, lastPx)); return (a && b) ? a / b - 1 : null; };
+  let mvPk = null, strong = false, typ = null;
+  if(hasPx){ mvPk = mvAt(pk.t); const m = s.map(p => mvAt(p.t)).filter(v => v != null).map(Math.abs); typ = gtMedian(m); strong = mvPk != null && Math.abs(mvPk) >= Math.max(wk ? 0.1 : 0.04, 1.3 * (typ || 0)); }
+  let sp;
+  if(peaking) sp = `at or near the highest point of the window right now (${spike.toFixed(1)}× normal); too early to tell a burst from lasting interest.`;
+  else if(isSpike) sp = `${dFmt(pk.t)} at ${spike.toFixed(1)}× normal; ` + (baseD === null ? `still above normal ${span(sinceD)} later, so interest has stuck.` : burst ? `back to normal within ${span(baseD)}, a one-off burst rather than lasting demand.` : `it took ${span(baseD)} to normalise, so attention lingered.`);
+  else sp = `none; the window high (${dFmt(pk.t)}) is only ${spike.toFixed(1)}× normal.`;
+  if(isSpike && mvPk != null) sp += strong ? ` Price moved ${sg(mvPk)} around it: attention followed a market move.` : ` Price barely moved (${sg(mvPk)}): driven by news or social buzz, not by the market.`;
+  bullets.push({ c:isSpike ? (burst ? 'warn' : 'info') : 'info', lead:'Spike', t:sp });
+  /* ---- 4. price vs interest (last 2 weeks / quarter) ---- */
+  let pc = null;
+  if(hasPx && cL != null){ const tn = Math.min(s[n - 1].t, lastPx), pn = gtPriceAt(tn), pa = gtPriceAt(tn - kL * step); if(pn && pa) pc = pn / pa - 1; }
+  if(pc != null){
+    const up = pc >= 0.05, dn = pc <= -0.05, sU = cL >= 0.1, sD = cL <= -0.1; let t, c = 'info';
+    if(up) t = sU ? `Price ${sg(pc)}, searches ${sg(cL)}: the move is being noticed by the public.` : `Price ${sg(pc)} but searches ${sg(cL)}: the rally is trader-led and not drawing public attention yet.`;
+    else if(dn){ if(sU){ t = `Price ${sg(pc)} but searches ${sg(cL)}: attention is rising into weakness (fear or dip-hunting); check it is not capitulation.`; c = 'warn'; } else t = `Price ${sg(pc)}, searches ${sg(cL)}: interest is leaving with price and there is no dip-buying interest yet.`; }
+    else t = sU ? `Price flat (${sg(pc)}) while searches ${sg(cL)}: attention is building before price reacts, an early sign that needs volume.` : sD ? `Price flat (${sg(pc)}) while searches ${sg(cL)}: interest is draining out of a range.` : `Price flat (${sg(pc)}) and searches ${sg(cL)}: both quiet.`;
+    bullets.push({ c, lead:'Vs price (' + kTxt.replace('the ', '') + ')', t });
   }
-  const burst = baseD !== null && baseD <= (wk ? 28 : 7);
-  const lS = lab(cS), lL = lab(cL), overall = lS && lL ? (lS === lL ? lS : lS === 'flat' ? lL : lL === 'flat' ? lS : 'mixed') : (lL || lS);
-  const notes = [];
-  if(thin){
-    notes.push({ c:'warn', t:`Search volume for ${nm} is too low for Google to show a reliable trend in this window, so the curve is mostly noise.` });
-    return { notes, say:`Search interest in ${nm} is too low to read a trend from.`, med, pk, nowPct, spike, vsBase, cL, cS, win };
+  /* ---- 5. crypto relevance (is this curve about the coin, or the everyday word?) ---- */
+  const ev = [], bad = []; let score = 0;
+  const amb = o.isTicker ? null : gtAmbigName(S.name);
+  if(o.isTicker){ if(o.term && /crypto$/i.test(o.term)){ score += 1; ev.push(`searched as “${o.term}”, which filters out everyday-word searches`); } else { score += 1; ev.push('ticker searches are almost always crypto'); } }
+  else if(amb){ score -= 1; bad.push(`“${S.name}” is also ${amb}`); }
+  else { score += 1; ev.push('distinctive coin name'); }
+  if(isSpike && mvPk != null){ if(strong){ score += 1; ev.push('the spike lined up with a big price move'); } else { score -= 1; bad.push('the spike had no matching price move'); } }
+  if(hasPx){
+    const A1 = [], B1 = []; s.forEach(p => { const x = gtPriceAt(p.t), y = gtPriceAt(p.t - step); if(x && y){ A1.push({ v:p.v }); B1.push({ v:Math.abs(x / y - 1) }); } });
+    const r = A1.length >= 20 ? pearson(A1, B1) : null;
+    if(r != null){ if(r >= 0.25){ score += 1; ev.push('searches rise on volatile price days'); } else if(r <= 0.05){ score -= 1; bad.push('searches ignore price swings'); } }
   }
-  /* 1. the spike */
-  if(peaking) notes.push({ c:'good', t:`Spike: ${nm} searches are at or near their highest point of the last ${win} right now (peak ${dFmt(pk.t)}, ${spike >= 1.4 ? spike.toFixed(1) + '× its usual level' : 'only slightly above its usual level'}).` });
-  else if(isSpike) notes.push({ c:'info', t:`Spike: searches jumped on ${dFmt(pk.t)} to ${spike.toFixed(1)}× their usual level (+${pct(spike - 1)}% over the ${wk ? '5-year' : '3-month'} median), the highest point of this window.` });
-  else notes.push({ c:'info', t:`No standout spike in the last ${win}: interest stayed in a narrow band around its usual level (the peak, on ${dFmt(pk.t)}, is only ${spike.toFixed(1)}× the median).` });
-  /* 2. did it fade or stick */
-  if(peaking) notes.push({ c:'info', t:`The peak is very recent, so it is too early to tell a one-day burst from lasting interest. Watch whether the next few ${unitW} stay above the usual level.` });
-  else if(isSpike){
-    if(baseD === null) notes.push({ c:'good', t:`It has not faded back: ${span(daysSincePeak)} after the peak, interest is still above its usual level${halfD !== null ? ' (it lost half the spike after ' + span(halfD) + ' but then held)' : ''}. That reads as sustained attention, not a one-off burst.` });
-    else if(burst) notes.push({ c:'warn', t:`The spike faded fast: down to half within ${span(halfD)} and back to its usual level within ${span(baseD)}. That points to a news- or price-driven burst rather than lasting demand.` });
-    else notes.push({ c:'info', t:`A slow fade: half the spike was gone after ${span(halfD)} and it took ${span(baseD)} to get back to its usual level, so attention lingered instead of vanishing.` });
-  }
-  /* 3. where it sits now */
-  const lower = vals.filter(v => v < nowV).length / n, rank = lower >= 0.5 ? 'higher than ' + Math.min(99, Math.round(lower * 100)) + '%' : 'lower than ' + Math.min(99, Math.round((1 - lower) * 100)) + '%';
-  const lvl = vsBase > 0.15 ? pct(vsBase) + '% above its usual level' : vsBase < -0.15 ? pct(vsBase) + '% below its usual level' : 'close to its usual level';
-  notes.push({ c:vsBase < -0.15 ? 'warn' : vsBase > 0.15 ? 'good' : 'info', t:`Now: interest is ${Math.round(nowPct)}% of its peak and ${lvl}, ${rank} of the ${unitW} in this window.` + (isSpike && !peaking && vsBase < -0.15 ? ' Attention has fully reversed instead of settling at a higher level.' : '') });
-  /* 4. direction */
-  if(overall){
-    const read = overall === 'falling' && vsBase < -0.15 ? 'attention is still leaving.' : overall === 'rising' && vsBase < -0.15 ? 'attention is starting to return from a low level.'
-      : overall === 'rising' && vsBase > 0.15 ? 'interest is building on top of an already-elevated level.' : overall === 'falling' && vsBase > 0.15 ? 'interest is cooling from an elevated level.'
-      : overall === 'mixed' ? 'short-term and longer-term moves disagree, so treat the direction as unsettled.' : overall === 'flat' ? 'interest is holding steady.' : 'interest is ' + overall + '.';
-    notes.push({ c:overall === 'rising' ? 'good' : overall === 'falling' ? 'warn' : 'info', t:`Direction: last ${kS} ${unitW} ${dirTxt(cS)}, last ${kTxt} ${dirTxt(cL)} versus the period before: ${read}` });
-  }
-  let say = `Search interest in ${nm} `;
-  if(peaking) say += `is at its highest point of the last ${win}`;
-  else if(isSpike) say += `peaked on ${dFmt(pk.t)} at ${spike.toFixed(1)}× its usual level` + (baseD === null ? ' and is still elevated' : burst ? ' and faded fast' : ' and faded slowly');
-  else say += 'has stayed in a steady range';
-  say += `; it now sits ${vsBase > 0.15 ? 'above' : vsBase < -0.15 ? 'below' : 'near'} its usual level` + (overall === 'falling' ? ' and is still falling' : overall === 'rising' ? ' and is rising' : '') + '.';
-  return { notes, say, med, pk, nowPct, spike, vsBase, cL, cS, win };
+  if(!o.isTicker && o.peer && o.peer.length >= 10){ const r = pearson(s, o.peer); if(r != null){ if(r >= 0.6){ score += 1; ev.push('it moves with the coin’s crypto-specific searches'); } else if(r < 0.35){ score -= 1; bad.push('it drifts away from the coin’s crypto-specific searches'); } } }
+  let rv, rc;
+  if(score >= 2 || (score >= 1 && !bad.length)){ rv = 'Crypto-driven'; rc = 'good'; }
+  else if(score >= 0){ rv = amb ? 'Unclear, may include “' + amb.replace(/^the /, '') + '” searches' : 'Mostly crypto'; rc = amb ? 'warn' : 'info'; }
+  else { rv = 'Likely mixed with non-crypto searches'; rc = 'warn'; }
+  let rt = rv + (rc === 'good' ? '' : '') + '. ' + ((rc === 'good' ? ev : bad.concat(ev)).slice(0, 2).join('; ').replace(/^./, ch => ch.toUpperCase())) + '.';
+  if(rc === 'warn' && !o.isTicker && amb) rt += ' In Google Trends, pick the “' + S.name + ' (cryptocurrency)” topic to isolate coin searches.';
+  bullets.push({ c:rc, lead:'Crypto relevance', t:rt });
+  /* ---- 6. what to watch ---- */
+  bullets.push({ c:'info', lead:'Watch', t:PH.watch });
+  return { label:PH.label, tone:PH.tone, meaning:PH.meaning, bullets, nowPct, vsBase };
 }
-/* Google Trends commentary for the name + ticker pair: the trend story is about the coin (read from the name series, or from the
-   ticker when that is searched 2×+ as much); the name-vs-ticker comparison is ONE bullet. A, B = raw series on Google's shared scale. */
-function gtCompare(A, B, kind, T){
-  const wk = kind === '5y', kL = wk ? 13 : 14, kTxt = wk ? 'quarter' : '2 weeks', nm = '“' + S.name + '”', tk = '$' + T.tk;
-  const peakOf = s => s.reduce((a, p) => p.v >= a.v ? p : a, s[0]);
-  const pkA = peakOf(A), pkB = peakOf(B), nowA = mean(A.slice(-3).map(p => p.v)) / (pkA.v || 1) * 100, nowB = mean(B.slice(-3).map(p => p.v)) / (pkB.v || 1) * 100;
-  const mA = mean(A.map(p => p.v)), mB = mean(B.map(p => p.v)), ratio = mA ? mB / mA : 0;
-  const chg = s => { if(s.length < 2 * kL) return null; const r = mean(s.slice(-kL).map(p => p.v)), pr = mean(s.slice(-2 * kL, -kL).map(p => p.v)); return pr > 0 ? r / pr - 1 : null; };
-  const cA = chg(A), cB = chg(B), r = pearson(A, B);
-  const dir = c => Math.abs(Math.round(c * 100)) < 1 ? 'flat' : (c >= 0 ? 'up ' : 'down ') + Math.abs(Math.round(c * 100)) + '%';
-  const useTk = ratio >= 2, tr = gtTrend(useTk ? B : A, kind, useTk ? tk : nm), notes = tr.notes.slice();
-  /* the ONE comparison bullet */
-  let who;
-  if(ratio >= 2) who = `${tk} is searched ${ratio.toFixed(1)}× as much as ${nm}, so interest skews to traders and insiders (the trend above is read from the ${tk} series)`;
-  else if(ratio >= 1.4) who = `${tk} draws ${ratio.toFixed(1)}× the searches of ${nm}, so interest skews to traders and insiders`;
-  else if(ratio >= 0.7) who = `${tk} and ${nm} draw similar search volume (${ratio.toFixed(1)}×), a balanced mix of public and traders`;
-  else if(ratio >= 0.1) who = `${nm} gets ${(1 / ratio).toFixed(1)}× the searches of ${tk}, so interest skews to the general public`;
-  else who = `${tk} is only ${Math.max(1, Math.round(ratio * 100))}% as searched as ${nm}, so interest is mostly name-driven (ticker values are coarse at this level)`;
-  const d = nowB - nowA; let hold;
-  if(Math.abs(d) >= 10){ const bw = d > 0; hold = ` ${bw ? tk : nm} is holding up better: ${Math.round(bw ? nowB : nowA)}% of its peak vs ${Math.round(bw ? nowA : nowB)}%` + (cA != null && cB != null ? `, ${dir(bw ? cB : cA)} vs ${dir(bw ? cA : cB)} over ${kTxt}` : '') + '.'; }
-  else hold = ' Both sit at a similar share of their peaks.';
-  if(r != null && r < 0.35) hold += ` Their curves diverge (correlation ${r.toFixed(2)}), so check which audience is driving the moves.`;
-  notes.push({ c:(r != null && r < 0.35) ? 'warn' : 'info', t:`Name vs ticker: ${who}.${hold}` });
-  if(T.ambiguous) notes.push({ c:'warn', t:`“${T.tk}” is also an everyday word, so I searched “${T.term}” to keep unrelated searches out. Its numbers will read lower than true ticker searches.` });
-  return { notes, say:tr.say, nowA, nowB, ratio, r, pkA, pkB };
+function gtCard(label, r){
+  return `<div class="pl-gtc"><div class="pl-gtc-h"><b>${esc(label)}</b><span class="pl-gtc-chip t-${r.tone}">${esc(r.label)}</span></div><p class="pl-gtc-m">${esc(r.meaning)}</p>`
+    + (r.bullets.length ? `<ul class="pl-notes">${r.bullets.map(n => `<li class="${n.c}"><span><b>${esc(n.lead)}:</b> ${esc(n.t)}</span></li>`).join('')}</ul>` : '') + `</div>`;
 }
+const GT_FOOT = '<p class="pl-gtfoot">Reading guide: search interest usually follows price, and public attention peaks late. Treat it as context and confirm with volume and structure; it is not a signal on its own.</p>';
 function paintGT(){
   const host = $('plGT'); if(!host) return;
   const kind = (S.range === '1Y' || S.range === 'ALL') ? '5y' : '3m', pts0raw = S.gt[kind], T = gtTerms(), B0 = S.gt2[kind];
@@ -7445,33 +7489,44 @@ function paintGT(){
   const win = kind === '5y' ? '5 YEARS' : '3 MONTHS';
   /* ---- two curves: name + ticker ---- */
   if(T.term && B0 && B0.length >= 10){
-    const A = pts0raw, B = B0, cmp = gtCompare(A, B, kind, T), own = S.gtMode === 'own';
+    const A = pts0raw, B = B0, own = S.gtMode === 'own';
     const nmLab = S.name, tkLab = '$' + T.tk, cA = '#5b8cff', cB = '#35e0c0';
+    const show = S.gtShow || (S.gtShow = { a:true, b:true });
     const A1 = own ? ownScale(A) : A, B1 = own ? ownScale(B) : B;
-    const a = A1, b = B1;   // full fetched window, so chart, tiles and commentary describe the same period as the 3 MONTHS / 5 YEARS label
     const hiA = A1.reduce((m, p) => p.v >= m.v ? p : m, A1[0]), hiB = B1.reduce((m, p) => p.v >= m.v ? p : m, B1[0]);
-    const rr = cmp.r == null ? '—' : cmp.r.toFixed(2);
+    /* only the ticked series are drawn and described */
+    const vis = [];
+    if(show.a) vis.push({ pts:A1, color:cA, name:nmLab, marker:{ t:hiA.t, v:hiA.v, c:cA, label:'Peak', dy:-9 } });
+    if(show.b) vis.push({ pts:B1, color:cB, name:tkLab, marker:{ t:hiB.t, v:hiB.v, c:cB, label:'Peak', dy:13 } });
+    const cards = [], tiles = [];
+    if(show.a){ const r = gtRead(A, kind, { label:nmLab, isTicker:false, peer:B }); cards.push(gtCard(nmLab, r)); if(r.nowPct != null) tiles.push(statBox(nmLab.slice(0, 12) + ' now', Math.round(r.nowPct) + '%', 'of its peak'), statBox('vs normal', (r.vsBase >= 0 ? '+' : '−') + Math.round(Math.abs(r.vsBase) * 100) + '%', 'vs median', r.vsBase >= 0.15 ? 'up' : r.vsBase <= -0.15 ? 'down' : '')); }
+    if(show.b){ const r = gtRead(B, kind, { label:tkLab, isTicker:true, term:T.term }); cards.push(gtCard(tkLab, r)); if(r.nowPct != null) tiles.push(statBox(tkLab + ' now', Math.round(r.nowPct) + '%', 'of its peak'), statBox('vs normal', (r.vsBase >= 0 ? '+' : '−') + Math.round(Math.abs(r.vsBase) * 100) + '%', 'vs median', r.vsBase >= 0.15 ? 'up' : r.vsBase <= -0.15 ? 'down' : '')); }
+    const chk = (k, col) => `<input type="checkbox" class="plGTChk" data-s="${k}" ${show[k] ? 'checked' : ''} style="accent-color:${col}" aria-label="Show ${k === 'a' ? esc(nmLab) : esc(tkLab)} on the chart">`;
     host.innerHTML = `<div class="pl-ch"><h3>🌐 Google search trends <em>${win} · ${nmLab.toUpperCase().slice(0, 14)} vs ${tkLab}</em></h3><a class="pl-chip" href="${link}" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
       <p class="pl-desc">${own ? 'Each term is scaled to its own peak (100), so you compare timing and shape, not size.' : 'Both terms on one scale from Google: 100 is the most-searched moment of either term in this window.'}</p>
       <div class="pl-subseg"><div class="pl-seg" id="plGTMode"><button type="button" data-m="same" class="${own ? '' : 'on'}">Same scale</button><button type="button" data-m="own" class="${own ? 'on' : ''}">Own peak</button></div></div>
-      <div class="pl-leg"><span><i style="background:${cA}"></i>${esc(nmLab)}</span><span><i style="background:${cB}"></i>${esc(tkLab)}${T.ambiguous ? ' (' + esc(T.term) + ')' : ''}</span></div>
+      <div class="pl-leg"><label><i style="background:${cA}"></i>${esc(nmLab)}${chk('a', cA)}</label><label><i style="background:${cB}"></i>${esc(tkLab)}${T.ambiguous ? ' (' + esc(T.term) + ')' : ''}${chk('b', cB)}</label></div>
       <div class="pl-chart" id="plGTChart"></div>
-      <div class="pl-stats">${statBox(nmLab.slice(0, 12) + ' now', Math.round(cmp.nowA) + '%', 'of its peak')}${statBox(tkLab + ' now', Math.round(cmp.nowB) + '%', 'of its peak')}${statBox('Ticker vs name', cmp.ratio >= 10 ? '10×+' : cmp.ratio.toFixed(cmp.ratio < 1 ? 2 : 1) + '×', 'search volume')}${statBox('Overlap', rr, 'correlation')}</div>
-      <div class="pl-say">${esc(cmp.say)}</div>
-      <ul class="pl-notes" style="margin-top:10px">${cmp.notes.map(n => `<li class="${n.c}">${esc(n.t)}</li>`).join('')}</ul>`;
-    drawChart($('plGTChart'), { pts:a, color:cA, name:nmLab, extra:[{ pts:b, color:cB, name:tkLab }],
-      markers:[{ t:hiA.t, v:hiA.v, c:cA, label:'Peak', dy:-9 }, { t:hiB.t, v:hiB.v, c:cB, label:'Peak', dy:13 }], unit:'Index', aria:'Google Trends: ' + nmLab + ' vs ' + tkLab, h:200 });
+      <div class="pl-stats">${tiles.join('')}</div>
+      ${cards.join('')}${GT_FOOT}`;
+    drawChart($('plGTChart'), { pts:vis[0].pts, color:vis[0].color, name:vis[0].name, extra:vis.slice(1).map(v => ({ pts:v.pts, color:v.color, name:v.name })),
+      markers:vis.map(v => v.marker), unit:'Index', aria:'Google Trends: ' + vis.map(v => v.name).join(' vs '), h:200 });
+    host.querySelectorAll('.plGTChk').forEach(cb => cb.onchange = () => {
+      const k = cb.dataset.s, other = k === 'a' ? 'b' : 'a';
+      if(!cb.checked && !show[other]){ cb.checked = true; return; }   // keep at least one series on the chart
+      show[k] = cb.checked; paintGT();
+    });
     host.querySelectorAll('#plGTMode button').forEach(btn => btn.onclick = () => { S.gtMode = btn.dataset.m; paintGT(); });
     return;
   }
   /* ---- single curve (no ticker, or the ticker series didn't come back) ---- */
   const pts0 = ownScale(pts0raw);
-  const tr = gtTrend(pts0raw, kind, S.name), hi = pts0.reduce((a, p) => p.v >= a.v ? p : a, pts0[0]), lo = pts0.reduce((a, p) => p.v < a.v ? p : a, pts0[0]), cur = mean(pts0.slice(-3).map(p => p.v));
+  const hi = pts0.reduce((a, p) => p.v >= a.v ? p : a, pts0[0]), lo = pts0.reduce((a, p) => p.v < a.v ? p : a, pts0[0]), cur = mean(pts0.slice(-3).map(p => p.v));
   const miss = T.term && B0 === null ? `<div class="pl-say" style="margin-top:8px">The ${esc('$' + T.tk)} comparison didn’t come back, so only “${esc(S.name)}” is shown. Deploy the updated Worker (<code>/gtrends</code> with <code>q2</code>) to enable it.</div>` : '';
   host.innerHTML = `<div class="pl-ch"><h3>🌐 Google search trends <em>${win} · 0–100</em></h3><a class="pl-chip" href="${link}" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
     <p class="pl-desc">Google’s own relative index: 100 is the most-searched moment in this window.</p><div class="pl-chart" id="plGTChart"></div>
     <div class="pl-stats">${statBox('Now', Math.round(cur), 'index')}${statBox('Window high', Math.round(hi.v), dFmt(hi.t), 'down')}${statBox('Window low', Math.round(lo.v), dFmt(lo.t))}${statBox('vs high', Math.round(cur / (hi.v || 1) * 100) + '%', 'of peak')}</div>
-    <div class="pl-say">${esc(tr.say)}</div><ul class="pl-notes" style="margin-top:10px">${tr.notes.map(n => `<li class="${n.c}">${esc(n.t)}</li>`).join('')}</ul>${miss}`;
+    ${gtCard(S.name, gtRead(pts0raw, kind, { label:S.name, isTicker:false, peer:null }))}${miss}${GT_FOOT}`;
   drawChart($('plGTChart'), { pts:pts0, color:'#5b8cff', markers:[{ t:hi.t, v:hi.v, c:'#ff5470', label:'Peak 100', dy:-9 }], unit:'Index', aria:'Google Trends', h:190 });
 }
 function paintSocial(){
@@ -7532,7 +7587,7 @@ async function open(){
   const ic = $('taSymbolIcon'); const badge = $('plBadge'); if(ic){ badge.textContent = ic.textContent; badge.style.background = ic.style.background || 'linear-gradient(135deg,#35e0c0,#1c8f79)'; }
   if(same){ paintAll(); return; }
   const tk = ++S.token;
-  Object.assign(S, { symbol, base:symbol.replace(/(USDT|USDC|BUSD|USD)$/i, ''), name:'', ticker:'', cgId:null, logo:'', wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, volMeta:null, gdErr:'', gt:{}, gt2:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', newsWin:'7D' });
+  Object.assign(S, { symbol, base:symbol.replace(/(USDT|USDC|BUSD|USD)$/i, ''), name:'', ticker:'', cgId:null, logo:'', wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, volMeta:null, gdErr:'', gt:{}, gt2:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', newsWin:'7D', gtShow:{ a:true, b:true } });
   $('plTitle').innerHTML = esc(S.base) + '<small>Trends &amp; news</small>'; $('plSub').textContent = 'Resolving coin…';
   skeletonBody();
   let ident = null; try{ ident = await resolveIdentity(S.base); }catch(e){}
@@ -7571,4 +7626,4 @@ window.TrendPulse = { open, close, isOpen:() => S.open, _state:S, _analyse:analy
 </script>
 
 </body>
-</html>
+</html>
