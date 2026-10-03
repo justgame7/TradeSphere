@@ -221,6 +221,66 @@ a{color:inherit;}
 .expand-period-toggle .period-row:last-child button{flex:1 1 auto;}
 #perfExpandFY button{flex:1 1 auto; min-width:0; white-space:nowrap;}
 @media (max-width:380px){ .expand-period-toggle button, #perfExpandFY button{font-size:10.5px;} }
+
+/* ---- Realized P&L → Insights view (day/streak/trade analytics for the picked FY) ---- */
+.expand-chart-area.ins-open{max-height:none; overflow:visible; padding-right:0;}
+.ins{display:flex; flex-direction:column; gap:16px; padding-bottom:4px;}
+.ins-sec{font-size:10.5px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--text-faint); margin:2px 0 -6px; display:flex; align-items:center; gap:8px;}
+.ins-sec::after{content:''; flex:1; height:1px; background:var(--border-soft);}
+.ins-hero{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+.ins-tile{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-s); padding:11px 10px 10px; min-width:0;}
+.ins-k{font-size:10.5px; color:var(--text-faint); font-weight:600; margin-bottom:6px; white-space:nowrap;}
+.ins-v{font-family:'Fraunces', serif; font-size:19px; font-weight:600; line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ins-s{font-size:10.5px; color:var(--text-faint); margin-top:5px; line-height:1.35;}
+.ins-badge{display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:.3px; padding:2px 6px; border-radius:99px; margin-left:4px; vertical-align:middle; font-family:'Public Sans',sans-serif;}
+.ins-badge.good{background:var(--mint-dim); color:var(--mint);}
+.ins-badge.mid{background:var(--gold-dim); color:var(--gold-soft);}
+.ins-badge.bad{background:var(--coral-dim); color:var(--coral);}
+.ins-split{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-s); padding:11px 12px;}
+.ins-split-bar{display:flex; height:9px; border-radius:99px; overflow:hidden; background:var(--panel-2); gap:2px;}
+.ins-split-bar i{display:block; height:100%;}
+.ins-split-bar i.w{background:var(--mint);}
+.ins-split-bar i.l{background:var(--coral);}
+.ins-split-lbl{display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-top:7px; font-family:'IBM Plex Mono',monospace;}
+.ins-split-lbl + .ins-split-lbl{margin-top:2px; color:var(--text-faint);}
+.ins-pair{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.ins-card{border-radius:var(--radius-s); padding:12px; border:1px solid var(--border); background:var(--panel); position:relative; overflow:hidden; min-width:0;}
+.ins-card.pos{background:linear-gradient(160deg, var(--mint-dim), var(--panel) 75%); border-color:rgba(78,216,176,.28);}
+.ins-card.neg{background:linear-gradient(160deg, var(--coral-dim), var(--panel) 75%); border-color:rgba(242,105,122,.28);}
+.ins-card .ins-v{font-size:21px;}
+.ins-card .ins-big-sub{font-size:11px; color:var(--text-dim); margin-top:6px; line-height:1.45;}
+.ins-card .ins-big-sub b{font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--text);}
+.ins-chip{display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; padding:3px 8px; border-radius:99px; background:var(--panel-2); color:var(--text-dim); margin-top:8px;}
+.ins-chip.pos{background:var(--mint-dim); color:var(--mint);}
+.ins-chip.neg{background:var(--coral-dim); color:var(--coral);}
+.ins-ribbon{display:flex; flex-wrap:wrap; gap:3px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-s); padding:11px;}
+.ins-cell{width:12px; height:12px; border-radius:3px; cursor:pointer; flex:0 0 auto; transition:transform .1s;}
+.ins-cell.dense{width:8px; height:8px; border-radius:2px;}
+.ins-cell:hover{transform:scale(1.35);}
+.ins-cell.w{background:var(--mint);}
+.ins-cell.l{background:var(--coral);}
+.ins-cell.f{background:var(--text-faint); opacity:.5;}
+.ins-cell.hl-w{box-shadow:0 0 0 1.5px var(--text);}
+.ins-cell.hl-l{box-shadow:0 0 0 1.5px var(--text);}
+.ins-cell.sel{outline:2px solid var(--gold); outline-offset:1px;}
+.ins-legend{display:flex; flex-wrap:wrap; gap:12px; font-size:10.5px; color:var(--text-faint); margin-top:7px;}
+.ins-legend span{display:flex; align-items:center; gap:5px;}
+.ins-legend i{width:9px; height:9px; border-radius:2px; display:inline-block;}
+.ins-detail{min-height:18px; font-size:11.5px; color:var(--text-dim); margin-top:6px; font-family:'IBM Plex Mono',monospace;}
+.ins-kv{display:grid; grid-template-columns:1fr 1fr; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-s); overflow:hidden;}
+.ins-kv > div{padding:10px 12px; border-bottom:1px solid var(--border-soft); min-width:0;}
+.ins-kv > div:nth-child(odd){border-right:1px solid var(--border-soft);}
+.ins-kv > div:nth-last-child(-n+2){border-bottom:none;}
+.ins-kv .ins-k{margin-bottom:3px;}
+.ins-kv .ins-v{font-size:14.5px; font-family:'IBM Plex Mono',monospace; font-weight:600;}
+.ins-coins{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.ins-coin-col{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-s); padding:10px 12px; min-width:0;}
+.ins-coin-row{display:flex; justify-content:space-between; gap:8px; font-size:12px; padding:5px 0; font-family:'IBM Plex Mono',monospace;}
+.ins-coin-row span:first-child{color:var(--text-dim); font-weight:600;}
+#perfExpandStyle button{flex:1 1 auto; white-space:nowrap;}
+.ins-note{font-size:10.5px; color:var(--text-faint); line-height:1.55; padding:2px 2px 0;}
+.ins-warn{font-size:11px; color:var(--gold-soft); background:var(--gold-dim); border-radius:var(--radius-s); padding:8px 10px; line-height:1.45;}
+@media (max-width:380px){ .ins-v{font-size:17px;} .ins-card .ins-v{font-size:18px;} }
 /* Realized P&L total for whichever period/FY is selected in the expand modal */
 .perf-expand-summary{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-top:14px;}
 .perf-meta{font-size:11.5px; color:var(--text-faint); margin-bottom:6px;}
@@ -943,6 +1003,7 @@ a{color:inherit;}
     <div class="toggle-group toggle-group-sm expand-style-toggle" id="perfExpandStyle">
       <button type="button" data-style="bars" class="active">Bars</button>
       <button type="button" data-style="line">Line (financial year)</button>
+      <button type="button" data-style="insights">Insights</button>
     </div>
     <div class="toggle-group toggle-group-sm expand-period-toggle" id="perfExpandBarsPeriod" style="margin-top:8px; display:none"></div>
     <div class="toggle-group toggle-group-sm" id="perfExpandFY" style="margin-top:8px; display:none"></div>
@@ -1741,7 +1802,7 @@ function wirePerfHover(host, buckets, y, prefix, geo){
    even if it's empty so far — so with a fresh import you'll just see the
    current FY until older data exists.
    =========================================================================== */
-let perfExpandStyle = 'bars'; // 'bars' | 'line'
+let perfExpandStyle = 'bars'; // 'bars' | 'line' | 'insights'
 let perfExpandFYStart = null; // FY start year, or 'all' — set when the modal opens, drives the "Line" FY picker
 let perfExpandBarsPeriod = 7; // number of days, 'fy:<startYear>' or 'all' — drives the "Bars" period picker
 
@@ -1825,14 +1886,17 @@ function renderPerfExpand(){
   const meta = document.getElementById('perfExpandMeta');
   const prefix = state.settings.displayCurrency === 'INR' ? '₹' : '$';
 
-  if(perfExpandStyle === 'line'){
+  area.classList.toggle('ins-open', perfExpandStyle === 'insights');
+  if(perfExpandStyle === 'line' || perfExpandStyle === 'insights'){
     barsRow.style.display = 'none';
     const years = availableFYStartYears();
     if(perfExpandFYStart !== 'all' && !years.includes(perfExpandFYStart)) perfExpandFYStart = years[0];
     fyRow.style.display = 'flex';
     fyRow.innerHTML = years.map(y=>`<button type="button" data-fy="${y}" class="${y === perfExpandFYStart ? 'active' : ''}">${fyLabel(y)}</button>`).join('')
       + `<button type="button" data-fy="all" class="${perfExpandFYStart === 'all' ? 'active' : ''}">All time</button>`;
-    const fyTotal = drawFYLineChart(perfExpandFYStart, meta, area);
+    const fyTotal = perfExpandStyle === 'insights'
+      ? drawInsights(perfExpandFYStart, meta, area, prefix)
+      : drawFYLineChart(perfExpandFYStart, meta, area);
     setPerfExpandSummary(fyTotal, perfExpandFYStart === 'all' ? 'All time' : fyLabel(perfExpandFYStart), prefix);
   }else{
     fyRow.style.display = 'none';
@@ -1915,6 +1979,331 @@ function renderPerfExpand(){
     setPerfExpandSummary(total, periodLabel, prefix);
   }
 }
+
+/* ===========================================================================
+   Realized P&L — Insights view
+
+   Everything is derived from the closed trades already stored in
+   state.markets[*].realized, for whichever FY (or All time) is picked in the
+   expand modal. Metric set is modelled on what exchange P&L pages (Binance
+   PNL Analysis / Futures Copy-Trading indicators, Hyperliquid & dYdX
+   dashboards) and trading journals (Tradervue, Edgewonk, TradesViz) surface:
+   best/worst day, day win-rate, win/loss streaks, profit factor, payoff,
+   expectancy, max drawdown, recovery factor, weekday edge, top/bottom coins.
+
+   Conventions: a "day" is a local calendar day with at least one closed
+   trade, its P&L being the sum of that day's trades. Streaks run over
+   consecutive trading days (days with no closed trades don't break or extend
+   a streak); a day that nets to exactly zero breaks it. Drawdown is measured
+   on the cumulative realized curve, starting from zero at the period start.
+   =========================================================================== */
+const INS_EPS = 0.005;
+function insDayKey(ts){
+  const d = new Date(ts);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function insMoney(v, prefix){ return (v > INS_EPS ? '+' : '') + fmtMoney(Math.abs(v) < INS_EPS ? 0 : v, prefix); }
+function insDate(ts){ return shortDate(ts, true); }
+function insRange(a, b){ return a === b ? insDate(a) : insDate(a) + ' – ' + insDate(b); }
+function insCoin(sym){ return String(sym || '—').replace(/(USDT|USDC|BUSD)$/i, ''); }
+function insEsc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function insDetailedRows(){
+  const rows = [];
+  Object.keys(MARKET_META).forEach(k=>{
+    (state.markets[k].realized || []).forEach(r=>{
+      if(!r.date) return;
+      rows.push({ date:r.date, pnl: toDisplay(r.pnl || 0, k), symbol: r.symbol });
+    });
+  });
+  return rows.sort((a,b)=>a.date-b.date);
+}
+
+// Longest run of consecutive trading days that are all wins (sign>0) or all
+// losses (sign<0). Ties go to the run with the bigger absolute P&L.
+function insLongestStreak(days, sign){
+  let best = null, cur = null;
+  days.forEach((d,i)=>{
+    const hit = sign > 0 ? d.pnl > INS_EPS : d.pnl < -INS_EPS;
+    if(!hit){ cur = null; return; }
+    if(!cur) cur = { len:0, pnl:0, from:d.ts, to:d.ts, i0:i, i1:i };
+    cur.len++; cur.pnl += d.pnl; cur.to = d.ts; cur.i1 = i;
+    if(!best || cur.len > best.len || (cur.len === best.len && Math.abs(cur.pnl) > Math.abs(best.pnl))) best = Object.assign({}, cur);
+  });
+  return best;
+}
+// The run that is still open at the most recent trading day.
+function insCurrentStreak(days){
+  if(!days.length) return null;
+  const last = days[days.length-1];
+  const sign = last.pnl > INS_EPS ? 1 : (last.pnl < -INS_EPS ? -1 : 0);
+  if(!sign) return null;
+  let len = 0, pnl = 0;
+  for(let i = days.length-1; i >= 0; i--){
+    const ok = sign > 0 ? days[i].pnl > INS_EPS : days[i].pnl < -INS_EPS;
+    if(!ok) break;
+    len++; pnl += days[i].pnl;
+  }
+  return { sign, len, pnl };
+}
+
+function computeInsights(fyStart){
+  let rows = insDetailedRows();
+  if(fyStart !== 'all'){
+    const { start, end } = fyBounds(fyStart);
+    rows = rows.filter(r => r.date >= start && r.date < end);
+  }
+  if(!rows.length) return null;
+
+  // ---- trades
+  const wins = rows.filter(r => r.pnl > INS_EPS), losses = rows.filter(r => r.pnl < -INS_EPS);
+  const grossProfit = wins.reduce((s,r)=>s+r.pnl, 0);
+  const grossLoss = Math.abs(losses.reduce((s,r)=>s+r.pnl, 0));
+  const net = grossProfit - grossLoss;
+  const n = rows.length;
+  const avgWin = wins.length ? grossProfit / wins.length : 0;
+  const avgLoss = losses.length ? grossLoss / losses.length : 0;
+  const t = {
+    n, net, grossProfit, grossLoss, avgWin, avgLoss,
+    wins: wins.length, losses: losses.length, flat: n - wins.length - losses.length,
+    winRate: wins.length / n * 100,
+    profitFactor: grossLoss > INS_EPS ? grossProfit / grossLoss : (grossProfit > INS_EPS ? Infinity : 0),
+    payoff: avgLoss > INS_EPS ? avgWin / avgLoss : (avgWin > INS_EPS ? Infinity : 0),
+    expectancy: net / n,
+    bestTrade: wins.length ? wins.reduce((a,b)=> b.pnl > a.pnl ? b : a) : null,
+    worstTrade: losses.length ? losses.reduce((a,b)=> b.pnl < a.pnl ? b : a) : null
+  };
+
+  // ---- days
+  const map = new Map();
+  rows.forEach(r=>{
+    const k = insDayKey(r.date);
+    let d = map.get(k);
+    if(!d){ const m = new Date(r.date); m.setHours(0,0,0,0); d = { key:k, ts:m.getTime(), pnl:0, trades:0 }; map.set(k, d); }
+    d.pnl += r.pnl; d.trades++;
+  });
+  const days = Array.from(map.values()).sort((a,b)=>a.ts-b.ts);
+  const greenDays = days.filter(d => d.pnl > INS_EPS).length;
+  const redDays = days.filter(d => d.pnl < -INS_EPS).length;
+  const bestDay = days.reduce((a,b)=> b.pnl > a.pnl ? b : a);
+  const worstDay = days.reduce((a,b)=> b.pnl < a.pnl ? b : a);
+  const d = {
+    list: days, count: days.length, green: greenDays, red: redDays,
+    winRate: greenDays / days.length * 100,
+    avg: net / days.length,
+    best: bestDay.pnl > INS_EPS ? bestDay : null,
+    worst: worstDay.pnl < -INS_EPS ? worstDay : null,
+    winStreak: insLongestStreak(days, 1),
+    lossStreak: insLongestStreak(days, -1),
+    current: insCurrentStreak(days)
+  };
+
+  // ---- drawdown on the cumulative realized curve (start = 0)
+  let cum = 0, peak = 0, peakTs = rows[0].date, maxDD = 0, ddFrom = null, ddTo = null;
+  rows.forEach(r=>{
+    cum += r.pnl;
+    if(cum > peak){ peak = cum; peakTs = r.date; }
+    const dd = peak - cum;
+    if(dd > maxDD){ maxDD = dd; ddFrom = peakTs; ddTo = r.date; }
+  });
+  const risk = { maxDD, ddFrom, ddTo, recovery: maxDD > INS_EPS ? net / maxDD : null };
+
+  // ---- weekday edge (Mon..Sun)
+  const wk = Array.from({length:7}, (_,i)=>({ idx:i, pnl:0, days:0, green:0 }));
+  days.forEach(x=>{
+    const w = wk[(new Date(x.ts).getDay() + 6) % 7];
+    w.pnl += x.pnl; w.days++; if(x.pnl > INS_EPS) w.green++;
+  });
+
+  // ---- coins
+  const cm = new Map();
+  rows.forEach(r=>{ const s = insCoin(r.symbol); const c = cm.get(s) || { sym:s, pnl:0, n:0 }; c.pnl += r.pnl; c.n++; cm.set(s, c); });
+  const coins = Array.from(cm.values());
+  const top = coins.filter(c => c.pnl > INS_EPS).sort((a,b)=>b.pnl-a.pnl).slice(0,3);
+  const bottom = coins.filter(c => c.pnl < -INS_EPS).sort((a,b)=>a.pnl-b.pnl).slice(0,3);
+
+  return { t, d, risk, wk, top, bottom, coinCount: coins.length };
+}
+
+function insWeekdaySVG(wk, prefix, w){
+  const h = 132, padT = 18, padB = 22, padX = 6;
+  const plotH = h - padT - padB;
+  const maxAbs = Math.max(1e-9, ...wk.map(x => Math.abs(x.pnl)));
+  const hasNeg = wk.some(x => x.pnl < -INS_EPS), hasPos = wk.some(x => x.pnl > INS_EPS);
+  // Zero line sits wherever the data needs it: bottom if all wins, top if all losses.
+  const posShare = hasPos && hasNeg ? Math.max(...wk.map(x=>Math.max(0,x.pnl))) / (Math.max(...wk.map(x=>Math.max(0,x.pnl))) + Math.abs(Math.min(...wk.map(x=>Math.min(0,x.pnl))))) : (hasNeg ? 0 : 1);
+  const zeroY = padT + plotH * posShare;
+  const scale = plotH / (hasPos && hasNeg ? (Math.max(...wk.map(x=>Math.max(0,x.pnl))) + Math.abs(Math.min(...wk.map(x=>Math.min(0,x.pnl))))) : maxAbs);
+  const slot = (w - padX*2) / 7, bw = Math.min(26, slot * .56);
+  const names = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const bestIdx = wk.reduce((bi,x,i)=> x.days && (bi < 0 || x.pnl > wk[bi].pnl) ? i : bi, -1);
+  const worstIdx = wk.reduce((bi,x,i)=> x.days && (bi < 0 || x.pnl < wk[bi].pnl) ? i : bi, -1);
+  let out = `<line x1="${padX}" x2="${w-padX}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke="#3F3A5E" stroke-width="1"/>`;
+  wk.forEach((x,i)=>{
+    const cx = padX + slot*i + slot/2;
+    const hgt = Math.max(x.days ? 2 : 0, Math.abs(x.pnl) * scale);
+    const up = x.pnl >= 0;
+    const y0 = up ? zeroY - hgt : zeroY;
+    const col = !x.days ? 'var(--border)' : (x.pnl > INS_EPS ? 'var(--mint)' : (x.pnl < -INS_EPS ? 'var(--coral)' : 'var(--text-faint)'));
+    const tip = `${names[i]} · ${x.days} day${x.days===1?'':'s'}${x.days ? ' · ' + x.green + ' green · ' + insMoney(x.pnl, prefix) : ''}`;
+    if(x.days){
+      out += `<rect x="${(cx-bw/2).toFixed(1)}" y="${y0.toFixed(1)}" width="${bw.toFixed(1)}" height="${hgt.toFixed(1)}" rx="4" fill="${col}" opacity="${(i === bestIdx || i === worstIdx) ? 1 : .72}"><title>${insEsc(tip)}</title></rect>`;
+      const ly = up ? y0 - 5 : y0 + hgt + 11;
+      out += `<text x="${cx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" class="pc-axis" fill="${col}" style="fill:${col}">${axisSigned(x.pnl, prefix)}</text>`;
+    }
+    out += `<text x="${cx.toFixed(1)}" y="${h-6}" text-anchor="middle" class="pc-axis"${i === bestIdx ? ' style="fill:var(--mint)"' : (i === worstIdx && wk[i].pnl < -INS_EPS ? ' style="fill:var(--coral)"' : '')}>${names[i]}</text>`;
+  });
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Net realized P&L by weekday">${out}</svg>`;
+}
+
+function drawInsights(fyStart, metaEl, areaEl, prefix){
+  const ins = computeInsights(fyStart);
+  const label = fyStart === 'all' ? 'All time' : fyLabel(fyStart);
+  if(!ins){
+    metaEl.textContent = fyStart === 'all' ? 'No closed trades yet.' : `No trades closed in ${label}.`;
+    areaEl.innerHTML = `<div class="perf-empty">Close a trade and your insights will build up here.</div>`;
+    return 0;
+  }
+  const { t, d, risk, wk, top, bottom } = ins;
+  const first = d.list[0].ts, last = d.list[d.list.length-1].ts;
+  metaEl.textContent = `${t.n} closed trade${t.n===1?'':'s'} · ${d.count} trading day${d.count===1?'':'s'} · ${insDate(first)} – ${insDate(last)} · ${label}`;
+
+  const pfTxt = t.profitFactor === Infinity ? '∞' : t.profitFactor.toFixed(2);
+  const pfBadge = t.grossLoss <= INS_EPS ? '' : (t.profitFactor >= 1.5 ? '<span class="ins-badge good">Strong</span>' : (t.profitFactor >= 1 ? '<span class="ins-badge mid">Edge</span>' : '<span class="ins-badge bad">Losing</span>'));
+  const wrCls = t.winRate >= 50 ? 'pnl-pos' : 'pnl-neg';
+  const payoffTxt = t.payoff === Infinity ? '∞' : t.payoff.toFixed(2) + '×';
+  const wPct = t.grossProfit + t.grossLoss > INS_EPS ? t.grossProfit / (t.grossProfit + t.grossLoss) * 100 : 50;
+
+  const dayCard = (kind, day, titleTxt, emptyTxt) => day
+    ? `<div class="ins-card ${kind}"><div class="ins-k">${titleTxt}</div>
+         <div class="ins-v ${kind==='pos'?'pnl-pos':'pnl-neg'}">${insMoney(day.pnl, prefix)}</div>
+         <div class="ins-big-sub"><b>${insDate(day.ts)}</b><br>${day.trades} trade${day.trades===1?'':'s'} closed</div></div>`
+    : `<div class="ins-card"><div class="ins-k">${titleTxt}</div><div class="ins-v pnl-flat">—</div><div class="ins-big-sub">${emptyTxt}</div></div>`;
+
+  const streakCard = (kind, s, titleTxt, emptyTxt) => s
+    ? `<div class="ins-card ${kind}"><div class="ins-k">${titleTxt}</div>
+         <div class="ins-v ${kind==='pos'?'pnl-pos':'pnl-neg'}">${s.len} day${s.len===1?'':'s'}</div>
+         <div class="ins-big-sub">${kind==='pos'?'Profit':'Loss'} <b class="${kind==='pos'?'pnl-pos':'pnl-neg'}">${insMoney(s.pnl, prefix)}</b><br>${insRange(s.from, s.to)}</div></div>`
+    : `<div class="ins-card"><div class="ins-k">${titleTxt}</div><div class="ins-v pnl-flat">—</div><div class="ins-big-sub">${emptyTxt}</div></div>`;
+
+  const cur = d.current
+    ? `<span class="ins-chip ${d.current.sign>0?'pos':'neg'}">Current: ${d.current.len} ${d.current.sign>0?'green':'red'} day${d.current.len===1?'':'s'} in a row · ${insMoney(d.current.pnl, prefix)}</span>`
+    : '';
+
+  // Ribbon: one cell per trading day, oldest → newest; the longest win/loss runs are ringed.
+  const dense = d.count > 120;
+  const maxAbs = Math.max(...d.list.map(x => Math.abs(x.pnl)), 1e-9);
+  const inWin = x => d.winStreak && x >= d.winStreak.i0 && x <= d.winStreak.i1;
+  const inLoss = x => d.lossStreak && x >= d.lossStreak.i0 && x <= d.lossStreak.i1;
+  const cells = d.list.map((x,i)=>{
+    const cls = x.pnl > INS_EPS ? 'w' : (x.pnl < -INS_EPS ? 'l' : 'f');
+    const op = cls === 'f' ? '' : ` style="opacity:${(0.4 + 0.6 * Math.abs(x.pnl)/maxAbs).toFixed(2)}"`;
+    const hl = inWin(i) ? ' hl-w' : (inLoss(i) ? ' hl-l' : '');
+    const tip = `${insDate(x.ts)} · ${insMoney(x.pnl, prefix)} · ${x.trades} trade${x.trades===1?'':'s'}`;
+    return `<i class="ins-cell ${cls}${hl}${dense?' dense':''}"${op} data-tip="${insEsc(tip)}" title="${insEsc(tip)}"></i>`;
+  }).join('');
+
+  const wkW = Math.max(260, Math.floor((areaEl.clientWidth || 340) - 24));
+  const weekdayChart = insWeekdaySVG(wk, prefix, wkW);
+  const bestWk = wk.filter(x=>x.days).sort((a,b)=>b.pnl-a.pnl)[0];
+  const worstWk = wk.filter(x=>x.days).sort((a,b)=>a.pnl-b.pnl)[0];
+  const wkNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const wkNote = bestWk && worstWk && bestWk !== worstWk && worstWk.pnl < -INS_EPS
+    ? `Strongest on <b>${wkNames[bestWk.idx]}</b> (${insMoney(bestWk.pnl, prefix)}), weakest on <b>${wkNames[worstWk.idx]}</b> (${insMoney(worstWk.pnl, prefix)}).`
+    : (bestWk ? `Strongest on <b>${wkNames[bestWk.idx]}</b> (${insMoney(bestWk.pnl, prefix)}).` : '');
+
+  const kv = (k, v, cls) => `<div><div class="ins-k">${k}</div><div class="ins-v ${cls||''}">${v}</div></div>`;
+  const kvHtml = [
+    kv('Trades', `${t.n} <span style="color:var(--text-faint);font-weight:400;font-size:11px">${t.wins}W · ${t.losses}L${t.flat?` · ${t.flat}F`:''}</span>`),
+    kv('Trading days', `${d.count} <span style="color:var(--text-faint);font-weight:400;font-size:11px">${d.green}G · ${d.red}R</span>`),
+    kv('Avg win', t.wins ? insMoney(t.avgWin, prefix) : '—', t.wins ? 'pnl-pos' : 'pnl-flat'),
+    kv('Avg loss', t.losses ? insMoney(-t.avgLoss, prefix) : '—', t.losses ? 'pnl-neg' : 'pnl-flat'),
+    kv('Largest win', t.bestTrade ? insMoney(t.bestTrade.pnl, prefix) : '—', t.bestTrade ? 'pnl-pos' : 'pnl-flat'),
+    kv('Largest loss', t.worstTrade ? insMoney(t.worstTrade.pnl, prefix) : '—', t.worstTrade ? 'pnl-neg' : 'pnl-flat'),
+    kv('Payoff ratio', payoffTxt),
+    kv('Avg per day', insMoney(d.avg, prefix), pnlClass(d.avg))
+  ].join('');
+
+  const riskCards = `<div class="ins-pair">
+      <div class="ins-card"><div class="ins-k">Max drawdown</div>
+        <div class="ins-v ${risk.maxDD > INS_EPS ? 'pnl-neg' : 'pnl-flat'}">${risk.maxDD > INS_EPS ? '-' + fmtMoney(risk.maxDD, prefix) : '—'}</div>
+        <div class="ins-big-sub">${risk.maxDD > INS_EPS ? `Peak ${insDate(risk.ddFrom)}<br>to low ${insDate(risk.ddTo)}` : 'Realized curve never dipped'}</div></div>
+      <div class="ins-card"><div class="ins-k">Recovery factor</div>
+        <div class="ins-v">${risk.recovery == null ? '—' : risk.recovery.toFixed(2) + '×'}</div>
+        <div class="ins-big-sub">${risk.recovery == null ? 'Needs a drawdown to measure' : 'Net P&amp;L ÷ max drawdown'}</div></div>
+    </div>`;
+
+  const coinRows = (list, cls) => list.length
+    ? list.map(c=>`<div class="ins-coin-row"><span>${insEsc(c.sym)}</span><span class="${cls}">${insMoney(c.pnl, prefix)}</span></div>`).join('')
+    : `<div class="ins-coin-row"><span style="color:var(--text-faint);font-weight:400">None</span></div>`;
+
+  const caution = t.n < 30
+    ? `<div class="ins-warn">Only ${t.n} closed trade${t.n===1?'':'s'} in this period. Ratios like profit factor and payoff swing a lot on small samples (30+ trades is where they start to settle), so read them as indicative.</div>`
+    : '';
+
+  areaEl.innerHTML = `<div class="ins">
+    ${caution}
+    <div class="ins-hero">
+      <div class="ins-tile"><div class="ins-k">Win rate</div><div class="ins-v ${wrCls}">${t.winRate.toFixed(1)}%</div><div class="ins-s">${t.wins} of ${t.n} trades</div></div>
+      <div class="ins-tile"><div class="ins-k">Profit factor</div><div class="ins-v">${pfTxt}</div><div class="ins-s">${pfBadge || 'No losing trades'}</div></div>
+      <div class="ins-tile"><div class="ins-k">Expectancy</div><div class="ins-v ${pnlClass(t.expectancy)}">${insMoney(t.expectancy, prefix)}</div><div class="ins-s">avg per trade</div></div>
+    </div>
+    <div class="ins-split">
+      <div class="ins-split-bar"><i class="w" style="width:${wPct.toFixed(1)}%"></i><i class="l" style="width:${(100-wPct).toFixed(1)}%"></i></div>
+      <div class="ins-split-lbl"><span class="pnl-pos">Gross profit ${fmtMoney(t.grossProfit, prefix)}</span><span class="pnl-neg">Gross loss ${t.grossLoss > INS_EPS ? '-' : ''}${fmtMoney(t.grossLoss, prefix)}</span></div>
+    </div>
+
+    <div class="ins-sec">Best &amp; worst day</div>
+    <div class="ins-pair">
+      ${dayCard('pos', d.best, 'Most profitable day', 'No winning day yet')}
+      ${dayCard('neg', d.worst, 'Biggest losing day', 'No losing day yet')}
+    </div>
+
+    <div class="ins-sec">Streaks · consecutive trading days</div>
+    <div class="ins-pair">
+      ${streakCard('pos', d.winStreak, 'Longest winning streak', 'No winning days yet')}
+      ${streakCard('neg', d.lossStreak, 'Longest losing streak', 'No losing days yet')}
+    </div>
+    <div>${cur}</div>
+
+    <div class="ins-sec">Day by day</div>
+    <div>
+      <div class="ins-ribbon" id="insRibbon">${cells}</div>
+      <div class="ins-detail" id="insDayDetail">Tap a square to see that day.</div>
+      <div class="ins-legend"><span><i style="background:var(--mint)"></i>Green day</span><span><i style="background:var(--coral)"></i>Red day</span><span><i style="box-shadow:0 0 0 1.5px var(--text);background:var(--panel-2)"></i>Longest streak</span><span>Deeper colour = bigger day</span></div>
+    </div>
+
+    <div class="ins-sec">Weekday edge</div>
+    <div class="ins-split" style="padding:12px 12px 8px">
+      ${weekdayChart}
+      <div class="ins-note" style="margin-top:6px">${wkNote}</div>
+    </div>
+
+    <div class="ins-sec">Trade quality</div>
+    <div class="ins-kv">${kvHtml}</div>
+
+    <div class="ins-sec">Risk</div>
+    ${riskCards}
+
+    <div class="ins-sec">By coin</div>
+    <div class="ins-coins">
+      <div class="ins-coin-col"><div class="ins-k">Top earners</div>${coinRows(top, 'pnl-pos')}</div>
+      <div class="ins-coin-col"><div class="ins-k">Biggest drags</div>${coinRows(bottom, 'pnl-neg')}</div>
+    </div>
+
+    <div class="ins-note">A day is the sum of all trades closed that calendar day. Streaks count consecutive trading days only (idle days don't break them). Profit factor = gross profit ÷ gross loss. Payoff = avg win ÷ avg loss. Drawdown is measured on realized P&amp;L only, so open positions aren't included.</div>
+  </div>`;
+  return t.net;
+}
+// Tap a day square in the ribbon → show that day's date, P&L and trade count.
+document.addEventListener('click', (e)=>{
+  const cell = e.target.closest && e.target.closest('.ins-cell');
+  if(!cell) return;
+  document.querySelectorAll('.ins-cell.sel').forEach(c=>c.classList.remove('sel'));
+  cell.classList.add('sel');
+  const out = document.getElementById('insDayDetail');
+  if(out) out.textContent = cell.dataset.tip || '';
+});
 
 // Realized P&L total for the period / financial year currently shown in the
 // expand modal — same figure the main card shows for its own range, coloured
