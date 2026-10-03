@@ -1081,6 +1081,10 @@
   .pl-empty{padding:22px 10px;text-align:center;color:var(--muted);font:500 12px/1.5 var(--font-ui);}
   .pl-empty b{display:block;color:var(--text);font:800 13px var(--font-ui);margin-bottom:4px;}
   .pl-empty .pl-chip{margin:10px 4px 0;}
+  .pl-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:2px 0 6px;font:700 10.5px var(--font-mono);color:var(--muted);}
+  .pl-leg i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle;}
+  .pl-subseg{display:flex;justify-content:flex-start;margin:6px 0 2px;}
+  .pl-subseg .pl-seg{width:auto;}
   .pl-sk{border-radius:12px;background:linear-gradient(90deg,var(--panel2) 25%,var(--border-soft) 50%,var(--panel2) 75%);background-size:200% 100%;animation:plsk 1.3s linear infinite;}
   @keyframes plsk{to{background-position:-200% 0;}}
   .pl-news{display:flex;flex-direction:column;gap:2px;max-height:560px;overflow-y:auto;margin-top:8px;padding-right:2px;}
@@ -6752,7 +6756,7 @@ window.TechAnalysis = { open, openSymbol, close, setTf, refresh, getSymbol: () =
      • Public interest   Wikimedia pageviews (daily since 2015-07, CORS-open)  -> ATH / ATL / percentile
      • Google Trends     optional /gtrends route on the Cloudflare Worker (Google has no public API); falls back to deep link
      • News volume       GDELT DOC 2.0 timelinevolraw (CORS-open, last 3 months)
-     • Headlines         Google News RSS (7D / 30D) + GDELT artlist, merged, de-duplicated and filtered to headlines that name THIS coin
+     • Headlines         Worker /coinnews (Google News + Bing News RSS fetched in parallel, cached, filtered to headlines naming THIS coin); public-proxy fallback
      • Social            CoinGecko sentiment votes / watchlist / community counts + deep links to X, Reddit, TradingView
    Reddit's anonymous .json API and X's free API are closed, so those two are links, not fake numbers.
    ===================================================================================================== */
@@ -6774,7 +6778,7 @@ const lsGet = k => { try{ return JSON.parse(localStorage.getItem(k) || 'null'); 
 const lsSet = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
 
 const S = { open:false, token:0, symbol:'', base:'', name:'', ticker:'', cgId:null, logo:'', range:'90D', newsWin:'7D',
-            wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, gdErr:'', gt:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', overlayPrice:true, gtSrc:'3m' };
+            wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, volMeta:null, gdErr:'', gt:{}, gt2:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', overlayPrice:true, gtSrc:'3m', gtMode:'same' };
 
 /* ---------- network: direct -> Worker -> public proxies ---------- */
 async function fetchT(url, ms){
@@ -6805,26 +6809,55 @@ async function getText(url, opts){
 }
 async function getJSON(url, opts){ return JSON.parse(await getText(url, Object.assign({}, opts, { json:true }))); }
 
+/* Hedged request: ask the first route straight away, start each backup after a short gap (or at once if one fails);
+   the first valid answer wins. Far faster than trying proxies one after another with long timeouts. */
+function raceText(url, opts){
+  opts = opts || {};
+  const chain = (opts.proxyOnly ? [] : [u => u]).concat(PROXIES), gap = opts.stagger || 2500, ms = opts.timeout || 9000;
+  return new Promise((resolve, reject) => {
+    let settled = false, next = 0, fails = 0, lastErr = new Error('network'), timer = null;
+    const launch = () => {
+      if(settled || next >= chain.length) return;
+      const mk = chain[next++];
+      clearTimeout(timer); if(next < chain.length) timer = setTimeout(launch, gap);
+      (async () => {
+        try{
+          const r = await fetchT(mk(url), ms);
+          if(!r.ok) throw new Error('HTTP ' + r.status);
+          const t = await r.text();
+          if(!t || !t.trim()) throw new Error('empty');
+          if(opts.validate && !opts.validate(t)) throw new Error('unexpected reply');
+          if(!settled){ settled = true; clearTimeout(timer); resolve(t); }
+        }catch(e){ lastErr = e; if(++fails >= chain.length){ if(!settled) reject(lastErr); } else launch(); }
+      })();
+    };
+    launch();
+  });
+}
+const isRss = t => /<rss[\s>]|<feed[\s>]|<item[\s>]/i.test(t);
+
 /* GDELT asks for max 1 request / 5 s — serialise every call through one queue */
 let gdQ = Promise.resolve(), gdLast = 0;
-function gdelt(params){
+function gdelt(params, o){
+  o = o || {};
   const url = 'https://api.gdeltproject.org/api/v2/doc/doc?' + params + '&format=json';
   const task = async () => {
     for(let attempt = 0; attempt < 3; attempt++){
       const wait = Math.max(0, gdLast + 5300 - Date.now()); if(wait) await sleep(wait);
       gdLast = Date.now();
       let t;
-      try{ t = await getText(url, { timeout:15000 }); }
-      catch(e){ if(attempt === 2) throw e; await sleep(1200); continue; }
+      try{ t = await raceText(url, { timeout:o.timeout || 15000, stagger:o.stagger || 4000 }); }
+      catch(e){ if(attempt === 2 || /abort|timeout/i.test(e.message || '')) throw e; await sleep(1200); continue; }   // a timeout won't improve on retry
       const body = t.trim();
       if(body[0] === '{' || body[0] === '['){
         try{ return JSON.parse(body); }catch(e){ if(attempt === 2) throw e; await sleep(1200); continue; }
       }
-      /* GDELT answers query problems with PLAIN TEXT (e.g. "The specified phrase is too short."), not JSON.
-         Rate-limit text is worth waiting out; anything else is a query problem -> fail fast, flagged so the caller can try another query form. */
+      /* GDELT answers query problems with PLAIN TEXT (e.g. "The specified phrase is too short.",
+         "Parentheses may only be used around OR'd statements."), not JSON. Rate-limit text is worth waiting out;
+         anything else is a query problem -> fail fast, flagged so the caller can try another query form. */
       if(/limit requests/i.test(body)){ await sleep(5500); continue; }
       const err = new Error(body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').slice(0, 90) || 'unexpected reply');
-      err.gdQuery = /specified|too short|too long|surrounded|invalid|phrase|keyword/i.test(body);
+      err.gdQuery = !/<html|<!doctype/i.test(body);
       throw err;
     }
     throw new Error('GDELT busy');
@@ -6833,13 +6866,13 @@ function gdelt(params){
 }
 /* Try the coin's preferred GDELT query form, fall back to the other if GDELT rejects the query text. */
 let gdPick = { key:'', idx:0 };
-async function gdelQ(mk){
+async function gdelQ(mk, o){
   const forms = newsQuery().gdForms, key = S.name;
   if(gdPick.key !== key) gdPick = { key, idx:0 };
   let lastErr;
   for(let k = 0; k < forms.length; k++){
     const i = (gdPick.idx + k) % forms.length;
-    try{ const d = await gdelt(mk(forms[i])); gdPick = { key, idx:i }; return d; }
+    try{ const d = await gdelt(mk(forms[i]), o); gdPick = { key, idx:i }; return d; }
     catch(e){ lastErr = e; if(!e.gdQuery) throw e; }
   }
   throw lastErr;
@@ -6925,7 +6958,7 @@ function drawChart(host, cfg){
   const pts = cfg.pts; if(!pts || pts.length < 2){ host.innerHTML = ''; return; }
   const W = Math.max(280, host.clientWidth || 320), H = cfg.h || 210, pl = 6, pr = 44, pt = 16, pb = 22;
   const t0 = pts[0].t, t1 = pts[pts.length-1].t, span = (t1 - t0) || 1;
-  let vmax = 0; for(const p of pts) if(p.v > vmax) vmax = p.v; vmax = vmax * 1.08 || 1;
+  let vmax = 0; for(const p of pts) if(p.v > vmax) vmax = p.v; (cfg.extra || []).forEach(e => { for(const p of e.pts) if(p.v > vmax) vmax = p.v; }); vmax = vmax * 1.08 || 1;
   const x = t => pl + (t - t0) / span * (W - pl - pr), y = v => pt + (1 - v / vmax) * (H - pt - pb);
   const ds = downsample(pts, Math.floor(W / 2.2));
   const line = ds.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + y(p.v).toFixed(1)).join('');
@@ -6953,13 +6986,19 @@ function drawChart(host, cfg){
       pr_ = pp;
     }
   }
+  let exSvg = '';
+  (cfg.extra || []).forEach(e => {
+    if(!e.pts || e.pts.length < 2) return;
+    const eds = downsample(e.pts, Math.floor(W / 2.2));
+    exSvg += `<path d="${eds.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + y(p.v).toFixed(1)).join('')}" fill="none" stroke="${e.color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
   let mk = '';
   (cfg.markers || []).forEach(m => {
     if(m.t < t0 || m.t > t1) return;
     const cx = x(m.t), cy = y(m.v), right = cx > W * 0.7;
     mk += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.2" fill="${m.c}" stroke="#0b0e17" stroke-width="2"/><text x="${(right ? cx - 8 : cx + 8).toFixed(1)}" y="${(cy + (m.dy || 3)).toFixed(1)}" fill="${m.c}" font-size="9.5" font-weight="700" text-anchor="${right ? 'end' : 'start'}" font-family="JetBrains Mono,monospace">${esc(m.label)}</text>`;
   });
-  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(cfg.aria || 'chart')}"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".38"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>${g}<path d="${area}" fill="url(#${gid})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>${priceSvg}${mk}<line class="xh" x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="#8b93a8" stroke-width="1" stroke-dasharray="3 3" style="display:none"/><circle class="xd" r="4" fill="${col}" stroke="#0b0e17" stroke-width="2" style="display:none"/></svg><div class="pl-tip"></div>`;
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(cfg.aria || 'chart')}"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".38"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>${g}<path d="${area}" fill="url(#${gid})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>${exSvg}${priceSvg}${mk}<line class="xh" x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="#8b93a8" stroke-width="1" stroke-dasharray="3 3" style="display:none"/><circle class="xd" r="4" fill="${col}" stroke="#0b0e17" stroke-width="2" style="display:none"/></svg><div class="pl-tip"></div>`;
   const svg = host.querySelector('svg'), xh = svg.querySelector('.xh'), xd = svg.querySelector('.xd'), tip = host.querySelector('.pl-tip');
   const move = ev => {
     const rc = svg.getBoundingClientRect(), px = (ev.clientX - rc.left) * (W / rc.width);
@@ -6971,7 +7010,13 @@ function drawChart(host, cfg){
     xh.setAttribute('x1', cx); xh.setAttribute('x2', cx); xh.style.display = ''; xd.setAttribute('cx', cx); xd.setAttribute('cy', cy); xd.style.display = '';
     let pv = '';
     if(pr_){ let b = pr_[0]; for(const q of pr_) if(Math.abs(q.t - p.t) < Math.abs(b.t - p.t)) b = q; if(Math.abs(b.t - p.t) <= 2 * DAY) pv = `<br><span style="color:#f5a623">Price ${b.v >= 100 ? b.v.toFixed(0) : b.v.toPrecision(4)}</span>`; }
-    tip.innerHTML = `${dFmt(p.t)}<br><span style="color:${col}">${esc(cfg.unit || '')} ${fmtN(p.v)}</span>${pv}`;
+    let exv = '';
+    (cfg.extra || []).forEach(e => {
+      let a = 0, b = e.pts.length - 1; while(a < b){ const m = (a + b) >> 1; if(e.pts[m].t < t) a = m + 1; else b = m; }
+      if(a > 0 && Math.abs(e.pts[a-1].t - t) < Math.abs(e.pts[a].t - t)) a--;
+      const q = e.pts[a]; if(q && Math.abs(q.t - p.t) <= 8 * DAY) exv += `<br><span style="color:${e.color}">${esc(e.name || '')} ${fmtN(q.v)}</span>`;
+    });
+    tip.innerHTML = `${dFmt(p.t)}<br><span style="color:${col}">${esc(cfg.name || cfg.unit || '')} ${fmtN(p.v)}</span>${exv}${pv}`;
     tip.style.display = 'block';
     const hw = host.clientWidth, left = Math.min(hw - 60, Math.max(60, cx * (hw / W)));
     tip.style.left = left + 'px'; tip.style.top = Math.max(26, cy * (host.clientHeight ? svg.getBoundingClientRect().height / H : 1) - 8) + 'px';
@@ -7017,37 +7062,66 @@ function mentionsCoin(title){
   if(ticker.length >= 3 && new RegExp('(^|[^A-Za-z0-9])' + reEsc(ticker) + '(?![A-Za-z0-9])').test(title)) return true;
   return false;
 }
+/* GDELT syntax: a lone phrase takes NO brackets, brackets are only legal around an OR list (a bare ("x") is rejected),
+   and bare phrases under ~5 chars are rejected ("The specified phrase is too short"). */
+const gdOr = parts => parts.length > 1 ? '(' + parts.join(' OR ') + ')' : parts[0];
 function newsQuery(){
   const { names } = coinTerms();
-  const main = '(' + names.map(n => `"${n}"`).join(' OR ') + ') (crypto OR cryptocurrency OR blockchain OR token) sourcelang:english';
-  /* GDELT rejects very short bare phrases ("The specified phrase is too short"), so short names use longer 2-word phrases */
-  const alt = '(' + names.flatMap(n => ['crypto', 'coin', 'token', 'price', 'blockchain'].map(w => `"${n} ${w}"`)).join(' OR ') + ') sourcelang:english';
+  const main = gdOr(names.map(n => `"${n}"`)) + ' (crypto OR cryptocurrency OR blockchain OR token) sourcelang:english';
+  const alt = gdOr(names.flatMap(n => ['crypto', 'coin', 'token', 'price', 'blockchain'].map(w => `"${n} ${w}"`))) + ' sourcelang:english';
   const shortName = names.some(n => n.length < 5), gn = names[names.length - 1];
   return { gdForms: shortName ? [alt, main] : [main, alt],
            gn:`intitle:"${gn}" (crypto OR cryptocurrency OR blockchain OR token OR coin)`,
-           gnLoose:`"${gn}" (crypto OR cryptocurrency OR blockchain)` };
+           gnLoose:`"${gn}" (crypto OR cryptocurrency OR blockchain)`,
+           bing:`"${gn}" crypto` };
 }
+/* GDELT's 90-day timeline is slow and sometimes times out. Try 90D, then a lighter 30D request; if both fail, the card is built
+   from the coin-specific headlines we already have (Google News + Bing News) instead of showing an error. */
+const GD_TRIES = [
+  { span:'3months', label:'GDELT · 90D', days:90, timeout:14000 },
+  { span:'1month',  label:'GDELT · 30D', days:30, timeout:12000 }
+];
 async function loadGdVol(tk){
-  try{
-    const d = await gdelQ(f => 'mode=timelinevolraw&timespan=3months&query=' + encodeURIComponent(f));
-    if(tk !== S.token) return; S.gdVol = gdTimeline(d); if(!S.gdVol) S.gdErr = 'no data';
-  }catch(e){ if(tk !== S.token) return; S.gdErr = e.message || 'failed'; }
+  const ck = 'tsPulseVol2:' + S.name.toLowerCase(), c = lsGet(ck);
+  if(c && Array.isArray(c.pts) && c.pts.length > 20 && c.meta && Date.now() - c.t < 6 * 3600 * 1000){ S.gdVol = c.pts; S.volMeta = c.meta; paintNews(); paintHero(); return; }   // reuse for 6 h
+  let lastErr = null;
+  for(let i = 0; i < GD_TRIES.length; i++){
+    const g = GD_TRIES[i];
+    try{
+      const d = await gdelQ(f => 'mode=timelinevolraw&timespan=' + g.span + '&query=' + encodeURIComponent(f), { timeout:g.timeout, stagger:5000 });
+      if(tk !== S.token) return;
+      const pts = gdTimeline(d); if(!pts || pts.length < 10) throw new Error('no data');
+      S.gdVol = pts; S.volMeta = { label:g.label, days:g.days }; lsSet(ck, { t:Date.now(), pts, meta:S.volMeta });
+      paintNews(); paintHero(); return;
+    }catch(e){
+      if(tk !== S.token) return; lastErr = e;
+      if(i === 0) loadNews('30D', tk);   // start the headline-based fallback while the lighter GDELT request runs
+    }
+  }
+  S.gdErr = /abort|timeout/i.test((lastErr && lastErr.message) || '') ? 'timed out' : ((lastErr && lastErr.message) || 'failed');
+  loadNews('30D', tk);
   paintNews(); paintHero();
 }
-function parseRss(xml){
+function parseRss(xml, kind){
   const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const txt = (it, tag) => { const n = it.getElementsByTagName(tag)[0]; return n ? (n.textContent || '').trim() : ''; };
   return [...doc.querySelectorAll('item')].map(it => {
-    const raw = (it.querySelector('title') || {}).textContent || '', link = (it.querySelector('link') || {}).textContent || '';
-    const src = (it.querySelector('source') || {}).textContent || '';
-    let title = raw, source = src;
-    const ix = raw.lastIndexOf(' - '); if(ix > 20){ title = raw.slice(0, ix); if(!source) source = raw.slice(ix + 3); }
-    const dt = Date.parse((it.querySelector('pubDate') || {}).textContent || '');
-    const dom = ((it.querySelector('source') || {}).getAttribute && (it.querySelector('source').getAttribute('url') || '')) || '';
-    return { title:title.trim(), url:link.trim(), source:source.trim(), t:isNaN(dt) ? 0 : dt, domain:dom.replace(/^https?:\/\//, '').replace(/\/.*$/, ''), img:'' };
+    let title = txt(it, 'title'), link = txt(it, 'link'), source = '', domain = '', img = '';
+    const dt = Date.parse(txt(it, 'pubDate'));
+    if(kind === 'bing'){
+      source = txt(it, 'News:Source'); img = txt(it, 'News:Image');
+      try{ const u = new URL(link).searchParams.get('url'); if(u) link = u; }catch(e){}   // Bing wraps the real URL in apiclick.aspx?url=
+      try{ domain = new URL(link).hostname.replace(/^www\./, ''); }catch(e){}
+    } else {
+      const sn = it.getElementsByTagName('source')[0]; source = sn ? (sn.textContent || '').trim() : '';
+      domain = sn ? (sn.getAttribute('url') || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '';
+      const ix = title.lastIndexOf(' - '); if(ix > 20){ if(!source) source = title.slice(ix + 3); title = title.slice(0, ix); }
+    }
+    return { title:title.trim(), url:link, source, t:isNaN(dt) ? 0 : dt, domain, img };
   }).filter(a => a.title && a.url);
 }
 const WIN = { '7D':{ when:'7d', gd:'7d', days:7 }, '30D':{ when:'30d', gd:'1month', days:30 }, '1Y':{ when:'1y', gd:null, days:365 } };
-const titleKey = t => t.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 55);
+const titleKey = t => t.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '').slice(0, 55);
 function mergeNews(win, items){
   const cutoff = Date.now() - WIN[win].days * DAY;
   const cur = S.news[win] || [], seen = new Set(cur.map(a => titleKey(a.title)));
@@ -7057,37 +7131,64 @@ function mergeNews(win, items){
   });
   cur.sort((a, b) => b.t - a.t); S.news[win] = cur;
 }
+const NEWS_CACHE_MS = 10 * 60 * 1000;
 async function loadNews(win, tk){
-  if(S.newsState[win]) return; S.newsState[win] = 'loading'; paintNews();
-  const q = newsQuery(), cfg = WIN[win]; let reached = 0, tried = 0;
-  /* 'ok' = at least one source answered (the list may still be empty); 'err' = none answered */
-  const done = () => { if(tk !== S.token) return; if(++tried === (cfg.gd ? 2 : 1)){ S.newsState[win] = reached ? 'ok' : 'err'; } paintNews(); };
-  const gnGet = gq => getText('https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent(gq + ' when:' + cfg.when), { proxyOnly:true, timeout:14000 }).then(parseRss);
-  (async () => {
-    let items = await gnGet(q.gn);
-    if(!items.some(a => mentionsCoin(a.title))){ try{ items = items.concat(await gnGet(q.gnLoose)); }catch(e){} }   // title-only search found nothing: widen, the title filter still applies
-    return items;
-  })().then(items => { if(tk !== S.token) return; reached++; mergeNews(win, items); }).catch(() => {}).finally(done);
-  if(cfg.gd){
-    gdelQ(f => 'mode=artlist&maxrecords=150&sort=datedesc&timespan=' + cfg.gd + '&query=' + encodeURIComponent(f)).then(d => {
-      if(tk !== S.token) return;
-      const items = (d.articles || []).filter(a => !a.language || /english/i.test(a.language)).map(a => {
-        const s = String(a.seendate || ''); const t = s ? Date.UTC(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8), +s.slice(9,11) || 0, +s.slice(11,13) || 0) : 0;
-        return { title:String(a.title || '').trim(), url:a.url, source:a.domain || '', domain:a.domain || '', t, img:a.socialimage || '' };
-      });
-      reached++; mergeNews(win, items);
-    }).catch(() => {}).finally(done);
+  if(S.newsState[win]) return;
+  const ck = 'tsPulseNews:' + S.symbol + ':' + win, cached = lsGet(ck);
+  if(cached && Array.isArray(cached.items) && Date.now() - cached.t < NEWS_CACHE_MS){   // fresh copy from a recent open: show instantly
+    mergeNews(win, cached.items); S.newsState[win] = 'ok'; paintNews(); paintHero(); return;
   }
+  S.newsState[win] = 'loading'; paintNews();
+  const cfg = WIN[win], q = newsQuery(), { names, ticker } = coinTerms();
+  let reached = 0;
+  const finish = () => {
+    if(tk !== S.token) return;
+    S.newsState[win] = reached ? 'ok' : 'err';
+    if(reached) lsSet(ck, { t:Date.now(), items:(S.news[win] || []).slice(0, 120).map(a => ({ title:a.title, url:a.url, source:a.source, domain:a.domain, t:a.t, img:a.img || '' })) });
+    paintNews(); paintHero();
+  };
+
+  /* Route A: ONE call to the Worker, which fetches Google News + Bing News RSS in parallel, filters, de-duplicates and caches for 10 min */
+  let viaWorker = false;
+  try{
+    const r = await fetchT(WORKER + '/coinnews?n=' + encodeURIComponent(names.join('|')) + '&t=' + encodeURIComponent(ticker) + '&d=' + cfg.days, 14000);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if(!d || !Array.isArray(d.items)) throw new Error('bad shape');
+    if(tk !== S.token) return;
+    mergeNews(win, d.items); reached++; viaWorker = true;
+  }catch(e){ if(tk !== S.token) return; }
+  if(viaWorker){ finish(); return; }
+
+  /* Route B (Worker route not deployed / down): same two feeds through the public CORS proxies, raced instead of chained */
+  const feeds = [
+    { kind:'google', url:'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent(q.gn + ' when:' + cfg.when) },
+    { kind:'bing', url:'https://www.bing.com/news/search?q=' + encodeURIComponent(q.bing) + '&qft=sortbydate%3d%221%22&format=rss&setlang=en-US&cc=US' }
+  ];
+  await Promise.all(feeds.map(async f => {
+    try{
+      let items = parseRss(await raceText(f.url, { proxyOnly:true, timeout:9000, validate:isRss }), f.kind);
+      if(tk !== S.token) return;
+      if(f.kind === 'google' && !items.some(a => mentionsCoin(a.title))){
+        try{ items = items.concat(parseRss(await raceText('https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent(q.gnLoose + ' when:' + cfg.when), { proxyOnly:true, timeout:9000, validate:isRss }), 'google')); }catch(e){}
+      }
+      if(tk !== S.token) return;
+      reached++; mergeNews(win, items); paintNews();
+    }catch(e){}
+  }));
+  finish();
 }
 async function loadGT(kind, tk){
   if(S.gt[kind]) return; S.gtState = 'loading';
   try{
-    const r = await fetchT(WORKER + '/gtrends?q=' + encodeURIComponent(S.name) + '&date=' + encodeURIComponent(kind === '5y' ? 'today 5-y' : 'today 3-m'), 14000);
+    const T = gtTerms();
+    const r = await fetchT(WORKER + '/gtrends?q=' + encodeURIComponent(S.name) + (T.term ? '&q2=' + encodeURIComponent(T.term) : '') + '&date=' + encodeURIComponent(kind === '5y' ? 'today 5-y' : 'today 3-m'), 26000);
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     if(tk !== S.token) return;
     if(!d || !Array.isArray(d.points) || d.points.length < 10) throw new Error('bad shape');
     S.gt[kind] = d.points.map(p => ({ t:+p.t, v:+p.v })); S.gtState = 'ok';
+    if(T.term) S.gt2[kind] = (Array.isArray(d.points2) && d.points2.length >= 10) ? d.points2.map(p => ({ t:+p.t, v:+p.v })) : null;   // null = ticker series didn't come back
   }catch(e){ if(tk !== S.token) return; S.gtState = 'off'; }
   paintGT(); paintHero();
 }
@@ -7152,33 +7253,46 @@ function attentionComment(st){
   else if(st.ch30 >= 0.25) parts.push(`Attention has grown ${Math.round(st.ch30 * 100)}% versus the previous 30 days.`);
   return parts.join(' ');
 }
+/* Volume series for the card: GDELT when it answered, otherwise per-day counts of the coin-specific headlines found in the last 30 days. */
+function volume(){
+  if(S.gdVol && S.gdVol.length >= 21){ const m = S.volMeta || { label:'GDELT · 90D', days:90 }; return { pts:S.gdVol, label:m.label, days:m.days, src:'gdelt' }; }
+  const l = S.news['30D'];
+  if(S.gdErr && l && S.newsState['30D'] === 'ok' && l.length >= 6){
+    const d = new Date(), today = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()), cnt = {};
+    l.forEach(a => { const k = Math.floor(a.t / DAY) * DAY; cnt[k] = (cnt[k] || 0) + 1; });
+    const pts = []; for(let t = today - 30 * DAY; t < today; t += DAY) pts.push({ t, v:cnt[t] || 0 });   // today is partial: skipped
+    return { pts, label:'HEADLINES · 30D', days:30, src:'headlines' };
+  }
+  return null;
+}
 function newsStats(){
-  const v = S.gdVol; if(!v || v.length < 21) return null;
+  const vol = volume(); if(!vol) return null;
+  const v = vol.pts; if(v.length < 21) return null;
   const vals = v.map(p => p.v), last7 = mean(vals.slice(-7)), prev7 = mean(vals.slice(-14, -7)), base = mean(vals);
   const sorted = [...vals].sort((a, b) => a - b), pct = sorted.filter(x => x < last7).length / sorted.length * 100;
   const peakI = vals.indexOf(Math.max(...vals));
-  return { last7, prev7, base, pct, ch:prev7 ? last7 / prev7 - 1 : 0, peak:v[peakI], total7:vals.slice(-7).reduce((a, b) => a + b, 0) };
+  return { last7, prev7, base, pct, ch:prev7 ? last7 / prev7 - 1 : 0, peak:v[peakI], total7:vals.slice(-7).reduce((a, b) => a + b, 0), vol };
 }
 function paintNews(){
   const host = $('plNewsVol'); if(host){
     const ns = newsStats();
     if(!ns){
       host.innerHTML = `<div class="pl-ch"><h3>📰 News volume <em>GDELT · 90D</em></h3></div>` + (S.gdErr
-        ? `<div class="pl-empty"><b>News-volume timeline unavailable</b>GDELT didn’t answer (${esc(S.gdErr)}). Headlines below may still load.</div>` : `<p class="pl-desc">Waiting for GDELT (it allows one request per 5 s)…</p>${skeleton(190)}`);
+        ? `<div class="pl-empty"><b>News-volume timeline unavailable</b>GDELT ${esc(S.gdErr === 'timed out' ? 'timed out' : 'didn’t answer (' + S.gdErr + ')')}${S.newsState['30D'] === 'loading' ? ', so I’m building it from recent headlines…' : ', and there weren’t enough recent headlines to build it from.'}</div>` : `<p class="pl-desc">Waiting for GDELT (it can take 10–20 s)…</p>${skeleton(190)}`);
     } else {
-      const pts = sliceRange(S.gdVol).length > 3 ? sliceRange(S.gdVol) : S.gdVol;
+      const vol = ns.vol, pts = sliceRange(vol.pts).length > 3 ? sliceRange(vol.pts) : vol.pts;
       const lv = levelOf(ns.pct);
-      host.innerHTML = `<div class="pl-ch"><h3>📰 News volume <em>GDELT · 90D MAX</em></h3></div>
-        <p class="pl-desc">Articles per day mentioning ${esc(S.name)} in global English-language media.</p>
+      host.innerHTML = `<div class="pl-ch"><h3>📰 News volume <em>${esc(vol.label)}</em></h3></div>
+        <p class="pl-desc">${vol.src === 'gdelt' ? `Articles per day mentioning ${esc(S.name)} in global English-language media.` : `GDELT didn’t answer, so this counts the ${esc(S.name)} headlines found per day in Google News + Bing News — a sample, not total coverage.`}</p>
         <div class="pl-chart" id="plNVChart"></div>
         <div class="pl-stats">
           ${statBox('Last 7d / day', fmtN(ns.last7), lv.k)}
           ${statBox('vs prior 7d', pctTxt(ns.ch), '', ns.ch >= 0 ? 'up' : 'down')}
-          ${statBox('90d average', fmtN(ns.base), 'articles/day')}
+          ${statBox(vol.days + 'd average', fmtN(ns.base), vol.src === 'gdelt' ? 'articles/day' : 'headlines/day')}
           ${statBox('Busiest day', fmtN(ns.peak.v), dFmt(ns.peak.t))}
         </div>
         <div class="pl-say">${esc(newsComment(ns))}</div>`;
-      drawChart($('plNVChart'), { pts, color:'#8b5cf6', markers:[{ t:ns.peak.t, v:ns.peak.v, c:'#f5a623', label:'Peak', dy:-9 }], unit:'Articles', aria:'News volume', h:190 });
+      drawChart($('plNVChart'), { pts, color:'#8b5cf6', markers:[{ t:ns.peak.t, v:ns.peak.v, c:'#f5a623', label:'Peak', dy:-9 }], unit:vol.src === 'gdelt' ? 'Articles' : 'Headlines', aria:'News volume', h:190 });
     }
   }
   const nh = $('plNews'); if(!nh) return;
@@ -7186,7 +7300,7 @@ function paintNews(){
   const tabs = ['7D','30D'].map(w => `<button type="button" data-w="${w}" class="${w === win ? 'on' : ''}">${w === '1Y' ? 'Past year' : 'Last ' + w.replace('D', ' days')}</button>`).join('');
   const bull = list.filter(a => sentiment(a.title) === 'bull').length, bear = list.filter(a => sentiment(a.title) === 'bear').length, neu = list.length - bull - bear;
   let body = '';
-  if(!list.length) body = stt === 'err' ? `<div class="pl-empty"><b>No headlines came back</b>Both news sources were unreachable for this window. Try another window or check your connection.</div>` : stt === 'ok' ? `<div class="pl-empty"><b>No headlines name ${esc(S.name)}</b>Nothing in the last ${win === '30D' ? '30' : '7'} days mentions ${esc(S.name)}${S.ticker ? ' (or ' + esc(S.ticker) + ')' : ''} in its headline.${win === '7D' ? ' Try the 30-day window.' : ''}</div>` : `<div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">${skeleton(66)}${skeleton(66)}${skeleton(66)}</div>`;
+  if(!list.length) body = stt === 'err' ? `<div class="pl-empty"><b>No headlines came back</b>Google News and Bing News were both unreachable for this window. Try another window or check your connection.</div>` : stt === 'ok' ? `<div class="pl-empty"><b>No headlines name ${esc(S.name)}</b>Nothing in the last ${win === '30D' ? '30' : '7'} days mentions ${esc(S.name)}${S.ticker ? ' (or ' + esc(S.ticker) + ')' : ''} in its headline.${win === '7D' ? ' Try the 30-day window.' : ''}</div>` : `<div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">${skeleton(66)}${skeleton(66)}${skeleton(66)}</div>`;
   else {
     const now = Date.now(), groups = [], gmap = {};
     const label = t => { const age = now - t; if(win === '1Y') return t ? MON[new Date(t).getUTCMonth()] + ' ' + new Date(t).getUTCFullYear() : 'Undated';
@@ -7200,35 +7314,112 @@ function paintNews(){
     }).join('')).join('') + '</div>';
   }
   nh.innerHTML = `<div class="pl-ch"><h3>🗞️ Headlines <em>${list.length} FOUND</em></h3><div class="pl-seg" id="plNewsTabs">${tabs}</div></div>
-    <p class="pl-desc">Only headlines that name ${esc(S.name)}${S.ticker ? ' or ' + esc(S.ticker) : ''}, newest first, from Google News and GDELT. Tone tags are a keyword heuristic on the headline, not a verdict.</p>
+    <p class="pl-desc">Only headlines that name ${esc(S.name)}${S.ticker ? ' or ' + esc(S.ticker) : ''}, newest first, from Google News and Bing News. Tone tags are a keyword heuristic on the headline, not a verdict.</p>
     ${list.length ? `<div class="pl-bar" title="Headline tone mix"><i style="width:${bull / list.length * 100}%;background:var(--accent)"></i><i style="width:${neu / list.length * 100}%;background:#3a4259"></i><i style="width:${bear / list.length * 100}%;background:var(--red)"></i></div><div class="pl-meta" style="margin:0 0 4px"><span class="up">${bull} bullish</span><span>${neu} neutral</span><span class="down">${bear} bearish</span>${stt === 'loading' ? '<span>· loading more…</span>' : ''}</div>` : ''}
     ${body}`;
   nh.querySelectorAll('#plNewsTabs button').forEach(b => b.onclick = () => { S.newsWin = b.dataset.w; paintNews(); loadNews(S.newsWin, S.token); });
 }
 function newsComment(ns){
   const out = [];
-  if(ns.pct >= 90) out.push('Media coverage is at a 90-day high — the story is crowded.');
-  else if(ns.pct <= 15) out.push('Coverage is among the quietest of the last 90 days.');
-  else out.push('Coverage is running at a normal level for the last 90 days.');
+  const dd = ns.vol.days;
+  if(ns.pct >= 90) out.push(`Media coverage is at a ${dd}-day high — the story is crowded.`);
+  else if(ns.pct <= 15) out.push(`Coverage is among the quietest of the last ${dd} days.`);
+  else out.push(`Coverage is running at a normal level for the last ${dd} days.`);
   if(ns.ch >= 0.4) out.push(`Mentions are up ${Math.round(ns.ch * 100)}% week over week.`); else if(ns.ch <= -0.3) out.push(`Mentions are down ${Math.abs(Math.round(ns.ch * 100))}% week over week.`);
-  if(ns.peak.t >= Date.now() - 10 * DAY) out.push('The busiest day of the quarter was in the last 10 days.');
+  if(ns.peak.t >= Date.now() - 10 * DAY) out.push(`The busiest day of the last ${dd} days was in the last 10 days.`);
   return out.join(' ');
 }
 function ago(t){ if(!t) return ''; const s = (Date.now() - t) / 1000; if(s < 3600) return Math.max(1, Math.round(s / 60)) + 'm ago'; if(s < 86400) return Math.round(s / 3600) + 'h ago'; if(s < 86400 * 45) return Math.round(s / 86400) + 'd ago'; return dFmt(t); }
+/* ---------- Google Trends: coin name + ticker ---------- */
+const AMBIG_TICKERS = new Set(['ONE','LINK','SAND','GAS','NEAR','OP','FLOW','DASH','CAKE','MINA','GALA','ENS','ARB','BAT','SUN','RUNE','RARE','CORE','MOVE','SAFE']);
+function gtTerms(){
+  const name = S.name, tk = String(S.ticker || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), nm = String(name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if(!tk || tk.length < 2 || tk === nm) return { name, tk:null, term:null, ambiguous:false };
+  const ambiguous = AMBIG_TICKERS.has(tk);   // common English words: add "crypto" so Google doesn't mix in unrelated searches
+  return { name, tk, term:ambiguous ? tk + ' crypto' : tk, ambiguous };
+}
+function ownScale(pts){ if(!pts || !pts.length) return pts; let m = 0; for(const p of pts) if(p.v > m) m = p.v; return m ? pts.map(p => ({ t:p.t, v:p.v / m * 100 })) : pts; }
+function pearson(a, b){
+  const n = Math.min(a.length, b.length); if(n < 8) return null;
+  const x = a.slice(-n).map(p => p.v), y = b.slice(-n).map(p => p.v), mx = mean(x), my = mean(y);
+  let sxy = 0, sxx = 0, syy = 0; for(let i = 0; i < n; i++){ sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) ** 2; syy += (y[i] - my) ** 2; }
+  return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null;
+}
+/* Plain-English read of the two curves. A, B = raw series on Google's shared scale (name, ticker). */
+function gtCompare(A, B, kind, T){
+  const k = kind === '5y' ? 13 : 14, kTxt = kind === '5y' ? 'quarter' : '2 weeks', nm = '“' + S.name + '”', tk = '$' + T.tk;
+  const peakOf = s => s.reduce((a, p) => p.v >= a.v ? p : a, s[0]);
+  const pkA = peakOf(A), pkB = peakOf(B), nowA = mean(A.slice(-3).map(p => p.v)) / (pkA.v || 1) * 100, nowB = mean(B.slice(-3).map(p => p.v)) / (pkB.v || 1) * 100;
+  const mA = mean(A.map(p => p.v)), mB = mean(B.map(p => p.v)), ratio = mA ? mB / mA : 0;
+  const chg = s => { if(s.length < 2 * k) return null; const r = mean(s.slice(-k).map(p => p.v)), pr = mean(s.slice(-2 * k, -k).map(p => p.v)); return pr > 0 ? r / pr - 1 : null; };
+  const cA = chg(A), cB = chg(B), r = pearson(A, B);
+  const lvl = v => v >= 80 ? 'near its peak' : v <= 15 ? 'near its floor' : 'mid-range';
+  const dir = c => (c >= 0 ? 'up ' : 'down ') + Math.abs(Math.round(c * 100)) + '%';
+  const notes = [];
+  /* 1. who is searching: name = general public, ticker = trader vocabulary */
+  if(ratio >= 1.4) notes.push({ c:'info', t:`${tk} is searched ${ratio.toFixed(1)}× as much as ${nm} — ticker-heavy interest usually means traders and insiders already follow the coin.` });
+  else if(ratio >= 0.7) notes.push({ c:'info', t:`${nm} and ${tk} draw similar search volume — a balanced mix of general public and traders.` });
+  else if(ratio >= 0.1) notes.push({ c:'info', t:`${nm} gets ${(1 / ratio).toFixed(1)}× the searches of ${tk} — more general-public curiosity than trader-style searching.` });
+  else notes.push({ c:'info', t:`${tk} is only ${Math.max(1, Math.round(ratio * 100))}% as searched as ${nm} — attention is mostly name-driven (public and news). Ticker values are very coarse at this level, so read its shape loosely.` });
+  /* 2. momentum */
+  if(cA != null && cB != null){
+    const opp = (cA > 0.1 && cB < -0.1) || (cA < -0.1 && cB > 0.1), both = cA >= 0.15 && cB >= 0.15, fade = cA <= -0.15 && cB <= -0.15;
+    notes.push({ c:opp ? 'warn' : both ? 'good' : 'info', t:`Over the last ${kTxt}, ${nm} searches are ${dir(cA)} and ${tk} ${dir(cB)} versus the period before.` + (opp ? ' They are moving in opposite directions — check which audience is driving it.' : both ? ' Interest is building in both.' : fade ? ' Interest is cooling in both.' : '') });
+  }
+  /* 3. do the curves agree */
+  if(r != null){
+    if(r >= 0.75) notes.push({ c:'good', t:`The two curves move together (correlation ${r.toFixed(2)}), so the picture is consistent across both audiences.` });
+    else if(r < 0) notes.push({ c:'warn', t:`The curves run in opposite directions (correlation ${r.toFixed(2)}): one audience is losing interest while the other gains it. News-driven bursts usually lift the name first; trader-driven moves lift the ticker.` });
+    else if(r <= 0.35) notes.push({ c:'warn', t:`The curves diverge (correlation ${r.toFixed(2)}): spikes in one don’t show in the other. News-driven bursts usually lift the name first; trader-driven moves lift the ticker.` });
+    else notes.push({ c:'info', t:`The curves partly overlap (correlation ${r.toFixed(2)}) — some bursts hit both terms, some only one.` });
+  }
+  /* 4. peaks */
+  const gap = Math.abs(pkA.t - pkB.t) / DAY, near = kind === '5y' ? 45 : 7;
+  if(gap <= near) notes.push({ c:'info', t:`Both terms peaked around ${dFmt(pkA.t)} — one event lifted the whole audience.` });
+  else notes.push({ c:'info', t:`${nm} peaked on ${dFmt(pkA.t)} but ${tk} on ${dFmt(pkB.t)} — different audiences reacted at different times.` });
+  if(T.ambiguous) notes.push({ c:'warn', t:`“${T.tk}” is also an everyday word, so I searched “${T.term}” to keep unrelated searches out. Its numbers will read lower than true ticker searches.` });
+  const say = (lvl(nowA) === lvl(nowB) ? `Search interest is ${lvl(nowA)} for both ${nm} and ${tk}` : `Search interest is ${lvl(nowA)} for ${nm} but ${lvl(nowB)} for ${tk}`) + ' (each measured against its own peak in this window).';
+  return { notes, say, nowA, nowB, ratio, r, pkA, pkB };
+}
 function paintGT(){
   const host = $('plGT'); if(!host) return;
-  const kind = (S.range === '1Y' || S.range === 'ALL') ? '5y' : '3m', pts0 = S.gt[kind];
-  const link = 'https://trends.google.com/trends/explore?q=' + encodeURIComponent(S.name) + '&date=' + (kind === '5y' ? 'today%205-y' : 'today%203-m');
-  if(!pts0){
+  const kind = (S.range === '1Y' || S.range === 'ALL') ? '5y' : '3m', pts0raw = S.gt[kind], T = gtTerms(), B0 = S.gt2[kind];
+  const link = 'https://trends.google.com/trends/explore?q=' + encodeURIComponent(S.name) + (T.term ? ',' + encodeURIComponent(T.term) : '') + '&date=' + (kind === '5y' ? 'today%205-y' : 'today%203-m');
+  if(!pts0raw){
     host.innerHTML = `<div class="pl-ch"><h3>🌐 Google search trends <em>${kind === '5y' ? '5 YEARS' : '3 MONTHS'}</em></h3></div>` + (S.gtState === 'loading' || S.gtState === 'idle' ? skeleton(210)
       : `<div class="pl-empty"><b>Live Google Trends curve not connected</b>Google has no public API, so the curve needs a small <code>/gtrends</code> route on your Cloudflare Worker (snippet supplied separately). Until then the Wikipedia card above is your interest gauge.<br><a class="pl-chip" href="${link}" target="_blank" rel="noopener noreferrer">Open Google Trends ↗</a></div>`);
     return;
   }
+  const win = kind === '5y' ? '5 YEARS' : '3 MONTHS';
+  /* ---- two curves: name + ticker ---- */
+  if(T.term && B0 && B0.length >= 10){
+    const A = pts0raw, B = B0, cmp = gtCompare(A, B, kind, T), own = S.gtMode === 'own';
+    const nmLab = S.name, tkLab = '$' + T.tk, cA = '#5b8cff', cB = '#35e0c0';
+    const A1 = own ? ownScale(A) : A, B1 = own ? ownScale(B) : B;
+    const sA = sliceRange(A1), a = sA.length > 3 ? sA : A1, b = B1.filter(p => p.t >= a[0].t);
+    const hiA = A1.reduce((m, p) => p.v >= m.v ? p : m, A1[0]), hiB = B1.reduce((m, p) => p.v >= m.v ? p : m, B1[0]);
+    const rr = cmp.r == null ? '—' : cmp.r.toFixed(2);
+    host.innerHTML = `<div class="pl-ch"><h3>🌐 Google search trends <em>${win} · ${nmLab.toUpperCase().slice(0, 14)} vs ${tkLab}</em></h3><a class="pl-chip" href="${link}" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+      <p class="pl-desc">${own ? 'Each term is scaled to its own peak (100), so you compare timing and shape, not size.' : 'Both terms on one scale from Google: 100 is the most-searched moment of either term in this window.'}</p>
+      <div class="pl-subseg"><div class="pl-seg" id="plGTMode"><button type="button" data-m="same" class="${own ? '' : 'on'}">Same scale</button><button type="button" data-m="own" class="${own ? 'on' : ''}">Own peak</button></div></div>
+      <div class="pl-leg"><span><i style="background:${cA}"></i>${esc(nmLab)}</span><span><i style="background:${cB}"></i>${esc(tkLab)}${T.ambiguous ? ' (' + esc(T.term) + ')' : ''}</span></div>
+      <div class="pl-chart" id="plGTChart"></div>
+      <div class="pl-stats">${statBox(nmLab.slice(0, 12) + ' now', Math.round(cmp.nowA) + '%', 'of its peak')}${statBox(tkLab + ' now', Math.round(cmp.nowB) + '%', 'of its peak')}${statBox('Ticker vs name', cmp.ratio >= 10 ? '10×+' : cmp.ratio.toFixed(cmp.ratio < 1 ? 2 : 1) + '×', 'search volume')}${statBox('Overlap', rr, 'correlation')}</div>
+      <div class="pl-say">${esc(cmp.say)}</div>
+      <ul class="pl-notes" style="margin-top:10px">${cmp.notes.map(n => `<li class="${n.c}">${esc(n.t)}</li>`).join('')}</ul>`;
+    drawChart($('plGTChart'), { pts:a, color:cA, name:nmLab, extra:[{ pts:b, color:cB, name:tkLab }],
+      markers:[{ t:hiA.t, v:hiA.v, c:cA, label:'Peak', dy:-9 }, { t:hiB.t, v:hiB.v, c:cB, label:'Peak', dy:13 }], unit:'Index', aria:'Google Trends: ' + nmLab + ' vs ' + tkLab, h:200 });
+    host.querySelectorAll('#plGTMode button').forEach(btn => btn.onclick = () => { S.gtMode = btn.dataset.m; paintGT(); });
+    return;
+  }
+  /* ---- single curve (no ticker, or the ticker series didn't come back) ---- */
+  const pts0 = ownScale(pts0raw);
   const pts = sliceRange(pts0), hi = pts0.reduce((a, p) => p.v >= a.v ? p : a, pts0[0]), lo = pts0.reduce((a, p) => p.v < a.v ? p : a, pts0[0]), cur = mean(pts0.slice(-3).map(p => p.v));
-  host.innerHTML = `<div class="pl-ch"><h3>🌐 Google search trends <em>${kind === '5y' ? '5 YEARS' : '3 MONTHS'} · 0–100</em></h3><a class="pl-chip" href="${link}" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+  const miss = T.term && B0 === null ? `<div class="pl-say" style="margin-top:8px">The ${esc('$' + T.tk)} comparison didn’t come back, so only “${esc(S.name)}” is shown. Deploy the updated Worker (<code>/gtrends</code> with <code>q2</code>) to enable it.</div>` : '';
+  host.innerHTML = `<div class="pl-ch"><h3>🌐 Google search trends <em>${win} · 0–100</em></h3><a class="pl-chip" href="${link}" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
     <p class="pl-desc">Google’s own relative index: 100 is the most-searched moment in this window.</p><div class="pl-chart" id="plGTChart"></div>
     <div class="pl-stats">${statBox('Now', Math.round(cur), 'index')}${statBox('Window high', Math.round(hi.v), dFmt(hi.t), 'down')}${statBox('Window low', Math.round(lo.v), dFmt(lo.t))}${statBox('vs high', Math.round(cur / (hi.v || 1) * 100) + '%', 'of peak')}</div>
-    <div class="pl-say">${cur >= 80 ? 'Searches are at or near the peak of this window.' : cur <= 15 ? 'Search interest is close to the floor of this window.' : 'Search interest is in the middle of this window’s range.'}</div>`;
+    <div class="pl-say">${cur >= 80 ? 'Searches are at or near the peak of this window.' : cur <= 15 ? 'Search interest is close to the floor of this window.' : 'Search interest is in the middle of this window’s range.'}</div>${miss}`;
   drawChart($('plGTChart'), { pts:pts.length > 3 ? pts : pts0, color:'#5b8cff', markers:[{ t:hi.t, v:hi.v, c:'#ff5470', label:'Peak 100', dy:-9 }], unit:'Index', aria:'Google Trends', h:190 });
 }
 function paintSocial(){
@@ -7255,7 +7446,7 @@ function paintSocial(){
 }
 function paintHero(){
   const host = $('plHero'); if(!host) return;
-  const st = S.wiki, ns = newsStats(), gt = S.gt['3m'] || S.gt['5y'];
+  const st = S.wiki, ns = newsStats(), gt = ownScale(S.gt['3m'] || S.gt['5y']);
   if(!st && !ns && !gt){ host.innerHTML = `<div class="pl-empty" style="grid-column:1/-1"><b>Gathering signals…</b>Collecting public-interest, news and social data for ${esc(S.name || S.base)}.</div>`; return; }
   const comps = []; if(st) comps.push([st.pct, .6]); if(ns) comps.push([ns.pct, .25]); if(gt){ const v = gt.map(p => p.v), c = mean(v.slice(-3)); comps.push([v.filter(x => x < c).length / v.length * 100, .15]); }
   const wsum = comps.reduce((a, c) => a + c[1], 0), score = Math.round(comps.reduce((a, c) => a + c[0] * c[1], 0) / wsum);
@@ -7263,7 +7454,7 @@ function paintHero(){
   const tiles = [
     st ? `<div class="pl-tile"><b>Search interest</b><span class="${st.pct >= 85 ? 'warn' : ''}">${Math.round(st.pct)}<small style="font-size:10px">th pct</small></span><i>${Math.round(st.ratioAth * 100)}% of all-time peak</i></div>` : `<div class="pl-tile"><b>Search interest</b><span>—</span><i>no wiki history</i></div>`,
     st ? `<div class="pl-tile"><b>30-day change</b><span class="${st.ch30 >= 0 ? 'up' : 'down'}">${pctTxt(st.ch30)}</span><i>7d: ${pctTxt(st.ch7)}</i></div>` : `<div class="pl-tile"><b>30-day change</b><span>—</span></div>`,
-    ns ? `<div class="pl-tile"><b>News mentions</b><span class="${ns.ch >= 0 ? 'up' : 'down'}">${pctTxt(ns.ch)}</span><i>${fmtN(ns.total7)} articles in 7d</i></div>` : `<div class="pl-tile"><b>News mentions</b><span>…</span><i>${S.gdErr ? 'unavailable' : 'loading'}</i></div>`,
+    ns ? `<div class="pl-tile"><b>News mentions</b><span class="${ns.ch >= 0 ? 'up' : 'down'}">${pctTxt(ns.ch)}</span><i>${fmtN(ns.total7)} ${ns.vol.src === 'gdelt' ? 'articles' : 'headlines'} in 7d</i></div>` : `<div class="pl-tile"><b>News mentions</b><span>…</span><i>${S.gdErr ? 'unavailable' : 'loading'}</i></div>`,
     (() => { const l = (S.news[S.newsWin] || []); if(!l.length) return `<div class="pl-tile"><b>Headline tone</b><span>…</span><i>loading</i></div>`; const b = l.filter(a => sentiment(a.title) === 'bull').length, r = l.filter(a => sentiment(a.title) === 'bear').length; const net = (b - r) / l.length; return `<div class="pl-tile"><b>Headline tone</b><span class="${net > 0.05 ? 'up' : net < -0.05 ? 'down' : ''}">${net > 0.05 ? 'Positive' : net < -0.05 ? 'Negative' : 'Mixed'}</span><i>${b}↑ ${r}↓ of ${l.length}</i></div>`; })()
   ];
   const notes = [];
@@ -7289,7 +7480,7 @@ async function open(){
   const ic = $('taSymbolIcon'); const badge = $('plBadge'); if(ic){ badge.textContent = ic.textContent; badge.style.background = ic.style.background || 'linear-gradient(135deg,#35e0c0,#1c8f79)'; }
   if(same){ paintAll(); return; }
   const tk = ++S.token;
-  Object.assign(S, { symbol, base:symbol.replace(/(USDT|USDC|BUSD|USD)$/i, ''), name:'', ticker:'', cgId:null, logo:'', wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, gdErr:'', gt:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', newsWin:'7D' });
+  Object.assign(S, { symbol, base:symbol.replace(/(USDT|USDC|BUSD|USD)$/i, ''), name:'', ticker:'', cgId:null, logo:'', wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, volMeta:null, gdErr:'', gt:{}, gt2:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', newsWin:'7D' });
   $('plTitle').innerHTML = esc(S.base) + '<small>Trends &amp; news</small>'; $('plSub').textContent = 'Resolving coin…';
   skeletonBody();
   let ident = null; try{ ident = await resolveIdentity(S.base); }catch(e){}
