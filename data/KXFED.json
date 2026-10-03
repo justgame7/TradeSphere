@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-02T23:51:02Z",
+  "updated": "2026-10-03T00:23:26Z",
   "markets": [
     {
       "t": "KXFED-27APR-T6.00",
@@ -2060,7 +2060,7 @@
       "k": 4.25,
       "c": "2027-04-28T17:55:00Z",
       "b": "0.7500",
-      "a": "0.9100",
+      "a": "0.9200",
       "l": "0.7500",
       "v": "15778.06",
       "title": "Will the upper bound of the federal funds rate be above 4.25% following the Fed's Apr 28, 2027 meeting?"
@@ -2107,7 +2107,7 @@
       "s": "Above 3.25%",
       "k": 3.25,
       "c": "2027-04-28T17:55:00Z",
-      "b": "0.8500",
+      "b": "0.8700",
       "a": "0.9800",
       "l": "0.9600",
       "v": "16831.87",
@@ -2251,7 +2251,7 @@
       "s": "Above 0.25%",
       "k": 0.25,
       "c": "2027-04-28T17:55:00Z",
-      "b": "0.9100",
+      "b": "0.9400",
       "a": "0.9900",
       "l": "0.9900",
       "v": "2223.85",
@@ -2767,10 +2767,10 @@
       "s": "Above 4.00%",
       "k": 4,
       "c": "2026-12-09T18:55:00Z",
-      "b": "0.7500",
+      "b": "0.7600",
       "a": "0.7900",
       "l": "0.7500",
-      "v": "41788.46",
+      "v": "41790.46",
       "title": "Will the upper bound of the federal funds rate be above 4.00% following the Fed's Dec 9, 2026 meeting?"
     },
     {
@@ -2780,9 +2780,9 @@
       "k": 3.75,
       "c": "2026-12-09T18:55:00Z",
       "b": "0.9100",
-      "a": "0.9500",
-      "l": "0.9000",
-      "v": "46427.33",
+      "a": "0.9600",
+      "l": "0.9700",
+      "v": "46542.33",
       "title": "Will the upper bound of the federal funds rate be above 3.75% following the Fed's Dec 9, 2026 meeting?"
     },
     {
@@ -2899,10 +2899,10 @@
       "s": "Above 4.00%",
       "k": 4,
       "c": "2026-10-28T17:55:00Z",
-      "b": "0.1800",
-      "a": "0.2100",
-      "l": "0.1900",
-      "v": "164789.38",
+      "b": "0.1700",
+      "a": "0.1800",
+      "l": "0.1800",
+      "v": "164792.38",
       "title": "Will the upper bound of the federal funds rate be above 4.00% following the Fed's Oct 28, 2026 meeting?"
     },
     {
