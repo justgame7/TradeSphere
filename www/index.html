@@ -1025,6 +1025,86 @@
   .analysis-meta-icon-btn:disabled{opacity:.4;}
   /* ---- Analysis overlay: the header Analysis icon embeds screener.html's own analysis modal (its ?symbol= deep link)
      as a full-window layer over the breakdown, same idea as the Analysis button on watchlist.html. ---- */
+  /* ===== Trend Pulse: one-window trends + news + social panel (opened from the Technical Breakdown header) ===== */
+  .analysis-icon-btn.pl-trigger{color:var(--accent);border-color:var(--accent-dim);background:linear-gradient(135deg,rgba(53,224,192,.14),rgba(139,92,246,.10));}
+  .analysis-icon-btn.pl-trigger:hover{box-shadow:0 0 0 3px rgba(53,224,192,.14);}
+  .pl-overlay{position:fixed;inset:0;z-index:70;display:none;background:rgba(5,6,9,.9);backdrop-filter:blur(5px);overflow-y:auto;overscroll-behavior:contain;padding:0 0 70px;}
+  .pl-overlay.open{display:block;}
+  .pl-shell{max-width:1120px;margin:0 auto;padding:16px;}
+  .pl-top{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(10,12,16,.92);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:16px;padding:12px 14px;margin-bottom:14px;box-shadow:0 10px 30px -18px rgba(0,0,0,.7);}
+  .pl-id{display:flex;align-items:center;gap:11px;min-width:0;flex:1 1 220px;}
+  .pl-badge{width:40px;height:40px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font:800 13px var(--font-ui);color:#06201b;overflow:hidden;}
+  .pl-badge img{width:100%;height:100%;object-fit:cover;}
+  .pl-title{font:800 17px var(--font-ui);letter-spacing:-.01em;color:var(--text);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pl-title small{font:600 11px var(--font-mono);color:var(--muted);margin-left:6px;letter-spacing:0;}
+  .pl-sub{font:600 10.5px var(--font-mono);color:var(--muted);margin-top:3px;letter-spacing:.02em;}
+  .pl-seg{display:flex;gap:2px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:3px;}
+  .pl-seg button{border:0;background:transparent;color:var(--muted);font:700 11px var(--font-mono);padding:7px 10px;border-radius:8px;cursor:pointer;letter-spacing:.03em;}
+  .pl-seg button.on{background:var(--accent);color:#06201b;}
+  .pl-x{width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--muted);cursor:pointer;font-size:15px;}
+  .pl-x:hover{color:var(--red);border-color:var(--red);}
+  .pl-hero{display:grid;grid-template-columns:230px 1fr;gap:16px;background:radial-gradient(120% 140% at 0% 0%,rgba(53,224,192,.10),transparent 55%),radial-gradient(100% 120% at 100% 0%,rgba(139,92,246,.12),transparent 55%),var(--panel);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:14px;}
+  .pl-gauge{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+  .pl-gauge svg{width:100%;max-width:210px;height:auto;display:block;}
+  .pl-score{font:800 34px var(--font-mono);letter-spacing:-.03em;margin-top:-34px;line-height:1;}
+  .pl-label{font:800 13px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;margin-top:6px;}
+  .pl-tiny{font:600 9.5px var(--font-mono);color:var(--faint);margin-top:5px;letter-spacing:.04em;}
+  .pl-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+  .pl-tile{background:rgba(255,255,255,.025);border:1px solid var(--border-soft);border-radius:12px;padding:9px 10px;min-width:0;}
+  .pl-tile b{display:block;font:600 9.5px var(--font-mono);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px;}
+  .pl-tile span{font:800 16px var(--font-mono);color:var(--text);letter-spacing:-.02em;}
+  .pl-tile i{display:block;font:600 9.5px var(--font-mono);color:var(--faint);font-style:normal;margin-top:2px;}
+  .up{color:var(--accent)!important;} .down{color:var(--red)!important;} .warn{color:var(--amber)!important;}
+  .pl-notes{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;}
+  .pl-notes li{display:flex;gap:9px;font:500 12.5px/1.45 var(--font-ui);color:#cdd3e4;}
+  .pl-notes li::before{content:'';flex:none;width:7px;height:7px;border-radius:50%;margin-top:6px;background:var(--blue);}
+  .pl-notes li.good::before{background:var(--accent);} .pl-notes li.warn::before{background:var(--amber);} .pl-notes li.bad::before{background:var(--red);}
+  .pl-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .pl-card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:14px 14px 12px;min-width:0;}
+  .pl-card.wide{grid-column:1/-1;}
+  .pl-ch{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;flex-wrap:wrap;}
+  .pl-ch h3{margin:0;font:800 14px var(--font-ui);letter-spacing:-.01em;display:flex;align-items:center;gap:8px;}
+  .pl-ch h3 em{font:600 9.5px var(--font-mono);font-style:normal;color:var(--muted);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:2px 6px;letter-spacing:.04em;}
+  .pl-desc{font:500 11px/1.4 var(--font-ui);color:var(--muted);margin:0 0 8px;}
+  .pl-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);border-radius:999px;padding:5px 10px;font:700 10.5px var(--font-mono);cursor:pointer;text-decoration:none;}
+  .pl-chip.on{color:var(--accent);border-color:var(--accent-dim);}
+  .pl-chip:hover{color:var(--text);}
+  .pl-chart{position:relative;width:100%;min-height:200px;touch-action:pan-y;}
+  .pl-chart svg{display:block;width:100%;height:auto;overflow:visible;}
+  .pl-tip{position:absolute;pointer-events:none;z-index:2;background:rgba(10,12,16,.95);border:1px solid var(--border);border-radius:9px;padding:6px 9px;font:600 10.5px/1.5 var(--font-mono);color:var(--text);white-space:nowrap;display:none;transform:translate(-50%,-100%);}
+  .pl-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;}
+  .pl-stat{background:rgba(255,255,255,.02);border:1px solid var(--border-soft);border-radius:10px;padding:7px 8px;min-width:0;}
+  .pl-stat b{display:block;font:600 9px var(--font-mono);color:var(--muted);letter-spacing:.07em;text-transform:uppercase;}
+  .pl-stat span{display:block;font:800 13px var(--font-mono);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pl-stat i{display:block;font:600 9px var(--font-mono);color:var(--faint);font-style:normal;margin-top:1px;}
+  .pl-say{margin:10px 0 0;font:500 12px/1.5 var(--font-ui);color:#cdd3e4;background:rgba(53,224,192,.05);border:1px solid rgba(53,224,192,.16);border-radius:11px;padding:9px 11px;}
+  .pl-empty{padding:22px 10px;text-align:center;color:var(--muted);font:500 12px/1.5 var(--font-ui);}
+  .pl-empty b{display:block;color:var(--text);font:800 13px var(--font-ui);margin-bottom:4px;}
+  .pl-empty .pl-chip{margin:10px 4px 0;}
+  .pl-sk{border-radius:12px;background:linear-gradient(90deg,var(--panel2) 25%,var(--border-soft) 50%,var(--panel2) 75%);background-size:200% 100%;animation:plsk 1.3s linear infinite;}
+  @keyframes plsk{to{background-position:-200% 0;}}
+  .pl-news{display:flex;flex-direction:column;gap:2px;max-height:560px;overflow-y:auto;margin-top:8px;padding-right:2px;}
+  .pl-grp{font:700 10px var(--font-mono);color:var(--faint);letter-spacing:.1em;text-transform:uppercase;padding:10px 2px 5px;position:sticky;top:0;background:var(--panel);z-index:1;}
+  .pl-item{display:flex;gap:11px;padding:9px 6px;border-radius:12px;text-decoration:none;color:inherit;border:1px solid transparent;}
+  .pl-item:hover{background:var(--panel2);border-color:var(--border-soft);}
+  .pl-thumb{width:64px;height:64px;border-radius:10px;flex:none;object-fit:cover;background:var(--panel2);}
+  .pl-thumb.ph{display:flex;align-items:center;justify-content:center;font:800 18px var(--font-ui);color:var(--faint);}
+  .pl-it{min-width:0;flex:1;}
+  .pl-hl{font:700 13px/1.35 var(--font-ui);color:var(--text);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .pl-meta{display:flex;align-items:center;gap:7px;margin-top:5px;font:600 10px var(--font-mono);color:var(--muted);flex-wrap:wrap;}
+  .pl-meta img{width:13px;height:13px;border-radius:3px;}
+  .pl-tag{border-radius:6px;padding:1px 6px;font:700 9px var(--font-mono);letter-spacing:.05em;text-transform:uppercase;}
+  .pl-tag.bull{background:rgba(53,224,192,.14);color:var(--accent);} .pl-tag.bear{background:rgba(255,84,112,.14);color:var(--red);} .pl-tag.neu{background:var(--panel2);color:var(--muted);}
+  .pl-bar{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--panel2);margin:8px 0 6px;}
+  .pl-bar i{display:block;height:100%;}
+  .pl-links{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;}
+  .pl-foot{margin:14px 4px 0;font:500 10.5px/1.5 var(--font-mono);color:var(--faint);}
+  @media (max-width:820px){
+    .pl-hero{grid-template-columns:1fr;} .pl-grid{grid-template-columns:1fr;}
+    .pl-tiles{grid-template-columns:repeat(2,1fr);} .pl-stats{grid-template-columns:repeat(2,1fr);}
+    .pl-shell{padding:10px;} .pl-id{order:1;flex:1 1 0;} .pl-x{order:2;} .pl-seg{order:3;width:100%;} .pl-seg button{padding:8px 4px;flex:1;}
+    .pl-stats[style*="repeat(5"]{grid-template-columns:repeat(2,1fr)!important;}
+  }
   .ta-embed-overlay{
     position:fixed;inset:0;background:rgba(5,6,9,.82);z-index:999;
     display:none;align-items:stretch;justify-content:center;
@@ -1669,7 +1749,7 @@
         <button type="button" class="analysis-icon-btn" id="taCopyBtn" title="Copy all values" aria-label="Copy all values" onclick="TechAnalysis.copyValues()" style="display:none;">⧉</button>
         <button type="button" class="analysis-icon-btn" id="taClearChecksBtn" title="Clear all checkboxes" aria-label="Clear all checkboxes" disabled onclick="TechAnalysis.clearAllChecks()"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="3"></rect><path d="M5.5 5.5l5 5M10.5 5.5l-5 5"></path></svg></button>
         <button type="button" class="analysis-icon-btn analysis-toggle-all" id="taToggleAllBtn" title="Collapse all sections" aria-label="Collapse all sections" onclick="TechAnalysis.toggleAll()"><span class="taa-chevron">⌄</span></button>
-        <button type="button" class="analysis-icon-btn" id="taRefreshBtn" title="Reload values" aria-label="Reload values" onclick="TechAnalysis.refresh()">↻</button>
+        <button type="button" class="analysis-icon-btn pl-trigger" id="taPulseBtn" title="Trends, news &amp; social" aria-label="Trends, news and social pulse" onclick="TrendPulse.open()"><svg viewBox="0 0 16 16" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8.6h2.6l1.6-4.4 2.7 7.6 1.9-5.2h4.2"></path><circle cx="13.6" cy="3" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
         <button type="button" class="analysis-close" id="taCloseBtn" aria-label="Close" onclick="TechAnalysis.close()">✕</button>
       </div>
     </div>
@@ -1683,6 +1763,27 @@
 <div class="ta-embed-overlay" id="taEmbedOverlay" onclick="if(event.target===this)TechAnalysis.closeAnalysis()">
   <div class="ta-embed-inner" id="taEmbedInner">
     <button class="ta-embed-close" id="taEmbedClose" type="button" aria-label="Close analysis" onclick="TechAnalysis.closeAnalysis()">×</button>
+  </div>
+</div>
+
+<!-- Trend Pulse overlay (opened by the pulse icon in the Technical Breakdown header, replacing the old reload icon).
+     Top-level sibling so it always renders above the breakdown (z-index 70). -->
+<div class="pl-overlay" id="plOverlay" role="dialog" aria-modal="true" aria-label="Trends, news and social pulse">
+  <div class="pl-shell">
+    <div class="pl-top">
+      <div class="pl-id">
+        <div class="pl-badge" id="plBadge">—</div>
+        <div style="min-width:0;">
+          <div class="pl-title" id="plTitle">Pulse</div>
+          <div class="pl-sub" id="plSub">Trends · News · Social</div>
+        </div>
+      </div>
+      <div class="pl-seg" id="plRange" role="tablist" aria-label="Time range">
+        <button type="button" data-r="7D">7D</button><button type="button" data-r="30D">30D</button><button type="button" data-r="90D" class="on">90D</button><button type="button" data-r="1Y">1Y</button><button type="button" data-r="ALL">ALL</button>
+      </div>
+      <button type="button" class="pl-x" id="plClose" aria-label="Close">✕</button>
+    </div>
+    <div id="plBody"></div>
   </div>
 </div>
 
@@ -2906,6 +3007,11 @@ function handleAndroidBack(){
     return;
   }
 
+  if(window.TrendPulse && window.TrendPulse.isOpen()){
+    window.TrendPulse.close();
+    return;
+  }
+
   const taEmbedEl = document.getElementById('taEmbedOverlay');
   if(taEmbedEl && taEmbedEl.classList.contains('open') && window.TechAnalysis){
     window.TechAnalysis.closeAnalysis();
@@ -3028,6 +3134,12 @@ window.addEventListener('popstate', event => {
   if(indicesModal && indicesModal.classList.contains('open')){
     closeIndicesModal();
     syncHistoryForCurrentPage();
+    return;
+  }
+  if(window.TrendPulse && window.TrendPulse.isOpen()){
+    window.TrendPulse.close();
+    // The Back press consumed the breakdown overlay's buffer entry, but the breakdown is still open underneath - restore it.
+    history.pushState({ page: currentPage, analysis: true }, '', location.href);
     return;
   }
   const taEmbedPS = document.getElementById('taEmbedOverlay');
@@ -6629,7 +6741,589 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-window.TechAnalysis = { open, openSymbol, close, setTf, refresh, copyValues, clearAllChecks, toggleAll: toggleAllGroups, addToWatchlist, showCoinInfo, showAnalysis, closeAnalysis, GROUPS, _compute: computeValues };
+window.TechAnalysis = { open, openSymbol, close, setTf, refresh, getSymbol: () => currentSymbol, copyValues, clearAllChecks, toggleAll: toggleAllGroups, addToWatchlist, showCoinInfo, showAnalysis, closeAnalysis, GROUPS, _compute: computeValues };
+})();
+</script>
+
+<script>
+/* =====================================================================================================
+   TrendPulse — one-window "trends · news · social" panel for the Technical Breakdown.
+   Opened by the pulse icon in the breakdown header. Key-less sources only:
+     • Public interest   Wikimedia pageviews (daily since 2015-07, CORS-open)  -> ATH / ATL / percentile
+     • Google Trends     optional /gtrends route on the Cloudflare Worker (Google has no public API); falls back to deep link
+     • News volume       GDELT DOC 2.0 timelinevolraw (CORS-open, last 3 months)
+     • Headlines         Google News RSS (7D / 30D) + GDELT artlist, merged, de-duplicated and filtered to headlines that name THIS coin
+     • Social            CoinGecko sentiment votes / watchlist / community counts + deep links to X, Reddit, TradingView
+   Reddit's anonymous .json API and X's free API are closed, so those two are links, not fake numbers.
+   ===================================================================================================== */
+(function(){
+'use strict';
+const WORKER = 'https://newsyt.justfagame9.workers.dev';
+const DAY = 86400000;
+const RANGE_DAYS = { '7D':7, '30D':30, '90D':90, '1Y':365, 'ALL':Infinity };
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const mean = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0;
+const fmtN = n => n == null || isNaN(n) ? '—' : n >= 1e9 ? (n/1e9).toFixed(1)+'B' : n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(n >= 1e4 ? 1 : 2)+'K' : n >= 100 ? Math.round(n).toString() : (+n.toFixed(1)).toString();
+const pctTxt = (x, d) => (x >= 0 ? '+' : '') + (x*100).toFixed(d == null ? 0 : d) + '%';
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dFmt = t => { const d = new Date(t); return d.getUTCDate() + ' ' + MON[d.getUTCMonth()] + ' ' + String(d.getUTCFullYear()).slice(2); };
+const mFmt = t => { const d = new Date(t); return MON[d.getUTCMonth()] + " '" + String(d.getUTCFullYear()).slice(2); };
+const lsGet = k => { try{ return JSON.parse(localStorage.getItem(k) || 'null'); }catch(e){ return null; } };
+const lsSet = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
+
+const S = { open:false, token:0, symbol:'', base:'', name:'', ticker:'', cgId:null, logo:'', range:'90D', newsWin:'7D',
+            wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, gdErr:'', gt:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', overlayPrice:true, gtSrc:'3m' };
+
+/* ---------- network: direct -> Worker -> public proxies ---------- */
+async function fetchT(url, ms){
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), ms || 12000);
+  try{ return await fetch(url, { signal:c.signal }); } finally { clearTimeout(t); }
+}
+const PROXIES = [
+  u => `${WORKER}/?url=${encodeURIComponent(u)}`,
+  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  u => `https://proxy.corsfix.com/?${u}`,
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+];
+async function getText(url, opts){
+  opts = opts || {};
+  const chain = (opts.proxyOnly ? [] : [u => u]).concat(PROXIES);
+  let lastErr;
+  for(const mk of chain){
+    try{
+      const r = await fetchT(mk(url), opts.timeout);
+      if(!r.ok){ lastErr = new Error('HTTP ' + r.status); continue; }
+      const t = await r.text();
+      if(!t || !t.trim()){ lastErr = new Error('empty'); continue; }
+      if(opts.json){ JSON.parse(t); }
+      return t;
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('network');
+}
+async function getJSON(url, opts){ return JSON.parse(await getText(url, Object.assign({}, opts, { json:true }))); }
+
+/* GDELT asks for max 1 request / 5 s — serialise every call through one queue */
+let gdQ = Promise.resolve(), gdLast = 0;
+function gdelt(params){
+  const url = 'https://api.gdeltproject.org/api/v2/doc/doc?' + params + '&format=json';
+  const task = async () => {
+    for(let attempt = 0; attempt < 3; attempt++){
+      const wait = Math.max(0, gdLast + 5300 - Date.now()); if(wait) await sleep(wait);
+      gdLast = Date.now();
+      let t;
+      try{ t = await getText(url, { timeout:15000 }); }
+      catch(e){ if(attempt === 2) throw e; await sleep(1200); continue; }
+      const body = t.trim();
+      if(body[0] === '{' || body[0] === '['){
+        try{ return JSON.parse(body); }catch(e){ if(attempt === 2) throw e; await sleep(1200); continue; }
+      }
+      /* GDELT answers query problems with PLAIN TEXT (e.g. "The specified phrase is too short."), not JSON.
+         Rate-limit text is worth waiting out; anything else is a query problem -> fail fast, flagged so the caller can try another query form. */
+      if(/limit requests/i.test(body)){ await sleep(5500); continue; }
+      const err = new Error(body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').slice(0, 90) || 'unexpected reply');
+      err.gdQuery = /specified|too short|too long|surrounded|invalid|phrase|keyword/i.test(body);
+      throw err;
+    }
+    throw new Error('GDELT busy');
+  };
+  const p = gdQ.then(task); gdQ = p.catch(() => {}); return p;
+}
+/* Try the coin's preferred GDELT query form, fall back to the other if GDELT rejects the query text. */
+let gdPick = { key:'', idx:0 };
+async function gdelQ(mk){
+  const forms = newsQuery().gdForms, key = S.name;
+  if(gdPick.key !== key) gdPick = { key, idx:0 };
+  let lastErr;
+  for(let k = 0; k < forms.length; k++){
+    const i = (gdPick.idx + k) % forms.length;
+    try{ const d = await gdelt(mk(forms[i])); gdPick = { key, idx:i }; return d; }
+    catch(e){ lastErr = e; if(!e.gdQuery) throw e; }
+  }
+  throw lastErr;
+}
+
+/* ---------- identity: ticker -> coin name / CoinGecko id / Wikipedia article ---------- */
+async function resolveIdentity(base){
+  const cache = lsGet('tsPulseIdent') || {};
+  if(cache[base]) return cache[base];
+  const q = base.replace(/^(1000000|1000|1M)/i, '');
+  const d = await getJSON('https://api.coingecko.com/api/v3/search?query=' + encodeURIComponent(q));
+  const coins = d.coins || [];
+  const m = coins.find(c => String(c.symbol).toUpperCase() === q.toUpperCase());
+  if(!m) throw new Error('coin not found');
+  const ident = { id:m.id, name:m.name, ticker:String(m.symbol).toUpperCase(), logo:m.large || m.thumb || '' };
+  cache[base] = ident; lsSet('tsPulseIdent', cache);
+  return ident;
+}
+async function resolveWiki(name){
+  const cache = lsGet('tsPulseWiki') || {};
+  if(cache[name] !== undefined) return cache[name];
+  const d = await getJSON('https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=6&format=json&origin=*&srsearch=' + encodeURIComponent(name + ' cryptocurrency'));
+  const hits = (d.query && d.query.search) || [], n = name.toLowerCase();
+  const h = hits.find(x => x.title.toLowerCase() === n) || hits.find(x => x.title.toLowerCase().startsWith(n)) || hits.find(x => x.title.toLowerCase().includes(n));
+  const title = h ? h.title : null;
+  cache[name] = title; lsSet('tsPulseWiki', cache);
+  return title;
+}
+const ymd = t => { const d = new Date(t); return d.getUTCFullYear() + String(d.getUTCMonth()+1).padStart(2,'0') + String(d.getUTCDate()).padStart(2,'0'); };
+async function loadWikiViews(title){
+  const url = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/' + encodeURIComponent(title.replace(/ /g,'_')) + '/daily/20150701/' + ymd(Date.now() - DAY);
+  const d = await getJSON(url);
+  return (d.items || []).map(i => { const s = i.timestamp; return { t:Date.UTC(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8)), v:i.views }; });
+}
+
+/* ---------- analysis: rolling-7d series -> ATH / ATL / percentile / momentum ---------- */
+function analyse(raw){
+  let i = 0; while(i < raw.length && raw[i].v <= 0) i++;
+  const pts = raw.slice(i), n = pts.length;
+  if(n < 45) return null;
+  const r = new Array(n); let s = 0;
+  for(let k = 0; k < n; k++){ s += pts[k].v; if(k >= 7) s -= pts[k-7].v; r[k] = s / Math.min(k+1, 7); }
+  const sm = pts.map((p, k) => ({ t:p.t, v:r[k] }));
+  const cur = r[n-1];
+  let athI = 0, atlI = 30;
+  for(let k = 0; k < n; k++) if(r[k] > r[athI]) athI = k;
+  for(let k = 30; k < n; k++) if(r[k] < r[atlI]) atlI = k;
+  const pct = r.filter(x => x < cur).length / n * 100;
+  const last30 = mean(pts.slice(-30).map(p => p.v)), prev30 = mean(pts.slice(-60, -30).map(p => p.v));
+  const last7 = mean(pts.slice(-7).map(p => p.v)), prev7 = mean(pts.slice(-14, -7).map(p => p.v));
+  const last3 = mean(pts.slice(-3).map(p => p.v));
+  const yr = r.slice(-365), yrMax = Math.max(...yr), yrMin = Math.min(...yr);
+  return { sm, n, cur, pct, ath:{ t:sm[athI].t, v:r[athI] }, atl:{ t:sm[atlI].t, v:r[atlI] }, ratioAth:cur / r[athI], ratioAtl:cur / r[atlI],
+           ch30: prev30 ? last30 / prev30 - 1 : 0, ch7: prev7 ? last7 / prev7 - 1 : 0, spike: last30 ? last3 / last30 : 1, yrMax, yrMin, first:sm[0].t };
+}
+function levelOf(pct){
+  if(pct >= 97) return { k:'RECORD ZONE', c:'#ff5470', hot:5 };
+  if(pct >= 85) return { k:'VERY HIGH', c:'#ff8a4c', hot:4 };
+  if(pct >= 60) return { k:'ABOVE AVERAGE', c:'#f5a623', hot:3 };
+  if(pct >= 35) return { k:'AVERAGE', c:'#35e0c0', hot:2 };
+  if(pct >= 12) return { k:'BELOW AVERAGE', c:'#5b8cff', hot:1 };
+  if(pct >= 3)  return { k:'VERY LOW', c:'#8ea9ff', hot:0 };
+  return { k:'NEAR ALL-TIME LOW', c:'#8b93a8', hot:0 };
+}
+
+/* ---------- headline sentiment (simple keyword heuristic — labelled as such in the UI) ---------- */
+const BULL = /\b(surge[sd]?|rall(y|ies|ied)|soar(s|ed|ing)?|jump(s|ed)?|record|all-time high|ath|breakout|gains?|bull(ish)?|approv(e|es|ed|al)|adopt(s|ed|ion)|inflows?|upgrade[sd]?|partnership|launch(es|ed)?|climb(s|ed)?|rebound(s|ed)?|boost(s|ed)?|buy rating|accumulat\w+|milestone|integrat\w+)\b/i;
+const BEAR = /\b(crash(es|ed)?|plung(e|es|ed)|drop(s|ped)?|fall(s|en)?|slump(s|ed)?|hack(s|ed)?|exploit(s|ed)?|lawsuit|sues?|ban(s|ned)?|sell-?off|bear(ish)?|liquidat\w+|outflows?|fraud|warn(s|ed|ing)?|dump(s|ed)?|tumbl(e|es|ed)|slid(e|es)?|decline[sd]?|scam|probe|investigation|delist\w*|rug ?pull|loses?|lost)\b/i;
+function sentiment(title){ const b = BULL.test(title), r = BEAR.test(title); return b && !r ? 'bull' : r && !b ? 'bear' : 'neu'; }
+
+/* ---------- charts ---------- */
+function downsample(pts, max){
+  if(pts.length <= max) return pts;
+  const step = pts.length / max, out = [];
+  for(let i = 0; i < max; i++){
+    const a = Math.floor(i*step), b = Math.min(pts.length, Math.floor((i+1)*step));
+    let m = pts[a]; for(let k = a; k < b; k++) if(pts[k].v > m.v) m = pts[k];
+    out.push(m);
+  }
+  return out;
+}
+function drawChart(host, cfg){
+  const pts = cfg.pts; if(!pts || pts.length < 2){ host.innerHTML = ''; return; }
+  const W = Math.max(280, host.clientWidth || 320), H = cfg.h || 210, pl = 6, pr = 44, pt = 16, pb = 22;
+  const t0 = pts[0].t, t1 = pts[pts.length-1].t, span = (t1 - t0) || 1;
+  let vmax = 0; for(const p of pts) if(p.v > vmax) vmax = p.v; vmax = vmax * 1.08 || 1;
+  const x = t => pl + (t - t0) / span * (W - pl - pr), y = v => pt + (1 - v / vmax) * (H - pt - pb);
+  const ds = downsample(pts, Math.floor(W / 2.2));
+  const line = ds.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + y(p.v).toFixed(1)).join('');
+  const area = line + `L${x(ds[ds.length-1].t).toFixed(1)} ${H-pb}L${x(ds[0].t).toFixed(1)} ${H-pb}Z`;
+  const gid = 'g' + Math.random().toString(36).slice(2, 7);
+  const col = cfg.color || '#35e0c0';
+  let g = '';
+  for(let i = 0; i <= 3; i++){
+    const v = vmax / 1.08 * (i / 3), yy = y(v);
+    g += `<line x1="${pl}" x2="${W-pr}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="#242c42" stroke-width="1" stroke-dasharray="2 4" opacity=".8"/><text x="${W-pr+5}" y="${(yy+3).toFixed(1)}" fill="#5b6478" font-size="9" font-family="JetBrains Mono,monospace">${fmtN(v)}</text>`;
+  }
+  const long = span > 150 * DAY, nt = W < 420 ? 3 : 5;
+  for(let i = 0; i < nt; i++){
+    const t = t0 + span * (i / (nt - 1)), anchor = i === 0 ? 'start' : i === nt - 1 ? 'end' : 'middle';
+    g += `<text x="${x(t).toFixed(1)}" y="${H-5}" fill="#5b6478" font-size="9" text-anchor="${anchor}" font-family="JetBrains Mono,monospace">${long ? mFmt(t) : dFmt(t)}</text>`;
+  }
+  let priceSvg = '', pr_ = null;
+  if(cfg.price && cfg.price.length > 2){
+    const pp = cfg.price.filter(p => p.t >= t0 && p.t <= t1 + DAY);
+    if(pp.length > 2){
+      let lo = Infinity, hi = -Infinity; for(const p of pp){ if(p.v < lo) lo = p.v; if(p.v > hi) hi = p.v; }
+      const py = v => pt + (1 - (v - lo) / ((hi - lo) || 1)) * (H - pt - pb) * 0.86 + (H - pt - pb) * 0.07;
+      const pds = downsample(pp, Math.floor(W / 2.2));
+      priceSvg = `<path d="${pds.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + py(p.v).toFixed(1)).join('')}" fill="none" stroke="#f5a623" stroke-width="1.4" opacity=".9" stroke-linejoin="round"/>`;
+      pr_ = pp;
+    }
+  }
+  let mk = '';
+  (cfg.markers || []).forEach(m => {
+    if(m.t < t0 || m.t > t1) return;
+    const cx = x(m.t), cy = y(m.v), right = cx > W * 0.7;
+    mk += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.2" fill="${m.c}" stroke="#0b0e17" stroke-width="2"/><text x="${(right ? cx - 8 : cx + 8).toFixed(1)}" y="${(cy + (m.dy || 3)).toFixed(1)}" fill="${m.c}" font-size="9.5" font-weight="700" text-anchor="${right ? 'end' : 'start'}" font-family="JetBrains Mono,monospace">${esc(m.label)}</text>`;
+  });
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(cfg.aria || 'chart')}"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".38"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>${g}<path d="${area}" fill="url(#${gid})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>${priceSvg}${mk}<line class="xh" x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="#8b93a8" stroke-width="1" stroke-dasharray="3 3" style="display:none"/><circle class="xd" r="4" fill="${col}" stroke="#0b0e17" stroke-width="2" style="display:none"/></svg><div class="pl-tip"></div>`;
+  const svg = host.querySelector('svg'), xh = svg.querySelector('.xh'), xd = svg.querySelector('.xd'), tip = host.querySelector('.pl-tip');
+  const move = ev => {
+    const rc = svg.getBoundingClientRect(), px = (ev.clientX - rc.left) * (W / rc.width);
+    const t = t0 + Math.min(1, Math.max(0, (px - pl) / (W - pl - pr))) * span;
+    let lo = 0, hi = pts.length - 1;
+    while(lo < hi){ const mid = (lo + hi) >> 1; if(pts[mid].t < t) lo = mid + 1; else hi = mid; }
+    if(lo > 0 && Math.abs(pts[lo-1].t - t) < Math.abs(pts[lo].t - t)) lo--;
+    const p = pts[lo], cx = x(p.t), cy = y(p.v);
+    xh.setAttribute('x1', cx); xh.setAttribute('x2', cx); xh.style.display = ''; xd.setAttribute('cx', cx); xd.setAttribute('cy', cy); xd.style.display = '';
+    let pv = '';
+    if(pr_){ let b = pr_[0]; for(const q of pr_) if(Math.abs(q.t - p.t) < Math.abs(b.t - p.t)) b = q; if(Math.abs(b.t - p.t) <= 2 * DAY) pv = `<br><span style="color:#f5a623">Price ${b.v >= 100 ? b.v.toFixed(0) : b.v.toPrecision(4)}</span>`; }
+    tip.innerHTML = `${dFmt(p.t)}<br><span style="color:${col}">${esc(cfg.unit || '')} ${fmtN(p.v)}</span>${pv}`;
+    tip.style.display = 'block';
+    const hw = host.clientWidth, left = Math.min(hw - 60, Math.max(60, cx * (hw / W)));
+    tip.style.left = left + 'px'; tip.style.top = Math.max(26, cy * (host.clientHeight ? svg.getBoundingClientRect().height / H : 1) - 8) + 'px';
+  };
+  const leave = () => { xh.style.display = 'none'; xd.style.display = 'none'; tip.style.display = 'none'; };
+  host.onpointermove = move; host.onpointerdown = move; host.onpointerleave = leave; host.onpointerup = ev => { if(ev.pointerType === 'touch') setTimeout(leave, 1400); };
+}
+function gaugeSvg(score, color){
+  const a = Math.PI * (1 - score / 100), cx = 100, cy = 96, r = 78;
+  const nx = cx + Math.cos(a) * (r - 14), ny = cy - Math.sin(a) * (r - 14);
+  return `<svg viewBox="0 0 200 112" role="img" aria-label="Buzz index ${score} of 100"><defs><linearGradient id="plgg" x1="0" x2="1"><stop offset="0" stop-color="#5b8cff"/><stop offset=".35" stop-color="#35e0c0"/><stop offset=".68" stop-color="#f5a623"/><stop offset="1" stop-color="#ff5470"/></linearGradient></defs><path d="M22 96A78 78 0 0 1 178 96" fill="none" stroke="#1c2334" stroke-width="14" stroke-linecap="round"/><path d="M22 96A78 78 0 0 1 178 96" fill="none" stroke="url(#plgg)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(score / 100 * 245).toFixed(1)} 400" /><circle cx="${nx.toFixed(1)}" cy="${ny.toFixed(1)}" r="6" fill="${color}" stroke="#0b0e17" stroke-width="3"/></svg>`;
+}
+
+/* ---------- loaders ---------- */
+async function loadPrice(symbol, tk){
+  const urls = ['https://api.binance.com/api/v3/klines?interval=1d&limit=1000&symbol=' + symbol, 'https://fapi.binance.com/fapi/v1/klines?interval=1d&limit=1000&symbol=' + symbol];
+  for(const u of urls){
+    try{ const d = await getJSON(u, { timeout:9000 }); if(tk !== S.token) return; S.price = d.map(k => ({ t:+k[0], v:+k[4] })); paintAttention(); return; }catch(e){}
+  }
+}
+function gdTimeline(d){
+  const s = d && d.timeline && d.timeline[0]; if(!s || !s.data) return null;
+  const pts = s.data.map(p => { const q = String(p.date); return { t:Date.UTC(+q.slice(0,4), +q.slice(4,6)-1, +q.slice(6,8)), v:+p.value }; });
+  const byDay = new Map(); pts.forEach(p => byDay.set(p.t, (byDay.get(p.t) || 0) + p.v));
+  const out = [...byDay.entries()].sort((a,b) => a[0]-b[0]).map(e => ({ t:e[0], v:e[1] }));
+  if(out.length > 3) out.pop(); // today is partial
+  return out;
+}
+/* ---------- coin-specific news matching ---------- */
+const reEsc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function coinTerms(){
+  const nm = String(S.name || '').replace(/["()]/g, '').trim();
+  const names = [nm];
+  const trimmed = nm.replace(/\s+(coin|token|network|protocol|chain|finance)$/i, '').trim();   // "Near Protocol" -> "Near"
+  if(trimmed.length >= 3 && trimmed.toLowerCase() !== nm.toLowerCase()) names.push(trimmed);
+  return { names, ticker:String(S.ticker || '').replace(/[^A-Za-z0-9]/g, '') };
+}
+/* A headline counts only if its TITLE names the coin (or its ticker as $TICKER / uppercase TICKER). */
+function mentionsCoin(title){
+  const { names, ticker } = coinTerms(), low = String(title || '').toLowerCase();
+  for(const n of names){ if(n && new RegExp('(^|[^a-z0-9])' + reEsc(n.toLowerCase()) + '([^a-z0-9]|$)').test(low)) return true; }
+  if(ticker.length >= 2 && new RegExp('\\$' + reEsc(ticker) + '(?![A-Za-z0-9])', 'i').test(title)) return true;
+  if(ticker.length >= 3 && new RegExp('(^|[^A-Za-z0-9])' + reEsc(ticker) + '(?![A-Za-z0-9])').test(title)) return true;
+  return false;
+}
+function newsQuery(){
+  const { names } = coinTerms();
+  const main = '(' + names.map(n => `"${n}"`).join(' OR ') + ') (crypto OR cryptocurrency OR blockchain OR token) sourcelang:english';
+  /* GDELT rejects very short bare phrases ("The specified phrase is too short"), so short names use longer 2-word phrases */
+  const alt = '(' + names.flatMap(n => ['crypto', 'coin', 'token', 'price', 'blockchain'].map(w => `"${n} ${w}"`)).join(' OR ') + ') sourcelang:english';
+  const shortName = names.some(n => n.length < 5), gn = names[names.length - 1];
+  return { gdForms: shortName ? [alt, main] : [main, alt],
+           gn:`intitle:"${gn}" (crypto OR cryptocurrency OR blockchain OR token OR coin)`,
+           gnLoose:`"${gn}" (crypto OR cryptocurrency OR blockchain)` };
+}
+async function loadGdVol(tk){
+  try{
+    const d = await gdelQ(f => 'mode=timelinevolraw&timespan=3months&query=' + encodeURIComponent(f));
+    if(tk !== S.token) return; S.gdVol = gdTimeline(d); if(!S.gdVol) S.gdErr = 'no data';
+  }catch(e){ if(tk !== S.token) return; S.gdErr = e.message || 'failed'; }
+  paintNews(); paintHero();
+}
+function parseRss(xml){
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  return [...doc.querySelectorAll('item')].map(it => {
+    const raw = (it.querySelector('title') || {}).textContent || '', link = (it.querySelector('link') || {}).textContent || '';
+    const src = (it.querySelector('source') || {}).textContent || '';
+    let title = raw, source = src;
+    const ix = raw.lastIndexOf(' - '); if(ix > 20){ title = raw.slice(0, ix); if(!source) source = raw.slice(ix + 3); }
+    const dt = Date.parse((it.querySelector('pubDate') || {}).textContent || '');
+    const dom = ((it.querySelector('source') || {}).getAttribute && (it.querySelector('source').getAttribute('url') || '')) || '';
+    return { title:title.trim(), url:link.trim(), source:source.trim(), t:isNaN(dt) ? 0 : dt, domain:dom.replace(/^https?:\/\//, '').replace(/\/.*$/, ''), img:'' };
+  }).filter(a => a.title && a.url);
+}
+const WIN = { '7D':{ when:'7d', gd:'7d', days:7 }, '30D':{ when:'30d', gd:'1month', days:30 }, '1Y':{ when:'1y', gd:null, days:365 } };
+const titleKey = t => t.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 55);
+function mergeNews(win, items){
+  const cutoff = Date.now() - WIN[win].days * DAY;
+  const cur = S.news[win] || [], seen = new Set(cur.map(a => titleKey(a.title)));
+  items.forEach(a => {
+    if(!a.t || a.t < cutoff || !mentionsCoin(a.title)) return;   // inside the window AND about this coin
+    const k = titleKey(a.title); if(k.length > 8 && !seen.has(k)){ seen.add(k); cur.push(a); }
+  });
+  cur.sort((a, b) => b.t - a.t); S.news[win] = cur;
+}
+async function loadNews(win, tk){
+  if(S.newsState[win]) return; S.newsState[win] = 'loading'; paintNews();
+  const q = newsQuery(), cfg = WIN[win]; let reached = 0, tried = 0;
+  /* 'ok' = at least one source answered (the list may still be empty); 'err' = none answered */
+  const done = () => { if(tk !== S.token) return; if(++tried === (cfg.gd ? 2 : 1)){ S.newsState[win] = reached ? 'ok' : 'err'; } paintNews(); };
+  const gnGet = gq => getText('https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=' + encodeURIComponent(gq + ' when:' + cfg.when), { proxyOnly:true, timeout:14000 }).then(parseRss);
+  (async () => {
+    let items = await gnGet(q.gn);
+    if(!items.some(a => mentionsCoin(a.title))){ try{ items = items.concat(await gnGet(q.gnLoose)); }catch(e){} }   // title-only search found nothing: widen, the title filter still applies
+    return items;
+  })().then(items => { if(tk !== S.token) return; reached++; mergeNews(win, items); }).catch(() => {}).finally(done);
+  if(cfg.gd){
+    gdelQ(f => 'mode=artlist&maxrecords=150&sort=datedesc&timespan=' + cfg.gd + '&query=' + encodeURIComponent(f)).then(d => {
+      if(tk !== S.token) return;
+      const items = (d.articles || []).filter(a => !a.language || /english/i.test(a.language)).map(a => {
+        const s = String(a.seendate || ''); const t = s ? Date.UTC(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8), +s.slice(9,11) || 0, +s.slice(11,13) || 0) : 0;
+        return { title:String(a.title || '').trim(), url:a.url, source:a.domain || '', domain:a.domain || '', t, img:a.socialimage || '' };
+      });
+      reached++; mergeNews(win, items);
+    }).catch(() => {}).finally(done);
+  }
+}
+async function loadGT(kind, tk){
+  if(S.gt[kind]) return; S.gtState = 'loading';
+  try{
+    const r = await fetchT(WORKER + '/gtrends?q=' + encodeURIComponent(S.name) + '&date=' + encodeURIComponent(kind === '5y' ? 'today 5-y' : 'today 3-m'), 14000);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if(tk !== S.token) return;
+    if(!d || !Array.isArray(d.points) || d.points.length < 10) throw new Error('bad shape');
+    S.gt[kind] = d.points.map(p => ({ t:+p.t, v:+p.v })); S.gtState = 'ok';
+  }catch(e){ if(tk !== S.token) return; S.gtState = 'off'; }
+  paintGT(); paintHero();
+}
+async function loadCG(tk){
+  if(!S.cgId){ S.cgErr = 'no id'; paintSocial(); return; }
+  try{
+    const d = await getJSON(`https://api.coingecko.com/api/v3/coins/${S.cgId}?localization=false&tickers=false&market_data=false&community_data=true&developer_data=false&sparkline=false`);
+    if(tk !== S.token) return; S.cg = d;
+  }catch(e){ if(tk !== S.token) return; S.cgErr = e.message || 'failed'; }
+  paintSocial();
+}
+
+/* ---------- painting ---------- */
+function skeleton(h){ return `<div class="pl-sk" style="height:${h}px"></div>`; }
+function skeletonBody(){
+  $('plBody').innerHTML = `<div class="pl-hero" id="plHero">${skeleton(150)}${skeleton(150)}</div><div class="pl-grid">
+    <div class="pl-card wide" id="plAtt">${skeleton(300)}</div><div class="pl-card" id="plGT">${skeleton(250)}</div><div class="pl-card" id="plNewsVol">${skeleton(250)}</div>
+    <div class="pl-card wide" id="plNews">${skeleton(260)}</div><div class="pl-card wide" id="plSoc">${skeleton(150)}</div></div>
+    <div class="pl-foot">Attention = Wikipedia pageviews (a proxy for public curiosity); news volume = GDELT; headline tone is a keyword heuristic. Nothing here is financial advice.</div>`;
+}
+function sliceRange(pts){
+  const d = RANGE_DAYS[S.range]; if(!isFinite(d) || !pts.length) return pts;
+  const cut = pts[pts.length-1].t - d * DAY; return pts.filter(p => p.t >= cut);
+}
+function statBox(b, v, i, cls){ return `<div class="pl-stat"><b>${b}</b><span class="${cls || ''}">${v}</span><i>${i || ''}</i></div>`; }
+function paintAttention(){
+  const host = $('plAtt'); if(!host) return;
+  const st = S.wiki;
+  if(!st){
+    host.innerHTML = `<div class="pl-ch"><h3>🔎 Search &amp; public interest <em>WIKIPEDIA</em></h3></div>` + (S.wikiErr
+      ? `<div class="pl-empty"><b>No public-interest history for ${esc(S.name)}</b>${esc(S.wikiErr)}<br>Smaller coins often have no Wikipedia article. News and social cards below still work.</div>` : skeleton(260));
+    return;
+  }
+  const pts = sliceRange(st.sm), lv = levelOf(st.pct);
+  const hi = pts.reduce((a, p) => p.v > a.v ? p : a, pts[0]), lo = pts.reduce((a, p) => p.v < a.v ? p : a, pts[0]);
+  const markers = [{ t:st.ath.t, v:st.ath.v, c:'#ff5470', label:'ALL-TIME HIGH ' + fmtN(st.ath.v), dy:-9 }];
+  if(st.atl.t >= pts[0].t) markers.push({ t:st.atl.t, v:st.atl.v, c:'#5b8cff', label:'ALL-TIME LOW', dy:-9 });
+  if(Math.abs(hi.t - st.ath.t) > 3 * DAY) markers.push({ t:hi.t, v:hi.v, c:'#f5a623', label:'Range high ' + fmtN(hi.v), dy:-9 });
+  const sub = S.range === 'ALL' ? 'since ' + mFmt(st.first) : S.range;
+  host.innerHTML = `<div class="pl-ch"><h3>🔎 Search &amp; public interest <em>WIKIPEDIA · ${esc(S.wikiTitle)}</em></h3>
+      <button type="button" class="pl-chip ${S.overlayPrice ? 'on' : ''}" id="plPriceToggle">● Price overlay</button></div>
+    <p class="pl-desc">Average daily page-views (7-day smoothed), ${sub}. Tracks how many people are actively curious about ${esc(S.name)} — the closest keyless stand-in for search interest.</p>
+    <div class="pl-chart" id="plAttChart"></div>
+    <div class="pl-stats">
+      ${statBox('Now (7d avg)', fmtN(st.cur), lv.k, '')}
+      ${statBox('All-time high', fmtN(st.ath.v), dFmt(st.ath.t), 'down')}
+      ${statBox('All-time low', fmtN(st.atl.v), dFmt(st.atl.t), '')}
+      ${statBox('Percentile', Math.round(st.pct) + '<small style="font-size:9px">th</small>', 'of ' + Math.round(st.n / 365 * 10) / 10 + ' yrs of days', '')}
+    </div>
+    <div class="pl-say">${esc(attentionComment(st))}</div>`;
+  drawChart($('plAttChart'), { pts, color:'#35e0c0', markers, price:S.overlayPrice ? S.price : null, unit:'Views/day', aria:'Public interest over time' });
+  const tg = $('plPriceToggle'); if(tg) tg.onclick = () => { S.overlayPrice = !S.overlayPrice; paintAttention(); };
+}
+function attentionComment(st){
+  const lv = levelOf(st.pct), parts = [];
+  if(st.pct >= 97) parts.push(`Interest sits in record territory — higher than ${Math.round(st.pct)}% of all days on record.`);
+  else if(st.pct <= 3) parts.push(`Interest is near an all-time low — only ${Math.round(st.pct)}% of days have been quieter.`);
+  else parts.push(`Interest is ${lv.k.toLowerCase()} — higher than ${Math.round(st.pct)}% of all days since ${mFmt(st.first)}.`);
+  parts.push(`That is ${Math.round(st.ratioAth * 100)}% of the all-time peak (${dFmt(st.ath.t)}) and ${st.ratioAtl.toFixed(1)}× the all-time low.`);
+  if(st.spike >= 1.6) parts.push('The last 3 days are running well above the 30-day norm — attention is spiking right now.');
+  else if(st.ch30 <= -0.25) parts.push(`Attention has cooled ${Math.abs(Math.round(st.ch30 * 100))}% versus the previous 30 days.`);
+  else if(st.ch30 >= 0.25) parts.push(`Attention has grown ${Math.round(st.ch30 * 100)}% versus the previous 30 days.`);
+  return parts.join(' ');
+}
+function newsStats(){
+  const v = S.gdVol; if(!v || v.length < 21) return null;
+  const vals = v.map(p => p.v), last7 = mean(vals.slice(-7)), prev7 = mean(vals.slice(-14, -7)), base = mean(vals);
+  const sorted = [...vals].sort((a, b) => a - b), pct = sorted.filter(x => x < last7).length / sorted.length * 100;
+  const peakI = vals.indexOf(Math.max(...vals));
+  return { last7, prev7, base, pct, ch:prev7 ? last7 / prev7 - 1 : 0, peak:v[peakI], total7:vals.slice(-7).reduce((a, b) => a + b, 0) };
+}
+function paintNews(){
+  const host = $('plNewsVol'); if(host){
+    const ns = newsStats();
+    if(!ns){
+      host.innerHTML = `<div class="pl-ch"><h3>📰 News volume <em>GDELT · 90D</em></h3></div>` + (S.gdErr
+        ? `<div class="pl-empty"><b>News-volume timeline unavailable</b>GDELT didn’t answer (${esc(S.gdErr)}). Headlines below may still load.</div>` : `<p class="pl-desc">Waiting for GDELT (it allows one request per 5 s)…</p>${skeleton(190)}`);
+    } else {
+      const pts = sliceRange(S.gdVol).length > 3 ? sliceRange(S.gdVol) : S.gdVol;
+      const lv = levelOf(ns.pct);
+      host.innerHTML = `<div class="pl-ch"><h3>📰 News volume <em>GDELT · 90D MAX</em></h3></div>
+        <p class="pl-desc">Articles per day mentioning ${esc(S.name)} in global English-language media.</p>
+        <div class="pl-chart" id="plNVChart"></div>
+        <div class="pl-stats">
+          ${statBox('Last 7d / day', fmtN(ns.last7), lv.k)}
+          ${statBox('vs prior 7d', pctTxt(ns.ch), '', ns.ch >= 0 ? 'up' : 'down')}
+          ${statBox('90d average', fmtN(ns.base), 'articles/day')}
+          ${statBox('Busiest day', fmtN(ns.peak.v), dFmt(ns.peak.t))}
+        </div>
+        <div class="pl-say">${esc(newsComment(ns))}</div>`;
+      drawChart($('plNVChart'), { pts, color:'#8b5cf6', markers:[{ t:ns.peak.t, v:ns.peak.v, c:'#f5a623', label:'Peak', dy:-9 }], unit:'Articles', aria:'News volume', h:190 });
+    }
+  }
+  const nh = $('plNews'); if(!nh) return;
+  const win = S.newsWin, list = S.news[win] || [], stt = S.newsState[win];
+  const tabs = ['7D','30D'].map(w => `<button type="button" data-w="${w}" class="${w === win ? 'on' : ''}">${w === '1Y' ? 'Past year' : 'Last ' + w.replace('D', ' days')}</button>`).join('');
+  const bull = list.filter(a => sentiment(a.title) === 'bull').length, bear = list.filter(a => sentiment(a.title) === 'bear').length, neu = list.length - bull - bear;
+  let body = '';
+  if(!list.length) body = stt === 'err' ? `<div class="pl-empty"><b>No headlines came back</b>Both news sources were unreachable for this window. Try another window or check your connection.</div>` : stt === 'ok' ? `<div class="pl-empty"><b>No headlines name ${esc(S.name)}</b>Nothing in the last ${win === '30D' ? '30' : '7'} days mentions ${esc(S.name)}${S.ticker ? ' (or ' + esc(S.ticker) + ')' : ''} in its headline.${win === '7D' ? ' Try the 30-day window.' : ''}</div>` : `<div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">${skeleton(66)}${skeleton(66)}${skeleton(66)}</div>`;
+  else {
+    const now = Date.now(), groups = [], gmap = {};
+    const label = t => { const age = now - t; if(win === '1Y') return t ? MON[new Date(t).getUTCMonth()] + ' ' + new Date(t).getUTCFullYear() : 'Undated';
+      return age < DAY ? 'Today' : age < 2 * DAY ? 'Yesterday' : age < 7 * DAY ? 'This week' : age < 14 * DAY ? 'Last week' : 'Earlier'; };
+    list.slice(0, 120).forEach(a => { const g = label(a.t); if(!gmap[g]){ gmap[g] = []; groups.push(g); } gmap[g].push(a); });
+    body = '<div class="pl-news">' + groups.map(g => `<div class="pl-grp">${esc(g)} · ${gmap[g].length}</div>` + gmap[g].map(a => {
+      const sn = sentiment(a.title), tag = sn === 'bull' ? '<span class="pl-tag bull">Bullish</span>' : sn === 'bear' ? '<span class="pl-tag bear">Bearish</span>' : '<span class="pl-tag neu">Neutral</span>';
+      const th = a.img ? `<img class="pl-thumb" loading="lazy" referrerpolicy="no-referrer" src="${esc(a.img)}" alt="" onerror="this.outerHTML='<div class=&quot;pl-thumb ph&quot;>📰</div>'">` : `<div class="pl-thumb ph">${esc((a.source || '?').slice(0, 1).toUpperCase())}</div>`;
+      const fav = a.domain ? `<img loading="lazy" referrerpolicy="no-referrer" src="https://www.google.com/s2/favicons?domain=${esc(a.domain)}&sz=32" alt="" onerror="this.style.display='none'">` : '';
+      return `<a class="pl-item" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${th}<div class="pl-it"><div class="pl-hl">${esc(a.title)}</div><div class="pl-meta">${fav}<span>${esc(a.source)}</span><span>· ${ago(a.t)}</span>${tag}</div></div></a>`;
+    }).join('')).join('') + '</div>';
+  }
+  nh.innerHTML = `<div class="pl-ch"><h3>🗞️ Headlines <em>${list.length} FOUND</em></h3><div class="pl-seg" id="plNewsTabs">${tabs}</div></div>
+    <p class="pl-desc">Only headlines that name ${esc(S.name)}${S.ticker ? ' or ' + esc(S.ticker) : ''}, newest first, from Google News and GDELT. Tone tags are a keyword heuristic on the headline, not a verdict.</p>
+    ${list.length ? `<div class="pl-bar" title="Headline tone mix"><i style="width:${bull / list.length * 100}%;background:var(--accent)"></i><i style="width:${neu / list.length * 100}%;background:#3a4259"></i><i style="width:${bear / list.length * 100}%;background:var(--red)"></i></div><div class="pl-meta" style="margin:0 0 4px"><span class="up">${bull} bullish</span><span>${neu} neutral</span><span class="down">${bear} bearish</span>${stt === 'loading' ? '<span>· loading more…</span>' : ''}</div>` : ''}
+    ${body}`;
+  nh.querySelectorAll('#plNewsTabs button').forEach(b => b.onclick = () => { S.newsWin = b.dataset.w; paintNews(); loadNews(S.newsWin, S.token); });
+}
+function newsComment(ns){
+  const out = [];
+  if(ns.pct >= 90) out.push('Media coverage is at a 90-day high — the story is crowded.');
+  else if(ns.pct <= 15) out.push('Coverage is among the quietest of the last 90 days.');
+  else out.push('Coverage is running at a normal level for the last 90 days.');
+  if(ns.ch >= 0.4) out.push(`Mentions are up ${Math.round(ns.ch * 100)}% week over week.`); else if(ns.ch <= -0.3) out.push(`Mentions are down ${Math.abs(Math.round(ns.ch * 100))}% week over week.`);
+  if(ns.peak.t >= Date.now() - 10 * DAY) out.push('The busiest day of the quarter was in the last 10 days.');
+  return out.join(' ');
+}
+function ago(t){ if(!t) return ''; const s = (Date.now() - t) / 1000; if(s < 3600) return Math.max(1, Math.round(s / 60)) + 'm ago'; if(s < 86400) return Math.round(s / 3600) + 'h ago'; if(s < 86400 * 45) return Math.round(s / 86400) + 'd ago'; return dFmt(t); }
+function paintGT(){
+  const host = $('plGT'); if(!host) return;
+  const kind = (S.range === '1Y' || S.range === 'ALL') ? '5y' : '3m', pts0 = S.gt[kind];
+  const link = 'https://trends.google.com/trends/explore?q=' + encodeURIComponent(S.name) + '&date=' + (kind === '5y' ? 'today%205-y' : 'today%203-m');
+  if(!pts0){
+    host.innerHTML = `<div class="pl-ch"><h3>🌐 Google search trends <em>${kind === '5y' ? '5 YEARS' : '3 MONTHS'}</em></h3></div>` + (S.gtState === 'loading' || S.gtState === 'idle' ? skeleton(210)
+      : `<div class="pl-empty"><b>Live Google Trends curve not connected</b>Google has no public API, so the curve needs a small <code>/gtrends</code> route on your Cloudflare Worker (snippet supplied separately). Until then the Wikipedia card above is your interest gauge.<br><a class="pl-chip" href="${link}" target="_blank" rel="noopener noreferrer">Open Google Trends ↗</a></div>`);
+    return;
+  }
+  const pts = sliceRange(pts0), hi = pts0.reduce((a, p) => p.v >= a.v ? p : a, pts0[0]), lo = pts0.reduce((a, p) => p.v < a.v ? p : a, pts0[0]), cur = mean(pts0.slice(-3).map(p => p.v));
+  host.innerHTML = `<div class="pl-ch"><h3>🌐 Google search trends <em>${kind === '5y' ? '5 YEARS' : '3 MONTHS'} · 0–100</em></h3><a class="pl-chip" href="${link}" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+    <p class="pl-desc">Google’s own relative index: 100 is the most-searched moment in this window.</p><div class="pl-chart" id="plGTChart"></div>
+    <div class="pl-stats">${statBox('Now', Math.round(cur), 'index')}${statBox('Window high', Math.round(hi.v), dFmt(hi.t), 'down')}${statBox('Window low', Math.round(lo.v), dFmt(lo.t))}${statBox('vs high', Math.round(cur / (hi.v || 1) * 100) + '%', 'of peak')}</div>
+    <div class="pl-say">${cur >= 80 ? 'Searches are at or near the peak of this window.' : cur <= 15 ? 'Search interest is close to the floor of this window.' : 'Search interest is in the middle of this window’s range.'}</div>`;
+  drawChart($('plGTChart'), { pts:pts.length > 3 ? pts : pts0, color:'#5b8cff', markers:[{ t:hi.t, v:hi.v, c:'#ff5470', label:'Peak 100', dy:-9 }], unit:'Index', aria:'Google Trends', h:190 });
+}
+function paintSocial(){
+  const host = $('plSoc'); if(!host) return;
+  const cg = S.cg, nm = encodeURIComponent(S.name), tk = encodeURIComponent(S.ticker || S.base);
+  const links = [
+    ['𝕏 Live posts', `https://x.com/search?q=%24${tk}&src=typed_query&f=live`], ['Reddit threads', `https://www.reddit.com/search/?q=${nm}&sort=new`],
+    ['Google Trends', `https://trends.google.com/trends/explore?q=${nm}&date=today%2012-m`], ['TradingView ideas', `https://www.tradingview.com/symbols/${S.base}USDT/ideas/`],
+    ...(S.cgId ? [['CoinGecko', `https://www.coingecko.com/en/coins/${S.cgId}`]] : [])
+  ].map(l => `<a class="pl-chip" href="${l[1]}" target="_blank" rel="noopener noreferrer">${l[0]} ↗</a>`).join('');
+  let inner = '';
+  if(cg){
+    const up = cg.sentiment_votes_up_percentage, dn = cg.sentiment_votes_down_percentage, c = cg.community_data || {};
+    const tiles = [];
+    if(up != null) tiles.push(statBox('Community votes', Math.round(up) + '% up', Math.round(dn || 0) + '% down', up >= 60 ? 'up' : up <= 40 ? 'down' : 'warn'));
+    if(cg.watchlist_portfolio_users) tiles.push(statBox('On watchlists', fmtN(cg.watchlist_portfolio_users), 'CoinGecko users'));
+    if(cg.market_cap_rank) tiles.push(statBox('Market-cap rank', '#' + cg.market_cap_rank, 'CoinGecko'));
+    if(c.twitter_followers) tiles.push(statBox('X followers', fmtN(c.twitter_followers), 'official account'));
+    if(c.reddit_subscribers) tiles.push(statBox('Reddit subs', fmtN(c.reddit_subscribers), 'main subreddit'));
+    inner = (up != null ? `<div class="pl-bar" title="Bullish vs bearish votes"><i style="width:${up}%;background:var(--accent)"></i><i style="width:${dn || 0}%;background:var(--red)"></i></div>` : '') + `<div class="pl-stats" style="grid-template-columns:repeat(${Math.min(5, Math.max(2, tiles.length))},1fr)">${tiles.join('') || '<div class="pl-empty" style="grid-column:1/-1">CoinGecko returned no social counters for this coin.</div>'}</div>`;
+  } else inner = S.cgErr ? `<div class="pl-empty"><b>Social counters unavailable</b>CoinGecko didn’t answer (${esc(S.cgErr)}). The links below still work.</div>` : skeleton(70);
+  host.innerHTML = `<div class="pl-ch"><h3>💬 Social pulse <em>COINGECKO</em></h3></div>
+    <p class="pl-desc">Reddit closed its anonymous API in 2026 and X has no free one, so live post counts would be made up. Sentiment and follower counters below are real; the buttons open the live feeds.</p>${inner}<div class="pl-links">${links}</div>`;
+}
+function paintHero(){
+  const host = $('plHero'); if(!host) return;
+  const st = S.wiki, ns = newsStats(), gt = S.gt['3m'] || S.gt['5y'];
+  if(!st && !ns && !gt){ host.innerHTML = `<div class="pl-empty" style="grid-column:1/-1"><b>Gathering signals…</b>Collecting public-interest, news and social data for ${esc(S.name || S.base)}.</div>`; return; }
+  const comps = []; if(st) comps.push([st.pct, .6]); if(ns) comps.push([ns.pct, .25]); if(gt){ const v = gt.map(p => p.v), c = mean(v.slice(-3)); comps.push([v.filter(x => x < c).length / v.length * 100, .15]); }
+  const wsum = comps.reduce((a, c) => a + c[1], 0), score = Math.round(comps.reduce((a, c) => a + c[0] * c[1], 0) / wsum);
+  const lv = levelOf(score);
+  const tiles = [
+    st ? `<div class="pl-tile"><b>Search interest</b><span class="${st.pct >= 85 ? 'warn' : ''}">${Math.round(st.pct)}<small style="font-size:10px">th pct</small></span><i>${Math.round(st.ratioAth * 100)}% of all-time peak</i></div>` : `<div class="pl-tile"><b>Search interest</b><span>—</span><i>no wiki history</i></div>`,
+    st ? `<div class="pl-tile"><b>30-day change</b><span class="${st.ch30 >= 0 ? 'up' : 'down'}">${pctTxt(st.ch30)}</span><i>7d: ${pctTxt(st.ch7)}</i></div>` : `<div class="pl-tile"><b>30-day change</b><span>—</span></div>`,
+    ns ? `<div class="pl-tile"><b>News mentions</b><span class="${ns.ch >= 0 ? 'up' : 'down'}">${pctTxt(ns.ch)}</span><i>${fmtN(ns.total7)} articles in 7d</i></div>` : `<div class="pl-tile"><b>News mentions</b><span>…</span><i>${S.gdErr ? 'unavailable' : 'loading'}</i></div>`,
+    (() => { const l = (S.news[S.newsWin] || []); if(!l.length) return `<div class="pl-tile"><b>Headline tone</b><span>…</span><i>loading</i></div>`; const b = l.filter(a => sentiment(a.title) === 'bull').length, r = l.filter(a => sentiment(a.title) === 'bear').length; const net = (b - r) / l.length; return `<div class="pl-tile"><b>Headline tone</b><span class="${net > 0.05 ? 'up' : net < -0.05 ? 'down' : ''}">${net > 0.05 ? 'Positive' : net < -0.05 ? 'Negative' : 'Mixed'}</span><i>${b}↑ ${r}↓ of ${l.length}</i></div>`; })()
+  ];
+  const notes = [];
+  if(st){ const l2 = levelOf(st.pct); notes.push({ c:st.pct >= 97 || st.pct <= 3 ? 'warn' : 'good', t:`Public interest is ${st.pct >= 97 ? 'in record territory' : st.pct <= 3 ? 'near an all-time low' : l2.k.toLowerCase()} — ${Math.round(st.pct)}th percentile across ${(st.n / 365).toFixed(1)} years of daily history.` });
+    notes.push({ c:st.ratioAth >= .8 ? 'bad' : st.ratioAth <= .1 ? 'info' : 'info', t:st.ratioAth >= .8 ? `It is within ${Math.round((1 - st.ratioAth) * 100)}% of its all-time attention peak (${dFmt(st.ath.t)}). Crowds this big have historically shown up near euphoric tops, not quiet bottoms.` : st.ratioAth >= .45 ? `Attention is ${Math.round(st.ratioAth * 100)}% of the ${dFmt(st.ath.t)} all-time peak — high, but still well short of the all-time mania.` : `Attention is only ${Math.round(st.ratioAth * 100)}% of the ${dFmt(st.ath.t)} all-time peak — far from mania levels.` });
+    if(st.spike >= 1.6) notes.push({ c:'warn', t:`Short-term spike: the last 3 days run ${st.spike.toFixed(1)}× the 30-day average. Check the headlines for the trigger.` });
+    else if(st.ch30 <= -0.25) notes.push({ c:'info', t:`Interest is fading (${pctTxt(st.ch30)} vs the previous 30 days).` });
+    else if(st.ch30 >= 0.25) notes.push({ c:'good', t:`Interest is building (${pctTxt(st.ch30)} vs the previous 30 days).` }); }
+  if(ns) notes.push({ c:ns.pct >= 90 ? 'warn' : 'info', t:newsComment(ns) });
+  if(S.price && st){ const p = S.price, now = p[p.length-1].v, ago30 = p[Math.max(0, p.length - 31)].v, pc = now / ago30 - 1;
+    if(Math.abs(pc) > .08 && Math.abs(st.ch30) > .1 && (pc > 0) !== (st.ch30 > 0)) notes.push({ c:'warn', t:`Price (${pctTxt(pc)}) and attention (${pctTxt(st.ch30)}) moved in opposite directions over 30 days — a divergence worth watching.` });
+    else if(Math.abs(pc) > .08) notes.push({ c:'info', t:`Price is ${pctTxt(pc)} over 30 days and attention ${st.ch30 >= 0 ? 'rose' : 'fell'} alongside it.` }); }
+  host.innerHTML = `<div class="pl-gauge">${gaugeSvg(score, lv.c)}<div class="pl-score" style="color:${lv.c}">${score}</div><div class="pl-label" style="color:${lv.c}">${lv.k}</div><div class="pl-tiny">BUZZ INDEX · 0–100 · HEURISTIC</div></div>
+    <div><div class="pl-tiles">${tiles.join('')}</div><ul class="pl-notes">${notes.map(n => `<li class="${n.c}">${esc(n.t)}</li>`).join('')}</ul></div>`;
+}
+function paintAll(){ paintHero(); paintAttention(); paintGT(); paintNews(); paintSocial(); }
+
+/* ---------- open / close ---------- */
+async function open(){
+  const ta = window.TechAnalysis; const symbol = ta && ta.getSymbol ? ta.getSymbol() : ''; if(!symbol) return;
+  const same = symbol === S.symbol && S.token > 0;
+  S.open = true; $('plOverlay').classList.add('open'); $('plOverlay').scrollTop = 0;
+  const ic = $('taSymbolIcon'); const badge = $('plBadge'); if(ic){ badge.textContent = ic.textContent; badge.style.background = ic.style.background || 'linear-gradient(135deg,#35e0c0,#1c8f79)'; }
+  if(same){ paintAll(); return; }
+  const tk = ++S.token;
+  Object.assign(S, { symbol, base:symbol.replace(/(USDT|USDC|BUSD|USD)$/i, ''), name:'', ticker:'', cgId:null, logo:'', wiki:null, wikiTitle:'', wikiErr:'', price:null, gdVol:null, gdErr:'', gt:{}, gtState:'idle', news:{}, newsState:{}, cg:null, cgErr:'', newsWin:'7D' });
+  $('plTitle').innerHTML = esc(S.base) + '<small>Trends &amp; news</small>'; $('plSub').textContent = 'Resolving coin…';
+  skeletonBody();
+  let ident = null; try{ ident = await resolveIdentity(S.base); }catch(e){}
+  if(tk !== S.token) return;
+  if(ident){ S.name = ident.name; S.ticker = ident.ticker; S.cgId = ident.id; S.logo = ident.logo; } else { S.name = S.base; S.ticker = S.base; }
+  if(S.logo){ badge.innerHTML = `<img src="${esc(S.logo)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`; }
+  $('plTitle').innerHTML = esc(S.name) + `<small>${esc(S.ticker)}</small>`; $('plSub').textContent = 'Search interest · News · Social — free public sources';
+  loadPrice(symbol, tk); loadCG(tk); loadGT(S.gtSrc === '5y' ? '5y' : '3m', tk); loadNews('7D', tk); loadGdVol(tk);
+  (async () => {
+    try{ const title = await resolveWiki(S.name); if(tk !== S.token) return;
+      if(!title){ S.wikiErr = 'No matching Wikipedia article was found.'; paintAttention(); return; }
+      S.wikiTitle = title; const raw = await loadWikiViews(title); if(tk !== S.token) return;
+      S.wiki = analyse(raw); if(!S.wiki) S.wikiErr = 'Not enough page-view history yet.';
+    }catch(e){ if(tk !== S.token) return; S.wikiErr = 'Wikimedia didn’t answer (' + (e.message || 'error') + ').'; }
+    paintAttention(); paintHero();
+  })();
+}
+function close(){
+  if(!S.open) return; S.open = false; $('plOverlay').classList.remove('open');
+}
+function setRange(r){
+  S.range = r; document.querySelectorAll('#plRange button').forEach(b => b.classList.toggle('on', b.dataset.r === r));
+  const kind = (r === '1Y' || r === 'ALL') ? '5y' : '3m'; if(!S.gt[kind] && S.gtState !== 'off') loadGT(kind, S.token);
+  paintAttention(); paintGT(); paintNews();
+}
+function init(){
+  const root = $('plOverlay'); if(!root) return;
+  $('plClose').onclick = close;
+  document.querySelectorAll('#plRange button').forEach(b => b.onclick = () => setRange(b.dataset.r));
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && S.open){ e.stopImmediatePropagation(); close(); } }, true);
+  let rz; window.addEventListener('resize', () => { if(!S.open) return; clearTimeout(rz); rz = setTimeout(() => { paintAttention(); paintGT(); paintNews(); }, 150); });
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+window.TrendPulse = { open, close, isOpen:() => S.open, _state:S, _analyse:analyse, _sentiment:sentiment };
 })();
 </script>
 
