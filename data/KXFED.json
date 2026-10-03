@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-03T14:45:31Z",
+  "updated": "2026-10-03T18:45:03Z",
   "markets": [
     {
       "t": "KXFED-27APR-T6.00",
@@ -2251,7 +2251,7 @@
       "s": "Above 0.25%",
       "k": 0.25,
       "c": "2027-04-28T17:55:00Z",
-      "b": "0.8200",
+      "b": "0.9200",
       "a": "0.9900",
       "l": "0.9900",
       "v": "2223.85",
@@ -2708,7 +2708,7 @@
       "k": 5.25,
       "c": "2026-12-09T18:55:00Z",
       "b": "0.0000",
-      "a": "0.0100",
+      "a": "0.0200",
       "l": "0.0100",
       "v": "944.87",
       "title": "Will the upper bound of the federal funds rate be above 5.25% following the Fed's Dec 9, 2026 meeting?"
@@ -2743,10 +2743,10 @@
       "s": "Above 4.50%",
       "k": 4.5,
       "c": "2026-12-09T18:55:00Z",
-      "b": "0.0500",
-      "a": "0.0700",
-      "l": "0.0600",
-      "v": "141090.33",
+      "b": "0.0600",
+      "a": "0.0800",
+      "l": "0.0800",
+      "v": "141095.33",
       "title": "Will the upper bound of the federal funds rate be above 4.50% following the Fed's Dec 9, 2026 meeting?"
     },
     {
@@ -2755,8 +2755,8 @@
       "s": "Above 4.25%",
       "k": 4.25,
       "c": "2026-12-09T18:55:00Z",
-      "b": "0.2000",
-      "a": "0.2200",
+      "b": "0.1800",
+      "a": "0.2100",
       "l": "0.2300",
       "v": "43855.18",
       "title": "Will the upper bound of the federal funds rate be above 4.25% following the Fed's Dec 9, 2026 meeting?"
@@ -2767,10 +2767,10 @@
       "s": "Above 4.00%",
       "k": 4,
       "c": "2026-12-09T18:55:00Z",
-      "b": "0.7600",
+      "b": "0.7500",
       "a": "0.7800",
-      "l": "0.7500",
-      "v": "41809.46",
+      "l": "0.7200",
+      "v": "41929.46",
       "title": "Will the upper bound of the federal funds rate be above 4.00% following the Fed's Dec 9, 2026 meeting?"
     },
     {
@@ -2779,10 +2779,10 @@
       "s": "Above 3.75%",
       "k": 3.75,
       "c": "2026-12-09T18:55:00Z",
-      "b": "0.9100",
-      "a": "0.9400",
-      "l": "0.9000",
-      "v": "46594.33",
+      "b": "0.9300",
+      "a": "0.9600",
+      "l": "0.9300",
+      "v": "46720.33",
       "title": "Will the upper bound of the federal funds rate be above 3.75% following the Fed's Dec 9, 2026 meeting?"
     },
     {
@@ -2803,7 +2803,7 @@
       "s": "Above 3.25%",
       "k": 3.25,
       "c": "2026-12-09T18:55:00Z",
-      "b": "0.9800",
+      "b": "0.9700",
       "a": "0.9900",
       "l": "0.9900",
       "v": "14035.48",
@@ -2854,7 +2854,7 @@
       "b": "0.0000",
       "a": "0.0100",
       "l": "0.0100",
-      "v": "3579.65",
+      "v": "3584.32",
       "title": "Will the upper bound of the federal funds rate be above 5.00% following the Fed's Oct 28, 2026 meeting?"
     },
     {
@@ -2899,10 +2899,10 @@
       "s": "Above 4.00%",
       "k": 4,
       "c": "2026-10-28T17:55:00Z",
-      "b": "0.1400",
-      "a": "0.1800",
-      "l": "0.1500",
-      "v": "165643.07",
+      "b": "0.1600",
+      "a": "0.1900",
+      "l": "0.2100",
+      "v": "165705.40",
       "title": "Will the upper bound of the federal funds rate be above 4.00% following the Fed's Oct 28, 2026 meeting?"
     },
     {
