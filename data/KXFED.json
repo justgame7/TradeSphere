@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05T02:58:02Z",
+  "updated": "2026-10-05T03:15:07Z",
   "markets": [
     {
       "t": "KXFED-27APR-T6.00",
@@ -2756,9 +2756,9 @@
       "k": 4.25,
       "c": "2026-12-09T18:55:00Z",
       "b": "0.2200",
-      "a": "0.2400",
-      "l": "0.2200",
-      "v": "44574.22",
+      "a": "0.2500",
+      "l": "0.2400",
+      "v": "44582.90",
       "title": "Will the upper bound of the federal funds rate be above 4.25% following the Fed's Dec 9, 2026 meeting?"
     },
     {
@@ -2768,7 +2768,7 @@
       "k": 4,
       "c": "2026-12-09T18:55:00Z",
       "b": "0.7300",
-      "a": "0.7800",
+      "a": "0.7500",
       "l": "0.7400",
       "v": "42264.75",
       "title": "Will the upper bound of the federal funds rate be above 4.00% following the Fed's Dec 9, 2026 meeting?"
