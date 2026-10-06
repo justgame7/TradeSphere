@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-06T22:24:32Z",
+  "updated": "2026-10-06T22:46:18Z",
   "markets": [
     {
       "t": "KXU3-26NOV-T5.0",
@@ -163,8 +163,8 @@
       "s": "Above 3.7%",
       "k": 3.7,
       "c": "2026-12-04T13:29:00Z",
-      "b": "0.9300",
-      "a": "0.9600",
+      "b": "0.9200",
+      "a": "0.9700",
       "l": "0.9600",
       "v": "2050.98",
       "title": "Will the unemployment rate (U-3) be above 3.7% in November?"
@@ -286,7 +286,7 @@
       "b": "0.6000",
       "a": "0.6100",
       "l": "0.6100",
-      "v": "16944.34",
+      "v": "16945.34",
       "title": "Will the unemployment rate (U-3) be above 4.1% in October?"
     },
     {
