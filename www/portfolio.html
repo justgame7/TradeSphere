@@ -203,6 +203,17 @@ a{color:inherit;}
 .alloc-table td{padding:8px 0; border-bottom:1px solid var(--border-soft); font-family:'IBM Plex Mono', monospace; text-align:right;}
 .alloc-table td:first-child{font-family:'Public Sans', sans-serif; font-weight:600; color:var(--text);}
 .alloc-table tr:last-child td{border-bottom:none;}
+.alloc-table tr.coin-row-click{cursor:pointer;}
+.alloc-table tr.coin-row-click:hover td{background:rgba(255,255,255,.03);}
+.alloc-table .coin-caret{display:inline-block; width:10px; margin-right:6px; color:var(--text-faint); font-size:10px; transition:transform .15s;}
+.alloc-table tr.open .coin-caret{transform:rotate(90deg);}
+.alloc-table tr.coin-detail-row td{padding:0 0 8px; text-align:left; font-family:'Public Sans', sans-serif; font-weight:400;}
+.coin-detail{background:rgba(255,255,255,.025); border-radius:10px; padding:4px 10px;}
+.coin-detail-line{display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid var(--border-soft); font-size:12px;}
+.coin-detail-line:last-of-type{border-bottom:none;}
+.coin-detail-date{color:var(--text-faint);}
+.coin-detail-val{font-family:'IBM Plex Mono', monospace;}
+.coin-detail-note{font-size:11px; color:var(--text-faint); padding:6px 0 4px;}
 
 /* Realized P&L performance card */
 .card-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px;}
@@ -2550,6 +2561,8 @@ function wireFYHover(areaEl, points, y, prefix, geo){
    =========================================================================== */
 let allocMode = 'current';
 let allocChartStyle = 'bar';    // 'bar' | 'donut' — in-card representation, bar is default
+let allocExpandOpenCoins = new Set(); // coins expanded in the closed-P&L list view
+const COIN_DETAIL_MIN_ABS_PNL = 5;     // closed trades under this (native USD) are hidden from the drill-down
 let allocExpandStyle = 'hbar';  // 'hbar' | 'list' — layout used in the "all coins" expand modal
 const ALLOC_TOP_N_DONUT = 6;
 const ALLOC_TOP_N_BAR = 8;
@@ -2808,6 +2821,34 @@ function drawAllocVBarChart(items, mode, prefix){
   </svg>`;
 }
 
+// Drill-down for one coin in the closed-P&L list: every closed trade (within
+// the selected financial year) whose profit or loss is $5 or more in size,
+// newest first. Smaller trades are skipped but counted in a footnote.
+function renderCoinClosedDetail(symbol, prefix){
+  const all = filterRealizedByFY(state.markets.crypto.realized || [], 'crypto')
+    .filter(r => r.symbol === symbol)
+    .slice().sort((a,b)=>b.date - a.date);
+  const shown = all.filter(r => Math.abs(r.pnl || 0) >= COIN_DETAIL_MIN_ABS_PNL);
+  const hidden = all.length - shown.length;
+  const note = hidden > 0
+    ? `<div class="coin-detail-note">${hidden} trade${hidden===1?'':'s'} under $${COIN_DETAIL_MIN_ABS_PNL} hidden</div>`
+    : '';
+  if(!shown.length){
+    return `<div class="coin-detail"><div class="coin-detail-note">No closed trades of $${COIN_DETAIL_MIN_ABS_PNL} or more.</div>${note}</div>`;
+  }
+  const lines = shown.map(r=>{
+    const v = (r.pnl >= 0 ? '+' : '') + fmtMoney(toDisplay(r.pnl, 'crypto'), prefix);
+    const d = new Date(r.date);
+    const dateTxt = d.toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' })
+      + ' · ' + d.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
+    return `<div class="coin-detail-line">
+      <span class="coin-detail-date">${dateTxt}</span>
+      <span class="coin-detail-val" style="color:${r.pnl >= 0 ? 'var(--mint)' : 'var(--coral)'}">${v}</span>
+    </div>`;
+  }).join('');
+  return `<div class="coin-detail">${lines}${note}</div>`;
+}
+
 // Plain sortable-by-eye table: one row per coin, values right-aligned.
 function renderAllocListTable(items, mode, prefix){
   const rows = items.map(s=>{
@@ -2815,11 +2856,20 @@ function renderAllocListTable(items, mode, prefix){
       ? (s.pnl >= 0 ? '+' : '') + fmtMoney(toDisplay(s.pnl, 'crypto'), prefix)
       : fmtMoney(toDisplay(s.value, 'crypto'), prefix);
     const color = mode === 'closed' ? (s.pnl >= 0 ? 'var(--mint)' : 'var(--coral)') : 'var(--text)';
-    return `<tr>
+    if(mode !== 'closed'){
+      return `<tr>
       <td>${escapeHtml(s.label)}</td>
       <td>${s.trades || 0}</td>
       <td style="color:${color}">${valTxt}</td>
     </tr>`;
+    }
+    const isOpen = allocExpandOpenCoins.has(s.label);
+    return `<tr class="coin-row-click${isOpen ? ' open' : ''}" data-coin="${escapeHtml(s.label)}">
+      <td><span class="coin-caret">&#9656;</span>${escapeHtml(s.label)}</td>
+      <td>${s.trades || 0}</td>
+      <td style="color:${color}">${valTxt}</td>
+    </tr>`
+    + (isOpen ? `<tr class="coin-detail-row"><td colspan="3">${renderCoinClosedDetail(s.label, prefix)}</td></tr>` : '');
   }).join('');
   return `<table class="alloc-table">
     <thead><tr><th>Coin</th><th>Trades</th><th>${mode === 'closed' ? 'Realized P&L' : 'Value'}</th></tr></thead>
@@ -4039,6 +4089,13 @@ document.getElementById('btnAllocExpand').addEventListener('click', openAllocExp
 document.getElementById('expandChartStyle').addEventListener('click', (e)=>{
   const btn = e.target.closest('button'); if(!btn) return;
   allocExpandStyle = btn.dataset.style;
+  renderAllocExpand();
+});
+document.getElementById('expandChartArea').addEventListener('click', (e)=>{
+  const row = e.target.closest('tr.coin-row-click'); if(!row) return;
+  const coin = row.dataset.coin;
+  if(allocExpandOpenCoins.has(coin)) allocExpandOpenCoins.delete(coin);
+  else allocExpandOpenCoins.add(coin);
   renderAllocExpand();
 });
 document.getElementById('btnPerfExpand').addEventListener('click', openPerfExpand);
