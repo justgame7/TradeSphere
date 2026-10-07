@@ -412,7 +412,7 @@
    (America/New_York) unless noted, converted to the user's local
    time for display.
    ============================================================ */
-const VERIFIED_THROUGH = "2026-09-22";
+const VERIFIED_THROUGH = "2026-10-07";
 
 const EVENTS = [
   {
@@ -433,7 +433,7 @@ const EVENTS = [
     verified: true,
     date: "2026-09-15T14:15:00-04:00",
     desc: "Outcome: cloture FAILED, 49–50 (short of the 60 needed), largely over ethics-disclosure language for officials' crypto holdings rather than the underlying SEC/CFTC market-structure framework. Sen. Thom Tillis filed a motion to reconsider, but the bill is effectively stalled for 2026 — the SEC has since opened its own \"Regulation Crypto Assets\" rulemaking (see below) as a regulatory fallback.",
-    source: { name: "CoinDesk / Congress.gov tracker", url: "https://www.coindesk.com/policy/2026/08/08/u-s-senate-opens-first-stage-of-crypto-clarity-act-voting-to-give-bill-a-chance-next-month" }
+    source: { name: "CNBC — Senate cloture vote fails", url: "https://www.cnbc.com/2026/09/15/senate-cloture-vote-on-clarity-act-fails-dealing-regulatory-setback-to-crypto-industry.html" }
   },
   {
     id: "fomc-sep",
@@ -442,7 +442,7 @@ const EVENTS = [
     impact: "high",
     verified: true,
     date: "2026-09-16T14:00:00-04:00",
-    desc: "Outcome: the FOMC voted 12-0 to raise the federal funds rate 25bps to a target range of 3.75%–4.00% — the first hike since 2023 and the first meeting chaired by Kevin Warsh, who cited inflation \"too high for too long.\" The updated dot plot shows most officials expecting another hike by year-end. This was the quarterly Summary of Economic Projections (\"dot plot\") meeting.",
+    desc: "Outcome: the FOMC voted 12-0 to raise the federal funds rate 25bps to a target range of 3.75%–4.00% — the first hike since July 2023, at the third meeting chaired by Kevin Warsh. The dot plot showed 16 of 18 participants expecting at least one more 25bp hike by year-end (4.00%–4.25%). Warsh did not submit his own dot. This was the quarterly Summary of Economic Projections (\"dot plot\") meeting.",
     source: { name: "Federal Reserve meeting calendar", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" }
   },
   {
@@ -451,7 +451,7 @@ const EVENTS = [
     category: "derivatives",
     impact: "medium",
     verified: true,
-    date: "2026-09-25T08:00:00-04:00",
+    date: "2026-09-25T08:00:00+00:00",
     desc: "Deribit's largest quarterly BTC/ETH options expiry of the quarter. Historically brings elevated volatility and max-pain pinning in the hours around 08:00 UTC.",
     source: { name: "Deribit expiry calendar", url: "https://www.deribit.com/options-expiration" }
   },
@@ -484,7 +484,7 @@ const EVENTS = [
     impact: "high",
     verified: true,
     date: "2026-10-14T08:30:00-04:00",
-    desc: "Confirmed on the official BLS release calendar. Hot prints push back Fed cut expectations and tend to pressure BTC/ETH; cool prints do the opposite.",
+    desc: "Confirmed on the official BLS release calendar. With the Fed now hiking (3.75%–4.00% after the Sept 16 move), a hot print raises odds of another hike; a soft print — especially after September payrolls came in at just +29k with unemployment up to 4.2% — supports a hold at the Oct 28 FOMC.",
     source: { name: "BLS release schedule", url: "https://www.bls.gov/schedule/news_release/cpi.htm" }
   },
   {
@@ -494,7 +494,7 @@ const EVENTS = [
     impact: "high",
     verified: true,
     date: "2026-10-28T14:00:00-04:00",
-    desc: "Two-day meeting concluding Oct 28, the first since the September meeting's surprise 25bp hike to 3.75%–4.00% under new Chair Kevin Warsh. No Summary of Economic Projections at this meeting (SEP only occurs in Mar/Jun/Sep/Dec).",
+    desc: "Two-day meeting concluding Oct 28, the first since the September 25bp hike to 3.75%–4.00% under Chair Kevin Warsh. The September dot plot pointed to one more hike by year-end, but the weak Sept jobs report (+29k, unemployment 4.2%) has shifted market pricing toward a hold. No Summary of Economic Projections at this meeting (SEP only occurs in Mar/Jun/Sep/Dec). Same week: ECB (Oct 29), Q3 GDP + September PCE (Oct 29), BoJ (Oct 30).",
     source: { name: "Federal Reserve meeting calendar", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" }
   },
   {
@@ -503,7 +503,7 @@ const EVENTS = [
     category: "derivatives",
     impact: "low",
     verified: true,
-    date: "2026-10-30T08:00:00-04:00",
+    date: "2026-10-30T08:00:00+00:00",
     desc: "Last-Friday-of-month Deribit options expiry — smaller than the quarterly expiries but still a volatility marker.",
     source: { name: "Deribit expiry calendar", url: "https://www.deribit.com/options-expiration" }
   },
@@ -546,18 +546,17 @@ const EVENTS = [
     verified: false,
     date: "2026-12-15T12:00:00-05:00",
     tentative: true,
-    desc: "Ethereum's next major hard fork (enshrined proposer-builder separation + block-level access lists). A public Sepolia testnet fork is tentatively scheduled for Oct 6, 2026 (see the network entry below) as the key gating step; developers still hope for mainnet before year-end but the roadmap has already slipped from an earlier H1 2026 target and Devnet-9 has hit finality issues, so no mainnet block/date is locked yet — placeholder date shown is illustrative only. Watch ethereum.org/roadmap for the confirmed fork date.",
+    desc: "Ethereum's next major hard fork (enshrined proposer-builder separation + block-level access lists). The Sepolia public-testnet fork went live on Oct 6; developers will assess it before scheduling Hoodi, and no mainnet date has been set — the Ethereum Foundation roadmap lists Q4 2026 as an unconfirmed target and the schedule has already slipped from an earlier H1 2026 goal. The December placeholder date shown is illustrative only. Watch ethereum.org/roadmap and the core-dev calls for the confirmed Hoodi and mainnet dates.",
     source: { name: "Ethereum Foundation roadmap", url: "https://ethereum.org/roadmap/glamsterdam/" }
   },
   {
     id: "glamsterdam-sepolia",
-    title: "Ethereum Glamsterdam — Sepolia public testnet fork",
+    title: "Ethereum Glamsterdam — Sepolia public testnet fork (went live)",
     category: "network",
     impact: "low",
-    verified: false,
-    tentative: true,
+    verified: true,
     date: "2026-10-06T13:53:00+00:00",
-    desc: "Tentatively-scheduled first public-testnet rehearsal (Holesky/Hoodi to follow) for the Glamsterdam upgrade — the gating step before any mainnet date can be set. Developers agreed to this date despite the upgrade not yet running successfully on a stable private devnet (Devnet-9 has had finality issues), so a slip is plausible. A clean run here is what would let a December 2026 mainnet target stay alive.",
+    desc: "Completed: Glamsterdam activated on the Sepolia testnet on Oct 6 (18 core EIPs including ePBS and parallel processing, tested with a 200M gas limit). Next gating steps: assess Sepolia, schedule Hoodi, then set a mainnet date — none are scheduled yet.",
     source: { name: "Ethereum core devs / Christine Kim newsletter", url: "https://bitcoinethereumnews.com/ethereum/ethereum-targets-october-6-for-glamsterdam-sepolia-fork/" }
   },
   {
@@ -567,8 +566,8 @@ const EVENTS = [
     impact: "medium",
     verified: true,
     date: "2026-10-20T23:59:00-04:00",
-    desc: "The SEC's own rulemaking framework for digital-asset offerings, publicly positioned by its Chairman as the agency's fallback (\"deliver for investors and innovators with or without the legislation\") after the CLARITY Act's cloture vote failed on Sep 15. This is the deadline for public comments before the SEC can move toward a final rule — likely to carry the bulk of US crypto rulemaking into 2027 given Congress's stalled market-structure bill.",
-    source: { name: "SEC rulemaking docket", url: "https://www.sec.gov/rules-regulations/rulemaking-activity" }
+    desc: "The SEC's own rulemaking framework for crypto-asset offerings (proposed Aug 18; File No. S7-2026-27), publicly positioned by its Chairman as the agency's fallback after the CLARITY Act's cloture vote failed on Sep 15. It would create a $5M \"startup\" exemption and a $75M-per-12-months \"fundraising\" exemption plus a safe harbor for when a token stops being an investment contract. Comments close Oct 20 (60 days after the Aug 21 Federal Register publication); law firms do not expect final rules before Q1 2027. Separately, the SEC's tokenized-stock \"Innovation Exemption\" order (Sep 17) is also open for comment.",
+    source: { name: "Federal Register — Regulation Crypto Assets", url: "https://www.federalregister.gov/documents/2026/08/21/2026-17183/regulation-crypto-assets" }
   },
   {
     id: "gov-funding-deadline-dec",
@@ -578,7 +577,7 @@ const EVENTS = [
     verified: true,
     date: "2026-12-11T00:00:00-05:00",
     desc: "The stopgap continuing resolution Trump signed Sep 2, 2026 (avoiding an Oct 1 lapse) funds the government only through this date. Congress must pass FY2027 appropriations or another CR by Dec 11 or risk a repeat of the record 43-day shutdown that ran Oct 1–Nov 12, 2025, which delayed several BLS/Census data releases and dented Q4 GDP. The Dec 11 date was deliberately set after the Nov 3 midterms to keep a shutdown fight off the campaign trail — worth watching alongside the year's last FOMC meeting and CPI print, both landing the same week.",
-    source: { name: "Congress.gov / continuing resolution coverage", url: "https://govtschemes.org/government-shutdown-2026-update/" }
+    source: { name: "White House — H.R. 6500 signed into law", url: "https://www.whitehouse.gov/briefings-statements/2026/09/congressional-bill-h-r-6500-signed-into-law/" }
   },
   {
     id: "fomc-dec",
@@ -607,7 +606,7 @@ const EVENTS = [
     category: "derivatives",
     impact: "medium",
     verified: true,
-    date: "2026-12-25T08:00:00-05:00",
+    date: "2026-12-25T08:00:00+00:00",
     desc: "Year-end quarterly Deribit expiry — typically the largest single expiry of the year by open interest.",
     source: { name: "Deribit expiry calendar", url: "https://www.deribit.com/options-expiration" }
   },
@@ -706,9 +705,9 @@ const EVENTS = [
     title: "Q3 2026 earnings season kickoff (big banks)",
     category: "earnings",
     impact: "medium",
-    verified: false,
-    date: "2026-10-14T07:00:00-04:00",
-    desc: "Major US banks (JPMorgan, Wells Fargo, Citi, Goldman) traditionally open earnings season in mid-October. Sets the macro-liquidity tone for risk assets heading into Q4. Exact dates confirmed closer to the print.",
+    verified: true,
+    date: "2026-10-13T06:45:00-04:00",
+    desc: "Big-bank earnings open the season on Tuesday, Oct 13 — JPMorgan (results ~6:45am ET, call 8:30am ET) and Goldman Sachs report pre-market; Citigroup and Wells Fargo report the same week. Sets the macro-liquidity tone for risk assets heading into Q4. (Previously listed as Oct 14.)",
     source: { name: "Nasdaq earnings calendar", url: "https://www.nasdaq.com/market-activity/earnings" }
   },
   {
@@ -729,7 +728,7 @@ const EVENTS = [
     impact: "high",
     verified: true,
     date: "2026-10-29T08:30:00-04:00",
-    desc: "BEA's first cut at Q3 growth. Confirmed on BEA's official release schedule (BEA 26-36).",
+    desc: "BEA's first cut at Q3 growth. Confirmed on BEA's official release schedule. September Personal Income & Outlays (PCE inflation) is released at the same time, 8:30am ET, one day after the FOMC decision.",
     source: { name: "BEA GDP release schedule", url: "https://www.bea.gov/news/schedule" }
   },
   {
@@ -747,10 +746,10 @@ const EVENTS = [
     title: "US Treasury Quarterly Refunding Announcement",
     category: "macro",
     impact: "medium",
-    verified: false,
-    date: "2026-11-04T08:30:00-04:00",
-    desc: "Treasury sets note/bond auction sizes for the quarter ahead. Estimated for the first Wednesday of November, the usual cadence; surprises in issuance size can move rates and, with them, risk assets.",
-    source: { name: "TreasuryDirect auction schedule", url: "https://www.treasurydirect.gov/auctions/auction-query/" }
+    verified: true,
+    date: "2026-11-04T08:30:00-05:00",
+    desc: "Treasury sets note/bond auction sizes for the quarter ahead. Date confirmed in Treasury's August refunding statement (Wednesday, Nov 4, 8:30am ET); borrowing estimates are typically published the Monday before. Treasury had guided to unchanged coupon sizes for \"at least the next several quarters\" — any change to that language is the policy signal that moves the long end.",
+    source: { name: "US Treasury — Quarterly Refunding Statement (Aug 2026)", url: "https://home.treasury.gov/news/press-releases/sb0590" }
   },
   {
     id: "opec-plus-review",
@@ -759,7 +758,7 @@ const EVENTS = [
     impact: "medium",
     verified: true,
     date: "2026-10-04T09:00:00-04:00",
-    desc: "Now a seven-country subgroup (Saudi Arabia, Russia, Iraq, Kuwait, Kazakhstan, Algeria, Oman — the UAE has dropped out of this voluntary-adjustment track) meeting monthly to review production levels; this date was explicitly confirmed in OPEC's own Sep 6, 2026 statement as \"the next meeting.\" The following review would fall in early November but isn't confirmed yet. Oil-price swings feed through to risk sentiment and inflation expectations.",
+    desc: "Now a seven-country subgroup (Saudi Arabia, Russia, Iraq, Kuwait, Kazakhstan, Algeria, Oman — the UAE left OPEC in May) meeting monthly to review production levels; Oct 4 was confirmed in OPEC's Sep 6 statement. This meeting has now taken place — check opec.org for the outcome and the next meeting date, which was not yet published when this calendar was re-verified. Oil-price swings feed through to risk sentiment and inflation expectations.",
     source: { name: "OPEC official statements", url: "https://opec.org/pr-detail/613-6-september-2026.html" }
   },
   {
@@ -768,7 +767,7 @@ const EVENTS = [
     category: "macro",
     impact: "high",
     verified: true,
-    date: "2026-11-06T08:30:00-04:00",
+    date: "2026-11-06T08:30:00-05:00",
     desc: "Confirmed on the official BLS release calendar.",
     source: { name: "BLS Employment Situation", url: "https://www.bls.gov/news.release/empsit.htm" }
   },
@@ -844,6 +843,257 @@ const EVENTS = [
     date: "2028-04-15T00:00:00+00:00",
     desc: "The next block-subsidy halving (to 1.5625 BTC/block) is expected around April 2028 based on current block-production pace — well outside this calendar's Sep–Dec 2026 window, but included since it's the single most-watched long-horizon BTC catalyst. The exact date will drift with hashrate/block-time variance; treat this as directional, not scheduled.",
     source: { name: "Bitcoin halving countdown trackers", url: "https://www.coingecko.com/en/bitcoin-halving" }
+  },
+  {
+    id: "fomc-minutes-sep",
+    title: "FOMC minutes — September 15–16 meeting",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-10-07T14:00:00-04:00",
+    desc: "Minutes of the meeting that delivered the first rate hike since 2023. Markets will parse how firmly participants backed another hike by year-end (16 of 18 dot-plot participants projected one) and how much weight they put on the labor market.",
+    source: { name: "Federal Reserve meeting calendar", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" }
+  },
+  {
+    id: "beige-book-oct",
+    title: "Fed Beige Book",
+    category: "macro",
+    impact: "low",
+    verified: true,
+    date: "2026-10-14T14:00:00-04:00",
+    desc: "Anecdotal regional read on activity, labor and prices, two weeks ahead of the Oct 28 FOMC decision.",
+    source: { name: "Federal Reserve — October 2026 calendar", url: "https://www.federalreserve.gov/newsevents/2026-october.htm" }
+  },
+  {
+    id: "ppi-sep",
+    title: "US PPI — September 2026 data",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-10-15T08:30:00-04:00",
+    desc: "Producer Price Index, landing the morning after September CPI. Confirmed on the official BLS release calendar.",
+    source: { name: "BLS PPI schedule", url: "https://www.bls.gov/schedule/news_release/ppi.htm" }
+  },
+  {
+    id: "retail-sales-sep",
+    title: "US Retail Sales — September 2026 data",
+    category: "macro",
+    impact: "medium",
+    verified: false,
+    date: "2026-10-15T08:30:00-04:00",
+    desc: "Census Bureau advance retail sales. Date taken from secondary economic calendars (same morning as PPI) — not yet checked against the Census schedule page.",
+    source: { name: "Census retail sales schedule", url: "https://www.census.gov/retail/marts/www/martsdates.html" }
+  },
+  {
+    id: "holiday-columbus",
+    title: "US bond-market holiday — Columbus Day",
+    category: "holiday",
+    impact: "low",
+    verified: true,
+    date: "2026-10-12T00:00:00-04:00",
+    desc: "Federal Reserve closed and US bond markets shut; US stock exchanges stay open. Treasury-market liquidity (and the usual cross-asset hedging flows) is thin for the day.",
+    source: { name: "Federal Reserve — October 2026 calendar", url: "https://www.federalreserve.gov/newsevents/2026-october.htm" }
+  },
+  {
+    id: "mt-gox-deadline",
+    title: "Mt. Gox creditor repayment deadline",
+    category: "supply",
+    impact: "medium",
+    verified: true,
+    date: "2026-10-31T23:59:00+09:00",
+    desc: "Court-approved deadline for the Mt. Gox trustee to finish creditor repayments. The estate still holds ~34,689 BTC per Arkham data. The deadline has been extended three times (2023, 2024, 2025) — last year's extension came just four days before it lapsed — so watch for another extension notice in the final week, or for distribution/wallet movements if the trustee instead starts paying out. No 2026 update was found when this calendar was re-verified (Oct 7).",
+    source: { name: "The Block — Mt. Gox postpones repayment deadline", url: "https://www.theblock.co/post/376205/mt-gox-postpones-repayment-deadline" }
+  },
+  {
+    id: "sol-alpenglow",
+    title: "Solana Alpenglow consensus upgrade — mainnet",
+    category: "network",
+    impact: "high",
+    verified: false,
+    date: "2026-10-31T00:00:00+00:00",
+    tentative: true,
+    desc: "Alpenglow (the ~150ms-finality consensus rewrite) activated on Solana testnet on Sep 24 (54ms median finalization) and devnet on Sep 25. Mainnet is tied to the Agave 4.3 release, expected late September–October, but no activation date has been announced — the placeholder date shown is the end of that window and is illustrative only.",
+    source: { name: "Crypto Briefing — Alpenglow testnet results", url: "https://cryptobriefing.com/solana-alpenglow-54ms-finalization-testnet/" }
+  },
+  {
+    id: "ecb-oct",
+    title: "ECB monetary policy decision",
+    category: "macro",
+    impact: "medium",
+    verified: false,
+    date: "2026-10-29T14:15:00+01:00",
+    desc: "ECB Governing Council rate decision. Date from secondary calendars — not yet checked against the ECB's own schedule. Lands the day after the FOMC decision and alongside Q3 GDP and September PCE.",
+    source: { name: "ECB — monetary policy meetings", url: "https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html" }
+  },
+  {
+    id: "pce-sep",
+    title: "US PCE inflation — September 2026 (Personal Income & Outlays)",
+    category: "macro",
+    impact: "high",
+    verified: true,
+    date: "2026-10-29T08:30:00-04:00",
+    desc: "The Fed's preferred inflation gauge, released the same morning as the Q3 GDP advance estimate and one day after the FOMC decision — one session can reprice both growth and the rate path. Per BEA's own schedule (some aggregators list other dates).",
+    source: { name: "BEA release schedule", url: "https://www.bea.gov/news/schedule" }
+  },
+  {
+    id: "boj-oct",
+    title: "Bank of Japan decision + Outlook Report",
+    category: "macro",
+    impact: "high",
+    verified: false,
+    date: "2026-10-30T12:00:00+09:00",
+    desc: "Two-day meeting (Oct 29–30) with the quarterly Outlook Report; the decision lands around midday Tokyo time. A BoJ tightening surprise narrows the US–Japan rate gap and has rattled crypto through yen-carry unwinds before. Date from secondary calendars — confirm at boj.or.jp.",
+    source: { name: "Bank of Japan — monetary policy meetings", url: "https://www.boj.or.jp/en/mopo/mpmsche_minu/index.htm" }
+  },
+  {
+    id: "jolts-sep",
+    title: "US JOLTS — September 2026 (job openings)",
+    category: "macro",
+    impact: "low",
+    verified: true,
+    date: "2026-11-03T10:00:00-05:00",
+    desc: "BLS job openings and labor turnover, released the morning of the midterm elections. Confirmed on the BLS November schedule.",
+    source: { name: "BLS release calendar — November 2026", url: "https://www.bls.gov/schedule/2026/11_sched_list.htm" }
+  },
+  {
+    id: "ism-mfg-oct",
+    title: "ISM Manufacturing PMI — October 2026",
+    category: "macro",
+    impact: "medium",
+    verified: false,
+    date: "2026-11-02T10:00:00-05:00",
+    desc: "Estimated for the first business day of the month, ISM's usual cadence — not yet checked against ISM's release calendar.",
+    source: { name: "ISM Report on Business", url: "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/" }
+  },
+  {
+    id: "ppi-oct",
+    title: "US PPI — October 2026 data",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-11-13T08:30:00-05:00",
+    desc: "Producer Price Index, three days after October CPI. Confirmed on the official BLS release calendar.",
+    source: { name: "BLS PPI schedule", url: "https://www.bls.gov/schedule/news_release/ppi.htm" }
+  },
+  {
+    id: "retail-sales-oct",
+    title: "US Retail Sales — October 2026 data",
+    category: "macro",
+    impact: "medium",
+    verified: false,
+    date: "2026-11-17T08:30:00-05:00",
+    desc: "Census Bureau advance retail sales. Date taken from secondary economic calendars — not yet checked against the Census schedule page.",
+    source: { name: "Census retail sales schedule", url: "https://www.census.gov/retail/marts/www/martsdates.html" }
+  },
+  {
+    id: "fomc-minutes-oct",
+    title: "FOMC minutes — October 27–28 meeting",
+    category: "macro",
+    impact: "low",
+    verified: false,
+    date: "2026-11-18T14:00:00-05:00",
+    desc: "Minutes arrive three weeks after the decision per Fed practice; exact date to be confirmed on the Fed's calendar page.",
+    source: { name: "Federal Reserve meeting calendar", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" }
+  },
+  {
+    id: "monad-unlock",
+    title: "Monad (MON) first team & investor unlock",
+    category: "supply",
+    impact: "medium",
+    verified: false,
+    date: "2026-11-24T00:00:00+00:00",
+    desc: "First scheduled release of team and investor MON after the one-year cliff from the Nov 24, 2025 mainnet launch, followed by monthly releases through Nov 2029. Trackers disagree on the size of the day-one tranche (one cites ~6.7B MON, another a larger figure including other recipients) — check tokenomist.ai before sizing a position. Flagged by multiple trackers as the biggest single unlock of Q4.",
+    source: { name: "Tokenomist — Monad unlocks", url: "https://www.tokenomist.ai/monad/tokenomics" }
+  },
+  {
+    id: "pce-oct",
+    title: "US PCE — October 2026 + Q3 GDP second estimate",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-11-25T08:30:00-05:00",
+    desc: "Personal Income & Outlays for October, released together with BEA's second estimate of Q3 GDP, the day before Thanksgiving.",
+    source: { name: "BEA release schedule", url: "https://www.bea.gov/news/schedule" }
+  },
+  {
+    id: "opex-nov",
+    title: "Monthly options expiry (BTC & ETH)",
+    category: "derivatives",
+    impact: "low",
+    verified: false,
+    date: "2026-11-27T08:00:00+00:00",
+    desc: "Last-Friday-of-month Deribit expiry (08:00 UTC), which falls the day after Thanksgiving on thin US liquidity. Date follows Deribit's last-Friday convention; not yet checked on Deribit's expiry page.",
+    source: { name: "Deribit expiry calendar", url: "https://www.deribit.com/options-expiration" }
+  },
+  {
+    id: "jolts-oct",
+    title: "US JOLTS — October 2026 (job openings)",
+    category: "macro",
+    impact: "low",
+    verified: true,
+    date: "2026-12-01T10:00:00-05:00",
+    desc: "BLS job openings and labor turnover. Confirmed on the BLS December schedule.",
+    source: { name: "BLS release calendar — December 2026", url: "https://www.bls.gov/schedule/2026/12_sched_list.htm" }
+  },
+  {
+    id: "ism-mfg-nov",
+    title: "ISM Manufacturing PMI — November 2026",
+    category: "macro",
+    impact: "medium",
+    verified: false,
+    date: "2026-12-01T10:00:00-05:00",
+    desc: "Estimated for the first business day of the month, ISM's usual cadence — not yet checked against ISM's release calendar.",
+    source: { name: "ISM Report on Business", url: "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/" }
+  },
+  {
+    id: "ppi-nov",
+    title: "US PPI — November 2026 data",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-12-15T08:30:00-05:00",
+    desc: "Producer Price Index, five days after November CPI and the Fed's final decision of the year. Confirmed on the official BLS release calendar.",
+    source: { name: "BLS PPI schedule", url: "https://www.bls.gov/schedule/news_release/ppi.htm" }
+  },
+  {
+    id: "retail-sales-nov",
+    title: "US Retail Sales — November 2026 data",
+    category: "macro",
+    impact: "medium",
+    verified: false,
+    date: "2026-12-16T08:30:00-05:00",
+    desc: "Census Bureau advance retail sales, the key holiday-season spending read. Date taken from secondary economic calendars — not yet checked against the Census schedule page.",
+    source: { name: "Census retail sales schedule", url: "https://www.census.gov/retail/marts/www/martsdates.html" }
+  },
+  {
+    id: "boj-dec",
+    title: "Bank of Japan decision",
+    category: "macro",
+    impact: "medium",
+    verified: false,
+    date: "2026-12-18T12:00:00+09:00",
+    desc: "Final BoJ meeting of the year (Dec 17–18). Date from secondary calendars — confirm at boj.or.jp.",
+    source: { name: "Bank of Japan — monetary policy meetings", url: "https://www.boj.or.jp/en/mopo/mpmsche_minu/index.htm" }
+  },
+  {
+    id: "pce-nov",
+    title: "US PCE — November 2026 + Q3 GDP third estimate",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-12-23T08:30:00-05:00",
+    desc: "Personal Income & Outlays for November, released together with BEA's third estimate of Q3 GDP — the last major US data print of the year.",
+    source: { name: "BEA release schedule", url: "https://www.bea.gov/news/schedule" }
+  },
+  {
+    id: "us-china-truce",
+    title: "US–China trade truce — extended deadline",
+    category: "macro",
+    impact: "high",
+    verified: false,
+    date: "2027-01-10T00:00:00-05:00",
+    desc: "The truce that was due to lapse on Nov 10, 2026 was extended on Sep 27 to Jan 10, 2027 (announced during Xi Jinping's US visit). Worth confirming whether the separate Nov 9–10 Section 301 exclusion and port-fee expiries are covered by the extension. Outside this calendar's Sep–Dec window but included because a lapse would re-open tariff escalation risk.",
+    source: { name: "Supply Chain Dive — US, China extend truce", url: "https://finance.yahoo.com/economy/policy/articles/us-china-extend-trade-war-145500229.html" }
   }
 ];
 
@@ -856,7 +1106,8 @@ const CATEGORY_META = {
   election:    { label: "Elections",     color: "var(--red)" },
   holiday:     { label: "Market Holiday",color: "var(--muted)" },
   earnings:    { label: "Earnings",      color: "var(--blue)" },
-  commodities: { label: "Commodities",   color: "var(--amber)" }
+  commodities: { label: "Commodities",   color: "var(--amber)" },
+  supply:      { label: "Supply / Unlocks", color: "var(--amber)" }
 };
 
 let activeFilter = "all";
