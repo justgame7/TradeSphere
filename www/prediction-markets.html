@@ -18,6 +18,9 @@ h1{margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:99px;background:var(--g);border:1px solid var(--gb);font-size:12px;color:var(--mut)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--up);box-shadow:0 0 0 0 var(--up);animation:pl 2s infinite}
 .stale .dot{background:var(--amb);animation:none}.err .dot{background:var(--dn);animation:none}
+.fresh{margin:0 0 14px;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.45;border:1px solid var(--gb);background:var(--g);color:var(--fg)}
+.fresh[hidden]{display:none}.fresh.warn{border-color:var(--amb);background:rgba(255,181,71,.08)}.fresh.crit{border-color:var(--dn);background:rgba(255,107,125,.09)}
+.fresh b{font-weight:700}
 @keyframes pl{70%{box-shadow:0 0 0 7px transparent}}
 button,input,select{font:inherit;color:inherit}
 .btn{background:var(--g);border:1px solid var(--gb);border-radius:12px;padding:8px 14px;cursor:pointer;backdrop-filter:blur(12px)}
@@ -71,6 +74,7 @@ label.tg{display:flex;gap:6px;align-items:center;color:var(--mut);cursor:pointer
  <div><h1>Prediction markets</h1><div class="sub">What traders are betting on for the events that move crypto.</div></div>
  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill" id="st"><i class="dot"></i><span id="up">Loading…</span></span><button class="btn" id="rf">Refresh</button></div>
 </header>
+<div class="fresh" id="fresh" role="status" aria-live="polite" hidden></div>
 <section class="kpis" id="kpis"></section>
 <div class="bar2">
  <div class="chips" id="chips" role="tablist"></div>
@@ -102,7 +106,10 @@ const SERIES=[
  {f:'KXU3',t:'Unemployment',cat:'Growth & jobs',u:'%'}
 ];
 const CATS=['All','Crypto','Fed & rates','Inflation','Growth & jobs'];
-const S={cat:'All',q:'',thin:false,per:2,ev:[],upd:null,missing:[]};
+const S={cat:'All',q:'',thin:false,per:2,ev:[],upd:null,missing:[],sers:[]};
+// Data files are rewritten by a GitHub Action roughly every 10 min. Warn once a few runs have been missed,
+// and escalate when even the freshest file is old (pipeline stopped).
+const WARN_MIN=30,STALE_MIN=90;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const prob=m=>{const b=+m.b,a=+m.a,l=+m.l;if(a>0&&a-b<=.10)return{p:(a+b)/2,q:1};return l>0?{p:l,q:0}:null};
@@ -116,11 +123,11 @@ const snaps=()=>{try{return JSON.parse(localStorage.getItem(SNAP)||'{}')}catch(e
 async function load(){
  $('grid').innerHTML='<div class="skel"></div>'.repeat(6);
  const res=await Promise.allSettled(SERIES.map(s=>fetch(BASE+s.f+'.json?'+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()})));
- const prev=snaps(),next={...prev},now=Date.now();S.ev=[];S.missing=[];S.upd=null;
+ const prev=snaps(),next={...prev},now=Date.now();S.ev=[];S.missing=[];S.upd=null;S.sers=[];
  res.forEach((r,i)=>{
   const s=SERIES[i];
   if(r.status!=='fulfilled'||!r.value.markets){S.missing.push(s.t);return}
-  const d=r.value;if(!S.upd||d.updated<S.upd)S.upd=d.updated;
+  const d=r.value;if(!S.upd||d.updated<S.upd)S.upd=d.updated;S.sers.push({t:s.t,upd:d.updated});
   const g={};d.markets.filter(m=>new Date(m.c)>now).forEach(m=>(g[m.e]=g[m.e]||[]).push(m));
   Object.entries(g).sort((a,b)=>new Date(a[1][0].c)-new Date(b[1][0].c)).forEach(([e,ms],n)=>{
    const rows=ms.map(m=>{const p=prob(m);return p&&{k:m.k==null?null:+m.k,s:m.s,p:p.p,q:p.q,v:+m.v||0}}).filter(Boolean);
@@ -137,10 +144,31 @@ async function load(){
  try{localStorage.setItem(SNAP,JSON.stringify(next))}catch(e){}
  head();render();
 }
+function ago(m){return m<60?m+' min':m<2880?Math.round(m/60)+' h':Math.round(m/1440)+' d'}
+function fresh(){
+ const st=$('st'),fb=$('fresh');st.className='pill';fb.className='fresh';
+ const ages=S.sers.map(x=>({t:x.t,m:Math.max(0,Math.round((Date.now()-new Date(x.upd))/6e4))})).filter(x=>isFinite(x.m));
+ if(!ages.length){
+  $('up').textContent='No data loaded';st.classList.add('err');
+  fb.className='fresh crit';fb.hidden=false;
+  fb.innerHTML='<b>No market data could be loaded.</b> Check your connection, or that the data files are reachable'+(S.missing.length?' (missing: '+esc(S.missing.join(', '))+')':'')+'.';
+  return}
+ const newest=Math.min(...ages.map(a=>a.m)),lag=ages.filter(a=>a.m>WARN_MIN).sort((a,b)=>b.m-a.m);
+ $('up').textContent='Updated '+ago(newest)+' ago'+(newest>STALE_MIN?' · stale':'');
+ if(newest>STALE_MIN){
+  st.classList.add('stale');fb.className='fresh crit';fb.hidden=false;
+  fb.innerHTML='<b>Data is '+ago(newest)+' old.</b> Odds shown are not current. The refresh job (GitHub Action <code>fetch-kalshi</code> / its cron-job.org trigger) has probably stopped. Check the repo&rsquo;s Actions tab.';
+ }else if(lag.length||S.missing.length){
+  st.classList.add('stale');fb.className='fresh warn';fb.hidden=false;
+  const parts=[];
+  if(lag.length)parts.push('<b>Some data is behind:</b> '+lag.map(a=>esc(a.t)+' ('+ago(a.m)+' old)').join(', ')+'.');
+  if(S.missing.length)parts.push('<b>No data for:</b> '+esc(S.missing.join(', '))+'.');
+  fb.innerHTML=parts.join(' ')+' Those figures may lag the live market.';
+ }else{fb.hidden=true}
+}
+setInterval(fresh,3e4);
 function head(){
- const st=$('st');st.className='pill';
- if(S.upd){const m=Math.round((Date.now()-new Date(S.upd))/6e4);$('up').textContent='Updated '+m+' min ago'+(m>90?' · stale, check the GitHub Action':'');if(m>90)st.classList.add('stale')}
- else{$('up').textContent='No data loaded';st.classList.add('err')}
+ fresh();
  $('kpis').innerHTML=SERIES.filter(s=>s.kpi).map(s=>{
   const e=S.ev.find(x=>x.s===s&&x.n===0);if(!e||e.val==null)return'';
   const big=s.f==='KXRECSSNBER'?Math.round(e.val*100)+'%':fmt(e.val,s.u);
