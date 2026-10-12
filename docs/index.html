@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
+<script src="net-config.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>TradeSphere</title>
 <link rel="manifest" href="manifest.json">
@@ -2020,13 +2021,9 @@ const tickerRefreshBtn = document.getElementById('tickerRefreshBtn');
 
 // Same personal Cloudflare Worker + public CORS proxy fallback chain used by
 // watchlist.html and every other data page in this app.
-const TICKER_WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+const TICKER_WORKER_PROXY_URL = TS_NET.WORKER_URL;
 function buildTickerWorkerUrl(u){ return `${TICKER_WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`; }
-const TICKER_CORS_PROXIES = [
-  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-  (u) => `https://proxy.corsfix.com/?${u}`,
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-];
+const TICKER_CORS_PROXIES = TS_NET.corsProxies();
 async function tickerFetchWithTimeout(url, ms){
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
@@ -6774,7 +6771,7 @@ window.TechAnalysis = { open, openSymbol, close, setTf, refresh, getSymbol: () =
    ===================================================================================================== */
 (function(){
 'use strict';
-const WORKER = 'https://newsyt.justfagame9.workers.dev';
+const WORKER = TS_NET.WORKER_URL;
 const DAY = 86400000;
 const RANGE_DAYS = { '7D':7, '30D':30, '90D':90, '1Y':365, 'ALL':Infinity };
 const $ = id => document.getElementById(id);
@@ -6799,9 +6796,7 @@ async function fetchT(url, ms){
 }
 const PROXIES = [
   u => `${WORKER}/?url=${encodeURIComponent(u)}`,
-  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-  u => `https://proxy.corsfix.com/?${u}`,
-  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+  ...TS_NET.corsProxies()
 ];
 async function getText(url, opts){
   opts = opts || {};

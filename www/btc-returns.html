@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
+<script src="net-config.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bitcoin Returns</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -331,15 +332,11 @@ const ASSETS = {
 // Same personal Cloudflare Worker used across the other pages in this app.
 // query1.finance.yahoo.com and api.coingecko.com are both already in the
 // Worker's ALLOWED_HOSTS list.
-const WORKER_PROXY_URL = 'https://newsyt.justfagame9.workers.dev';
+const WORKER_PROXY_URL = TS_NET.WORKER_URL;
 function buildWorkerProxyUrl(u){
   return `${WORKER_PROXY_URL}/?url=${encodeURIComponent(u)}`;
 }
-const CORS_PROXIES = [
-  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-  (u) => `https://proxy.corsfix.com/?${u}`,
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-];
+const CORS_PROXIES = TS_NET.corsProxies();
 
 async function fetchWithTimeout(url, ms){
   const controller = new AbortController();
