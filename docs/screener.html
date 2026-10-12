@@ -742,6 +742,11 @@
     border-radius:10px;padding:9px 18px;font:600 12.5px var(--font-display);cursor:pointer;
     transition:background .15s,color .15s;
   }
+  @media(max-width:520px){
+    .app-tabs-row{justify-content:stretch;}
+    .app-tabs{display:flex;width:100%;}
+    .app-tab{flex:1 1 0;min-width:0;padding:9px 4px;font-size:11.5px;line-height:1.25;text-align:center;}
+  }
   .app-tab:hover:not(.active){color:var(--text);}
   .app-tab.active{background:rgba(53,224,192,.14);color:var(--accent);}
 
@@ -1673,6 +1678,102 @@
   @media(prefers-reduced-motion:reduce){
     .run-btn.sh-pulse{animation:none;}
   }
+
+  /* ---------------- Backtest lab ---------------- */
+  #backtestPane .bx-title{font-family:var(--font-display);font-size:18px;font-weight:700;}
+  #backtestPane .bx-sub{color:var(--muted);font-size:12.5px;line-height:1.55;margin-top:4px;max-width:900px;}
+  #backtestPane .bx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:16px;}
+  #backtestPane .bx-grid .bx-wide{grid-column:span 2;}
+  @media(max-width:560px){#backtestPane .bx-grid .bx-wide{grid-column:span 1;}}
+  #backtestPane .bx-hint{font-size:11px;color:var(--faint);margin-top:5px;line-height:1.45;font-family:var(--font-mono);}
+  #backtestPane .field select{appearance:auto;}
+  #backtestPane .bx-sec{margin:0 0 4px;font-family:var(--font-display);font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  #backtestPane .bx-sec .bx-n{font-family:var(--font-mono);font-size:10px;color:var(--accent);border:1px solid var(--accent-dim);border-radius:99px;padding:2px 8px;font-weight:600;}
+  #backtestPane .bx-lead{color:var(--muted);font-size:12.5px;line-height:1.6;margin:2px 0 14px;max-width:880px;}
+  #backtestPane .bx-lead b{color:var(--text);font-weight:600;}
+  #backtestPane .bx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+  #backtestPane .bx-kpi{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+  #backtestPane .bx-kpi .k{font-family:var(--font-mono);font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;cursor:help;}
+  #backtestPane .bx-kpi .v{font-family:var(--font-display);font-size:22px;font-weight:700;margin-top:4px;}
+  #backtestPane .bx-kpi .s{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;}
+  #backtestPane .bx-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  #backtestPane .bx-three{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:980px){#backtestPane .bx-three{grid-template-columns:1fr;}}
+  @media(max-width:820px){#backtestPane .bx-two{grid-template-columns:1fr;}}
+  #backtestPane .bx-box{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 14px 10px;min-width:0;}
+  #backtestPane .bx-box h4{margin:0 0 2px;font-family:var(--font-display);font-size:13px;font-weight:700;}
+  #backtestPane .bx-box .cap{font-size:11.5px;color:var(--muted);line-height:1.5;margin:0 0 10px;}
+  #backtestPane .bx-chart{position:relative;width:100%;}
+  #backtestPane .bx-chart canvas{display:block;max-width:100%;}
+  #backtestPane .bx-tip{position:absolute;top:6px;pointer-events:none;background:rgba(10,12,16,.94);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-family:var(--font-mono);font-size:11px;color:var(--text);display:none;z-index:5;white-space:nowrap;line-height:1.55;}
+  #backtestPane .bx-vline{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.22);pointer-events:none;display:none;}
+  #backtestPane .bx-verdict{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
+  #backtestPane .bx-grade{flex:0 0 auto;min-width:150px;border-radius:14px;padding:14px 16px;border:1px solid var(--border);background:var(--panel2);}
+  #backtestPane .bx-grade .g{font-family:var(--font-display);font-size:20px;font-weight:700;}
+  #backtestPane .bx-grade .gs{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45;}
+  #backtestPane .bx-grade.good{border-color:var(--accent-dim);} #backtestPane .bx-grade.good .g{color:var(--accent);}
+  #backtestPane .bx-grade.mid{border-color:#6b5316;} #backtestPane .bx-grade.mid .g{color:var(--amber);}
+  #backtestPane .bx-grade.bad{border-color:var(--red-dim);} #backtestPane .bx-grade.bad .g{color:var(--red);}
+  #backtestPane .bx-checks{flex:1 1 380px;min-width:0;}
+  #backtestPane .bx-check{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-soft);font-size:12.5px;line-height:1.5;}
+  #backtestPane .bx-check:last-child{border-bottom:none;}
+  #backtestPane .bx-dot{flex:0 0 18px;height:18px;border-radius:50%;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#07130f;}
+  #backtestPane .bx-dot.pass{background:var(--accent);} #backtestPane .bx-dot.warn{background:var(--amber);} #backtestPane .bx-dot.fail{background:var(--red);color:#fff;}
+  #backtestPane .bx-check .t{font-weight:600;} #backtestPane .bx-check .d{color:var(--muted);}
+  #backtestPane .bx-barrow{display:grid;grid-template-columns:96px 1fr 120px;gap:10px;align-items:center;margin:5px 0;font-family:var(--font-mono);font-size:11.5px;}
+  #backtestPane .bx-barrow .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #backtestPane .bx-track{position:relative;height:16px;background:var(--panel);border-radius:5px;overflow:hidden;}
+  #backtestPane .bx-track .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border);}
+  #backtestPane .bx-fill{position:absolute;top:2px;bottom:2px;border-radius:3px;}
+  #backtestPane .bx-stack{display:flex;height:26px;border-radius:7px;overflow:hidden;margin:6px 0 10px;}
+  #backtestPane .bx-stack > div{display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:#07130f;min-width:0;overflow:hidden;}
+  #backtestPane .bx-mini{width:100%;font-family:var(--font-mono);font-size:11.5px;border-collapse:separate;border-spacing:0;}
+  #backtestPane .bx-mini th,#backtestPane .bx-mini td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--border-soft);position:static;cursor:default;white-space:normal;vertical-align:top;}
+  #backtestPane .bx-mini th:first-child,#backtestPane .bx-mini td:first-child{text-align:left;}
+  #backtestPane .bx-heat td{text-align:center;font-weight:700;padding:9px 6px;border:1px solid var(--panel2);border-radius:4px;}
+  #backtestPane .bx-heat th{position:static;cursor:default;text-align:center;}
+  #backtestPane .bx-heat td.cur{outline:2px solid var(--text);outline-offset:-2px;}
+  #backtestPane .bx-up{color:var(--accent);} #backtestPane .bx-dn{color:var(--red);} #backtestPane .bx-wr{color:var(--amber);}
+  #backtestPane .bx-trade-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;}
+  #backtestPane .bx-trade-tools select{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:7px 10px;font-family:var(--font-mono);font-size:12px;}
+  #backtestPane .bx-tag{display:inline-block;min-width:62px;text-align:center;padding:3px 8px;border-radius:99px;font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;border:1px solid transparent;}
+  #backtestPane .bx-tag.target{color:var(--accent);background:rgba(53,224,192,.12);border-color:rgba(53,224,192,.35);}
+  #backtestPane .bx-tag.stop{color:var(--red);background:rgba(255,84,112,.12);border-color:rgba(255,84,112,.35);}
+  #backtestPane .bx-tag.time{color:var(--blue);background:rgba(91,140,255,.13);border-color:rgba(91,140,255,.35);}
+  #backtestPane tr.bx-trow{cursor:pointer;}
+  #backtestPane tr.bx-trow:hover td{background:rgba(255,255,255,.03);}
+  #backtestPane tr.bx-trow.sel td{background:rgba(53,224,192,.08);}
+  #backtestPane .bx-svg{width:100%;height:auto;display:block;}
+  #backtestPane .bx-box{overflow-x:auto;}
+  #backtestPane .bx-pipe{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:24px;}
+  #backtestPane .bx-step{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 13px;min-width:0;}
+  #backtestPane .bx-step:not(:last-child)::after{content:'→';position:absolute;right:-19px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:16px;}
+  #backtestPane .bx-step .n{font:700 10px var(--font-mono);color:var(--accent);letter-spacing:.08em;}
+  #backtestPane .bx-step .m{font:700 13px var(--font-mono);margin:7px 0 4px;overflow-wrap:anywhere;}
+  #backtestPane .bx-step .l{font:11.5px var(--font-mono);color:var(--muted);line-height:1.5;overflow-wrap:anywhere;}
+  #backtestPane .bx-step .l.f{color:var(--faint);}
+  @media(max-width:900px){
+    #backtestPane .bx-pipe{grid-template-columns:1fr;gap:22px;}
+    #backtestPane .bx-step:not(:last-child)::after{content:'↓';right:auto;left:50%;top:auto;bottom:-21px;transform:translateX(-50%);}
+  }
+  @media(max-width:560px){
+    #backtestPane .panel{padding:16px 14px;}
+    #backtestPane .bx-barrow{grid-template-columns:44px 1fr 108px;gap:6px;font-size:10.5px;}
+    #backtestPane .bx-heat td{padding:7px 3px;font-size:10px;}
+    #backtestPane .bx-mini th,#backtestPane .bx-mini td{padding:6px 5px;font-size:10.5px;}
+    #backtestPane .bx-kpi .v{font-size:19px;}
+    #backtestPane .bx-grade{flex:1 1 100%;}
+    #backtestPane .bx-box{padding:12px 10px 8px;}
+  }
+  #backtestPane details.bx-how > summary{cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:14px;list-style:none;}
+  #backtestPane details.bx-how > summary::-webkit-details-marker{display:none;}
+  #backtestPane details.bx-how > summary::after{content:' +';color:var(--faint);}
+  #backtestPane details.bx-how[open] > summary::after{content:' −';}
+  #backtestPane .bx-how dl{margin:12px 0 0;display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:8px 16px;font-size:12.5px;line-height:1.55;}
+  #backtestPane .bx-how dt{font-weight:700;color:var(--text);} #backtestPane .bx-how dd{margin:0;color:var(--muted);}
+  @media(max-width:640px){#backtestPane .bx-how dl{grid-template-columns:1fr;}}
+  #backtestPane .bx-empty{padding:30px 10px;text-align:center;color:var(--muted);font-size:13px;line-height:1.7;}
+  #backtestPane .bx-pill{display:inline-block;border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-family:var(--font-mono);font-size:11px;color:var(--muted);margin:2px 4px 2px 0;}
 </style>
 </head>
 <body>
@@ -1692,6 +1793,7 @@
   <div class="app-tabs">
     <button type="button" class="app-tab active" id="tabScreenerBtn" onclick="switchAppView('screener')">📈 Cloud Breakout</button>
     <button type="button" class="app-tab" id="tabScannerBtn" onclick="switchAppView('scanner')">🔍 Custom Screens</button>
+    <button type="button" class="app-tab" id="tabBacktestBtn" onclick="switchAppView('backtest')">&#129514; Backtest</button>
   </div>
 </div>
 
@@ -1750,6 +1852,9 @@
     <div class="empty">Click "Run Screener" to scan all Binance USDT-M perpetual futures for confirmed Ichimoku breakouts.</div>
   </div>
 </div>
+
+
+
 
 </div><!-- /screenerPane -->
 
@@ -1914,6 +2019,82 @@
     <div id="scanHistoryOutputBody"></div>
   </div>
 </div>
+
+<div id="backtestPane" style="display:none;">
+<div class="panel">
+  <div class="bx-title">🧪 Strategy Backtest Lab</div>
+  <div class="bx-sub">Replays a screen over each coin's past candles as a realistic, rules-based trading simulation — entry, stop-loss, target, time limit, fees, slippage and position sizing — then tests whether the result is skill or luck. Signals use only data available at the close of each bar; nothing looks into the future.</div>
+
+  <div class="bx-grid">
+    <div class="field bx-wide">
+      <label>Strategy / screen</label>
+      <select id="bxStrategy" onchange="Backtest.onStrategyChange()"></select>
+      <div class="bx-hint" id="bxStrategyDesc"></div>
+    </div>
+    <div class="field">
+      <label>Timeframe</label>
+      <div class="timeframe-toggle" id="bxTfToggle">
+        <button type="button" data-tf="1h" onclick="Backtest.setTf('1h')">1 Hour</button>
+        <button type="button" data-tf="4h" class="active" onclick="Backtest.setTf('4h')">4 Hour</button>
+        <button type="button" data-tf="1d" onclick="Backtest.setTf('1d')">Daily</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>History</label>
+      <select id="bxHistory" onchange="Backtest.updateHistoryHint()">
+        <option value="1500">1,500 candles</option>
+        <option value="3000">3,000 candles</option>
+        <option value="5000">5,000 candles</option>
+      </select>
+      <div class="bx-hint" id="bxHistoryHint"></div>
+    </div>
+    <div class="field"><label>Top coins by volume</label><input type="number" id="bxTopN" value="20" min="1" max="100"></div>
+    <div class="field"><label>Or specific coins</label><input type="text" id="bxCoins" placeholder="BTC, ETH, SOL" autocomplete="off" spellcheck="false"></div>
+    <div class="field">
+      <label>Trade side</label>
+      <select id="bxSide"><option value="auto">Auto (from screen)</option><option value="long">Long only</option><option value="short">Short only</option></select>
+    </div>
+    <div class="field" id="bxTriggerField">
+      <label>Ichimoku trigger</label>
+      <select id="bxTrigger"><option value="all">All (CK, PK)</option><option value="CK">CK only</option><option value="PK">PK only</option><option value="CK, PK">Both together</option></select>
+    </div>
+  </div>
+
+  <details class="info-details" id="bxAdv">
+    <summary>Risk &amp; execution settings</summary>
+    <div class="bx-grid" style="margin-top:0;">
+      <div class="field"><label>Exit style</label>
+        <select id="bxExitMode" onchange="Backtest.onExitModeChange()">
+          <option value="managed">Stop + target + time limit</option>
+          <option value="hold">Hold N bars (no stop)</option>
+        </select></div>
+      <div class="field"><label>Stop-loss (× ATR)</label><input type="number" id="bxStop" value="1.5" min="0.3" max="10" step="0.1"></div>
+      <div class="field"><label>Target (R multiple, 0 = none)</label><input type="number" id="bxTarget" value="2" min="0" max="20" step="0.5"></div>
+      <div class="field"><label>Max hold (bars)</label><input type="number" id="bxMaxBars" value="30" min="1" max="500"></div>
+      <div class="field"><label>Entry fill</label>
+        <select id="bxEntry"><option value="open">Next bar open (realistic)</option><option value="close">Signal bar close</option></select></div>
+      <div class="field"><label>Fee per side (%)</label><input type="number" id="bxFee" value="0.05" min="0" step="0.01"></div>
+      <div class="field"><label>Slippage per side (%)</label><input type="number" id="bxSlip" value="0.03" min="0" step="0.01"></div>
+      <div class="field"><label>Risk per trade (% equity)</label><input type="number" id="bxRisk" value="1" min="0.1" max="10" step="0.1"></div>
+      <div class="field"><label>Starting capital ($)</label><input type="number" id="bxCapital" value="10000" min="100" step="100"></div>
+      <div class="field"><label>Max open positions</label><input type="number" id="bxMaxPos" value="5" min="1" max="50"></div>
+      <div class="field"><label>Max leverage (×)</label><input type="number" id="bxLev" value="5" min="1" max="50" step="0.5"></div>
+      <div class="field"><label>Position sizing</label>
+        <select id="bxCompound"><option value="1">Compound (% of current equity)</option><option value="0">Fixed (% of starting capital)</option></select></div>
+      <div class="field"><label>Cooldown after exit (bars)</label><input type="number" id="bxCool" value="0" min="0" max="100"></div>
+    </div>
+    <div class="bx-hint" style="margin-top:12px;">Same-bar rule: if one candle touches both the stop and the target, the stop is assumed to hit first. If price gaps through a level, the fill is at the gap price, not the level.</div>
+  </details>
+
+  <div class="actions">
+    <button id="bxRunBtn" onclick="Backtest.run()">▶ Run backtest</button>
+    <span class="status" id="bxStatus">Idle</span>
+  </div>
+  <div class="progress-bar" id="bxProgressBar"><div class="progress-fill" id="bxProgressFill"></div></div>
+  <div class="error-box" id="bxError" style="display:none;"></div>
+</div>
+<div id="bxOut"></div>
+</div><!-- /backtestPane -->
 
 <div id="scannerPane" style="display:none;">
 
@@ -4501,18 +4682,18 @@ function downloadCSV(){
 // Both panes live in the DOM at all times (scanner's data/state doesn't
 // reset when you switch away and back); only visibility changes.
 function switchAppView(view){
-  const screenerPane = document.getElementById('screenerPane');
-  const scannerPane = document.getElementById('scannerPane');
-  const screenerBtn = document.getElementById('tabScreenerBtn');
-  const scannerBtn = document.getElementById('tabScannerBtn');
-  const isScanner = view === 'scanner';
-  screenerPane.style.display = isScanner ? 'none' : '';
-  scannerPane.style.display = isScanner ? '' : 'none';
-  screenerBtn.classList.toggle('active', !isScanner);
-  scannerBtn.classList.toggle('active', isScanner);
-  document.getElementById('mainEyebrowText').textContent = isScanner ? 'Condition-Based' : 'Ichimoku Breakout';
+  const panes = {screener:'screenerPane', scanner:'scannerPane', backtest:'backtestPane'};
+  const btns = {screener:'tabScreenerBtn', scanner:'tabScannerBtn', backtest:'tabBacktestBtn'};
+  for(const key in panes){
+    document.getElementById(panes[key]).style.display = key === view ? '' : 'none';
+    document.getElementById(btns[key]).classList.toggle('active', key === view);
+  }
+  document.getElementById('mainEyebrowText').textContent = {screener:'Ichimoku Breakout', scanner:'Condition-Based', backtest:'Strategy Backtest'}[view] || 'Ichimoku Breakout';
+  if(view === 'backtest' && window.Backtest) requestAnimationFrame(() => window.Backtest.redraw());
 }
 </script>
+
+
 
 <script>
 (function(){
@@ -5088,6 +5269,13 @@ async function computeMetrics(symbol, interval, ticker){
   const needed = interval === '1h' ? 230 : (interval === '4h' ? 230 : 230);
   const candles = await getKlines(symbol, interval, Math.min(needed, 500));
   if(candles.length < 60) throw new Error('not enough candles');
+  return metricsFromCandles(symbol, candles, ticker);
+}
+
+// Pure half of computeMetrics: everything derived from an already-fetched candle
+// array (and an optional 24h ticker). Split out so the Backtest tab can replay the
+// exact same screen logic on historical windows.
+function metricsFromCandles(symbol, candles, ticker){
   const closes = candles.map(c=>c.close);
   const price = ticker ? ticker.lastPrice : closes[closes.length-1];
 
@@ -6702,6 +6890,8 @@ applyPreset('breakout');
 updateHistoryBadge();
 
 
+// Read-only hook for the Backtest tab (it replays these screens over historical candles).
+window.ScannerBacktestApi = { PRESETS, PRESET_CATEGORY_ORDER, metricsFromCandles, evalGroup, condsUse };
 window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, clearConditions, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker, openCategoryInfo, closeCategoryInfo, openHistory, closeHistory, openHistoryOutput, closeHistoryOutput, setHistoryFilter, clearHistory, rerunHistory, toggleHistoryConds };
 })();
 
@@ -10594,5 +10784,1190 @@ window.TrendPulse = { open, close, isOpen:() => S.open, _state:S, _analyse:analy
 })();
 </script>
 
+<script>
+/* =========================================================================
+   Backtest lab
+   -------------------------------------------------------------------------
+   Method (the standard event-driven, bar-by-bar approach):
+     1. Signal  - the screen is evaluated at the CLOSE of every historical bar
+                  using only candles up to and including that bar (no lookahead).
+     2. Entry   - filled at the NEXT bar's open (default) plus slippage.
+     3. Exit    - first of: stop-loss (k x ATR), target (R multiple), time limit.
+                  Same-bar stop+target conflicts resolve to the stop; gaps fill at
+                  the gap price.
+     4. Costs   - fees on both sides + slippage on both sides.
+     5. Sizing  - risk a fixed % of equity per trade (R-multiples), capped by a
+                  max-leverage and a max-open-positions limit.
+     6. Judge   - expectancy, drawdown, in/out-of-sample split, bootstrap
+                  confidence interval, random-entry benchmark, Monte Carlo and a
+                  parameter-sensitivity grid - so luck can be told from edge.
+   Screen logic is NOT re-implemented: presets run through the Custom Screens
+   engine (metricsFromCandles + evalGroup) on a sliding historical window.
+   ========================================================================= */
+(function(){
+const $ = id => document.getElementById(id);
+const TF_MS = {'1h':3600e3, '4h':14400e3, '1d':86400e3};
+const TF_NAME = {'1h':'1-hour', '4h':'4-hour', '1d':'daily'};
+const TF_DEFAULT_HOLD = {'1h':48, '4h':30, '1d':20};
+const COL = {up:'#35E0C0', dn:'#FF5470', amber:'#F5A623', blue:'#5B8CFF', violet:'#A78BFA',
+  text:'#E6E9EF', muted:'#8B93A3', faint:'#565F70', grid:'#1B1F28', axis:'#232833', panel:'#171B22'};
+const ICH = {tenkanLen:9, kijunLen:26, senkouBLen:52};
+const UNAVAILABLE_KEYS = ['fundingRate','oiChangePct','athProximityAtr','ndogNwog'];
+const WARMUP_PRESET = 210;   // EMA200 needs ~200 bars before a screen is meaningful
+let tf = '4h';
+let last = null;             // last finished run (candles, trades, stats ...)
+let selTradeId = null;
+let tradeSort = 'recent';
+
+const pad2 = n => String(n).padStart(2,'0');
+const fmtD = t => { const d = new Date(t); return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())}`; };
+const fmtDT = t => `${fmtD(t)} ${pad2(new Date(t).getUTCHours())}:00`;
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const sgn = v => v > 0 ? '+' : '';
+const fR = (v,d=2) => Number.isFinite(v) ? `${sgn(v)}${v.toFixed(d)}R` : '—';
+const fP = (v,d=1) => Number.isFinite(v) ? `${sgn(v)}${v.toFixed(d)}%` : '—';
+const fUsd = v => Number.isFinite(v) ? `${v<0?'-':''}$${Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—';
+const cls = v => v > 0 ? 'bx-up' : (v < 0 ? 'bx-dn' : '');
+const nextTick = () => new Promise(r => setTimeout(r, 0));
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function pctile(sorted, p){
+  if(!sorted.length) return NaN;
+  const idx = (sorted.length - 1) * p, lo = Math.floor(idx), hi = Math.ceil(idx);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+const api = () => window.ScannerBacktestApi;
+
+/* ---------------- strategies ---------------- */
+function presetUnavailable(p){
+  return UNAVAILABLE_KEYS.some(k => api().condsUse(p.conds, k));
+}
+function autoSideFor(p){
+  return /bear|death|overbought|overheated|loser|premium/i.test(p.title) ? -1 : 1;
+}
+function initStrategies(){
+  const sel = $('bxStrategy');
+  if(!sel || sel.options.length) return;
+  let html = '<optgroup label="Cloud Breakout"><option value="ichimoku">Ichimoku Cloud Breakout (CK / PK)</option></optgroup>';
+  const P = api() ? api().PRESETS : [];
+  const order = api() ? api().PRESET_CATEGORY_ORDER : [];
+  for(const cat of order){
+    const items = P.filter(p => p.cat === cat);
+    if(!items.length) continue;
+    html += `<optgroup label="${esc(cat)}">` + items.map(p => {
+      const dis = presetUnavailable(p);
+      return `<option value="${esc(p.id)}"${dis ? ' disabled' : ''}>${esc(p.title)}${dis ? ' — needs live funding/OI data' : ''}</option>`;
+    }).join('') + '</optgroup>';
+  }
+  sel.innerHTML = html;
+  sel.value = 'ichimoku';
+  onStrategyChange();
+  setTf('4h');
+}
+function getStrategy(){
+  const id = $('bxStrategy').value;
+  if(id === 'ichimoku') return {id, kind:'ichimoku', title:'Ichimoku Cloud Breakout'};
+  const p = api().PRESETS.find(x => x.id === id);
+  return {id, kind:'preset', title:p.title, preset:p, autoSide:autoSideFor(p)};
+}
+function onStrategyChange(){
+  const s = getStrategy();
+  $('bxTriggerField').style.display = s.kind === 'ichimoku' ? '' : 'none';
+  $('bxStrategyDesc').textContent = s.kind === 'ichimoku'
+    ? 'Price or the Chikou span breaks through the Kumo cloud with Tenkan/Kijun and cloud-colour alignment (9/26/52). Trades both long and short. Same rules as the Cloud Breakout tab.'
+    : `${s.preset.desc} · Auto side: ${s.autoSide > 0 ? 'long' : 'short'} (change with "Trade side").`;
+}
+function setTf(v){
+  tf = v;
+  document.querySelectorAll('#bxTfToggle button').forEach(b => b.classList.toggle('active', b.dataset.tf === v));
+  $('bxMaxBars').value = TF_DEFAULT_HOLD[v];
+  updateHistoryHint();
+}
+function updateHistoryHint(){
+  const bars = parseInt($('bxHistory').value);
+  const days = bars * TF_MS[tf] / 86400e3;
+  $('bxHistoryHint').textContent = days >= 365 ? `≈ ${(days/365).toFixed(1)} years of ${TF_NAME[tf]} data` : `≈ ${Math.round(days)} days of ${TF_NAME[tf]} data`;
+}
+function onExitModeChange(){
+  const hold = $('bxExitMode').value === 'hold';
+  $('bxTarget').disabled = hold;
+  $('bxTarget').parentElement.style.opacity = hold ? .45 : 1;
+}
+
+/* ---------------- config ---------------- */
+function readCfg(){
+  const num = (id, d) => { const v = parseFloat($(id).value); return Number.isFinite(v) ? v : d; };
+  return {
+    tf, history: parseInt($('bxHistory').value) || 1500,
+    topN: clamp(Math.round(num('bxTopN', 20)), 1, 100),
+    coins: $('bxCoins').value.split(/[\s,]+/).map(s => s.trim().toUpperCase()).filter(Boolean),
+    side: $('bxSide').value, trigger: $('bxTrigger').value,
+    exitMode: $('bxExitMode').value,
+    stopAtr: clamp(num('bxStop', 1.5), 0.3, 10),
+    targetR: Math.max(0, num('bxTarget', 2)),
+    maxBars: clamp(Math.round(num('bxMaxBars', TF_DEFAULT_HOLD[tf])), 1, 500),
+    entry: $('bxEntry').value,
+    fee: Math.max(0, num('bxFee', 0.05)), slip: Math.max(0, num('bxSlip', 0.03)),
+    riskPct: clamp(num('bxRisk', 1), 0.1, 10), capital: Math.max(100, num('bxCapital', 10000)),
+    maxPos: clamp(Math.round(num('bxMaxPos', 5)), 1, 50), maxLev: clamp(num('bxLev', 5), 1, 50),
+    compound: $('bxCompound').value === '1', cooldown: Math.max(0, Math.round(num('bxCool', 0)))
+  };
+}
+
+/* ---------------- data ---------------- */
+async function fetchKlinesPaged(sym, interval, total){
+  let out = [], end = null;
+  while(out.length < total){
+    const limit = Math.min(1500, total - out.length);
+    const raw = await fetchJSON(`/fapi/v1/klines?symbol=${sym}&interval=${interval}&limit=${limit}` + (end ? `&endTime=${end}` : ''));
+    if(!raw.length) break;
+    const part = raw.map(k => ({openTime:k[0], open:+k[1], high:+k[2], low:+k[3], close:+k[4], volume:+k[5], closeTime:k[6], quoteVolume:+k[7]}));
+    out = part.concat(out);
+    end = raw[0][0] - 1;
+    if(raw.length < limit) break;
+  }
+  return out;
+}
+async function pickUniverse(cfg){
+  if(cfg.coins.length) return [...new Set(cfg.coins.map(s => s.endsWith('USDT') ? s : s + 'USDT'))];
+  const [symbols, tickers] = await Promise.all([getUSDTPerpetualSymbols(), fetchJSON('/fapi/v1/ticker/24hr')]);
+  const ok = new Set(symbols);
+  return tickers.filter(t => ok.has(t.symbol)).sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+    .slice(0, cfg.topN).map(t => t.symbol);
+}
+function atrSeries(c, len = 14){
+  const out = new Array(c.length).fill(NaN);
+  let prev = null, sum = 0;
+  for(let i = 1; i < c.length; i++){
+    const tr = Math.max(c[i].high - c[i].low, Math.abs(c[i].high - c[i-1].close), Math.abs(c[i].low - c[i-1].close));
+    if(i <= len){ sum += tr; if(i === len){ prev = sum / len; out[i] = prev; } }
+    else { prev = (prev * (len - 1) + tr) / len; out[i] = prev; }
+  }
+  return out;
+}
+function emaSeries(vals, len){
+  const k = 2 / (len + 1), out = new Array(vals.length).fill(NaN);
+  let e = null;
+  for(let i = 0; i < vals.length; i++){
+    if(i === len - 1){ e = vals.slice(0, len).reduce((a, b) => a + b, 0) / len; out[i] = e; }
+    else if(i >= len){ e = vals[i] * k + e * (1 - k); out[i] = e; }
+  }
+  return out;
+}
+// Ichimoku series reused by the signal finder and the trade chart overlay.
+function ichimokuSeries(c){
+  const H = c.map(x => x.high), L = c.map(x => x.low), n = c.length;
+  const T = [], K = [], SA = [], SB = [];
+  for(let i = 0; i < n; i++){
+    T[i] = donchianMid(H, L, ICH.tenkanLen, i);
+    K[i] = donchianMid(H, L, ICH.kijunLen, i);
+    SA[i] = (isNaN(T[i]) || isNaN(K[i])) ? NaN : (T[i] + K[i]) / 2;
+    SB[i] = donchianMid(H, L, ICH.senkouBLen, i);
+  }
+  return {T, K, SA, SB};
+}
+
+/* ---------------- signal finders ---------------- */
+// Mirrors the CK/PK rules in computeIchimokuSignal() (without its volume gate -
+// the universe is already filtered to the most liquid coins). Keep in sync.
+function findIchimokuSignals(c){
+  const n = c.length, C = c.map(x => x.close);
+  const {T, K, SA, SB} = ichimokuSeries(c);
+  const kj = ICH.kijunLen, out = [];
+  const cloud = idx => {
+    if(idx < 0 || isNaN(SA[idx]) || isNaN(SB[idx])) return null;
+    return {top: Math.max(SA[idx], SB[idx]), bottom: Math.min(SA[idx], SB[idx])};
+  };
+  for(let i = 1; i < n - 1; i++){
+    const cur = cloud(i - kj), prev = cloud(i - 1 - kj), ck = cloud(i - 2*kj), ckPrev = cloud(i - 1 - 2*kj);
+    if(!cur || !prev || !ck || !ckPrev || isNaN(T[i]) || isNaN(K[i]) || isNaN(SA[i]) || isNaN(SB[i])) continue;
+    const p = C[i], pp = C[i-1];
+    const longTrend = T[i] > K[i] && SA[i] > SB[i], shortTrend = T[i] < K[i] && SB[i] > SA[i];
+    const ckL = pp < ckPrev.top && p > ck.top && p > cur.top && longTrend;
+    const pkL = pp < prev.top && p > cur.top && p > ck.top && longTrend;
+    const ckS = pp > ckPrev.bottom && p < ck.bottom && p < cur.bottom && shortTrend;
+    const pkS = pp > prev.bottom && p < cur.bottom && p < ck.bottom && shortTrend;
+    if(ckL || pkL) out.push({i, dir:1, tag:(ckL && pkL) ? 'CK, PK' : (ckL ? 'CK' : 'PK')});
+    else if(ckS || pkS) out.push({i, dir:-1, tag:(ckS && pkS) ? 'CK, PK' : (ckS ? 'CK' : 'PK')});
+  }
+  return out;
+}
+async function findPresetSignals(sym, c, preset, dir, tfKey, onTick){
+  const A = api(), out = [], n = c.length;
+  const bpd = Math.max(1, Math.round(86400e3 / TF_MS[tfKey]));   // bars in 24h
+  for(let i = WARMUP_PRESET; i < n - 1; i++){
+    const win = c.slice(Math.max(0, i - 229), i + 1);
+    // Synthetic 24h ticker so change24h / nearHigh / nearLow mean what they do live.
+    let hi = -Infinity, lo = Infinity, qv = 0;
+    for(let k = Math.max(0, i - bpd + 1); k <= i; k++){
+      if(c[k].high > hi) hi = c[k].high;
+      if(c[k].low < lo) lo = c[k].low;
+      qv += c[k].quoteVolume;
+    }
+    const base = c[Math.max(0, i - bpd)].close;
+    const ticker = {lastPrice:c[i].close, priceChangePercent:(c[i].close / base - 1) * 100, highPrice:hi, lowPrice:lo, quoteVolume:qv};
+    try{
+      const m = A.metricsFromCandles(sym, win, ticker);
+      if(A.evalGroup(m, preset.conds, preset.mode)) out.push({i, dir, tag:''});
+    }catch(e){ /* window too short for some indicator - treat as no signal */ }
+    if(i % 60 === 0){ await nextTick(); if(onTick) onTick(i / n); }
+  }
+  return out;
+}
+
+/* ---------------- trade simulation ---------------- */
+// Simulates ONE trade from a signal at bar i. Returns null if it cannot complete.
+function simTrade(c, atr, i, dir, cfg, wantPath){
+  const n = c.length;
+  const ei = cfg.entry === 'open' ? i + 1 : i;
+  if(ei >= n || !(atr[i] > 0)) return null;
+  const slip = cfg.slip / 100;
+  const entry = (cfg.entry === 'open' ? c[ei].open : c[i].close) * (1 + dir * slip);
+  const stopDist = cfg.stopAtr * atr[i];
+  if(!(stopDist > 0)) return null;
+  const managed = cfg.exitMode === 'managed';
+  const stop = entry - dir * stopDist;
+  const tp = (managed && cfg.targetR > 0) ? entry + dir * cfg.targetR * stopDist : null;
+  const fb = cfg.entry === 'open' ? ei : ei + 1;           // first bar that can trade us out
+  const lastBar = fb + cfg.maxBars - 1;
+  let exitIdx = -1, exitPx = 0, reason = '';
+  let mfe = 0, mae = 0;
+  const path = wantPath ? [] : null;
+  for(let j = fb; j <= Math.min(n - 1, lastBar); j++){
+    const b = c[j];
+    if(managed){
+      const gapped = j > ei || cfg.entry === 'close';       // the entry bar's own open IS our fill
+      if(gapped && (dir > 0 ? b.open <= stop : b.open >= stop)){ exitIdx = j; exitPx = b.open; reason = 'Stop'; }
+      else if(gapped && tp !== null && (dir > 0 ? b.open >= tp : b.open <= tp)){ exitIdx = j; exitPx = b.open; reason = 'Target'; }
+      else {
+        const stopHit = dir > 0 ? b.low <= stop : b.high >= stop;
+        const tpHit = tp !== null && (dir > 0 ? b.high >= tp : b.low <= tp);
+        if(stopHit){ exitIdx = j; exitPx = stop; reason = 'Stop'; }
+        else if(tpHit){ exitIdx = j; exitPx = tp; reason = 'Target'; }
+      }
+    }
+    const fav = dir > 0 ? b.high - entry : entry - b.low;
+    const adv = dir > 0 ? entry - b.low : b.high - entry;
+    if(fav / stopDist > mfe) mfe = fav / stopDist;
+    if(adv / stopDist > mae) mae = adv / stopDist;
+    if(exitIdx < 0 && j === lastBar){ exitIdx = j; exitPx = b.close; reason = 'Time'; }
+    if(path) path.push(exitIdx >= 0 ? (exitPx - entry) * dir / stopDist : (b.close - entry) * dir / stopDist);
+    if(exitIdx >= 0) break;
+  }
+  if(exitIdx < 0) return null;                              // ran out of data before an exit - excluded
+  const exitFill = exitPx * (1 - dir * slip);
+  const grossR = (exitFill - entry) * dir / stopDist;
+  const costR = 2 * (cfg.fee / 100) * entry / stopDist;
+  const t = {
+    dir, sigIdx:i, entryIdx:ei, exitIdx, entry, stop, tp, exitPx:exitFill, reason,
+    grossR, netR:grossR - costR, mfe, mae, stopPct:stopDist / entry * 100,
+    bars:exitIdx - fb + 1, entryTime: cfg.entry === 'open' ? c[ei].openTime : c[i].closeTime, exitTime:c[exitIdx].closeTime
+  };
+  if(path){ const fin = path[path.length - 1]; while(path.length < cfg.maxBars) path.push(fin); t.path = path; }
+  return t;
+}
+// Walks each coin's signals in order, taking one trade at a time per coin.
+function runTrades(data, cfg, wantPath){
+  const trades = [];
+  for(const sym of Object.keys(data)){
+    const d = data[sym];
+    let lastExit = -1;
+    for(const s of d.signals){
+      if(s.i < lastExit + cfg.cooldown) continue;
+      const t = simTrade(d.c, d.atr, s.i, s.dir, cfg, wantPath);
+      if(!t) continue;
+      t.sym = sym; t.tag = s.tag;
+      lastExit = t.exitIdx;
+      trades.push(t);
+    }
+  }
+  trades.sort((a, b) => a.entryTime - b.entryTime);
+  return trades;
+}
+// Portfolio layer: sizes each trade from current equity, honours max positions + leverage cap.
+function runPortfolio(trades, cfg, t0){
+  let equity = cfg.capital;
+  const curve = [{t:t0, e:equity}];
+  const open = [], taken = [];
+  let skipped = 0, levCapped = 0;
+  const settle = upTo => {
+    open.sort((a, b) => a.exitTime - b.exitTime);
+    while(open.length && open[0].exitTime <= upTo){
+      const o = open.shift();
+      equity += o.pnl;
+      curve.push({t:o.exitTime, e:equity});
+    }
+  };
+  for(const tr of trades){
+    settle(tr.entryTime);
+    if(open.length >= cfg.maxPos){ skipped++; continue; }
+    const base = cfg.compound ? Math.max(equity, 0) : cfg.capital;
+    let riskUsd = base * cfg.riskPct / 100;
+    const notional = riskUsd / (tr.stopPct / 100);
+    if(notional > base * cfg.maxLev){ riskUsd *= base * cfg.maxLev / notional; levCapped++; }
+    const pnl = tr.netR * riskUsd;
+    const copy = Object.assign({}, tr, {riskUsd, pnl, id:taken.length});
+    open.push({exitTime:tr.exitTime, pnl});
+    taken.push(copy);
+  }
+  settle(Infinity);
+  return {taken, curve, skipped, levCapped, final:equity};
+}
+
+/* ---------------- statistics & robustness ---------------- */
+function tradeStats(rs){
+  const n = rs.length;
+  if(!n) return null;
+  let sum = 0, gw = 0, gl = 0, w = 0, best = -Infinity, worst = Infinity;
+  for(const r of rs){
+    sum += r;
+    if(r > 0){ gw += r; w++; } else gl -= r;
+    if(r > best) best = r;
+    if(r < worst) worst = r;
+  }
+  const mean = sum / n;
+  const sd = Math.sqrt(rs.reduce((a, r) => a + (r - mean) * (r - mean), 0) / Math.max(1, n - 1));
+  let streak = 0, maxStreak = 0;
+  for(const r of rs){ if(r <= 0){ streak++; if(streak > maxStreak) maxStreak = streak; } else streak = 0; }
+  return {
+    n, wins:w, winRate:w / n * 100, exp:mean, sum, sd, best, worst,
+    avgWin: w ? gw / w : 0, avgLoss: (n - w) ? gl / (n - w) : 0,
+    pf: gl > 0 ? gw / gl : (gw > 0 ? Infinity : 0),
+    sqn: sd > 0 ? Math.sqrt(Math.min(n, 100)) * mean / sd : 0,
+    maxLossStreak: maxStreak
+  };
+}
+function maxDrawdown(curve){
+  let peak = curve[0].e, peakT = curve[0].t, maxDD = 0, ddStart = peakT, longest = 0;
+  for(const p of curve){
+    if(p.e >= peak){
+      if(p.t - peakT > longest) longest = p.t - peakT;
+      peak = p.e; peakT = p.t;
+    } else {
+      const dd = (peak - p.e) / peak * 100;
+      if(dd > maxDD){ maxDD = dd; ddStart = peakT; }
+    }
+  }
+  const tail = curve[curve.length - 1].t - peakT;
+  if(tail > longest) longest = tail;
+  return {pct:maxDD, longestMs:longest, ddStart};
+}
+function bootstrapMean(rs, rng, iters = 2000){
+  const n = rs.length, means = new Array(iters);
+  for(let k = 0; k < iters; k++){
+    let s = 0;
+    for(let j = 0; j < n; j++) s += rs[Math.floor(rng() * n)];
+    means[k] = s / n;
+  }
+  means.sort((a, b) => a - b);
+  return {lo:pctile(means, 0.025), hi:pctile(means, 0.975)};
+}
+// "Would random entries with the same exit rules do as well?"
+function randomEntryNull(data, cfg, longShare, nTrades, strategyMean, rng){
+  const syms = Object.keys(data), pool = [];
+  for(let tries = 0; pool.length < 1500 && tries < 6000; tries++){
+    const d = data[syms[Math.floor(rng() * syms.length)]];
+    const lo = d.warm, hi = d.c.length - 2 - cfg.maxBars;
+    if(hi <= lo) continue;
+    const i = lo + Math.floor(rng() * (hi - lo));
+    const t = simTrade(d.c, d.atr, i, rng() < longShare ? 1 : -1, cfg, false);
+    if(t) pool.push(t.netR);
+  }
+  if(pool.length < 100) return null;
+  const draws = 600, means = new Array(draws);
+  for(let k = 0; k < draws; k++){
+    let s = 0;
+    for(let j = 0; j < nTrades; j++) s += pool[Math.floor(rng() * pool.length)];
+    means[k] = s / nTrades;
+  }
+  means.sort((a, b) => a - b);
+  const mean = pool.reduce((a, b) => a + b, 0) / pool.length;
+  return {
+    mean, winRate:pool.filter(r => r > 0).length / pool.length * 100, means,
+    p5:pctile(means, 0.05), p95:pctile(means, 0.95),
+    pValue: means.filter(m => m >= strategyMean).length / draws
+  };
+}
+// Re-orders / re-samples the realised trades to show the range of paths luck could have produced.
+function monteCarlo(rs, riskPct, rng, sims = 1000){
+  const M = Math.min(rs.length, 600), risk = riskPct / 100;
+  const mat = new Float32Array(sims * (M + 1));
+  const finals = new Array(sims), dds = new Array(sims);
+  for(let s = 0; s < sims; s++){
+    let e = 1, peak = 1, dd = 0;
+    mat[s * (M + 1)] = 1;
+    for(let k = 1; k <= M; k++){
+      e *= Math.max(0, 1 + risk * rs[Math.floor(rng() * rs.length)]);
+      mat[s * (M + 1) + k] = e;
+      if(e > peak) peak = e;
+      const d = (peak - e) / peak;
+      if(d > dd) dd = d;
+    }
+    finals[s] = e; dds[s] = dd * 100;
+  }
+  const fan = {p5:[], p25:[], p50:[], p75:[], p95:[]};
+  const col = new Array(sims);
+  for(let k = 0; k <= M; k++){
+    for(let s = 0; s < sims; s++) col[s] = mat[s * (M + 1) + k];
+    col.sort((a, b) => a - b);
+    fan.p5.push(pctile(col, .05)); fan.p25.push(pctile(col, .25)); fan.p50.push(pctile(col, .5));
+    fan.p75.push(pctile(col, .75)); fan.p95.push(pctile(col, .95));
+  }
+  finals.sort((a, b) => a - b); dds.sort((a, b) => a - b);
+  return {
+    M, fan, probProfit:finals.filter(f => f > 1).length / sims * 100,
+    medFinal:(pctile(finals, .5) - 1) * 100, p5Final:(pctile(finals, .05) - 1) * 100, p95Final:(pctile(finals, .95) - 1) * 100,
+    medDD:pctile(dds, .5), p95DD:pctile(dds, .95),
+    probDD25:dds.filter(d => d > 25).length / sims * 100
+  };
+}
+function sensitivityGrid(data, cfg){
+  const stops = [1, 1.5, 2, 3], targets = [1, 1.5, 2, 3, 4];
+  const cells = stops.map(sa => targets.map(tr => {
+    const c2 = Object.assign({}, cfg, {stopAtr:sa, targetR:tr, exitMode:'managed'});
+    const rs = runTrades(data, c2, false).map(t => t.netR);
+    return {n:rs.length, exp: rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : NaN,
+      win: rs.length ? rs.filter(r => r > 0).length / rs.length * 100 : NaN};
+  }));
+  return {stops, targets, cells};
+}
+function buyHoldCurve(data, tStart){
+  const syms = Object.keys(data);
+  if(!syms.length) return [];
+  const ref = syms.reduce((a, s) => data[s].c.length > data[a].c.length ? s : a, syms[0]);
+  const maps = syms.map(s => {
+    const m = new Map(); let base = null;
+    for(const b of data[s].c){ if(b.closeTime >= tStart){ if(base === null) base = b.close; m.set(b.closeTime, b.close); } }
+    return {m, base};
+  }).filter(x => x.base);
+  const times = data[ref].c.filter(b => b.closeTime >= tStart).map(b => b.closeTime);
+  const out = [];
+  const step = Math.max(1, Math.floor(times.length / 400));
+  for(let k = 0; k < times.length; k += step){
+    let s = 0, cnt = 0;
+    for(const x of maps){ const v = x.m.get(times[k]); if(v) { s += v / x.base; cnt++; } }
+    if(cnt) out.push({t:times[k], pct:(s / cnt - 1) * 100});
+  }
+  return out;
+}
+
+function analyse(data, cfg, strat, tStart, tEnd){
+  const rng = mulberry32(20260101);
+  const trades = runTrades(data, cfg, true);
+  const pf = runPortfolio(trades, cfg, tStart);
+  const taken = pf.taken;
+  const rs = taken.map(t => t.netR);
+  const a = {cfg, strat, tStart, tEnd, rawTrades:trades.length, taken, curve:pf.curve, skipped:pf.skipped, levCapped:pf.levCapped,
+    finalEquity:pf.final, stats:tradeStats(rs)};
+  if(!a.stats) return a;
+  a.totalRet = (pf.final / cfg.capital - 1) * 100;
+  a.dd = maxDrawdown(pf.curve);
+  const days = (tEnd - tStart) / 86400e3;
+  a.days = days;
+  a.cagr = days >= 60 && pf.final > 0 ? (Math.pow(pf.final / cfg.capital, 365 / days) - 1) * 100 : null;
+  a.avgBars = taken.reduce((s, t) => s + t.bars, 0) / taken.length;
+  a.avgMfe = taken.reduce((s, t) => s + t.mfe, 0) / taken.length;
+  a.avgMae = taken.reduce((s, t) => s + t.mae, 0) / taken.length;
+  a.bench = buyHoldCurve(data, tStart);
+  a.ci = rs.length >= 8 ? bootstrapMean(rs, rng) : null;
+  a.tStat = a.stats.sd > 0 ? a.stats.exp / (a.stats.sd / Math.sqrt(a.stats.n)) : 0;
+  // in-sample / out-of-sample split by time
+  const split = tStart + 0.7 * (tEnd - tStart);
+  a.split = split;
+  a.isStats = tradeStats(taken.filter(t => t.entryTime < split).map(t => t.netR));
+  a.oosStats = tradeStats(taken.filter(t => t.entryTime >= split).map(t => t.netR));
+  // by exit reason / coin / side / month
+  a.byReason = {};
+  for(const t of taken){ (a.byReason[t.reason] = a.byReason[t.reason] || []).push(t.netR); }
+  a.byCoin = {};
+  for(const t of taken){ (a.byCoin[t.sym] = a.byCoin[t.sym] || []).push(t.netR); }
+  a.longStats = tradeStats(taken.filter(t => t.dir > 0).map(t => t.netR));
+  a.shortStats = tradeStats(taken.filter(t => t.dir < 0).map(t => t.netR));
+  a.byMonth = {};
+  for(const t of taken){ const d = new Date(t.exitTime), k = `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}`; a.byMonth[k] = (a.byMonth[k] || 0) + t.netR; }
+  // average trade path
+  const L = cfg.maxBars, withPath = taken.filter(t => t.path);
+  a.avgPath = {mean:[], p25:[], p75:[]};
+  for(let k = 0; k < L; k++){
+    const col = withPath.map(t => t.path[k]).filter(Number.isFinite).sort((x, y) => x - y);
+    a.avgPath.mean.push(col.reduce((s, v) => s + v, 0) / (col.length || 1));
+    a.avgPath.p25.push(pctile(col, .25)); a.avgPath.p75.push(pctile(col, .75));
+  }
+  // luck tests
+  const longShare = taken.filter(t => t.dir > 0).length / taken.length;
+  a.random = randomEntryNull(data, cfg, longShare, Math.min(taken.length, 300), a.stats.exp, rng);
+  a.mc = taken.length >= 10 ? monteCarlo(rs, cfg.riskPct, rng) : null;
+  a.grid = cfg.exitMode === 'managed' ? sensitivityGrid(data, cfg) : null;
+  // concentration: how much of the winnings come from the top 5% of trades
+  const pos = rs.filter(r => r > 0).sort((x, y) => y - x);
+  const posSum = pos.reduce((s, v) => s + v, 0);
+  const k = Math.max(1, Math.ceil(0.05 * rs.length));
+  a.topShare = posSum > 0 ? pos.slice(0, k).reduce((s, v) => s + v, 0) / posSum * 100 : 0;
+  a.verdict = buildVerdict(a);
+  return a;
+}
+
+function buildVerdict(a){
+  const s = a.stats, checks = [];
+  const add = (state, title, detail) => checks.push({state, title, detail});
+  add(s.n >= 100 ? 'pass' : s.n >= 30 ? 'warn' : 'fail', 'Enough trades',
+    `${s.n} trades. ${s.n >= 100 ? 'A reasonable sample.' : s.n >= 30 ? 'Thin — one or two outliers can move the result. Use more coins or history.' : 'Far too few to conclude anything.'}`);
+  add(s.exp > 0 ? 'pass' : 'fail', 'Profitable after costs',
+    `Average trade ${fR(s.exp)} after ${a.cfg.fee}% fee + ${a.cfg.slip}% slippage per side (1R = the stop distance, ≈ ${a.cfg.stopAtr}× ATR).`);
+  if(a.ci) add(a.ci.lo > 0 ? 'pass' : (s.exp > 0 ? 'warn' : 'fail'), 'Edge is statistically distinguishable',
+    `95% confidence range for the average trade: ${fR(a.ci.lo)} to ${fR(a.ci.hi)}. ${a.ci.lo > 0 ? 'The whole range is above zero.' : 'The range includes zero, so luck can\'t be ruled out.'}`);
+  if(a.random) add(a.random.pValue < 0.05 ? 'pass' : a.random.pValue < 0.2 ? 'warn' : 'fail', 'Beats random entries',
+    `Random entries with the same exits average ${fR(a.random.mean)}. ${(a.random.pValue * 100).toFixed(0)}% of random-entry batches matched or beat this strategy (under 5% would be convincing).`);
+  if(a.oosStats && a.oosStats.n >= 10) add(a.oosStats.exp > 0 ? 'pass' : 'fail', 'Holds up on unseen data',
+    `Last 30% of the period (${a.oosStats.n} trades): ${fR(a.oosStats.exp)} per trade vs ${a.isStats ? fR(a.isStats.exp) : '—'} in the first 70%.`);
+  else add('warn', 'Holds up on unseen data', `Only ${a.oosStats ? a.oosStats.n : 0} trades in the last 30% of the period — not enough to judge.`);
+  add(a.dd.pct < 20 ? 'pass' : a.dd.pct < 35 ? 'warn' : 'fail', 'Drawdown is survivable',
+    `Worst peak-to-trough fall: ${a.dd.pct.toFixed(1)}% of equity at ${a.cfg.riskPct}% risk per trade.`);
+  add(a.topShare < 50 ? 'pass' : 'warn', 'Not carried by a lucky few',
+    `The best 5% of trades produce ${a.topShare.toFixed(0)}% of all gross winnings. ${a.topShare < 50 ? 'Gains are spread out.' : 'A few big winners dominate — fragile if they don\'t repeat.'}`);
+  const score = checks.reduce((n, c) => n + (c.state === 'pass' ? 2 : c.state === 'warn' ? 1 : 0), 0);
+  const max = checks.length * 2;
+  let grade = score >= max * 0.78 ? 'good' : score >= max * 0.5 ? 'mid' : 'bad';
+  if(s.exp <= 0 || s.n < 30) grade = grade === 'good' ? 'mid' : 'bad';
+  if(s.exp <= 0) grade = 'bad';
+  const label = {good:'Promising', mid:'Mixed', bad:'Not convincing'}[grade];
+  const sub = {
+    good:'Passes most robustness checks. Still paper results — forward-test with small size.',
+    mid:'Some evidence of an edge, but at least one check is shaky.',
+    bad:'No reliable edge shown by this test. Treat the signal as context, not a system.'
+  }[grade];
+  return {grade, label, sub, score, max, checks};
+}
+
+/* ---------------- run ---------------- */
+async function run(){
+  const btn = $('bxRunBtn'), st = $('bxStatus'), bar = $('bxProgressBar'), fill = $('bxProgressFill'), err = $('bxError');
+  const setP = (p, msg) => { fill.style.width = (p * 100).toFixed(1) + '%'; st.textContent = msg; };
+  err.style.display = 'none';
+  btn.disabled = true;
+  $('bxOut').innerHTML = '';
+  try{
+    const cfg = readCfg(), strat = getStrategy();
+    if(strat.kind === 'preset' && presetUnavailable(strat.preset)) throw new Error('This screen needs live funding / open-interest data, which has no history to replay.');
+    const dirFixed = cfg.side === 'long' ? 1 : (cfg.side === 'short' ? -1 : (strat.kind === 'preset' ? strat.autoSide : 0));
+    bar.style.display = 'block';
+    setP(0, 'Loading coin list…');
+    const symbols = await pickUniverse(cfg);
+    const data = {}, failed = [];
+    const warm = strat.kind === 'ichimoku' ? 2 * ICH.kijunLen + ICH.senkouBLen : WARMUP_PRESET;
+    const res = await runPool(symbols, async sym => {
+      const c = await fetchKlinesPaged(sym, cfg.tf, cfg.history);
+      if(c.length && c[c.length - 1].closeTime > Date.now()) c.pop();      // drop the still-forming candle
+      if(c.length < warm + cfg.maxBars + 30) throw new Error('not enough history');
+      data[sym] = {c, atr:atrSeries(c, 14), signals:[], warm};
+    }, 4, (d, t) => setP(0.3 * d / t, `Downloading candles ${d} / ${t}`));
+    res.forEach(r => { if(r && r.error) failed.push(r.symbol); });
+    const syms = Object.keys(data);
+    if(!syms.length) throw new Error('No coin returned enough history for this timeframe.');
+
+    let k = 0;
+    for(const sym of syms){
+      const d = data[sym];
+      if(strat.kind === 'ichimoku'){
+        d.signals = findIchimokuSignals(d.c).filter(s =>
+          (dirFixed === 0 || s.dir === dirFixed) && (cfg.trigger === 'all' || s.tag === cfg.trigger));
+        await nextTick();
+      } else {
+        d.signals = await findPresetSignals(sym, d.c, strat.preset, dirFixed, cfg.tf,
+          p => setP(0.3 + 0.55 * (k + p) / syms.length, `Replaying screen on ${sym} (${k + 1}/${syms.length})`));
+      }
+      k++;
+      setP(0.3 + 0.55 * k / syms.length, `Replaying screen on ${sym} (${k}/${syms.length})`);
+    }
+    setP(0.9, 'Simulating trades and stress-testing…');
+    await nextTick();
+    const tStart = Math.min(...syms.map(s => data[s].c[data[s].warm].openTime));
+    const tEnd = Math.max(...syms.map(s => data[s].c[data[s].c.length - 1].closeTime));
+    const a = analyse(data, cfg, strat, tStart, tEnd);
+    last = {a, data, failed, syms, cache:{}};
+    selTradeId = null;
+    tradeSort = 'recent';
+    setP(1, a.stats ? `Done — ${a.stats.n} trades across ${syms.length} coins` : 'Done — no trades');
+    render();
+  }catch(e){
+    err.textContent = 'Backtest failed: ' + e.message;
+    err.style.display = 'block';
+    st.textContent = 'Error';
+  }finally{
+    btn.disabled = false;
+    setTimeout(() => { bar.style.display = 'none'; }, 700);
+  }
+}
+
+/* ---------------- canvas helpers ---------------- */
+function mk(host, h){
+  host.innerHTML = '';
+  host.classList.add('bx-chart');
+  const dpr = window.devicePixelRatio || 1, w = Math.max(280, host.clientWidth || 600);
+  const cv = document.createElement('canvas');
+  cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  host.appendChild(cv);
+  const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+  ctx.font = '10.5px "JetBrains Mono", monospace';
+  const vl = document.createElement('div'); vl.className = 'bx-vline';
+  const tip = document.createElement('div'); tip.className = 'bx-tip';
+  host.appendChild(vl); host.appendChild(tip);
+  return {cv, ctx, w, h, tip, vl};
+}
+function hover(m, fn){
+  m.cv.addEventListener('mousemove', e => {
+    const r = m.cv.getBoundingClientRect();
+    const info = fn(e.clientX - r.left, e.clientY - r.top);
+    if(!info){ m.tip.style.display = 'none'; m.vl.style.display = 'none'; return; }
+    m.vl.style.display = 'block'; m.vl.style.left = info.x + 'px';
+    m.tip.innerHTML = info.html; m.tip.style.display = 'block';
+    m.tip.style.left = Math.min(m.w - m.tip.offsetWidth - 4, Math.max(4, info.x + 12)) + 'px';
+  });
+  m.cv.addEventListener('mouseleave', () => { m.tip.style.display = 'none'; m.vl.style.display = 'none'; });
+  // touch: show the tooltip while a finger is on the chart (page still scrolls)
+  const touch = e => {
+    const t = e.touches[0], r = m.cv.getBoundingClientRect();
+    const info = fn(t.clientX - r.left, t.clientY - r.top);
+    if(!info) return;
+    m.vl.style.display = 'block'; m.vl.style.left = info.x + 'px';
+    m.tip.innerHTML = info.html; m.tip.style.display = 'block';
+    m.tip.style.left = Math.min(m.w - m.tip.offsetWidth - 4, Math.max(4, info.x + 12)) + 'px';
+  };
+  m.cv.addEventListener('touchstart', touch, {passive:true});
+  m.cv.addEventListener('touchmove', touch, {passive:true});
+  m.cv.addEventListener('touchend', () => setTimeout(() => { m.tip.style.display = 'none'; m.vl.style.display = 'none'; }, 1800), {passive:true});
+}
+function niceTicks(lo, hi, n = 5){
+  const span = (hi - lo) || 1, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), nm = raw / mag;
+  const step = (nm < 1.5 ? 1 : nm < 3 ? 2 : nm < 7 ? 5 : 10) * mag, out = [];
+  for(let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+function hGrid(ctx, ticks, Y, x0, x1, fmt){
+  ctx.strokeStyle = COL.grid; ctx.fillStyle = COL.faint; ctx.lineWidth = 1; ctx.textAlign = 'right';
+  for(const v of ticks){
+    const y = Math.round(Y(v)) + .5;
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    ctx.fillText(fmt(v), x0 - 6, y + 3.5);
+  }
+}
+function timeLabels(ctx, X, t0, t1, y, x0, x1, withTime){
+  ctx.fillStyle = COL.faint; ctx.textAlign = 'center';
+  const n = Math.max(2, Math.floor((x1 - x0) / 110));
+  for(let k = 0; k <= n; k++){
+    const t = t0 + (t1 - t0) * k / n;
+    const label = withTime ? fmtDT(t).slice(5) : fmtD(t);
+    ctx.fillText(label, Math.min(x1 - 30, Math.max(x0 + 30, X(t))), y);
+  }
+}
+
+/* ---------------- charts ---------------- */
+function drawEquity(host, a){
+  const cap = a.cfg.capital, cur = a.curve;
+  const m = mk(host, 350), ctx = m.ctx, w = m.w;
+  const padL = 52, padR = 14, top = 8, topH = 246, ddTop = top + topH + 22, ddH = 56;
+  const t0 = cur[0].t, t1 = Math.max(a.tEnd, cur[cur.length - 1].t);
+  const X = t => padL + (t - t0) / ((t1 - t0) || 1) * (w - padL - padR);
+  const pts = cur.map(p => ({t:p.t, v:(p.e / cap - 1) * 100}));
+  let lo = Math.min(0, ...pts.map(p => p.v)), hi = Math.max(0, ...pts.map(p => p.v));
+  a.bench.forEach(b => { lo = Math.min(lo, b.pct); hi = Math.max(hi, b.pct); });
+  const pad = ((hi - lo) * .08) || 1; lo -= pad; hi += pad;
+  const Y = v => top + (hi - v) / (hi - lo) * topH;
+  hGrid(ctx, niceTicks(lo, hi, 5), Y, padL, w - padR, v => v.toFixed(0) + '%');
+  ctx.strokeStyle = COL.muted; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(padL, Y(0)); ctx.lineTo(w - padR, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  // benchmark
+  if(a.bench.length){
+    ctx.strokeStyle = COL.amber; ctx.lineWidth = 1.3; ctx.globalAlpha = .8; ctx.beginPath();
+    a.bench.forEach((b, i) => { const x = X(b.t), y = Y(b.pct); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  // strategy (stepped)
+  ctx.beginPath(); ctx.moveTo(X(pts[0].t), Y(0));
+  let py = Y(0);
+  pts.forEach(p => { const x = X(p.t), y = Y(p.v); ctx.lineTo(x, py); ctx.lineTo(x, y); py = y; });
+  ctx.lineTo(X(t1), py);
+  ctx.strokeStyle = COL.up; ctx.lineWidth = 2; ctx.stroke();
+  ctx.lineTo(X(t1), Y(0)); ctx.closePath();
+  const g = ctx.createLinearGradient(0, top, 0, top + topH); g.addColorStop(0, 'rgba(53,224,192,.22)'); g.addColorStop(1, 'rgba(53,224,192,0)');
+  ctx.fillStyle = g; ctx.fill();
+  // drawdown panel
+  let peak = cur[0].e; const dd = cur.map(p => { peak = Math.max(peak, p.e); return (p.e / peak - 1) * 100; });
+  const ddMin = Math.min(-1, ...dd) * 1.1;
+  const Y2 = v => ddTop + (0 - v) / (0 - ddMin) * ddH;
+  ctx.fillStyle = COL.faint; ctx.textAlign = 'left'; ctx.fillText('Drawdown from peak', padL, ddTop - 8);
+  hGrid(ctx, [ddMin / 1.1], Y2, padL, w - padR, v => v.toFixed(0) + '%');
+  ctx.beginPath(); ctx.moveTo(X(t0), Y2(0));
+  let pdy = Y2(0);
+  cur.forEach((p, i) => { const x = X(p.t), y = Y2(dd[i]); ctx.lineTo(x, pdy); ctx.lineTo(x, y); pdy = y; });
+  ctx.lineTo(X(t1), pdy); ctx.lineTo(X(t1), Y2(0)); ctx.closePath();
+  ctx.fillStyle = 'rgba(255,84,112,.35)'; ctx.fill();
+  ctx.strokeStyle = COL.dn; ctx.lineWidth = 1; ctx.stroke();
+  timeLabels(ctx, X, t0, t1, ddTop + ddH + 16, padL, w - padR, false);
+  // legend
+  ctx.textAlign = 'left'; ctx.fillStyle = COL.up; ctx.fillText('■ Strategy', padL + 8, top + 12);
+  ctx.fillStyle = COL.amber; ctx.fillText('— Buy & hold', padL + 82, top + 12);
+  hover(m, x => {
+    if(x < padL || x > w - padR) return null;
+    const t = t0 + (x - padL) / (w - padL - padR) * (t1 - t0);
+    let j = 0; while(j + 1 < cur.length && cur[j + 1].t <= t) j++;
+    const p = cur[j];
+    return {x, html:`${fmtDT(t)}<br>Strategy <b class="${cls(pts[j].v)}">${fP(pts[j].v)}</b> · ${fUsd(p.e)}<br>Drawdown ${fP(dd[j])}`};
+  });
+}
+function drawHist(host, rs){
+  const m = mk(host, 220), ctx = m.ctx, w = m.w;
+  const padL = 34, padR = 8, top = 10, H = 170, bw = 0.5, lo = -3, hi = 6;
+  const nb = Math.round((hi - lo) / bw), bins = new Array(nb).fill(0);
+  rs.forEach(r => { bins[clamp(Math.floor((r - lo) / bw), 0, nb - 1)]++; });
+  const mx = Math.max(...bins, 1);
+  const X = v => padL + (v - lo) / (hi - lo) * (w - padL - padR), Y = c => top + H - c / mx * H;
+  hGrid(ctx, niceTicks(0, mx, 4), Y, padL, w - padR, v => String(Math.round(v)));
+  const bwPx = (w - padL - padR) / nb;
+  bins.forEach((c, i) => {
+    const v0 = lo + i * bw;
+    ctx.fillStyle = v0 + bw / 2 > 0 ? COL.up : COL.dn;
+    ctx.globalAlpha = .85;
+    ctx.fillRect(padL + i * bwPx + 1, Y(c), Math.max(1, bwPx - 2), top + H - Y(c));
+  });
+  ctx.globalAlpha = 1;
+  const mean = rs.reduce((s, v) => s + v, 0) / rs.length;
+  ctx.strokeStyle = COL.amber; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(X(clamp(mean, lo, hi)), top); ctx.lineTo(X(clamp(mean, lo, hi)), top + H); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = COL.amber; ctx.textAlign = 'left'; ctx.fillText('avg ' + fR(mean), Math.min(w - 90, X(clamp(mean, lo, hi)) + 5), top + 12);
+  ctx.fillStyle = COL.faint; ctx.textAlign = 'center';
+  for(let v = lo; v <= hi; v += 1) ctx.fillText((v > 0 ? '+' : '') + v + 'R', X(v), top + H + 16);
+  hover(m, x => {
+    const i = Math.floor((x - padL) / bwPx);
+    if(i < 0 || i >= nb) return null;
+    const v0 = lo + i * bw;
+    return {x, html:`${fR(v0, 1)} to ${fR(v0 + bw, 1)}<br>${bins[i]} trades (${(bins[i] / rs.length * 100).toFixed(1)}%)`};
+  });
+}
+function drawPath(host, a){
+  const p = a.avgPath, L = p.mean.length;
+  const m = mk(host, 220), ctx = m.ctx, w = m.w;
+  const padL = 40, padR = 10, top = 10, H = 170;
+  const lo = Math.min(...p.p25.filter(Number.isFinite), ...p.mean) - .1, hi = Math.max(...p.p75.filter(Number.isFinite), ...p.mean) + .1;
+  const X = k => padL + k / Math.max(1, L - 1) * (w - padL - padR), Y = v => top + (hi - v) / (hi - lo) * H;
+  hGrid(ctx, niceTicks(lo, hi, 4), Y, padL, w - padR, v => v.toFixed(1) + 'R');
+  ctx.strokeStyle = COL.muted; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(padL, Y(0)); ctx.lineTo(w - padR, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath();
+  p.p75.forEach((v, k) => k ? ctx.lineTo(X(k), Y(v)) : ctx.moveTo(X(k), Y(v)));
+  for(let k = L - 1; k >= 0; k--) ctx.lineTo(X(k), Y(p.p25[k]));
+  ctx.closePath(); ctx.fillStyle = 'rgba(91,140,255,.18)'; ctx.fill();
+  ctx.beginPath(); p.mean.forEach((v, k) => k ? ctx.lineTo(X(k), Y(v)) : ctx.moveTo(X(k), Y(v)));
+  ctx.strokeStyle = COL.up; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = COL.faint; ctx.textAlign = 'center';
+  [0, Math.floor((L - 1) / 2), L - 1].forEach(k => { ctx.textAlign = k === L - 1 ? 'right' : (k === 0 ? 'left' : 'center'); ctx.fillText('bar ' + (k + 1), X(k), top + H + 16); });
+  hover(m, x => {
+    const k = clamp(Math.round((x - padL) / (w - padL - padR) * (L - 1)), 0, L - 1);
+    return {x:X(k), html:`Bar ${k + 1} after entry<br>Average ${fR(p.mean[k])}<br>Middle half: ${fR(p.p25[k])} … ${fR(p.p75[k])}`};
+  });
+}
+function drawFan(host, mc, riskPct){
+  const f = mc.fan, M = mc.M;
+  const m = mk(host, 250), ctx = m.ctx, w = m.w;
+  const padL = 48, padR = 10, top = 10, H = 196;
+  const val = v => (v - 1) * 100;
+  const lo = Math.min(0, val(Math.min(...f.p5))), hi = Math.max(0, val(Math.max(...f.p95)));
+  const X = k => padL + k / M * (w - padL - padR), Y = v => top + (hi - v) / ((hi - lo) || 1) * H;
+  hGrid(ctx, niceTicks(lo, hi, 5), Y, padL, w - padR, v => v.toFixed(0) + '%');
+  const band = (u, l, fill) => {
+    ctx.beginPath(); u.forEach((v, k) => k ? ctx.lineTo(X(k), Y(val(v))) : ctx.moveTo(X(k), Y(val(v))));
+    for(let k = l.length - 1; k >= 0; k--) ctx.lineTo(X(k), Y(val(l[k])));
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+  };
+  band(f.p95, f.p5, 'rgba(91,140,255,.15)');
+  band(f.p75, f.p25, 'rgba(91,140,255,.28)');
+  ctx.strokeStyle = COL.muted; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(padL, Y(0)); ctx.lineTo(w - padR, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); f.p50.forEach((v, k) => k ? ctx.lineTo(X(k), Y(val(v))) : ctx.moveTo(X(k), Y(val(v))));
+  ctx.strokeStyle = COL.up; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = COL.faint; ctx.textAlign = 'center';
+  [0, Math.round(M / 2), M].forEach(k => { ctx.textAlign = k === M ? 'right' : (k === 0 ? 'left' : 'center'); ctx.fillText('trade ' + k, X(k), top + H + 16); });
+  hover(m, x => {
+    const k = clamp(Math.round((x - padL) / (w - padL - padR) * M), 0, M);
+    return {x:X(k), html:`After ${k} trades<br>Median ${fP(val(f.p50[k]), 0)}<br>Middle half ${fP(val(f.p25[k]), 0)} … ${fP(val(f.p75[k]), 0)}<br>90% range ${fP(val(f.p5[k]), 0)} … ${fP(val(f.p95[k]), 0)}`};
+  });
+}
+
+/* ---------- real trading chart for one trade ---------- */
+function drawTradeChart(host, t){
+  const d = last.data[t.sym], c = d.c, a = last.a;
+  const s = Math.max(0, t.entryIdx - 55), e = Math.min(c.length - 1, t.exitIdx + 22);
+  const bars = c.slice(s, e + 1), nb = bars.length;
+  const m = mk(host, 430), ctx = m.ctx, w = m.w;
+  const padL = 8, padR = 64, top = 12, priceH = 322, volTop = top + priceH + 6, volH = 48;
+  let lo = Infinity, hi = -Infinity;
+  bars.forEach(b => { if(b.low < lo) lo = b.low; if(b.high > hi) hi = b.high; });
+  [t.stop, t.tp, t.entry, t.exitPx].forEach(v => { if(v){ lo = Math.min(lo, v); hi = Math.max(hi, v); } });
+  const padP = (hi - lo) * .06 || 1; lo -= padP; hi += padP;
+  const step = (w - padL - padR) / nb;
+  const X = i => padL + (i - s + .5) * step, Y = p => top + (hi - p) / (hi - lo) * priceH;
+  const dec = hi > 1000 ? 1 : hi > 10 ? 2 : hi > 1 ? 3 : 5;
+  // grid + axis
+  ctx.strokeStyle = COL.grid; ctx.fillStyle = COL.faint; ctx.textAlign = 'left'; ctx.lineWidth = 1;
+  niceTicks(lo, hi, 6).forEach(v => { const y = Math.round(Y(v)) + .5; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke(); ctx.fillText(v.toFixed(dec), w - padR + 6, y + 3.5); });
+  // position box (entry -> target / stop)
+  const x0 = X(t.entryIdx) - step / 2, x1 = X(t.exitIdx) + step / 2;
+  if(t.tp){ ctx.fillStyle = 'rgba(53,224,192,.10)'; const y1 = Y(t.tp), y2 = Y(t.entry); ctx.fillRect(x0, Math.min(y1, y2), x1 - x0, Math.abs(y2 - y1)); }
+  { ctx.fillStyle = 'rgba(255,84,112,.10)'; const y1 = Y(t.stop), y2 = Y(t.entry); ctx.fillRect(x0, Math.min(y1, y2), x1 - x0, Math.abs(y2 - y1)); }
+  // overlays
+  const isIch = a.strat.kind === 'ichimoku';
+  if(!last.cache[t.sym]) last.cache[t.sym] = {ich:isIch ? ichimokuSeries(c) : null, e20:emaSeries(c.map(b => b.close), 20), e50:emaSeries(c.map(b => b.close), 50)};
+  const ov = last.cache[t.sym];
+  if(isIch){
+    const kj = ICH.kijunLen;
+    for(let i = Math.max(s, kj + 1); i <= e; i++){
+      const i0 = i - 1 - kj, i1 = i - kj;
+      if(i0 < 0 || isNaN(ov.ich.SA[i0]) || isNaN(ov.ich.SA[i1]) || isNaN(ov.ich.SB[i0]) || isNaN(ov.ich.SB[i1])) continue;
+      ctx.fillStyle = ov.ich.SA[i1] >= ov.ich.SB[i1] ? 'rgba(53,224,192,.16)' : 'rgba(255,84,112,.16)';
+      ctx.beginPath(); ctx.moveTo(X(i - 1), Y(ov.ich.SA[i0])); ctx.lineTo(X(i), Y(ov.ich.SA[i1])); ctx.lineTo(X(i), Y(ov.ich.SB[i1])); ctx.lineTo(X(i - 1), Y(ov.ich.SB[i0])); ctx.closePath(); ctx.fill();
+    }
+    const line = (arr, color) => { ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.beginPath(); let st = false;
+      for(let i = s; i <= e; i++){ if(isNaN(arr[i])) continue; st ? ctx.lineTo(X(i), Y(arr[i])) : ctx.moveTo(X(i), Y(arr[i])); st = true; } ctx.stroke(); };
+    line(ov.ich.T, COL.blue); line(ov.ich.K, COL.amber);
+  } else {
+    const line = (arr, color) => { ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.beginPath(); let st = false;
+      for(let i = s; i <= e; i++){ if(isNaN(arr[i])) continue; st ? ctx.lineTo(X(i), Y(arr[i])) : ctx.moveTo(X(i), Y(arr[i])); st = true; } ctx.stroke(); };
+    line(ov.e20, COL.blue); line(ov.e50, COL.amber);
+  }
+  // candles
+  const bodyW = Math.max(1, step * .68);
+  bars.forEach((b, k) => {
+    const x = X(s + k), up = b.close >= b.open;
+    ctx.strokeStyle = ctx.fillStyle = up ? COL.up : COL.dn; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + .5, Y(b.high)); ctx.lineTo(Math.round(x) + .5, Y(b.low)); ctx.stroke();
+    const yo = Y(b.open), yc = Y(b.close);
+    ctx.fillRect(x - bodyW / 2, Math.min(yo, yc), bodyW, Math.max(1, Math.abs(yc - yo)));
+  });
+  // volume
+  const vmax = Math.max(...bars.map(b => b.quoteVolume), 1);
+  bars.forEach((b, k) => { ctx.fillStyle = b.close >= b.open ? 'rgba(53,224,192,.35)' : 'rgba(255,84,112,.35)'; const hh = b.quoteVolume / vmax * volH; ctx.fillRect(X(s + k) - bodyW / 2, volTop + volH - hh, bodyW, hh); });
+  // levels
+  const level = (p, color, label) => { ctx.strokeStyle = color; ctx.setLineDash([5, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, Y(p)); ctx.lineTo(w - padR, Y(p)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.textAlign = 'right'; ctx.fillText(label, w - padR - 4, Y(p) - 4); };
+  level(t.entry, COL.text, 'Entry ' + t.entry.toFixed(dec));
+  level(t.stop, COL.dn, 'Stop ' + t.stop.toFixed(dec));
+  if(t.tp) level(t.tp, COL.up, 'Target ' + t.tp.toFixed(dec));
+  // markers
+  const sx = X(t.sigIdx), sb = c[t.sigIdx];
+  ctx.fillStyle = COL.violet; ctx.beginPath();
+  if(t.dir > 0){ const y = Y(sb.low) + 12; ctx.moveTo(sx, y - 7); ctx.lineTo(sx - 5, y + 2); ctx.lineTo(sx + 5, y + 2); }
+  else { const y = Y(sb.high) - 12; ctx.moveTo(sx, y + 7); ctx.lineTo(sx - 5, y - 2); ctx.lineTo(sx + 5, y - 2); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = COL.violet; ctx.textAlign = 'center';
+  ctx.fillText('signal', sx, t.dir > 0 ? Y(sb.low) + 28 : Y(sb.high) - 22);
+  ctx.fillStyle = COL.text; ctx.beginPath(); ctx.arc(X(t.entryIdx), Y(t.entry), 4.5, 0, 7); ctx.fill();
+  ctx.strokeStyle = t.netR > 0 ? COL.up : COL.dn; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(t.exitIdx), Y(t.exitPx), 6, 0, 7); ctx.stroke();
+  ctx.fillStyle = t.netR > 0 ? COL.up : COL.dn; ctx.textAlign = 'center';
+  ctx.fillText(`${t.reason} ${fR(t.netR)}`, Math.min(w - padR - 50, X(t.exitIdx)), Y(t.exitPx) + (t.dir > 0 === t.netR > 0 ? -12 : 18));
+  // time axis
+  ctx.fillStyle = COL.faint; ctx.textAlign = 'center';
+  const n = Math.max(2, Math.floor((w - padL - padR) / 120));
+  for(let k = 0; k <= n; k++){ const i = s + Math.round((nb - 1) * k / n); ctx.fillText(a.cfg.tf === '1d' ? fmtD(c[i].openTime).slice(2) : fmtDT(c[i].openTime).slice(2), X(i), volTop + volH + 15); }
+  hover(m, x => {
+    const k = clamp(Math.floor((x - padL) / step), 0, nb - 1), b = bars[k];
+    return {x:X(s + k), html:`${fmtDT(b.openTime)} UTC<br>O ${b.open.toFixed(dec)} H ${b.high.toFixed(dec)}<br>L ${b.low.toFixed(dec)} C ${b.close.toFixed(dec)}<br>Vol $${(b.quoteVolume / 1e6).toFixed(2)}M`};
+  });
+}
+
+/* ---------------- diagrams ---------------- */
+function pipelineHtml(cfg, strat){
+  const managed = cfg.exitMode === 'managed';
+  const steps = [
+    ['1 · SIGNAL', strat.title, `checked at every ${TF_NAME[cfg.tf]} close`, 'no lookahead'],
+    ['2 · ENTRY', cfg.entry === 'open' ? 'Next bar open' : 'Signal bar close', `+${cfg.slip}% slippage`, cfg.side === 'auto' ? 'side from the screen' : cfg.side + ' only'],
+    ['3 · EXIT', managed ? `Stop ${cfg.stopAtr}× ATR` : `Hold ${cfg.maxBars} bars`, managed ? (cfg.targetR > 0 ? `target ${cfg.targetR}R` : 'no target') : `1R = ${cfg.stopAtr}× ATR (scoring only)`, managed ? `or ${cfg.maxBars}-bar time limit` : 'no stop-loss'],
+    ['4 · COSTS', `${cfg.fee}% fee / side`, `${cfg.slip}% slippage / side`, 'deducted from every trade'],
+    ['5 · SIZING', `${cfg.riskPct}% equity at risk`, `max ${cfg.maxPos} open trades`, `${cfg.maxLev}× leverage cap`]
+  ];
+  return '<div class="bx-pipe">' + steps.map(b =>
+    `<div class="bx-step"><div class="n">${esc(b[0])}</div><div class="m">${esc(b[1])}</div><div class="l">${esc(b[2])}</div><div class="l f">${esc(b[3])}</div></div>`).join('') + '</div>';
+}
+function anatomySvg(cfg){
+  const managed = cfg.exitMode === 'managed';
+  const tgt = managed && cfg.targetR > 0 ? cfg.targetR : 0;
+  const eY = 120, unit = 32, tpY = eY - (tgt || 2) * unit, spY = eY + unit;
+  let s = '<svg class="bx-svg" viewBox="0 0 420 220" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">';
+  s += `<rect x="50" y="${tpY}" width="300" height="${eY - tpY}" fill="rgba(53,224,192,${managed ? .10 : .04})"/>`;
+  s += `<rect x="50" y="${eY}" width="300" height="${spY - eY}" fill="rgba(255,84,112,${managed ? .12 : .04})"/>`;
+  const L = (y, col, dash) => `<line x1="8" y1="${y}" x2="412" y2="${y}" stroke="${col}" stroke-width="1.4" ${dash ? 'stroke-dasharray="5 4"' : ''}/>`;
+  s += L(eY, '#E6E9EF', false);
+  if(managed){
+    s += L(spY, '#FF5470', true);
+    if(tgt) s += L(tpY, '#35E0C0', true);
+    s += `<text x="10" y="${spY + 15}" fill="#FF5470">Stop −1R (${cfg.stopAtr}× ATR)</text>`;
+    if(tgt) s += `<text x="10" y="${tpY - 6}" fill="#35E0C0">Target +${tgt}R</text>`;
+  } else {
+    s += `<text x="10" y="${spY + 15}" fill="#8B93A3">No stop · 1R = ${cfg.stopAtr}× ATR</text>`;
+  }
+  s += `<text x="10" y="${eY - 6}" fill="#E6E9EF">Entry</text>`;
+  const px = [50, 76, 102, 128, 154, 180, 206, 232, 258, 284, 310, 336];
+  const py = [eY - 2, eY - 6, eY + 8, eY - 12, eY - 4, eY - 26, eY - 22, eY - 40, eY - 34, eY - 52, eY - 58, tgt ? tpY : eY - 62];
+  s += `<polyline fill="none" stroke="#8B93A3" stroke-width="2" points="${px.map((x, i) => x + ',' + py[i]).join(' ')}"/>`;
+  s += `<circle cx="50" cy="${eY}" r="5" fill="#E6E9EF"/>`;
+  s += `<circle cx="336" cy="${py[11]}" r="6" fill="none" stroke="#35E0C0" stroke-width="2"/>`;
+  s += `<line x1="350" y1="${tpY - 12}" x2="350" y2="${spY + 14}" stroke="#F5A623" stroke-width="1.2" stroke-dasharray="3 3"/>`;
+  s += `<text x="412" y="${spY + 32}" text-anchor="end" fill="#F5A623">${managed ? 'time limit' : 'exit'}: ${cfg.maxBars} bars</text>`;
+  s += `<text x="210" y="208" text-anchor="middle" fill="#565F70">Long shown; shorts mirror it.</text>`;
+  return s + '</svg>';
+}
+
+/* ---------------- results page ---------------- */
+function section(num, title, lead, body){
+  return `<div class="panel"><div class="bx-sec"><span class="bx-n">${num}</span>${title}</div>${lead ? `<p class="bx-lead">${lead}</p>` : ''}${body}</div>`;
+}
+function kpi(label, value, sub, tip, valueCls){
+  return `<div class="bx-kpi"><div class="k" title="${esc(tip)}">${label}</div><div class="v ${valueCls || ''}">${value}</div><div class="s">${sub}</div></div>`;
+}
+function sqnLabel(v){
+  return v < 1.6 ? 'poor' : v < 2 ? 'below average' : v < 2.5 ? 'average' : v < 3 ? 'good' : v < 5 ? 'excellent' : 'superb';
+}
+function rowTable(rows){
+  return '<table class="bx-mini">' + rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '</table>';
+}
+function render(){
+  const out = $('bxOut'), {a, data, failed, syms} = last, cfg = a.cfg, s = a.stats;
+  if(!s){
+    const sigs = syms.reduce((n, k) => n + data[k].signals.length, 0);
+    out.innerHTML = `<div class="panel"><div class="bx-empty"><b>No completed trades.</b><br>${sigs
+      ? `The screen fired ${sigs} time(s), but none produced a completed trade (the data ended first).`
+      : `This screen never fired on ${syms.length} coin(s) over ${fmtD(a.tStart)} → ${fmtD(a.tEnd)}.`}<br>Try a different timeframe, more coins, a longer history, or a looser screen.</div></div>`;
+    return;
+  }
+  const benchEnd = a.bench.length ? a.bench[a.bench.length - 1].pct : null;
+  const pills = [
+    a.strat.title, `${TF_NAME[cfg.tf]} candles`, `${syms.length} coins`, `${fmtD(a.tStart)} → ${fmtD(a.tEnd)} (${Math.round(a.days)} days)`,
+    `${s.n} trades`, a.skipped ? `${a.skipped} skipped (max ${cfg.maxPos} open)` : '', failed.length ? `skipped coins: ${failed.join(', ')}` : ''
+  ].filter(Boolean).map(p => `<span class="bx-pill">${esc(p)}</span>`).join('');
+  const v = a.verdict;
+  const para = `Starting with <b>${fUsd(cfg.capital)}</b> and risking <b>${cfg.riskPct}%</b> of equity per trade, the <b>${esc(a.strat.title)}</b> on ${syms.length} coins ${a.totalRet >= 0 ? 'made' : 'lost'} <b class="${cls(a.totalRet)}">${fP(a.totalRet)}</b> across ${s.n} trades, with a worst drawdown of <b>${a.dd.pct.toFixed(1)}%</b>. The average trade ${s.exp >= 0 ? 'earned' : 'lost'} <b>${Math.abs(s.exp).toFixed(2)}R</b> after costs; <b>${s.winRate.toFixed(0)}%</b> of trades won (winners average ${fR(s.avgWin)}, losers −${s.avgLoss.toFixed(2)}R).` +
+    (benchEnd !== null ? ` Simply holding the same coins equal-weight over that period returned <b class="${cls(benchEnd)}">${fP(benchEnd)}</b>.` : '');
+  let h = '';
+  h += `<div class="panel"><div class="bx-sec">Result</div><div style="margin:6px 0 14px;">${pills}</div>
+    <div class="bx-verdict">
+      <div class="bx-grade ${v.grade}"><div class="g">${v.label}</div><div class="gs">${v.score} / ${v.max} checks<br>${v.sub}</div></div>
+      <div class="bx-checks">${v.checks.map(c => `<div class="bx-check"><div class="bx-dot ${c.state}">${c.state === 'pass' ? '✓' : c.state === 'warn' ? '!' : '✕'}</div><div><span class="t">${c.title}.</span> <span class="d">${c.detail}</span></div></div>`).join('')}</div>
+    </div><p class="bx-lead" style="margin-top:14px;">${para}</p></div>`;
+
+  h += `<div class="panel"><div class="bx-sec">Key numbers</div><div class="bx-kpis">` + [
+    kpi('Total return', fP(a.totalRet), `${fUsd(a.finalEquity)} from ${fUsd(cfg.capital)}${a.cagr !== null ? ` · ≈ ${fP(a.cagr, 0)}/yr` : ''}`, 'Change in account equity over the whole test, after fees and slippage.', cls(a.totalRet)),
+    kpi('Max drawdown', `-${a.dd.pct.toFixed(1)}%`, `longest time below a peak: ${Math.max(1, Math.round(a.dd.longestMs / 86400e3))} days`, 'Largest peak-to-trough fall in equity. The pain you would have had to sit through.', a.dd.pct > 35 ? 'bx-dn' : ''),
+    kpi('Expectancy', fR(s.exp), a.ci ? `95% range ${fR(a.ci.lo)} … ${fR(a.ci.hi)}` : 'avg result per trade', 'Average profit per trade in R (1R = your stop distance). Positive = the system makes money per trade on average.', cls(s.exp)),
+    kpi('Win rate', `${s.winRate.toFixed(0)}%`, `avg win ${fR(s.avgWin)} · avg loss −${s.avgLoss.toFixed(2)}R`, 'Share of trades that ended in profit. A low win rate can still be profitable if winners are much bigger than losers.'),
+    kpi('Profit factor', Number.isFinite(s.pf) ? s.pf.toFixed(2) : '∞', 'gross wins ÷ gross losses', 'Total winnings divided by total losses. Above 1 is profitable; above 1.5 is solid; above 3 on few trades is usually luck.', s.pf >= 1 ? 'bx-up' : 'bx-dn'),
+    kpi('Trades', String(s.n), `avg hold ${a.avgBars.toFixed(1)} bars · ${s.maxLossStreak} max losing streak`, 'Number of completed trades. More trades = more trustworthy numbers.'),
+    kpi('Quality (SQN)', s.sqn.toFixed(2), sqnLabel(s.sqn), 'System Quality Number (Van Tharp): sqrt(trades) × average R ÷ standard deviation of R. Under 1.6 is poor, 2–2.5 average, 3+ good.'),
+    kpi('Buy & hold', benchEnd !== null ? fP(benchEnd) : '—', 'equal-weight, same coins', 'What simply holding all the tested coins in equal weight would have returned over the same period.', cls(benchEnd)),
+    kpi('Avg excursion', `+${a.avgMfe.toFixed(1)}R / −${a.avgMae.toFixed(1)}R`, 'best / worst point inside a trade', 'Maximum favourable / adverse excursion: how far price typically ran in your favour and against you before the trade ended.')
+  ].join('') + `</div></div>`;
+
+  h += section('1', 'Equity curve', `Each step is a closed trade, sized from live equity. The <b>amber line</b> is buy-and-hold of the same coins — a strategy that can't beat it (or at least cut the drawdown) has little reason to exist. Hover for details.`,
+    `<div id="bxEq"></div>`);
+
+  h += section('2', 'How this test was run', `The exact rules behind every number on this page. Nothing here uses information that wasn't available when the trade was taken.`,
+    `<div class="bx-box" style="margin-bottom:16px;"><h4>The pipeline</h4><p class="cap">Left to right for every signal.</p>${pipelineHtml(cfg, a.strat)}</div>
+     <div class="bx-box" style="max-width:520px;"><h4>Anatomy of one trade</h4><p class="cap">Risk is measured in <b>R</b>: 1R = distance from entry to stop.</p>${anatomySvg(cfg)}</div>`);
+
+  const reasons = ['Stop', 'Target', 'Time'].filter(r => a.byReason[r]);
+  const reasonCol = {Stop:COL.dn, Target:COL.up, Time:COL.blue};
+  h += section('3', 'What the trades looked like', `The shape of the results matters as much as the average. A healthy system usually has many small losses clipped at −1R and a fatter tail of winners.`,
+    `<div class="bx-three">
+      <div class="bx-box"><h4>Result of each trade (R)</h4><p class="cap">Distribution of net results. Red = losses, green = wins.</p><div id="bxHist"></div></div>
+      <div class="bx-box"><h4>How trades ended</h4><p class="cap">Share of trades closed by each rule, with the average result.</p>
+        <div class="bx-stack">${reasons.map(r => `<div style="width:${a.byReason[r].length / s.n * 100}%;background:${reasonCol[r]}">${(a.byReason[r].length / s.n * 100).toFixed(0)}%</div>`).join('')}</div>
+        <table class="bx-mini"><tr><th>Exit</th><th>Trades</th><th>Avg R</th></tr>${reasons.map(r => { const m = a.byReason[r].reduce((x, y) => x + y, 0) / a.byReason[r].length;
+          return `<tr><td><span style="color:${reasonCol[r]}">●</span> ${r === 'Time' ? 'Time limit' : r === 'Stop' ? 'Stop-loss' : 'Target'}</td><td>${a.byReason[r].length}</td><td class="${cls(m)}">${fR(m)}</td></tr>`; }).join('')}</table></div>
+      <div class="bx-box"><h4>Average trade path</h4><p class="cap">Typical R-multiple at each bar after entry. Band = middle half of trades.</p><div id="bxPath"></div></div>
+    </div>`);
+
+  // --- luck tests
+  let luck = '<div class="bx-two">';
+  luck += `<div class="bx-box"><h4>First 70% vs last 30% of the period</h4><p class="cap">The strategy's settings were never tuned on this data, so this is a stability check: does the edge persist into the later, "unseen" stretch?</p>
+    <table class="bx-mini"><tr><th></th><th>Trades</th><th>Win rate</th><th>Expectancy</th><th>Profit factor</th></tr>
+    ${[['First 70%', a.isStats], ['Last 30%', a.oosStats]].map(([n, x]) => x
+      ? `<tr><td>${n}</td><td>${x.n}</td><td>${x.winRate.toFixed(0)}%</td><td class="${cls(x.exp)}">${fR(x.exp)}</td><td>${Number.isFinite(x.pf) ? x.pf.toFixed(2) : '∞'}</td></tr>`
+      : `<tr><td>${n}</td><td colspan="4" style="color:var(--faint)">no trades</td></tr>`).join('')}</table>
+    <p class="cap" style="margin-top:10px;">Long vs short: ${a.longStats ? `<b>${a.longStats.n}</b> longs at <span class="${cls(a.longStats.exp)}">${fR(a.longStats.exp)}</span>` : 'no longs'} · ${a.shortStats ? `<b>${a.shortStats.n}</b> shorts at <span class="${cls(a.shortStats.exp)}">${fR(a.shortStats.exp)}</span>` : 'no shorts'}</p></div>`;
+  if(a.random){
+    const r = a.random;
+    const mn = Math.min(r.p5, s.exp, 0), mx = Math.max(r.p95, s.exp, 0), padv = (mx - mn) * .15 || .1;
+    const lo = mn - padv, hi = mx + padv, pos = x => ((x - lo) / (hi - lo) * 100).toFixed(1);
+    luck += `<div class="bx-box"><h4>Strategy vs random entries</h4><p class="cap">Same coins, same stop / target / costs — but entering at <i>random</i> bars. If random entries do as well, the signal adds nothing.</p>
+      <div style="position:relative;height:30px;margin:14px 8px 8px;background:var(--panel);border-radius:6px;">
+        <div style="position:absolute;left:${pos(r.p5)}%;width:${(pos(r.p95) - pos(r.p5)).toFixed(1)}%;top:5px;height:20px;background:rgba(245,166,35,.30);border-radius:4px;"></div>
+        <div style="position:absolute;left:${pos(0)}%;top:0;bottom:0;width:1px;background:var(--muted);"></div>
+        <div style="position:absolute;left:${pos(s.exp)}%;top:-4px;height:38px;width:4px;margin-left:-2px;background:${s.exp > r.p95 ? COL.up : (s.exp > 0 ? COL.amber : COL.dn)};border-radius:2px;"></div>
+      </div>
+      <div class="cap" style="display:flex;gap:6px 16px;flex-wrap:wrap;margin:0 8px 6px;font-family:var(--font-mono);">
+        <span><b style="color:${s.exp > 0 ? COL.up : COL.dn}">▌</b> Strategy ${fR(s.exp)}</span>
+        <span><b style="color:var(--amber)">▬</b> Random entries, 90% of outcomes: ${fR(r.p5)} … ${fR(r.p95)}</span>
+        <span>┃ zero</span>
+      </div>
+      <p class="cap" style="margin-top:14px;">Random entries average <b>${fR(r.mean)}</b> (${r.winRate.toFixed(0)}% wins). Share of random batches that matched or beat the strategy: <b>${(r.pValue * 100).toFixed(0)}%</b> — ${r.pValue < .05 ? 'unlikely to be chance.' : r.pValue < .2 ? 'suggestive, not conclusive.' : 'indistinguishable from chance.'}</p></div>`;
+  }
+  if(a.mc){
+    const mc = a.mc;
+    luck += `<div class="bx-box"><h4>Monte Carlo — 1,000 alternate histories</h4><p class="cap">Re-draws your ${s.n} trade results at random to show how much of the outcome was down to order and luck. Bands: middle half and 90% range.</p><div id="bxFan"></div>
+      ${rowTable([
+        ['Chance of finishing in profit', `<b class="${mc.probProfit >= 70 ? 'bx-up' : mc.probProfit < 50 ? 'bx-dn' : 'bx-wr'}">${mc.probProfit.toFixed(0)}%</b>`],
+        ['Median outcome (90% range)', `${fP(mc.medFinal, 0)} (${fP(mc.p5Final, 0)} … ${fP(mc.p95Final, 0)})`],
+        ['Typical worst drawdown', `-${mc.medDD.toFixed(0)}%`],
+        ['Bad-luck drawdown (1 in 20)', `-${mc.p95DD.toFixed(0)}%`],
+        ['Chance of a 25%+ drawdown', `${mc.probDD25.toFixed(0)}%`]
+      ])}</div>`;
+  }
+  if(a.grid){
+    const g = a.grid;
+    const maxAbs = Math.max(0.15, ...g.cells.flat().map(c => Math.abs(c.exp) || 0));
+    luck += `<div class="bx-box"><h4>Parameter sensitivity</h4><p class="cap">Expectancy (R per trade) for different stop sizes and targets. A real edge shows as a broad green region; one lonely green cell is usually curve-fitting. White outline = your current setting.</p>
+      <table class="bx-mini bx-heat"><tr><th>Stop \ Tgt</th>${g.targets.map(t => `<th>${t}R</th>`).join('')}</tr>
+      ${g.stops.map((sa, i) => `<tr><th>${sa}× ATR</th>${g.cells[i].map((c, j) => {
+        const e = c.exp, a2 = Math.min(1, Math.abs(e) / maxAbs) * .75 + .08;
+        const bg = Number.isFinite(e) ? (e >= 0 ? `rgba(53,224,192,${a2})` : `rgba(255,84,112,${a2})`) : 'transparent';
+        const cur = sa === cfg.stopAtr && g.targets[j] === cfg.targetR;
+        return `<td class="${cur ? 'cur' : ''}" style="background:${bg}" title="${c.n} trades · ${Number.isFinite(c.win) ? c.win.toFixed(0) : '—'}% win rate">${Number.isFinite(e) ? fR(e) : '—'}</td>`;
+      }).join('')}</tr>`).join('')}</table></div>`;
+  } else {
+    luck += `<div class="bx-box"><h4>Parameter sensitivity</h4><p class="cap">Switch exit style to "Stop + target + time limit" to see how results change with the stop and target size.</p></div>`;
+  }
+  luck += '</div>';
+  h += section('4', 'Is it skill or luck?', `Four independent stress tests. A strategy only deserves trust when it survives all of them — a good-looking equity curve alone proves very little.`, luck);
+
+  // --- breakdowns
+  const coinRows = Object.keys(a.byCoin).map(k => {
+    const arr = a.byCoin[k]; return {k, sum:arr.reduce((x, y) => x + y, 0), n:arr.length, win:arr.filter(r => r > 0).length / arr.length * 100};
+  }).sort((x, y) => y.sum - x.sum);
+  const cmax = Math.max(...coinRows.map(r => Math.abs(r.sum)), 1);
+  const months = Object.keys(a.byMonth).sort();
+  const years = [...new Set(months.map(m => m.slice(0, 4)))];
+  const mmax = Math.max(...Object.values(a.byMonth).map(Math.abs), 1);
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  h += section('5', 'Where it worked and where it didn\'t', 'Concentrated results (one coin or one month doing all the work) are a warning sign; broad results are what you want.',
+    `<div class="bx-two"><div class="bx-box"><h4>Total R by coin</h4><p class="cap">Sum of results per coin, with trade count and win rate.</p>
+      ${coinRows.slice(0, 40).map(r => `<div class="bx-barrow"><div class="nm">${esc(r.k.replace('USDT', ''))}</div><div class="bx-track"><div class="mid"></div><div class="bx-fill" style="${r.sum >= 0 ? `left:50%;width:${r.sum / cmax * 50}%;background:${COL.up}` : `right:50%;width:${-r.sum / cmax * 50}%;background:${COL.dn}`}"></div></div><div class="${cls(r.sum)}" style="text-align:right">${fR(r.sum, 1)} · ${r.n}× · ${r.win.toFixed(0)}%</div></div>`).join('')}</div>
+     <div class="bx-box"><h4>Result by month (R)</h4><p class="cap">Sum of trade results, by the month each trade closed.</p>
+      <table class="bx-mini bx-heat"><tr><th></th>${MN.map(m => `<th>${m}</th>`).join('')}</tr>
+      ${years.map(y => `<tr><th>${y}</th>${MN.map((_, i) => { const k = `${y}-${pad2(i + 1)}`, val = a.byMonth[k];
+        if(val === undefined) return '<td></td>';
+        const al = Math.min(1, Math.abs(val) / mmax) * .7 + .1;
+        return `<td style="background:${val >= 0 ? `rgba(53,224,192,${al})` : `rgba(255,84,112,${al})`};font-size:10.5px" title="${k}: ${fR(val)}">${val > 0 ? '+' : ''}${val.toFixed(1)}</td>`; }).join('')}</tr>`).join('')}</table></div></div>`);
+
+  // --- trade explorer
+  h += section('6', 'Trade explorer', 'Every simulated trade on a real candlestick chart: <b>signal bar</b> (purple), entry, stop, target and exit. Click a row to inspect it.',
+    `<div class="bx-trade-tools"><select id="bxSort" onchange="Backtest.setSort(this.value)"><option value="recent">Most recent first</option><option value="best">Best trades first</option><option value="worst">Worst trades first</option></select>
+      <button class="secondary" style="padding:7px 12px;font-size:12px" onclick="Backtest.step(-1)">← Previous</button>
+      <button class="secondary" style="padding:7px 12px;font-size:12px" onclick="Backtest.step(1)">Next →</button>
+      <span class="status" id="bxTradeInfo"></span></div>
+     <div id="bxTradeChart" class="bx-box" style="padding:10px;margin-bottom:14px;"></div>
+     <div id="bxTradeTables"></div>
+     <div class="bx-hint" id="bxTradeNote"></div>`);
+
+  h += `<div class="panel"><details class="bx-how"><summary>How to read this page</summary><dl>
+    <dt>R-multiple</dt><dd>Result measured in units of risk. 1R is the distance from entry to stop. A +2R trade made twice what it risked; −1R is a normal stopped-out loss. It makes trades on different coins comparable.</dd>
+    <dt>Expectancy</dt><dd>The average R per trade after costs. It is the single most important number: positive means the system makes money per trade on average. Times your number of trades per year, it is your yearly edge.</dd>
+    <dt>Win rate vs payoff</dt><dd>Neither means much alone. A 35% win rate is fine if winners are 3× the size of losers; a 70% win rate loses money if losers are 3× the winners. Expectancy combines both.</dd>
+    <dt>Profit factor</dt><dd>Gross profit ÷ gross loss. Under 1 loses money. Beware values above ~3 with few trades.</dd>
+    <dt>Drawdown</dt><dd>How far equity fell from its previous high. Size positions so the drawdown is something you could actually stomach — and expect the live one to be worse than the backtest.</dd>
+    <dt>Confidence range</dt><dd>Re-sampling your trades 2,000 times gives a 95% range for the true average. If it includes zero, the edge could be luck.</dd>
+    <dt>Random-entry test</dt><dd>Applies the same exits to random entries. Often the exit rules, not the signal, produce the profit — this isolates what the signal itself adds.</dd>
+    <dt>Monte Carlo</dt><dd>Shuffles and re-draws your trades to show the spread of possible outcomes and drawdowns. The realised curve is only one of those paths.</dd>
+    <dt>Sensitivity grid</dt><dd>If tiny changes to the stop or target flip results from profit to loss, the strategy is fragile and probably overfit.</dd>
+    <dt>Limits of any backtest</dt><dd>History ≠ future. Coins listed today exclude those that were delisted (survivorship bias); crypto's long-run drift flatters long strategies; fills are simulated (real slippage is worse in fast markets); and candles hide the order of moves inside a bar. Treat this as a filter for bad ideas, not a promise of profit. Not financial advice.</dd>
+  </dl></details></div>`;
+  out.innerHTML = h;
+  requestAnimationFrame(() => { drawAll(); });
+}
+
+function exitTag(reason){
+  const k = {Stop:'stop', Target:'target', Time:'time'}[reason] || 'time';
+  const label = {Stop:'STOP', Target:'TARGET', Time:'TIME'}[reason] || reason;
+  return `<span class="bx-tag ${k}">${label}</span>`;
+}
+function sortedTrades(){
+  const t = last.a.taken.slice();
+  if(tradeSort === 'best') t.sort((x, y) => y.netR - x.netR);
+  else if(tradeSort === 'worst') t.sort((x, y) => x.netR - y.netR);
+  else t.sort((x, y) => y.entryTime - x.entryTime);
+  return t;
+}
+function renderTradeTable(){
+  const host = $('bxTradeTables');
+  if(!host) return;
+  const list = sortedTrades();
+  const groups = [
+    ['Target', 'Hit target', 'Closed at the take-profit level.'],
+    ['Stop', 'Stopped out', 'Closed at the stop-loss.'],
+    ['Time', 'Time limit', 'Neither level was hit; closed when the max-hold bars ran out.']
+  ];
+  const LIMIT = 100;
+  let html = '';
+  for(const [reason, title, sub] of groups){
+    const rows = list.filter(t => t.reason === reason);
+    if(!rows.length) continue;                       // hide tables with no trades
+    const avg = rows.reduce((s, t) => s + t.netR, 0) / rows.length;
+    html += `<div style="margin:0 0 18px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px;">${exitTag(reason)}
+        <b style="font-family:var(--font-display);font-size:14px;">${title}</b>
+        <span class="status">${rows.length} trade${rows.length > 1 ? 's' : ''} · avg <span class="${cls(avg)}">${fR(avg)}</span> · ${sub}</span></div>
+      <div class="table-wrap" style="max-height:300px;"><table><thead><tr><th style="text-align:left">Coin</th><th>Side</th><th>Entered (UTC)</th><th>Bars</th><th>Result</th><th>Price move</th><th>P&amp;L</th></tr></thead><tbody>` +
+      rows.slice(0, LIMIT).map(t => {
+        const mv = (t.exitPx / t.entry - 1) * 100 * t.dir;
+        return `<tr class="bx-trow ${t.id === selTradeId ? 'sel' : ''}" data-id="${t.id}" onclick="Backtest.pick(${t.id})"><td style="text-align:left">${esc(t.sym.replace('USDT', ''))}</td>
+          <td class="${t.dir > 0 ? 'bx-up' : 'bx-dn'}">${t.dir > 0 ? 'LONG' : 'SHORT'}</td><td>${fmtDT(t.entryTime)}</td><td>${t.bars}</td>
+          <td class="${cls(t.netR)}">${fR(t.netR)}</td><td class="${cls(mv)}">${fP(mv, 2)}</td><td class="${cls(t.pnl)}">${fUsd(t.pnl)}</td></tr>`;
+      }).join('') + `</tbody></table></div>` +
+      (rows.length > LIMIT ? `<div class="bx-hint">Showing ${LIMIT} of ${rows.length}.</div>` : '') + `</div>`;
+  }
+  host.innerHTML = html;
+  $('bxTradeNote').textContent = `${list.length} trades in total.`;
+}
+function drawAll(){
+  if(!last || !last.a.stats) return;
+  const a = last.a;
+  if($('bxEq') && $('bxEq').clientWidth) drawEquity($('bxEq'), a);
+  if($('bxHist')) drawHist($('bxHist'), a.taken.map(t => t.netR));
+  if($('bxPath')) drawPath($('bxPath'), a);
+  if($('bxFan') && a.mc) drawFan($('bxFan'), a.mc, a.cfg.riskPct);
+  renderTradeTable();
+  if(selTradeId === null){
+    const list = sortedTrades();
+    if(list.length) selTradeId = list[0].id;
+  }
+  if(selTradeId !== null) pick(selTradeId);
+}
+function pick(id){
+  if(!last) return;
+  const t = last.a.taken.find(x => x.id === id);
+  if(!t) return;
+  selTradeId = id;
+  document.querySelectorAll('#bxTradeTables tr').forEach(r => r.classList.toggle('sel', +r.dataset.id === id));
+  const host = $('bxTradeChart');
+  if(host && host.clientWidth) drawTradeChart(host, t);
+  const info = $('bxTradeInfo');
+  if(info) info.innerHTML = `<b>${esc(t.sym)}</b> · ${t.dir > 0 ? 'LONG' : 'SHORT'} · ${fmtDT(t.entryTime)} · ${exitTag(t.reason)} · <span class="${cls(t.netR)}">${fR(t.netR)}</span> · ${fUsd(t.pnl)} on ${fUsd(t.riskUsd)} risked${t.tag ? ' · trigger ' + t.tag : ''}`;
+}
+function step(dir){
+  if(!last) return;
+  const list = sortedTrades();
+  let i = list.findIndex(t => t.id === selTradeId);
+  i = clamp((i < 0 ? 0 : i) + dir, 0, list.length - 1);
+  pick(list[i].id);
+  const row = document.querySelector(`#bxTradeTables tr[data-id="${list[i].id}"]`);
+  if(row) row.scrollIntoView({block:'nearest'});
+}
+function setSort(v){ tradeSort = v; renderTradeTable(); }
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { const p = $('backtestPane'); if(last && p && p.style.display !== 'none') drawAll(); }, 200);
+});
+
+window.Backtest = {run, setTf, onStrategyChange, updateHistoryHint, onExitModeChange, pick, step, setSort, redraw:() => { if(last) drawAll(); }};
+initStrategies();
+onExitModeChange();
+})();
+
+</script>
 </body>
 </html>
