@@ -1144,6 +1144,59 @@ function mergeMarkets(base, parsed){
   return out;
 }
 
+// Backup files are untrusted input: a shared/edited JSON could carry markup in
+// symbol/name/id fields that later lands in innerHTML or data-* attributes.
+// Imported records are rebuilt from a whitelist - identifiers must match a
+// strict pattern (record dropped otherwise), free text has angle brackets
+// removed, everything numeric is coerced to a finite number.
+const IMPORT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const IMPORT_SYMBOL_RE = /^[A-Za-z0-9._&:^=-]{1,40}$/;
+function importNum(v, fallback){
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+  return (typeof n === 'number' && isFinite(n)) ? n : fallback;
+}
+function importText(v, max){
+  return String(v == null ? '' : v).replace(/[<>\u0000-\u001f]/g, '').slice(0, max || 120);
+}
+function importExtras(src, dst, skip){
+  Object.keys(src).forEach(k=>{
+    if(skip.indexOf(k) !== -1 || k === '__proto__' || k === 'constructor' || k === 'prototype') return;
+    const v = src[k];
+    if(typeof v === 'boolean') dst[k] = v;
+    else if(typeof v === 'number' && isFinite(v)) dst[k] = v;
+  });
+}
+function sanitizeImportedLot(l){
+  if(!l || typeof l !== 'object' || !IMPORT_ID_RE.test(String(l.id))) return null;
+  const out = { id:String(l.id), qty:importNum(l.qty, 0), price:importNum(l.price, 0), date:importNum(l.date, Date.now()), fee:importNum(l.fee, 0) };
+  if(l.feeType === 'maker' || l.feeType === 'taker') out.feeType = l.feeType;
+  importExtras(l, out, ['id','qty','price','date','fee','feeType']);
+  return out;
+}
+function sanitizeImportedHolding(h){
+  if(!h || typeof h !== 'object' || !IMPORT_ID_RE.test(String(h.id)) || !IMPORT_SYMBOL_RE.test(String(h.symbol))) return null;
+  const out = {
+    id:String(h.id), symbol:String(h.symbol), name:importText(h.name),
+    side: h.side === 'short' ? 'short' : 'long',
+    lots:(Array.isArray(h.lots) ? h.lots : []).map(sanitizeImportedLot).filter(Boolean),
+    soldQty:importNum(h.soldQty, 0),
+    currentPrice:importNum(h.currentPrice, null), change24h:importNum(h.change24h, null),
+    priceUpdated:importNum(h.priceUpdated, null), targetPrice:importNum(h.targetPrice, null)
+  };
+  importExtras(h, out, ['id','symbol','name','side','lots','soldQty','currentPrice','change24h','priceUpdated','targetPrice']);
+  return out;
+}
+function sanitizeImportedRealized(r){
+  if(!r || typeof r !== 'object' || !IMPORT_ID_RE.test(String(r.id)) || !IMPORT_SYMBOL_RE.test(String(r.symbol))) return null;
+  const out = {
+    id:String(r.id), symbol:String(r.symbol), side: r.side === 'short' ? 'short' : 'long',
+    qty:importNum(r.qty, 0), avgCost:importNum(r.avgCost, 0), sellPrice:importNum(r.sellPrice, 0),
+    pnl:importNum(r.pnl, 0), fee:importNum(r.fee, 0), date:importNum(r.date, Date.now())
+  };
+  importExtras(r, out, ['id','symbol','side','qty','avgCost','sellPrice','pnl','fee','date']);
+  return out;
+}
+
 // Used specifically by "Import backup": adds a backup file's positions and
 // closed trades ON TOP of what's already on this device, instead of wiping
 // it. Every holding and realized trade carries a unique `id` from uid(), so
@@ -1162,12 +1215,12 @@ function mergeImportedMarkets(base, parsed){
     const merged = Object.assign({}, b);
 
     const localHoldingIds = new Set((b.holdings||[]).map(h=>h.id));
-    const newHoldings = (p.holdings||[]).filter(h=>h && h.id && !localHoldingIds.has(h.id));
+    const newHoldings = (Array.isArray(p.holdings) ? p.holdings : []).map(sanitizeImportedHolding).filter(h=>h && !localHoldingIds.has(h.id));
     merged.holdings = (b.holdings||[]).concat(newHoldings);
     addedHoldings += newHoldings.length;
 
     const localRealizedIds = new Set((b.realized||[]).map(r=>r.id));
-    const newRealized = (p.realized||[]).filter(r=>r && r.id && !localRealizedIds.has(r.id));
+    const newRealized = (Array.isArray(p.realized) ? p.realized : []).map(sanitizeImportedRealized).filter(r=>r && !localRealizedIds.has(r.id));
     merged.realized = (b.realized||[]).concat(newRealized);
     addedRealized += newRealized.length;
 
@@ -3267,9 +3320,9 @@ function openAddModal(market, prefillSymbol){
           dropdown.innerHTML = `<div class="search-empty">No matching USDT-M perpetual on Binance</div>`;
         }else{
           dropdown.innerHTML = results.map(r=>`
-            <div class="search-item" data-symbol="${r.symbol}" data-price="${r.price!=null?r.price:''}">
-              <div class="avatar" style="width:28px;height:28px;font-size:10px;${avatarStyle(r.symbol)}">${initials(r.symbol.slice(0,-4))}</div>
-              <div class="si-name">${r.symbol.slice(0,-4)}<small>${r.symbol}</small></div>
+            <div class="search-item" data-symbol="${escapeHtml(r.symbol)}" data-price="${r.price!=null?escapeHtml(r.price):''}">
+              <div class="avatar" style="width:28px;height:28px;font-size:10px;${avatarStyle(r.symbol)}">${escapeHtml(initials(r.symbol.slice(0,-4)))}</div>
+              <div class="si-name">${escapeHtml(r.symbol.slice(0,-4))}<small>${escapeHtml(r.symbol)}</small></div>
               <div class="si-price">${r.price!=null ? '$'+(parseFloat(r.price)<1?parseFloat(r.price).toFixed(6):parseFloat(r.price).toFixed(2)) : ''}</div>
             </div>`).join('');
         }

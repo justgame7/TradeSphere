@@ -2590,7 +2590,9 @@ coinSearchInput.addEventListener('keydown', (event) => {
 });
 
 function normalizeSearchSymbol(raw){
-  let symbol = (raw || '').trim().toUpperCase().replace(/\s+/g, '');
+  // Only characters that can appear in an exchange symbol survive - this value is also
+  // reachable via ?symbol=... and is echoed in error messages.
+  let symbol = (raw || '').trim().toUpperCase().replace(/[^A-Z0-9_.-]/g, '');
   if(!symbol) return '';
   symbol = symbol.replace(/\.P$/, ''); // "ETHUSDT.P" -> "ETHUSDT"
   if(!symbol.endsWith('USDT')) symbol += 'USDT'; // "ETH" -> "ETHUSDT"
@@ -2635,7 +2637,7 @@ async function searchAndAnalyze(symbolOverride){
     }
     await openAnalysis(symbol);
   }catch(error){
-    showError(`Couldn't analyze <b>${symbol}</b>: ${error.message}. Make sure it's a valid Binance USDT-M or Bybit USDT perpetual futures symbol (e.g. "ETH", "BTCUSDT").`);
+    showError(`Couldn't analyze <b>${escapeHtml(String(symbol))}</b>: ${escapeHtml(String(error.message))}. Make sure it's a valid Binance USDT-M or Bybit USDT perpetual futures symbol (e.g. "ETH", "BTCUSDT").`);
   }finally{
     btn.disabled = false;
     btn.textContent = originalLabel;
@@ -2686,7 +2688,7 @@ async function runScreener(){
     document.getElementById('csvBtn').disabled = allResults.length === 0;
   }catch(e){
     showError(
-      `Error: <b>${e.message}</b><br><br>` +
+      `Error: <b>${escapeHtml(String(e.message))}</b><br><br>` +
       `This usually means Binance's Futures API couldn't be reached — check your internet connection, or that Binance isn't blocked on your network/VPN.`
     );
     setStatus('Failed.');
@@ -6538,7 +6540,7 @@ async function runScan(){
     setStatus(`Done — ${allResults.length} matches out of ${symbols.length} scanned (${failedCount} skipped, below-volume excluded).`);
     sortAndRender();
   }catch(e){
-    showError(`Error: <b>${e.message}</b><br><br>This usually means Binance's Futures API couldn't be reached — check your internet connection, or that Binance isn't blocked on your network/VPN.`);
+    showError(`Error: <b>${escSaved(e.message)}</b><br><br>This usually means Binance's Futures API couldn't be reached — check your internet connection, or that Binance isn't blocked on your network/VPN.`);
     setStatus('Failed.');
   }finally{
     btn.disabled = false; btn.classList.remove('loading');
@@ -10560,7 +10562,7 @@ async function open(){
   skeletonBody();
   let ident = null; try{ ident = await resolveIdentity(S.base); }catch(e){}
   if(tk !== S.token) return;
-  if(ident){ S.name = ident.name; S.ticker = ident.ticker; S.cgId = ident.id; S.logo = ident.logo; } else { S.name = S.base; S.ticker = S.base; }
+  if(ident){ S.name = String(ident.name == null ? '' : ident.name).replace(/[<>"']/g, ''); S.ticker = String(ident.ticker == null ? '' : ident.ticker).replace(/[<>"']/g, ''); S.cgId = ident.id; S.logo = ident.logo; } else { S.name = S.base; S.ticker = S.base; }
   if(S.logo){ badge.innerHTML = `<img src="${esc(S.logo)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`; }
   $('plTitle').innerHTML = esc(S.name) + `<small>${esc(S.ticker)}</small>`; $('plSub').textContent = 'Search interest · News · Social — free public sources';
   loadPrice(symbol, tk); loadCG(tk); loadGT(S.gtSrc === '5y' ? '5y' : '3m', tk); loadNews('7D', tk); loadGdVol(tk);
