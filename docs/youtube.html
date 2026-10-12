@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Crypto YouTube</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -659,8 +660,8 @@ function buildFilters(){
     </button>`];
   CHANNELS.forEach(c => {
     chips.push(`
-      <button class="filter-btn ${activeFilter===c.id?'active':''}" data-ch="${c.id}">
-        <span class="chdot" style="background:${c.color}"></span>${escapeHtml(c.name)} <span class="count">${counts[c.id]}</span>
+      <button class="filter-btn ${activeFilter===c.id?'active':''}" data-ch="${escapeHtml(c.id)}">
+        <span class="chdot" style="background:${escapeHtml(c.color)}"></span>${escapeHtml(c.name)} <span class="count">${counts[c.id]}</span>
       </button>`);
   });
   el.innerHTML = chips.join('');
@@ -677,9 +678,9 @@ function renderHero(list){
   if(!list.length){ heroEl.innerHTML = ''; return; }
   const latest = list[0];
   heroEl.innerHTML = `
-    <a class="hero" href="${latest.url}" target="_blank" rel="noopener noreferrer">
+    <a class="hero" href="${escapeHtml(safeUrl(latest.url))}" target="_blank" rel="noopener noreferrer">
       <div class="hero-thumb-wrap">
-        <img src="${latest.thumb}" alt="" loading="lazy">
+        <img src="${escapeHtml(safeUrl(latest.thumb))}" alt="" loading="lazy">
         <div class="hero-play">
           <svg viewBox="0 0 68 48"><path d="M66.5 7.7c-.8-2.9-2.5-5.2-5.4-6C55.8 0 34 0 34 0S12.2 0 6.9 1.7c-2.9.8-4.6 3.1-5.4 6C0 13 0 24 0 24s0 11 1.5 16.3c.8 2.9 2.5 5.2 5.4 6C12.2 48 34 48 34 48s21.8 0 27.1-1.7c2.9-.8 4.6-3.1 5.4-6C68 35 68 24 68 24s0-11-1.5-16.3z" fill="rgba(255,84,112,.92)"/><path d="M45 24 27 14v20z" fill="#fff"/></svg>
         </div>
@@ -688,7 +689,7 @@ function renderHero(list){
         <div class="hero-label">Latest upload</div>
         <div class="hero-title">${escapeHtml(latest.title)}</div>
         <div class="hero-meta">
-          <span class="chbadge"><span class="chdot" style="background:${latest.channel.color}"></span>${latest.channel.name}</span>
+          <span class="chbadge"><span class="chdot" style="background:${escapeHtml(latest.channel.color)}"></span>${escapeHtml(latest.channel.name)}</span>
           <span class="ago">${timeAgo(latest.published)}</span>
         </div>
       </div>
@@ -699,14 +700,14 @@ function renderGrid(list, hasHero = true){
   const el = document.getElementById('videoGrid');
   const rest = hasHero ? list.slice(1) : list;
   if(!list.length){
-    el.innerHTML = `<div class="empty">No ${activeTab === 'shorts' ? 'Shorts' : 'videos'} from ${activeFilter === 'all' ? 'these channels' : CHANNELS.find(c=>c.id===activeFilter)?.name || 'this channel'} in the last ${DAYS_WINDOW} days.</div>`;
+    el.innerHTML = `<div class="empty">No ${activeTab === 'shorts' ? 'Shorts' : 'videos'} from ${activeFilter === 'all' ? 'these channels' : escapeHtml(CHANNELS.find(c=>c.id===activeFilter)?.name || 'this channel')} in the last ${DAYS_WINDOW} days.</div>`;
     return;
   }
   if(!rest.length){ el.innerHTML = ''; return; }
   el.innerHTML = `<div class="grid">${rest.map(v => `
-    <a class="card" href="${v.url}" target="_blank" rel="noopener noreferrer">
+    <a class="card" href="${escapeHtml(safeUrl(v.url))}" target="_blank" rel="noopener noreferrer">
       <div class="card-thumb-wrap">
-        <img src="${v.thumb}" alt="" loading="lazy">
+        <img src="${escapeHtml(safeUrl(v.thumb))}" alt="" loading="lazy">
         <div class="card-play">
           <svg viewBox="0 0 68 48"><path d="M66.5 7.7c-.8-2.9-2.5-5.2-5.4-6C55.8 0 34 0 34 0S12.2 0 6.9 1.7c-2.9.8-4.6 3.1-5.4 6C0 13 0 24 0 24s0 11 1.5 16.3c.8 2.9 2.5 5.2 5.4 6C12.2 48 34 48 34 48s21.8 0 27.1-1.7c2.9-.8 4.6-3.1 5.4-6C68 35 68 24 68 24s0-11-1.5-16.3z" fill="rgba(255,84,112,.92)"/><path d="M45 24 27 14v20z" fill="#fff"/></svg>
         </div>
@@ -714,7 +715,7 @@ function renderGrid(list, hasHero = true){
       <div class="card-body">
         <div class="card-title">${escapeHtml(v.title)}</div>
         <div class="card-foot">
-          <span class="chbadge"><span class="chdot" style="background:${v.channel.color}"></span>${v.channel.name}</span>
+          <span class="chbadge"><span class="chdot" style="background:${escapeHtml(v.channel.color)}"></span>${escapeHtml(v.channel.name)}</span>
           <span class="ago">${timeAgo(v.published)}</span>
         </div>
       </div>
@@ -722,8 +723,17 @@ function renderGrid(list, hasHero = true){
 }
 
 function escapeHtml(s){
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// Only allow http(s) URLs in href/src - escapeHtml alone does not stop
+// "javascript:" URLs coming from third-party feeds.
+function safeUrl(u){
+  try{
+    const p = new URL(String(u == null ? '' : u), location.href);
+    return (p.protocol === 'https:' || p.protocol === 'http:') ? p.href : '#';
+  }catch(e){ return '#'; }
+}
+
 
 function render(){
   buildTabs();

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Season Index</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -455,7 +456,7 @@ function renderCoinGrid(result, windowKey){
     const beating = change > result.btcChange;
     return `
       <div class="coin-card" role="button" tabindex="0" onclick="openCoinInfo('${c.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCoinInfo('${c.id}');}">
-        <img src="${c.image}" alt="" loading="lazy" onerror="this.style.display='none'">
+        <img src="${escapeHtml(c.image || '')}" alt="" loading="lazy" onerror="this.style.display='none'">
         <div class="coin-info">
           <div class="coin-sym">${(c.symbol || '').toUpperCase()}</div>
           <div class="coin-pct ${beating ? 'pos' : 'neg'}">${formatPct(change)}</div>
@@ -667,7 +668,7 @@ function openExternalLink(webUrl){
 }
 
 function escapeHtml(s){
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function stripInlineMarkdown(s){

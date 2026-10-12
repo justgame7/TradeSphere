@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Crypto News</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -185,6 +186,15 @@ let refreshTimer;
 function escapeHtml(value){
   return String(value).replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
 }
+// Only allow http(s) URLs in href/src - escapeHtml alone does not stop
+// "javascript:" URLs coming from third-party feeds.
+function safeUrl(u){
+  try{
+    const p = new URL(String(u == null ? '' : u), location.href);
+    return (p.protocol === 'https:' || p.protocol === 'http:') ? p.href : '#';
+  }catch(e){ return '#'; }
+}
+
 function getText(el, tag){
   const node = el.getElementsByTagName(tag)[0];
   return node ? node.textContent.trim() : '';
@@ -353,7 +363,7 @@ function renderHero(list){
   const lead = list[0];
   const color = SOURCE_COLOR[lead.source] || 'var(--accent)';
   heroEl.innerHTML = `
-    <a class="hero" href="${escapeHtml(lead.link)}" target="_blank" rel="noopener noreferrer">
+    <a class="hero" href="${escapeHtml(safeUrl(lead.link))}" target="_blank" rel="noopener noreferrer">
       <div class="hero-label">Top story</div>
       <div class="hero-title">${escapeHtml(lead.title)}</div>
       <div class="hero-meta">
@@ -374,7 +384,7 @@ function renderGrid(list){
   el.innerHTML = `<div class="grid">${rest.map(article => {
     const color = SOURCE_COLOR[article.source] || 'var(--accent)';
     return `
-    <a class="card" href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer">
+    <a class="card" href="${escapeHtml(safeUrl(article.link))}" target="_blank" rel="noopener noreferrer">
       <div class="card-title">${escapeHtml(article.title)}</div>
       <div class="card-foot">
         <span class="srcbadge"><span class="srcdot" style="background:${color}"></span>${escapeHtml(article.source)}</span>

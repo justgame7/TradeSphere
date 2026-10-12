@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Whale & Social Pulse</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -308,6 +309,15 @@ async function fetchCoinGeckoPrices(ids){
 function escapeHtml(s){
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// Only allow http(s) URLs in href/src - escapeHtml alone does not stop
+// "javascript:" URLs coming from third-party feeds.
+function safeUrl(u){
+  try{
+    const p = new URL(String(u == null ? '' : u), location.href);
+    return (p.protocol === 'https:' || p.protocol === 'http:') ? p.href : '#';
+  }catch(e){ return '#'; }
+}
+
 function fmtNum(n, decimals){
   if(n == null || isNaN(n)) return '—';
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: decimals != null ? decimals : 2 });
@@ -890,7 +900,7 @@ function renderWhale(){
         <div class="feed-meta">
           <span>${ev.flowLabelHtml}</span>
           <span class="feed-time">${agoFromSeconds(ev.timeStamp)}</span>
-          <a href="${ev.txUrl}" target="_blank" rel="noopener">View tx ↗</a>
+          <a href="${escapeHtml(safeUrl(ev.txUrl))}" target="_blank" rel="noopener">View tx ↗</a>
         </div>
       </div>
     </div>`;
@@ -1037,7 +1047,7 @@ function renderSocial(){
     statusEl.innerHTML = `<span class="status-pill live"><span class="dot"></span>Live via X's syndication feed</span>`;
     feedEl.innerHTML = socialPosts.map(p => `
       <div class="post-row">
-        <a class="post-link" href="${escapeHtml(p.link)}" target="_blank" rel="noopener">
+        <a class="post-link" href="${escapeHtml(safeUrl(p.link))}" target="_blank" rel="noopener">
           <div class="post-author-row">
             <span class="post-author">${escapeHtml(p.account.name)}</span>
             <span class="post-handle">@${escapeHtml(p.account.handle)}</span>

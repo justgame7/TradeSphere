@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Watchlist</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -709,7 +710,7 @@ function loadCustomCoins(){
   try{
     const raw = localStorage.getItem(CUSTOM_COINS_KEY);
     const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list.filter(c => c && c.binanceSymbol) : [];
+    return Array.isArray(list) ? list.filter(c => c && /^[A-Z0-9]{1,30}$/.test(c.binanceSymbol) && /^[A-Z0-9]{1,30}$/.test(c.symbol || '')) : [];
   }catch(err){ return []; }
 }
 function saveCustomCoins(list){
