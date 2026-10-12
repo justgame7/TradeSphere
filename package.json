@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "pages": "cp www/index.html www/screener.html www/position-sizing.html docs/"
+    "pages": "node scripts/sync-docs.js",
+    "sync": "node scripts/sync-docs.js && npx cap sync android"
   },
   "keywords": [],
   "author": "",
