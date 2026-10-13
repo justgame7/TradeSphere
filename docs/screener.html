@@ -1680,100 +1680,121 @@
   }
 
   /* ---------------- Backtest lab ---------------- */
-  #backtestPane .bx-title{font-family:var(--font-display);font-size:18px;font-weight:700;}
-  #backtestPane .bx-sub{color:var(--muted);font-size:12.5px;line-height:1.55;margin-top:4px;max-width:900px;}
-  #backtestPane .bx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:16px;}
-  #backtestPane .bx-grid .bx-wide{grid-column:span 2;}
-  @media(max-width:560px){#backtestPane .bx-grid .bx-wide{grid-column:span 1;}}
-  #backtestPane .bx-hint{font-size:11px;color:var(--faint);margin-top:5px;line-height:1.45;font-family:var(--font-mono);}
-  #backtestPane .field select{appearance:auto;}
-  #backtestPane .bx-sec{margin:0 0 4px;font-family:var(--font-display);font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;}
-  #backtestPane .bx-sec .bx-n{font-family:var(--font-mono);font-size:10px;color:var(--accent);border:1px solid var(--accent-dim);border-radius:99px;padding:2px 8px;font-weight:600;}
-  #backtestPane .bx-lead{color:var(--muted);font-size:12.5px;line-height:1.6;margin:2px 0 14px;max-width:880px;}
-  #backtestPane .bx-lead b{color:var(--text);font-weight:600;}
-  #backtestPane .bx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
-  #backtestPane .bx-kpi{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
-  #backtestPane .bx-kpi .k{font-family:var(--font-mono);font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;cursor:help;}
-  #backtestPane .bx-kpi .v{font-family:var(--font-display);font-size:22px;font-weight:700;margin-top:4px;}
-  #backtestPane .bx-kpi .s{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;}
-  #backtestPane .bx-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-  #backtestPane .bx-three{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-  @media(max-width:980px){#backtestPane .bx-three{grid-template-columns:1fr;}}
-  @media(max-width:820px){#backtestPane .bx-two{grid-template-columns:1fr;}}
-  #backtestPane .bx-box{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 14px 10px;min-width:0;}
-  #backtestPane .bx-box h4{margin:0 0 2px;font-family:var(--font-display);font-size:13px;font-weight:700;}
-  #backtestPane .bx-box .cap{font-size:11.5px;color:var(--muted);line-height:1.5;margin:0 0 10px;}
-  #backtestPane .bx-chart{position:relative;width:100%;}
-  #backtestPane .bx-chart canvas{display:block;max-width:100%;}
-  #backtestPane .bx-tip{position:absolute;top:6px;pointer-events:none;background:rgba(10,12,16,.94);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-family:var(--font-mono);font-size:11px;color:var(--text);display:none;z-index:5;white-space:nowrap;line-height:1.55;}
-  #backtestPane .bx-vline{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.22);pointer-events:none;display:none;}
-  #backtestPane .bx-verdict{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
-  #backtestPane .bx-grade{flex:0 0 auto;min-width:150px;border-radius:14px;padding:14px 16px;border:1px solid var(--border);background:var(--panel2);}
-  #backtestPane .bx-grade .g{font-family:var(--font-display);font-size:20px;font-weight:700;}
-  #backtestPane .bx-grade .gs{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45;}
-  #backtestPane .bx-grade.good{border-color:var(--accent-dim);} #backtestPane .bx-grade.good .g{color:var(--accent);}
-  #backtestPane .bx-grade.mid{border-color:#6b5316;} #backtestPane .bx-grade.mid .g{color:var(--amber);}
-  #backtestPane .bx-grade.bad{border-color:var(--red-dim);} #backtestPane .bx-grade.bad .g{color:var(--red);}
-  #backtestPane .bx-checks{flex:1 1 380px;min-width:0;}
-  #backtestPane .bx-check{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-soft);font-size:12.5px;line-height:1.5;}
-  #backtestPane .bx-check:last-child{border-bottom:none;}
-  #backtestPane .bx-dot{flex:0 0 18px;height:18px;border-radius:50%;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#07130f;}
-  #backtestPane .bx-dot.pass{background:var(--accent);} #backtestPane .bx-dot.warn{background:var(--amber);} #backtestPane .bx-dot.fail{background:var(--red);color:#fff;}
-  #backtestPane .bx-check .t{font-weight:600;} #backtestPane .bx-check .d{color:var(--muted);}
-  #backtestPane .bx-barrow{display:grid;grid-template-columns:96px 1fr 120px;gap:10px;align-items:center;margin:5px 0;font-family:var(--font-mono);font-size:11.5px;}
-  #backtestPane .bx-barrow .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  #backtestPane .bx-track{position:relative;height:16px;background:var(--panel);border-radius:5px;overflow:hidden;}
-  #backtestPane .bx-track .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border);}
-  #backtestPane .bx-fill{position:absolute;top:2px;bottom:2px;border-radius:3px;}
-  #backtestPane .bx-stack{display:flex;height:26px;border-radius:7px;overflow:hidden;margin:6px 0 10px;}
-  #backtestPane .bx-stack > div{display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:#07130f;min-width:0;overflow:hidden;}
-  #backtestPane .bx-mini{width:100%;font-family:var(--font-mono);font-size:11.5px;border-collapse:separate;border-spacing:0;}
-  #backtestPane .bx-mini th,#backtestPane .bx-mini td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--border-soft);position:static;cursor:default;white-space:normal;vertical-align:top;}
-  #backtestPane .bx-mini th:first-child,#backtestPane .bx-mini td:first-child{text-align:left;}
-  #backtestPane .bx-heat td{text-align:center;font-weight:700;padding:9px 6px;border:1px solid var(--panel2);border-radius:4px;}
-  #backtestPane .bx-heat th{position:static;cursor:default;text-align:center;}
-  #backtestPane .bx-heat td.cur{outline:2px solid var(--text);outline-offset:-2px;}
-  #backtestPane .bx-up{color:var(--accent);} #backtestPane .bx-dn{color:var(--red);} #backtestPane .bx-wr{color:var(--amber);}
-  #backtestPane .bx-trade-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;}
-  #backtestPane .bx-trade-tools select{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:7px 10px;font-family:var(--font-mono);font-size:12px;}
-  #backtestPane .bx-tag{display:inline-block;min-width:62px;text-align:center;padding:3px 8px;border-radius:99px;font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;border:1px solid transparent;}
-  #backtestPane .bx-tag.target{color:var(--accent);background:rgba(53,224,192,.12);border-color:rgba(53,224,192,.35);}
-  #backtestPane .bx-tag.stop{color:var(--red);background:rgba(255,84,112,.12);border-color:rgba(255,84,112,.35);}
-  #backtestPane .bx-tag.time{color:var(--blue);background:rgba(91,140,255,.13);border-color:rgba(91,140,255,.35);}
-  #backtestPane tr.bx-trow{cursor:pointer;}
-  #backtestPane tr.bx-trow:hover td{background:rgba(255,255,255,.03);}
-  #backtestPane tr.bx-trow.sel td{background:rgba(53,224,192,.08);}
-  #backtestPane .bx-svg{width:100%;height:auto;display:block;}
-  #backtestPane .bx-box{overflow-x:auto;}
-  #backtestPane .bx-pipe{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:24px;}
-  #backtestPane .bx-step{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 13px;min-width:0;}
-  #backtestPane .bx-step:not(:last-child)::after{content:'→';position:absolute;right:-19px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:16px;}
-  #backtestPane .bx-step .n{font:700 10px var(--font-mono);color:var(--accent);letter-spacing:.08em;}
-  #backtestPane .bx-step .m{font:700 13px var(--font-mono);margin:7px 0 4px;overflow-wrap:anywhere;}
-  #backtestPane .bx-step .l{font:11.5px var(--font-mono);color:var(--muted);line-height:1.5;overflow-wrap:anywhere;}
-  #backtestPane .bx-step .l.f{color:var(--faint);}
+  .bxm{position:fixed;inset:0;background:rgba(5,6,9,.78);display:none;z-index:3000;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .bxm.open{display:block;}
+  .bxm-box{max-width:1120px;margin:16px auto;background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:16px;}
+  .bxm-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:6px;}
+  .bxm-head h2{margin:0;font-family:var(--font-display);font-size:17px;line-height:1.35;}
+  .bxm-sub{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.5;font-family:var(--font-mono);}
+  .bxm-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0 4px;align-items:end;}
+  .bxm-controls select{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--font-mono);padding:9px 10px;font-size:13px;}
+  .bxm-controls label{display:block;font-family:var(--font-mono);font-size:10px;color:var(--faint);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;}
+  .bt-icon-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);width:34px;height:30px;padding:0;border-radius:8px;font-size:15px;line-height:1;cursor:pointer;box-shadow:none;}
+  .bt-icon-btn:hover{border-color:var(--accent);color:var(--accent);transform:none;box-shadow:none;}
+  .bt-icon-btn:disabled{opacity:.35;cursor:not-allowed;}
+  @media(max-width:560px){.bxm-box{margin:0;border-radius:0;border-left:none;border-right:none;min-height:100%;padding:12px 10px;}}
+  .bx-scope .bx-title{font-family:var(--font-display);font-size:18px;font-weight:700;}
+  .bx-scope .bx-sub{color:var(--muted);font-size:12.5px;line-height:1.55;margin-top:4px;max-width:900px;}
+  .bx-scope .bx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:16px;}
+  .bx-scope .bx-grid .bx-wide{grid-column:span 2;}
+  @media(max-width:560px){.bx-scope .bx-grid .bx-wide{grid-column:span 1;}}
+  .bx-scope .bx-hint{font-size:11px;color:var(--faint);margin-top:5px;line-height:1.45;font-family:var(--font-mono);}
+  .bx-scope .field select{appearance:auto;}
+  .bx-scope .bx-sec{margin:0 0 4px;font-family:var(--font-display);font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .bx-scope .bx-sec .bx-n{font-family:var(--font-mono);font-size:10px;color:var(--accent);border:1px solid var(--accent-dim);border-radius:99px;padding:2px 8px;font-weight:600;}
+  .bx-scope .bx-lead{color:var(--muted);font-size:12.5px;line-height:1.6;margin:2px 0 14px;max-width:880px;}
+  .bx-scope .bx-lead b{color:var(--text);font-weight:600;}
+  .bx-scope .bx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+  .bx-scope .bx-kpi{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+  .bx-scope .bx-kpi .k{font-family:var(--font-mono);font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;cursor:help;}
+  .bx-scope .bx-kpi .v{font-family:var(--font-display);font-size:22px;font-weight:700;margin-top:4px;}
+  .bx-scope .bx-kpi .s{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;}
+  .bx-scope .bx-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .bx-scope .bx-three{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:980px){.bx-scope .bx-three{grid-template-columns:1fr;}}
+  @media(max-width:820px){.bx-scope .bx-two{grid-template-columns:1fr;}}
+  .bx-scope .bx-box{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 14px 10px;min-width:0;}
+  .bx-scope .bx-box h4{margin:0 0 2px;font-family:var(--font-display);font-size:13px;font-weight:700;}
+  .bx-scope .bx-box .cap{font-size:11.5px;color:var(--muted);line-height:1.5;margin:0 0 10px;}
+  .bx-scope .bx-chart{position:relative;width:100%;}
+  .bx-scope .bx-chart canvas{display:block;max-width:100%;}
+  .bx-scope .bx-tip{position:absolute;top:6px;pointer-events:none;background:rgba(10,12,16,.94);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-family:var(--font-mono);font-size:11px;color:var(--text);display:none;z-index:5;white-space:nowrap;line-height:1.55;}
+  .bx-scope .bx-vline{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.22);pointer-events:none;display:none;}
+  .bx-scope .bx-verdict{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
+  .bx-scope .bx-grade{flex:0 0 auto;min-width:150px;border-radius:14px;padding:14px 16px;border:1px solid var(--border);background:var(--panel2);}
+  .bx-scope .bx-grade .g{font-family:var(--font-display);font-size:20px;font-weight:700;}
+  .bx-scope .bx-grade .gs{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45;}
+  .bx-scope .bx-grade.good{border-color:var(--accent-dim);} .bx-scope .bx-grade.good .g{color:var(--accent);}
+  .bx-scope .bx-grade.mid{border-color:#6b5316;} .bx-scope .bx-grade.mid .g{color:var(--amber);}
+  .bx-scope .bx-grade.bad{border-color:var(--red-dim);} .bx-scope .bx-grade.bad .g{color:var(--red);}
+  .bx-scope .bx-checks{flex:1 1 380px;min-width:0;}
+  .bx-scope .bx-check{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-soft);font-size:12.5px;line-height:1.5;}
+  .bx-scope .bx-check:last-child{border-bottom:none;}
+  .bx-scope .bx-dot{flex:0 0 18px;height:18px;border-radius:50%;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#07130f;}
+  .bx-scope .bx-dot.pass{background:var(--accent);} .bx-scope .bx-dot.warn{background:var(--amber);} .bx-scope .bx-dot.fail{background:var(--red);color:#fff;}
+  .bx-scope .bx-check .t{font-weight:600;} .bx-scope .bx-check .d{color:var(--muted);}
+  .bx-scope .bx-barrow{display:grid;grid-template-columns:96px 1fr 120px;gap:10px;align-items:center;margin:5px 0;font-family:var(--font-mono);font-size:11.5px;}
+  .bx-scope .bx-barrow .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bx-scope .bx-track{position:relative;height:16px;background:var(--panel);border-radius:5px;overflow:hidden;}
+  .bx-scope .bx-track .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border);}
+  .bx-scope .bx-fill{position:absolute;top:2px;bottom:2px;border-radius:3px;}
+  .bx-scope .bx-stack{display:flex;height:26px;border-radius:7px;overflow:hidden;margin:6px 0 10px;}
+  .bx-scope .bx-stack > div{display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:#07130f;min-width:0;overflow:hidden;}
+  .bx-scope .bx-mini{width:100%;font-family:var(--font-mono);font-size:11.5px;border-collapse:separate;border-spacing:0;}
+  .bx-scope .bx-mini th,.bx-scope .bx-mini td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--border-soft);position:static;cursor:default;white-space:normal;vertical-align:top;}
+  .bx-scope .bx-mini th:first-child,.bx-scope .bx-mini td:first-child{text-align:left;}
+  .bx-scope .bx-heat td{text-align:center;font-weight:700;padding:9px 6px;border:1px solid var(--panel2);border-radius:4px;}
+  .bx-scope .bx-heat th{position:static;cursor:default;text-align:center;}
+  .bx-scope .bx-heat td.cur{outline:2px solid var(--text);outline-offset:-2px;}
+  .bx-scope .bx-up{color:var(--accent);} .bx-scope .bx-dn{color:var(--red);} .bx-scope .bx-wr{color:var(--amber);}
+  .bx-scope .bx-trade-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;}
+  .bx-scope .bx-trade-tools select{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:7px 10px;font-family:var(--font-mono);font-size:12px;}
+  .bx-scope .bx-tag{display:inline-block;min-width:62px;text-align:center;padding:3px 8px;border-radius:99px;font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;border:1px solid transparent;}
+  .bx-scope .bx-tag.target{color:var(--accent);background:rgba(53,224,192,.12);border-color:rgba(53,224,192,.35);}
+  .bx-scope .bx-tag.stop{color:var(--red);background:rgba(255,84,112,.12);border-color:rgba(255,84,112,.35);}
+  .bx-scope .bx-tag.time{color:var(--blue);background:rgba(91,140,255,.13);border-color:rgba(91,140,255,.35);}
+  .bx-scope tr.bx-trow{cursor:pointer;}
+  .bx-scope tr.bx-trow:hover td{background:rgba(255,255,255,.03);}
+  .bx-scope tr.bx-trow.sel td{background:rgba(53,224,192,.08);}
+  .bx-scope .bx-svg{width:100%;height:auto;display:block;}
+  #bxPlaybookBody .bx-three{align-items:start;}
+  .bx-scope details.bx-fold > summary{cursor:pointer;list-style:none;position:relative;padding-right:26px;}
+  .bx-scope details.bx-fold > summary::-webkit-details-marker{display:none;}
+  .bx-scope details.bx-fold > summary::after{content:'+';position:absolute;right:2px;top:-1px;color:var(--faint);font-size:20px;line-height:1;}
+  .bx-scope details.bx-fold[open] > summary::after{content:'-';}
+  .bx-scope details.bx-fold[open] > summary{margin-bottom:6px;}
+  .bx-scope details.bx-fold > summary h4{display:flex;align-items:center;gap:8px;}
+  .bx-scope details.bx-fold > summary:hover h4{color:var(--accent);}
+  .bx-scope .bx-box{overflow-x:auto;}
+  .bx-scope .bx-pipe{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:24px;}
+  .bx-scope .bx-step{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 13px;min-width:0;}
+  .bx-scope .bx-step:not(:last-child)::after{content:'→';position:absolute;right:-19px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:16px;}
+  .bx-scope .bx-step .n{font:700 10px var(--font-mono);color:var(--accent);letter-spacing:.08em;}
+  .bx-scope .bx-step .m{font:700 13px var(--font-mono);margin:7px 0 4px;overflow-wrap:anywhere;}
+  .bx-scope .bx-step .l{font:11.5px var(--font-mono);color:var(--muted);line-height:1.5;overflow-wrap:anywhere;}
+  .bx-scope .bx-step .l.f{color:var(--faint);}
   @media(max-width:900px){
-    #backtestPane .bx-pipe{grid-template-columns:1fr;gap:22px;}
-    #backtestPane .bx-step:not(:last-child)::after{content:'↓';right:auto;left:50%;top:auto;bottom:-21px;transform:translateX(-50%);}
+    .bx-scope .bx-pipe{grid-template-columns:1fr;gap:22px;}
+    .bx-scope .bx-step:not(:last-child)::after{content:'↓';right:auto;left:50%;top:auto;bottom:-21px;transform:translateX(-50%);}
   }
   @media(max-width:560px){
-    #backtestPane .panel{padding:16px 14px;}
-    #backtestPane .bx-barrow{grid-template-columns:44px 1fr 108px;gap:6px;font-size:10.5px;}
-    #backtestPane .bx-heat td{padding:7px 3px;font-size:10px;}
-    #backtestPane .bx-mini th,#backtestPane .bx-mini td{padding:6px 5px;font-size:10.5px;}
-    #backtestPane .bx-kpi .v{font-size:19px;}
-    #backtestPane .bx-grade{flex:1 1 100%;}
-    #backtestPane .bx-box{padding:12px 10px 8px;}
+    .bx-scope .panel{padding:16px 14px;}
+    .bx-scope .bx-barrow{grid-template-columns:44px 1fr 108px;gap:6px;font-size:10.5px;}
+    .bx-scope .bx-heat td{padding:7px 3px;font-size:10px;}
+    .bx-scope .bx-mini th,.bx-scope .bx-mini td{padding:6px 5px;font-size:10.5px;}
+    .bx-scope .bx-kpi .v{font-size:19px;}
+    .bx-scope .bx-grade{flex:1 1 100%;}
+    .bx-scope .bx-box{padding:12px 10px 8px;}
   }
-  #backtestPane details.bx-how > summary{cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:14px;list-style:none;}
-  #backtestPane details.bx-how > summary::-webkit-details-marker{display:none;}
-  #backtestPane details.bx-how > summary::after{content:' +';color:var(--faint);}
-  #backtestPane details.bx-how[open] > summary::after{content:' −';}
-  #backtestPane .bx-how dl{margin:12px 0 0;display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:8px 16px;font-size:12.5px;line-height:1.55;}
-  #backtestPane .bx-how dt{font-weight:700;color:var(--text);} #backtestPane .bx-how dd{margin:0;color:var(--muted);}
-  @media(max-width:640px){#backtestPane .bx-how dl{grid-template-columns:1fr;}}
-  #backtestPane .bx-empty{padding:30px 10px;text-align:center;color:var(--muted);font-size:13px;line-height:1.7;}
-  #backtestPane .bx-pill{display:inline-block;border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-family:var(--font-mono);font-size:11px;color:var(--muted);margin:2px 4px 2px 0;}
+  .bx-scope details.bx-how > summary{cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:14px;list-style:none;}
+  .bx-scope details.bx-how > summary::-webkit-details-marker{display:none;}
+  .bx-scope details.bx-how > summary::after{content:' +';color:var(--faint);}
+  .bx-scope details.bx-how[open] > summary::after{content:' −';}
+  .bx-scope .bx-how dl{margin:12px 0 0;display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:8px 16px;font-size:12.5px;line-height:1.55;}
+  .bx-scope .bx-how dt{font-weight:700;color:var(--text);} .bx-scope .bx-how dd{margin:0;color:var(--muted);}
+  @media(max-width:640px){.bx-scope .bx-how dl{grid-template-columns:1fr;}}
+  .bx-scope .bx-empty{padding:30px 10px;text-align:center;color:var(--muted);font-size:13px;line-height:1.7;}
+  .bx-scope .bx-pill{display:inline-block;border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-family:var(--font-mono);font-size:11px;color:var(--muted);margin:2px 4px 2px 0;}
 </style>
 </head>
 <body>
@@ -2020,7 +2041,7 @@
   </div>
 </div>
 
-<div id="backtestPane" style="display:none;">
+<div id="backtestPane" class="bx-scope" style="display:none;">
 <div class="panel" id="bxPlaybook">
   <div class="bx-title">📚 Research playbook</div>
   <div class="bx-sub">What actually held up when common screens were backtested on ~30 liquid Binance USDT-M perpetuals. Numbers are average result per trade in R (1R = the stop distance) after fees and slippage. Tap <b>Test it</b> to load a screen with its best-performing settings and re-run it on live data.</div>
@@ -2100,6 +2121,25 @@
 </div>
 <div id="bxOut"></div>
 </div><!-- /backtestPane -->
+
+<div class="bxm" id="bxModal" onclick="Backtest.closeModal(event)">
+  <div class="bxm-box bx-scope" onclick="event.stopPropagation()">
+    <div class="bxm-head">
+      <div><h2 id="bxmTitle">Backtest</h2><div class="bxm-sub" id="bxmSub"></div></div>
+      <button type="button" class="secondary" style="padding:8px 14px;font-size:13px;flex:0 0 auto;" onclick="Backtest.closeModal()">&#10005; Close</button>
+    </div>
+    <div class="bxm-controls">
+      <div><label>History</label><select id="bxmHistory"><option value="1500">1,500 candles</option><option value="3000">3,000 candles</option><option value="5000" selected>5,000 candles</option></select></div>
+      <div><label>Exits</label><select id="bxmExits"><option value="wide" selected>Wide (2&times;ATR / 3R)</option><option value="default">Default (1.5&times;ATR / 2R)</option><option value="tight">Tight (1&times;ATR / 1.5R)</option></select></div>
+      <div><label>Side</label><select id="bxmSide"><option value="auto">Auto (from screen)</option><option value="long">Long only</option><option value="short">Short only</option></select></div>
+      <div><button id="bxmRunBtn" type="button" style="width:100%;padding:10px 14px;font-size:13px;" onclick="Backtest.run()">&#9654; Re-run</button></div>
+    </div>
+    <div class="actions" style="margin-top:8px;"><span class="status" id="bxmStatus">Idle</span></div>
+    <div class="progress-bar" id="bxmProgressBar"><div class="progress-fill" id="bxmProgressFill"></div></div>
+    <div class="error-box" id="bxmError" style="display:none;"></div>
+    <div id="bxmOut" style="margin-top:12px;"></div>
+  </div>
+</div>
 
 <div id="scannerPane" style="display:none;">
 
@@ -3004,6 +3044,11 @@ function addToWatchlist(binanceSymbol, btn){
   }
 }
 
+// Opens the Backtest window for this coin with the Ichimoku breakout on the scanned timeframe.
+function backtestButton(symbol, interval){
+  const ok = interval === '1h' || interval === '4h' || interval === '1d';
+  return `<button class="bt-icon-btn" type="button" ${ok ? '' : 'disabled'} title="${ok ? 'Backtest the Ichimoku breakout on ' + symbol + ' (' + interval + ')' : 'Backtest supports 1h, 4h and Daily'}" onclick="window.Backtest && Backtest.openCoin({symbol:'${symbol}', tf:'${interval}', strategyId:'ichimoku'})">&#129514;</button>`;
+}
 function renderTable(rows){
   const container = document.getElementById('tableContainer');
   if(rows.length === 0){
@@ -3016,6 +3061,7 @@ function renderTable(rows){
     {k:'symbol', label:'Coin'},
     {k:'analysis', label:'Analysis'},
     {k:'watchlist', label:'+ WL'},
+    {k:'backtest', label:'Backtest'},
     {k:'breakout', label:'Breakout'},
     {k:'priceToday', label:'Price'},
     {k:'breakoutPrice', label:'Breakout Price'},
@@ -3026,7 +3072,7 @@ function renderTable(rows){
     {k:'volToday', label:'Volume (USDT)'},
   ];
   let html = '<table><thead><tr>';
-  cols.forEach(c => html += `<th${(c.k === 'analysis' || c.k === 'watchlist') ? '' : ` onclick="sortBy('${c.k}')"`}>${c.label}</th>`);
+  cols.forEach(c => html += `<th${(c.k === 'analysis' || c.k === 'watchlist' || c.k === 'backtest') ? '' : ` onclick="sortBy('${c.k}')"`}>${c.label}</th>`);
   html += '</tr></thead><tbody>';
   rows.forEach(r => {
     html += '<tr>';
@@ -3038,6 +3084,7 @@ function renderTable(rows){
     html += `<td><a class="sym-link" target="_blank" href="${exchangeUrl}">${r.symbol}</a>${r.source === 'Bybit' ? '<span class="bybit-tag" title="Not found on Binance - found via Bybit fallback">BYBIT</span>' : ''}</td>`;
     html += `<td><button class="plan-btn" type="button" onclick="openAnalysis('${r.symbol}')">Analysis</button></td>`;
     html += `<td>${watchlistButton(r.symbol)}</td>`;
+    html += `<td>${backtestButton(r.symbol, r.interval)}</td>`;
     html += `<td>${breakoutPill(r.breakout)}</td>`;
     html += `<td>${fmt(r.priceToday)}</td>`;
     html += `<td>${fmt(r.breakoutPrice)}</td>`;
@@ -5468,6 +5515,7 @@ let currentInterval = '1d';
 // Which named screen (if any) the current `conditions` array came from, so a
 // completed run can be attributed to it in Scan history. null = ad-hoc/custom
 // conditions. Reset to null by any manual edit (add/remove/clear condition).
+let lastScanCtx = null;  // what the currently listed results were scanned with (for per-row backtests)
 let activeRunContext = null; // {type:'preset'|'saved', id, name, icon, color}
 
 function populateMetricSelect(){
@@ -6820,6 +6868,11 @@ async function runScan(){
     allResults = scanned.filter(r => r.passed);
 
     document.getElementById('scnTbLastScan').textContent = new Date().toLocaleTimeString();
+    lastScanCtx = {
+      conds: conditions.map(c => ({...c})), mode: matchMode, interval: currentInterval,
+      name: activeRunContext ? activeRunContext.name : null,
+      presetId: (activeRunContext && activeRunContext.type === 'preset') ? activeRunContext.id : null
+    };
     recordScanHistory({ universe: symbols.length, matches: allResults.length, results: allResults });
     setStatus(`Done — ${allResults.length} matches out of ${symbols.length} scanned (${failedCount} skipped, below-volume excluded).`);
     sortAndRender();
@@ -6920,6 +6973,7 @@ function renderTable(rows){
         ${headCell('change24h','24h %')}
         <th>Trend</th>
         <th>Chart</th>
+        <th>Backtest</th>
         ${headCell('rsi','RSI')}
         <th>MACD</th>
         ${headCell('volRatio','Vol ×')}
@@ -6949,6 +7003,7 @@ function renderRow(r){
     <td class="mono ${up?'chg-pos':'chg-neg'}">${up?'+':''}${fmtNum(r.change24h,2)}%</td>
     <td>${trendBadge}</td>
     <td>${sparkSVG(r.spark, up)}</td>
+    <td><button class="bt-icon-btn" type="button" ${(lastScanCtx && ['1h','4h','1d'].includes(lastScanCtx.interval)) ? '' : 'disabled'} title="Backtest this screen on ${base}" onclick="Scanner.openBacktest('${r.symbol}')">&#129514;</button></td>
     <td class="mono">${fmtNum(r.rsi,1)}</td>
     <td class="mono ${r.macdHist>0?'chg-pos':(r.macdHist<0?'chg-neg':'')}">${fmtNum(r.macdHist,4)}</td>
     <td class="mono">${r.volRatio!==null?fmtNum(r.volRatio,2)+'×':'—'}</td>
@@ -6958,6 +7013,20 @@ function renderRow(r){
       <button class="icon-btn${already?' added':''}" ${already?'disabled':''} onclick="Scanner.addToWatchlist('${r.symbol}', this)" title="Add to watchlist">${already?'✓':'+'}</button>
     </div></td>
   </tr>`;
+}
+
+// Per-row backtest: replays the exact screen that produced the list, on that coin and timeframe.
+function openBacktest(symbol){
+  if(!lastScanCtx || !window.Backtest) return;
+  if(!['1h','4h','1d'].includes(lastScanCtx.interval)){ alert('Backtest supports the 1h, 4h and Daily timeframes.'); return; }
+  const blocked = ['fundingRate','oiChangePct','athProximityAtr','ndogNwog'].find(k => condsUse(lastScanCtx.conds, k));
+  if(blocked){ alert('This screen uses funding / open-interest / ATH / opening-gap data, which has no history to replay, so it can\'t be backtested.'); return; }
+  window.Backtest.openCoin({
+    symbol, tf:lastScanCtx.interval,
+    strategyId: lastScanCtx.presetId || null,
+    conds: lastScanCtx.conds, mode: lastScanCtx.mode,
+    title: lastScanCtx.name || 'Custom screen'
+  });
 }
 
 function exportCSV(){
@@ -6987,7 +7056,7 @@ updateHistoryBadge();
 
 // Read-only hook for the Backtest tab (it replays these screens over historical candles).
 window.ScannerBacktestApi = { PRESETS, PRESET_CATEGORY_ORDER, metricsFromCandles, evalGroup, condsUse };
-window.Scanner = { addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, clearConditions, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker, openCategoryInfo, closeCategoryInfo, openHistory, closeHistory, openHistoryOutput, closeHistoryOutput, setHistoryFilter, clearHistory, rerunHistory, toggleHistoryConds };
+window.Scanner = { openBacktest, addConditionFromForm, setMatchMode, runScan, exportCSV, removeCondition, clearConditions, applyPreset, setSort, addToWatchlist, openScreenMatch, closeScreenMatch, setIncludeIct, toggleSaveScreen, openSaveScreen, closeSaveScreen, confirmSaveScreen, applySaved, deleteSaved, savedGroupToggled, openScreenPicker, openCategoryInfo, closeCategoryInfo, openHistory, closeHistory, openHistoryOutput, closeHistoryOutput, setHistoryFilter, clearHistory, rerunHistory, toggleHistoryConds };
 })();
 
 </script>
@@ -10959,7 +11028,10 @@ function initStrategies(){
   onStrategyChange();
   setTf('4h');
 }
+let ctx = null;      // set while the per-coin Backtest window is open: {symbol, tf, strategy}
+let saved = null;    // the Backtest tab's own results, parked while the window is open
 function getStrategy(){
+  if(ctx) return ctx.strategy;
   const id = $('bxStrategy').value;
   if(id === 'ichimoku') return {id, kind:'ichimoku', title:'Ichimoku Cloud Breakout'};
   const p = api().PRESETS.find(x => x.id === id);
@@ -10992,6 +11064,15 @@ function onExitModeChange(){
 /* ---------------- config ---------------- */
 function readCfg(){
   const num = (id, d) => { const v = parseFloat($(id).value); return Number.isFinite(v) ? v : d; };
+  const cfg = readFormCfg(num);
+  if(ctx){
+    const ex = {wide:[2, 3], default:[1.5, 2], tight:[1, 1.5]}[$('bxmExits').value] || [2, 3];
+    Object.assign(cfg, {tf:ctx.tf, coins:[ctx.symbol], topN:1, history:parseInt($('bxmHistory').value) || 5000,
+      side:$('bxmSide').value, trigger:'all', exitMode:'managed', stopAtr:ex[0], targetR:ex[1], maxBars:30});
+  }
+  return cfg;
+}
+function readFormCfg(num){
   return {
     tf, history: parseInt($('bxHistory').value) || 1500,
     topN: clamp(Math.round(num('bxTopN', 20)), 1, 100),
@@ -11436,7 +11517,8 @@ function buildVerdict(a){
 
 /* ---------------- run ---------------- */
 async function run(){
-  const btn = $('bxRunBtn'), st = $('bxStatus'), bar = $('bxProgressBar'), fill = $('bxProgressFill'), err = $('bxError');
+  const P = ctx ? 'bxm' : 'bx';
+  const btn = $(P + 'RunBtn'), st = $(P + 'Status'), bar = $(P + 'ProgressBar'), fill = $(P + 'ProgressFill'), err = $(P + 'Error');
   const setP = (p, msg) => { fill.style.width = (p * 100).toFixed(1) + '%'; st.textContent = msg; };
   err.style.display = 'none';
   btn.disabled = true;
@@ -11831,7 +11913,7 @@ function render(){
   }
   const benchEnd = a.bench.length ? a.bench[a.bench.length - 1].pct : null;
   const pills = [
-    a.strat.title, `${TF_NAME[cfg.tf]} candles`, `${syms.length} coins`, `${fmtD(a.tStart)} → ${fmtD(a.tEnd)} (${Math.round(a.days)} days)`,
+    a.strat.title, `${TF_NAME[cfg.tf]} candles`, `${syms.length} coin${syms.length > 1 ? 's' : ''}`, `${fmtD(a.tStart)} → ${fmtD(a.tEnd)} (${Math.round(a.days)} days)`,
     `${s.n} trades`, a.skipped ? `${a.skipped} skipped (max ${cfg.maxPos} open)` : '', failed.length ? `skipped coins: ${failed.join(', ')}` : ''
   ].filter(Boolean).map(p => `<span class="bx-pill">${esc(p)}</span>`).join('');
   const v = a.verdict;
@@ -12087,7 +12169,8 @@ function renderPlaybook(){
   if(!host) return;
   const rf = v => `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`;
   host.innerHTML = '<div class="bx-three">' + PLAYBOOK.map(col => `
-    <div class="bx-box"><h4>${col.name}</h4><p class="cap">${col.verdict}</p>
+    <details class="bx-box bx-fold"${col.tf === '1d' ? ' open' : ''}>
+      <summary><h4>${col.name} <span class="bx-n">${col.rows.length} screen${col.rows.length > 1 ? 's' : ''}</span></h4><div class="cap" style="margin:4px 0 0;">${col.verdict}</div></summary>
       ${col.rows.map(r => `<div style="padding:9px 0;border-top:1px solid var(--border-soft);">
         <div style="font-weight:600;font-size:12.5px;">${esc(r.title)}</div>
         <div class="cap" style="margin:3px 0 7px;font-family:var(--font-mono);">
@@ -12096,7 +12179,7 @@ function renderPlaybook(){
           <span style="color:var(--faint)">${esc(r.note)}</span></div>
         <button class="secondary" style="padding:6px 12px;font-size:12px;" onclick="Backtest.loadPlay('${r.id}','${col.tf}')">▶ Test it</button>
       </div>`).join('')}
-    </div>`).join('') + '</div>' +
+    </details>`).join('') + '</div>' +
     '<div class="bx-hint" style="margin-top:12px;">Shorts were tested too and mostly failed out-of-sample. Mean-reversion rules (RSI-2, Bollinger fades, RSI crosses) lost money on every timeframe. One market regime, today\u2019s liquid coins: treat these as starting points, not promises.</div>';
 }
 function loadPlay(id, tfKey){
@@ -12106,12 +12189,55 @@ function loadPlay(id, tfKey){
   $('bxExitMode').value = 'managed'; onExitModeChange();
   $('bxStop').value = 2; $('bxTarget').value = 3; $('bxMaxBars').value = 30;
   $('bxSide').value = 'auto'; $('bxCoins').value = '';
+  document.querySelectorAll('#bxPlaybookBody details.bx-fold').forEach(d => { d.open = d.querySelector('[onclick*="\'' + tfKey + '\'"]') !== null; });
   const adv = $('bxAdv'); if(adv) adv.open = true;
   run();
   const st = $('bxStatus'); if(st && st.scrollIntoView) st.scrollIntoView({block:'center', behavior:'smooth'});
 }
 
-window.Backtest = {loadPlay, run, setTf, onStrategyChange, updateHistoryHint, onExitModeChange, pick, step, setSort, redraw:() => { if(last) drawAll(); },
+/* ---------------- per-coin window (opened from the result tables) ---------------- */
+function openCoin(o){
+  if(!api()) return;
+  if(!TF_MS[o.tf]){ alert('Backtest supports the 1h, 4h and Daily timeframes.'); return; }
+  let strategy;
+  if(o.strategyId === 'ichimoku'){
+    strategy = {id:'ichimoku', kind:'ichimoku', title:'Ichimoku Cloud Breakout'};
+  } else {
+    const p = o.strategyId ? api().PRESETS.find(x => x.id === o.strategyId) : null;
+    if(p) strategy = {id:p.id, kind:'preset', title:p.title, preset:p, autoSide:autoSideFor(p)};
+    else strategy = {id:'custom', kind:'preset', title:o.title || 'Custom screen', preset:{conds:o.conds, mode:o.mode || 'all', title:o.title || 'Custom screen', desc:''}, autoSide:1};
+  }
+  if(strategy.kind === 'preset' && presetUnavailable(strategy.preset)){ alert('This screen needs live funding / open-interest data, which has no history to replay.'); return; }
+  const out = $('bxOut');
+  if(!ctx) saved = {last, selTradeId, tradeSort, html:out.innerHTML};
+  ctx = {symbol:o.symbol, tf:o.tf, strategy};
+  tradeSort = 'recent'; selTradeId = null;
+  $('bxmOut').appendChild(out);
+  $('bxmTitle').textContent = `🧪 ${o.symbol} · ${strategy.title}`;
+  $('bxmSub').textContent = `${TF_NAME[o.tf]} candles · every historical signal of this screen on ${o.symbol}, simulated with stop, target, fees and slippage`;
+  $('bxmSide').value = 'auto';
+  $('bxModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  $('bxModal').scrollTop = 0;
+  run();
+}
+function closeModal(ev){
+  if(ev && ev.target !== $('bxModal')) return;
+  if(!ctx) return;
+  const out = $('bxOut'), pane = $('backtestPane');
+  pane.appendChild(out);
+  ctx = null;
+  $('bxModal').classList.remove('open');
+  document.body.style.overflow = '';
+  if(saved){
+    last = saved.last; selTradeId = saved.selTradeId; tradeSort = saved.tradeSort;
+    out.innerHTML = saved.html; saved = null;
+    if(last && pane.style.display !== 'none') requestAnimationFrame(drawAll);
+  } else { out.innerHTML = ''; last = null; }
+}
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && ctx) closeModal(); });
+
+window.Backtest = {openCoin, closeModal, loadPlay, run, setTf, onStrategyChange, updateHistoryHint, onExitModeChange, pick, step, setSort, redraw:() => { if(last) drawAll(); },
   // engine pieces, exposed so custom signal lists can be run through the same simulator
   engine:{simTrade, runTrades, runPortfolio, tradeStats, atrSeries, emaSeries, fetchKlinesPaged, bootstrapMean, mulberry32, pctile, maxDrawdown}};
 initStrategies();
