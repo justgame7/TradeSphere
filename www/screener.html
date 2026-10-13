@@ -10808,7 +10808,7 @@ window.TrendPulse = { open, close, isOpen:() => S.open, _state:S, _analyse:analy
 const $ = id => document.getElementById(id);
 const TF_MS = {'1h':3600e3, '4h':14400e3, '1d':86400e3};
 const TF_NAME = {'1h':'1-hour', '4h':'4-hour', '1d':'daily'};
-const TF_DEFAULT_HOLD = {'1h':48, '4h':30, '1d':20};
+const TF_DEFAULT_HOLD = {'1h':30, '4h':30, '1d':30};
 const COL = {up:'#35E0C0', dn:'#FF5470', amber:'#F5A623', blue:'#5B8CFF', violet:'#A78BFA',
   text:'#E6E9EF', muted:'#8B93A3', faint:'#565F70', grid:'#1B1F28', axis:'#232833', panel:'#171B22'};
 const ICH = {tenkanLen:9, kijunLen:26, senkouBLen:52};
@@ -11930,8 +11930,10 @@ function drawAll(){
   if($('bxFan') && a.mc) drawFan($('bxFan'), a.mc, a.cfg.riskPct);
   renderTradeTable();
   if(selTradeId === null){
+    // default to the newest TARGET trade; fall back to the newest of any kind
     const list = sortedTrades();
-    if(list.length) selTradeId = list[0].id;
+    const first = list.find(t => t.reason === 'Target') || list[0];
+    if(first) selTradeId = first.id;
   }
   if(selTradeId !== null) pick(selTradeId);
 }
