@@ -2299,7 +2299,9 @@ function computeInsights(fyStart){
 }
 
 function insWeekdaySVG(wk, prefix, w){
-  const h = 132, padT = 18, padB = 22, padX = 6;
+  // padB leaves room for a negative bar's value label to sit under the bar
+  // without running into the weekday names on the bottom row.
+  const h = 150, padT = 18, padB = 40, padX = 6;
   const plotH = h - padT - padB;
   const maxAbs = Math.max(1e-9, ...wk.map(x => Math.abs(x.pnl)));
   const hasNeg = wk.some(x => x.pnl < -INS_EPS), hasPos = wk.some(x => x.pnl > INS_EPS);
