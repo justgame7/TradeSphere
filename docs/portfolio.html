@@ -2106,6 +2106,7 @@ function insDetailedRows(){
 // within INS_GAP_DAYS of each other are one trade. Rows with no qty/avg cost
 // (exchange P&L imports) can't be linked and stay one-exit-one-trade.
 const INS_GAP_DAYS = 30;
+const INS_BURST_MIN = 10;
 function insGroupTrades(allRows){
   const groups = [];
   const byId = new Map();
@@ -2124,8 +2125,16 @@ function insGroupTrades(allRows){
         && (r.date - last.date) <= INS_GAP_DAYS * 864e5;
       if(!same){ g = { exact:false, market:r.market, symbol:r.symbol, side:r.side, tradeId:null, fills:[] }; cur.set(bk, g); groups.push(g); }
     }else{
-      g = { exact:false, market:r.market, symbol:r.symbol, side:r.side, tradeId:null, fills:[], lone:true };
-      groups.push(g);
+      // No qty / entry price (exchange P&L imports): the only signal left is
+      // timing. Exits of one coin+side that land within INS_BURST_MIN minutes
+      // of each other are the fills of one order / one scale-out burst.
+      const bk = 'u|' + r.market + '|' + r.symbol + '|' + r.side;
+      g = cur.get(bk);
+      const last = g && g.fills[g.fills.length-1];
+      if(!(last && (r.date - last.date) <= INS_BURST_MIN * 60e3)){
+        g = { exact:false, timed:true, market:r.market, symbol:r.symbol, side:r.side, tradeId:null, fills:[] };
+        cur.set(bk, g); groups.push(g);
+      }
     }
     g.fills.push(r);
   });
@@ -2143,7 +2152,7 @@ function insGroupTrades(allRows){
     else g.open = false;
   });
   // Legacy: only the newest cluster of a symbol can still be the open one.
-  cur.forEach((g, bk)=>{ if(openHold.has(bk)) g.open = true; });
+  cur.forEach((g, bk)=>{ if(!g.timed && openHold.has(bk)) g.open = true; });
   return groups;
 }
 
@@ -2477,7 +2486,7 @@ function drawInsights(fyStart, metaEl, areaEl, prefix){
       <div class="ins-coin-col"><div class="ins-k">Biggest drags</div>${coinRows(bottom, 'pnl-neg')}</div>
     </div>
 
-    <div class="ins-note">A <b>trade</b> is the whole cycle of one coin: every entry (averaged) and every partial exit, from flat to flat, judged on its combined P&amp;L &mdash; so 3 buys sold in 2 pieces is one trade, a win only if the total is positive. Newly booked exits are linked exactly; older exits are matched by coin, side and average entry${t.inferred ? ` (${t.inferred} trade${t.inferred===1?'':'s'} here inferred this way)` : ''}. Profit factor, payoff, expectancy and largest win/loss are per whole trade. By capital weights each trade by the cost of its exits. A day is the sum of all exits booked that calendar day. Streaks count consecutive trading days only (idle days don't break them). Profit factor = gross profit ÷ gross loss. Payoff = avg win ÷ avg loss. Drawdown is measured on realized P&amp;L only, so open positions aren't included.</div>
+    <div class="ins-note">A <b>trade</b> is the whole cycle of one coin: every entry (averaged) and every partial exit, from flat to flat, judged on its combined P&amp;L &mdash; so 3 buys sold in 2 pieces is one trade, a win only if the total is positive. Newly booked exits are linked exactly; older exits are matched by coin, side and average entry, or &mdash; when the import has no entry price &mdash; by exits of the same coin landing within ${INS_BURST_MIN} minutes${t.inferred ? ` (${t.inferred} trade${t.inferred===1?'':'s'} here inferred this way)` : ''}. Profit factor, payoff, expectancy and largest win/loss are per whole trade. By capital weights each trade by the cost of its exits. A day is the sum of all exits booked that calendar day. Streaks count consecutive trading days only (idle days don't break them). Profit factor = gross profit ÷ gross loss. Payoff = avg win ÷ avg loss. Drawdown is measured on realized P&amp;L only, so open positions aren't included.</div>
   </div>`;
   return t.net;
 }
