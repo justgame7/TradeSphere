@@ -2021,6 +2021,11 @@
 </div>
 
 <div id="backtestPane" style="display:none;">
+<div class="panel" id="bxPlaybook">
+  <div class="bx-title">📚 Research playbook</div>
+  <div class="bx-sub">What actually held up when common screens were backtested on ~30 liquid Binance USDT-M perpetuals. Numbers are average result per trade in R (1R = the stop distance) after fees and slippage. Tap <b>Test it</b> to load a screen with its best-performing settings and re-run it on live data.</div>
+  <div id="bxPlaybookBody" style="margin-top:14px;"></div>
+</div>
 <div class="panel">
   <div class="bx-title">🧪 Strategy Backtest Lab</div>
   <div class="bx-sub">Replays a screen over each coin's past candles as a realistic, rules-based trading simulation — entry, stop-loss, target, time limit, fees, slippage and position sizing — then tests whether the result is skill or luck. Signals use only data available at the close of each bar; nothing looks into the future.</div>
@@ -5272,6 +5277,46 @@ async function computeMetrics(symbol, interval, ticker){
   return metricsFromCandles(symbol, candles, ticker);
 }
 
+// Rules from the Systematic screens (Donchian / Keltner / squeeze / capitulation ...).
+// Evaluated on the last candle; `m` carries indicator values already computed by
+// metricsFromCandles. The same definitions were used for the research backtests.
+function systematicSignals(candles, closes, m){
+  const res = { donchUp20:false, donchDown20:false, donchUp55:false, donchDown55:false,
+    keltnerUp:false, keltnerDown:false, squeezeUp:false, squeezeDown:false,
+    capitulation:false, trendContUp:false, trendContDown:false, volDispUp:false, volDispDown:false };
+  const n = candles.length, i = n - 1;
+  if(n < 60 || !Number.isFinite(m.atr) || m.atr <= 0) return res;
+  const c = candles[i], p = candles[i-1];
+  const priorHigh = k => { let x = -Infinity; for(let j = i - k; j < i; j++) if(candles[j].high > x) x = candles[j].high; return x; };
+  const priorLow = k => { let x = Infinity; for(let j = i - k; j < i; j++) if(candles[j].low < x) x = candles[j].low; return x; };
+  res.donchUp20 = c.close > priorHigh(20);
+  res.donchDown20 = c.close < priorLow(20);
+  if(n > 56){ res.donchUp55 = c.close > priorHigh(55); res.donchDown55 = c.close < priorLow(55); }
+  const adxOk = Number.isFinite(m.adx);
+  if(m.ema20 !== null && adxOk){
+    res.keltnerUp = c.close > m.ema20 + 2 * m.atr && m.adx > 20;
+    res.keltnerDown = c.close < m.ema20 - 2 * m.atr && m.adx > 20;
+  }
+  if(n >= 125 && Number.isFinite(m.bbUpper)){
+    // previous bar's Bollinger width must sit in the tightest 20% of the 100 bars before it
+    const width = j => { let s = 0; for(let k = j - 19; k <= j; k++) s += closes[k]; const mean = s / 20; let v = 0; for(let k = j - 19; k <= j; k++) v += (closes[k] - mean) * (closes[k] - mean); return mean > 0 ? 4 * Math.sqrt(v / 20) / mean : NaN; };
+    const w = width(i - 1);
+    let le = 0, tot = 0;
+    for(let j = i - 101; j <= i - 2; j++){ const x = width(j); if(Number.isFinite(x)){ tot++; if(x <= w) le++; } }
+    if(tot > 50 && le / tot <= 0.2){ res.squeezeUp = c.close > m.bbUpper; res.squeezeDown = c.close < m.bbLower; }
+  }
+  res.capitulation = (p.close - c.close) > 2.5 * m.atr && m.rsi !== null && m.rsi < 30 && m.volRatio !== null && m.volRatio > 2;
+  if(m.ema50 !== null && m.ema200 !== null && adxOk){
+    res.trendContUp = c.close > m.ema50 && m.ema50 > m.ema200 && c.close > priorHigh(10) && m.adx > 20;
+    res.trendContDown = c.close < m.ema50 && m.ema50 < m.ema200 && c.close < priorLow(10) && m.adx > 20;
+  }
+  if(m.volRatio !== null && m.volRatio > 2.5){
+    res.volDispUp = c.close > c.open && (c.close - c.open) > 1.5 * m.atr;
+    res.volDispDown = c.close < c.open && (c.open - c.close) > 1.5 * m.atr;
+  }
+  return res;
+}
+
 // Pure half of computeMetrics: everything derived from an already-fetched candle
 // array (and an optional 24h ticker). Split out so the Backtest tab can replay the
 // exact same screen logic on historical windows.
@@ -5330,6 +5375,7 @@ function metricsFromCandles(symbol, candles, ticker){
   const obSignals = findOrderBlockSignals(sweep, fvgs, structure, candles);
   const equalLevels = findEqualLevels(swings, price, atrVal);
   const premDisc = findPremiumDiscount(candles, 50);
+  const sys = systematicSignals(candles, closes, { atr:atrVal, ema20, ema50, ema200, adx:adxResult.adx, rsi:rsiVal, volRatio, bbUpper:bb.upper, bbLower:bb.lower });
 
   return {
     symbol, price, change24h, quoteVolume24h,
@@ -5355,6 +5401,11 @@ function metricsFromCandles(symbol, candles, ticker){
     bullishBreaker: obSignals.bullishBreaker, bearishBreaker: obSignals.bearishBreaker,
     equalHighsNearby: equalLevels.equalHighs, equalLowsNearby: equalLevels.equalLows,
     premiumZone: premDisc.premium, discountZone: premDisc.discount,
+    // Systematic (research-tested) rules
+    sysDonchUp20: sys.donchUp20, sysDonchDown20: sys.donchDown20, sysDonchUp55: sys.donchUp55, sysDonchDown55: sys.donchDown55,
+    sysKeltnerUp: sys.keltnerUp, sysKeltnerDown: sys.keltnerDown, sysSqueezeUp: sys.squeezeUp, sysSqueezeDown: sys.squeezeDown,
+    sysCapitulation: sys.capitulation, sysTrendContUp: sys.trendContUp, sysTrendContDown: sys.trendContDown,
+    sysVolDispUp: sys.volDispUp, sysVolDispDown: sys.volDispDown,
     ndogNwog: null // filled in by runScan when a condition needs it (extra daily/weekly fetch)
   };
 }
@@ -5398,6 +5449,13 @@ const METRICS = [
   { key:'equalLevels', label:'Equal Highs/Lows (liquidity pool)', group:'ICT / Smart Money', unit:'', ops:['equal highs nearby','equal lows nearby'], noValue:true },
   { key:'premiumDiscount', label:'Premium / Discount', group:'ICT / Smart Money', unit:'', ops:['premium (upper half)','discount (lower half)'], noValue:true },
   { key:'ndogNwog', label:'Unfilled Opening Gap (NDOG/NWOG)', group:'ICT / Smart Money', unit:'', ops:['daily gap above','daily gap below','weekly gap above','weekly gap below'], noValue:true },
+  // ---- Systematic (research-tested) ----
+  { key:'sysDonchian', label:'Donchian Breakout (close beyond prior N-bar range)', group:'Systematic', unit:'', ops:['20-bar high (bullish)','20-bar low (bearish)','55-bar high (bullish)','55-bar low (bearish)'], noValue:true },
+  { key:'sysKeltner', label:'Keltner Breakout (EMA20 ± 2 ATR, ADX > 20)', group:'Systematic', unit:'', ops:['above (bullish)','below (bearish)'], noValue:true },
+  { key:'sysSqueeze', label:'Bollinger Squeeze Breakout', group:'Systematic', unit:'', ops:['bullish (closes above upper band)','bearish (closes below lower band)'], noValue:true },
+  { key:'sysCapitulation', label:'Capitulation Flush (drop > 2.5 ATR, RSI < 30, 2× volume)', group:'Systematic', unit:'', ops:['detected'], noValue:true },
+  { key:'sysTrendCont', label:'Trend Continuation (EMA50/200 trend + 10-bar breakout, ADX > 20)', group:'Systematic', unit:'', ops:['bullish','bearish'], noValue:true },
+  { key:'sysVolDisplace', label:'Volume Displacement (body > 1.5 ATR on 2.5× volume)', group:'Systematic', unit:'', ops:['bullish','bearish'], noValue:true },
 ];
 const METRIC_BY_KEY = Object.fromEntries(METRICS.map(m=>[m.key,m]));
 
@@ -5550,6 +5608,22 @@ function evalCondition(metrics, cond){
       if(cond.operator==='premium (upper half)') return !!metrics.premiumZone;
       if(cond.operator==='discount (lower half)') return !!metrics.discountZone;
       return false;
+    case 'sysDonchian':
+      if(cond.operator==='20-bar high (bullish)') return !!metrics.sysDonchUp20;
+      if(cond.operator==='20-bar low (bearish)') return !!metrics.sysDonchDown20;
+      if(cond.operator==='55-bar high (bullish)') return !!metrics.sysDonchUp55;
+      if(cond.operator==='55-bar low (bearish)') return !!metrics.sysDonchDown55;
+      return false;
+    case 'sysKeltner':
+      return cond.operator==='above (bullish)' ? !!metrics.sysKeltnerUp : !!metrics.sysKeltnerDown;
+    case 'sysSqueeze':
+      return cond.operator.startsWith('bullish') ? !!metrics.sysSqueezeUp : !!metrics.sysSqueezeDown;
+    case 'sysCapitulation':
+      return !!metrics.sysCapitulation;
+    case 'sysTrendCont':
+      return cond.operator==='bullish' ? !!metrics.sysTrendContUp : !!metrics.sysTrendContDown;
+    case 'sysVolDisplace':
+      return cond.operator==='bullish' ? !!metrics.sysVolDispUp : !!metrics.sysVolDispDown;
     case 'ndogNwog':
       if(!metrics.ndogNwog) return false;
       if(cond.operator==='daily gap above') return !!(metrics.ndogNwog.ndog?.present && metrics.ndogNwog.ndog.unfilled && metrics.ndogNwog.ndog.above);
@@ -5701,8 +5775,25 @@ const PRESETS = [
     conds:[{metric:'stochRsiK',operator:'<20 (oversold)',value:null},{metric:'bullishDivergence',operator:'detected',value:null},{metric:'nearLowPct',operator:'<',value:2}], mode:'all' },
   { id:'confAthContinuation', cat:'Confluence', icon:'★', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'ATH breakout continuation', desc:'Within 0.5× ATR of the all-time high with ADX confirming a strong trend and volume above 1.5× average — no overhead supply left to absorb the move',
     conds:[{metric:'athProximityAtr',operator:'<',value:0.5},{metric:'adx',operator:'>',value:25},{metric:'volRatio',operator:'>',value:1.5}], mode:'all' },
+  // ---- Systematic (research-tested; see the Backtest tab's playbook) ----
+  { id:'sysDonch20Up', cat:'Systematic', icon:'⇗', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Donchian 20 breakout (trend-filtered)', desc:'Close breaks above the prior 20-bar high while price is above EMA200 — the classic turtle-style trend entry. Backtested best on Daily (+0.13R per trade, +0.28R with wide exits); weaker on 4h, no edge on 1h.',
+    conds:[{metric:'sysDonchian',operator:'20-bar high (bullish)',value:null},{metric:'priceVsEma200',operator:'above',value:null}], mode:'all' },
+  { id:'sysDonch55Up', cat:'Systematic', icon:'⇗', color:'linear-gradient(135deg,#35e0c0,#1c8f79)', title:'Donchian 55 breakout', desc:'Close breaks above the prior 55-bar high — a slower, longer-term breakout with fewer signals. Backtested: Daily +0.10R (+0.26R wide exits), 4h +0.06R (+0.13R wide exits).',
+    conds:[{metric:'sysDonchian',operator:'55-bar high (bullish)',value:null}], mode:'all' },
+  { id:'sysKeltnerUp', cat:'Systematic', icon:'⤴', color:'linear-gradient(135deg,#5b8cff,#2b4fb0)', title:'Keltner breakout', desc:'Close above EMA20 + 2×ATR with ADX over 20 — a volatility-expansion breakout. The most consistent screen in testing: 4h +0.08R (66% of coins positive) and Daily +0.08R (+0.27R wide exits).',
+    conds:[{metric:'sysKeltner',operator:'above (bullish)',value:null}], mode:'all' },
+  { id:'sysTrendContUp', cat:'Systematic', icon:'➚', color:'linear-gradient(135deg,#8ea9ff,#3a54b8)', title:'Trend continuation breakout', desc:'Close above EMA50, EMA50 above EMA200, close above the prior 10-bar high and ADX over 20. Backtested: Daily +0.09R (+0.21R wide exits), 4h +0.11R with wide exits.',
+    conds:[{metric:'sysTrendCont',operator:'bullish',value:null}], mode:'all' },
+  { id:'sysSqueezeUp', cat:'Systematic', icon:'◫', color:'linear-gradient(135deg,#a78bfa,#6d28d9)', title:'Bollinger squeeze breakout (up)', desc:'Bollinger width was in the tightest 20% of the last 100 bars on the previous candle, then price closes above the upper band. Backtested: Daily +0.08R (held up out-of-sample); no edge on 4h/1h.',
+    conds:[{metric:'sysSqueeze',operator:'bullish (closes above upper band)',value:null}], mode:'all' },
+  { id:'sysSqueezeDown', cat:'Systematic', icon:'◫', color:'linear-gradient(135deg,#ff5470,#a3223a)', title:'Bollinger squeeze breakout (down)', desc:'Same squeeze, then price closes below the lower band. Backtested: Daily +0.18R, but it faded to +0.04R out-of-sample and failed on 4h — treat as the weakest of the set.',
+    conds:[{metric:'sysSqueeze',operator:'bearish (closes below lower band)',value:null}], mode:'all' },
+  { id:'sysCapitulation', cat:'Systematic', icon:'⤓', color:'linear-gradient(135deg,#f0c24b,#b8860b)', title:'Capitulation dip-buy', desc:'A candle drops more than 2.5×ATR from the prior close, RSI is under 30 and volume is over 2× average — a washout flush. Rare, but the strongest result tested: 4h +0.64R (78 trades), 1h +0.19R (+0.28R wide exits).',
+    conds:[{metric:'sysCapitulation',operator:'detected',value:null}], mode:'all' },
+  { id:'sysVolDispUp', cat:'Systematic', icon:'▲', color:'linear-gradient(135deg,#ff8a4c,#c2501a)', title:'Volume displacement (up)', desc:'Bullish candle with a body over 1.5×ATR on 2.5×+ volume. Only marginal in testing: 1h +0.04R (+0.10R wide exits), 4h +0.03R.',
+    conds:[{metric:'sysVolDisplace',operator:'bullish',value:null}], mode:'all' },
 ];
-const PRESET_CATEGORY_ORDER = ['Momentum','Trend','Volatility','Volume','Derivatives','ICT','Confluence'];
+const PRESET_CATEGORY_ORDER = ['Systematic','Momentum','Trend','Volatility','Volume','Derivatives','ICT','Confluence'];
 const RECENT_PRESETS_KEY = 'scn-recent-presets-v1';
 const RECENT_PRESETS_MAX = 4;
 function getRecentPresetIds(){
@@ -5742,6 +5833,10 @@ function renderPresetCard(p, domId){
    is always built from PRESETS' own title/desc, so it can't drift out of sync
    with what the cards actually say; only the intro/caveat are hand-written. */
 const CATEGORY_INFO_META = {
+  Systematic: {
+    intro: 'Rule families from the trend-following and breakout literature (Donchian channels, Keltner expansion, Bollinger squeezes, capitulation flushes), each backtested through this app\u2019s Backtest tab on ~30 liquid Binance USDT-M perpetuals across 1h, 4h and Daily with fees, slippage and an out-of-sample split. The result per timeframe is in each card; the Backtest tab has a playbook that loads and re-runs them. Trend-following rules needed <b>wide exits</b> (about 2\u00d7 ATR stop, 3R target) \u2014 tight exits erased the edge.',
+    caveat: 'Edges are small (typically +0.05R to +0.3R per trade after costs), not high win rates \u2014 expect ~35\u201340% winners. Tests covered one market regime with today\u2019s liquid coins (survivorship bias), and mean-reversion rules (RSI-2, Bollinger fades, RSI crosses) lost money on every timeframe, so they are not included. Short-side versions mostly failed out-of-sample. Not financial advice.'
+  },
   Momentum: {
     intro: 'Single-metric reads on direction or exhaustion \u2014 RSI, 24h change, Stoch RSI crosses, RSI divergence and ATH proximity. Treat these as an early flag, not a full setup: combine two with <b>Add screens</b> + <b>Match: ALL</b> (e.g. Oversold reversal + Bullish RSI divergence) to cut down on noise.',
     caveat: 'RSI, Stoch RSI and divergence are read off the current, still-forming candle \u2014 a screen matching mid-bar can stop matching before the candle closes.'
@@ -10843,7 +10938,7 @@ function presetUnavailable(p){
   return UNAVAILABLE_KEYS.some(k => api().condsUse(p.conds, k));
 }
 function autoSideFor(p){
-  return /bear|death|overbought|overheated|loser|premium/i.test(p.title) ? -1 : 1;
+  return /bear|death|overbought|overheated|loser|premium|\(down\)/i.test(p.title) ? -1 : 1;
 }
 function initStrategies(){
   const sel = $('bxStrategy');
@@ -11965,9 +12060,63 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => { const p = $('backtestPane'); if(last && p && p.style.display !== 'none') drawAll(); }, 200);
 });
 
-window.Backtest = {run, setTf, onStrategyChange, updateHistoryHint, onExitModeChange, pick, step, setSort, redraw:() => { if(last) drawAll(); }};
+/* ---------------- research playbook ---------------- */
+// Measured with this tab's engine on the top-30 Binance USDT-M perpetuals by volume.
+// "default" = stop 1.5x ATR / target 2R / 30 bars; "wide" = stop 2x ATR / target 3R / 30 bars.
+// 1h ~208 days, 4h ~2.3 years, 1d ~5-7 years of data. oos = last 30% of the period.
+const PLAYBOOK = [
+  {tf:'1d', name:'Daily', verdict:'Best timeframe for breakout / trend-following rules.', rows:[
+    {id:'sysDonch20Up', title:'Donchian 20 breakout (trend-filtered)', def:0.13, wide:0.28, n:831, oos:0.10, coins:63, note:'Strongest and steadiest'},
+    {id:'sysDonch55Up', title:'Donchian 55 breakout', def:0.10, wide:0.26, n:750, oos:0.10, coins:57, note:'Fewer, slower signals'},
+    {id:'sysKeltnerUp', title:'Keltner breakout', def:0.08, wide:0.27, n:950, oos:0.03, coins:57, note:'Needs wide exits'},
+    {id:'sysSqueezeUp', title:'Bollinger squeeze breakout (up)', def:0.08, wide:0.14, n:487, oos:0.15, coins:56, note:'Held up out-of-sample'},
+    {id:'sysSqueezeDown', title:'Bollinger squeeze breakout (down)', def:0.18, wide:0.15, n:449, oos:0.04, coins:80, note:'Faded out-of-sample'}
+  ]},
+  {tf:'4h', name:'4 Hour', verdict:'Modest edge: volatility breakouts and rare dip-buys.', rows:[
+    {id:'sysKeltnerUp', title:'Keltner breakout', def:0.08, wide:0.14, n:2291, oos:0.06, coins:66, note:'Most consistent 4h screen'},
+    {id:'sysDonch55Up', title:'Donchian 55 breakout', def:0.06, wide:0.13, n:1949, oos:0.01, coins:53, note:'Marginal'},
+    {id:'sysCapitulation', title:'Capitulation dip-buy', def:0.64, wide:0.68, n:78, oos:0.57, coins:null, note:'Rare — only 78 trades'}
+  ]},
+  {tf:'1h', name:'1 Hour', verdict:'No broad edge — fees eat most rules. Only rare dip-buys showed promise.', rows:[
+    {id:'sysCapitulation', title:'Capitulation dip-buy', def:0.19, wide:0.28, n:120, oos:0.20, coins:77, note:'Rare — 120 trades'},
+    {id:'sysVolDispUp', title:'Volume displacement (up)', def:0.04, wide:0.10, n:1266, oos:0.10, coins:70, note:'Barely above zero'}
+  ]}
+];
+function renderPlaybook(){
+  const host = $('bxPlaybookBody');
+  if(!host) return;
+  const rf = v => `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`;
+  host.innerHTML = '<div class="bx-three">' + PLAYBOOK.map(col => `
+    <div class="bx-box"><h4>${col.name}</h4><p class="cap">${col.verdict}</p>
+      ${col.rows.map(r => `<div style="padding:9px 0;border-top:1px solid var(--border-soft);">
+        <div style="font-weight:600;font-size:12.5px;">${esc(r.title)}</div>
+        <div class="cap" style="margin:3px 0 7px;font-family:var(--font-mono);">
+          <span class="${cls(r.def)}">${rf(r.def)}</span> default · <span class="${cls(r.wide)}">${rf(r.wide)}</span> wide exits<br>
+          ${r.n} trades · out-of-sample ${rf(r.oos)}${r.coins !== null ? ` · ${r.coins}% of coins +` : ''}<br>
+          <span style="color:var(--faint)">${esc(r.note)}</span></div>
+        <button class="secondary" style="padding:6px 12px;font-size:12px;" onclick="Backtest.loadPlay('${r.id}','${col.tf}')">▶ Test it</button>
+      </div>`).join('')}
+    </div>`).join('') + '</div>' +
+    '<div class="bx-hint" style="margin-top:12px;">Shorts were tested too and mostly failed out-of-sample. Mean-reversion rules (RSI-2, Bollinger fades, RSI crosses) lost money on every timeframe. One market regime, today\u2019s liquid coins: treat these as starting points, not promises.</div>';
+}
+function loadPlay(id, tfKey){
+  $('bxStrategy').value = id;
+  onStrategyChange();
+  setTf(tfKey);
+  $('bxExitMode').value = 'managed'; onExitModeChange();
+  $('bxStop').value = 2; $('bxTarget').value = 3; $('bxMaxBars').value = 30;
+  $('bxSide').value = 'auto'; $('bxCoins').value = '';
+  const adv = $('bxAdv'); if(adv) adv.open = true;
+  run();
+  const st = $('bxStatus'); if(st && st.scrollIntoView) st.scrollIntoView({block:'center', behavior:'smooth'});
+}
+
+window.Backtest = {loadPlay, run, setTf, onStrategyChange, updateHistoryHint, onExitModeChange, pick, step, setSort, redraw:() => { if(last) drawAll(); },
+  // engine pieces, exposed so custom signal lists can be run through the same simulator
+  engine:{simTrade, runTrades, runPortfolio, tradeStats, atrSeries, emaSeries, fetchKlinesPaged, bootstrapMean, mulberry32, pctile, maxDrawdown}};
 initStrategies();
 onExitModeChange();
+renderPlaybook();
 })();
 
 </script>
