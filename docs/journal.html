@@ -94,6 +94,16 @@ h1{margin:2px 0 0;font-size:26px;letter-spacing:-.02em;font-weight:650}
 .col{display:grid;gap:12px;align-content:start}
 .sticky{position:sticky;top:64px}
 @media(max-width:1000px){.sticky{position:static}}
+/* Phones / narrow screens: show the chart right after the coin picker, above Long/Short.
+   The wrappers are flattened with display:contents so the cards can be re-ordered; desktop is untouched. */
+@media(max-width:1000px){
+  .sh-body > .col, .sh-body > .col > .sticky, #instCard{display:contents !important} /* !important: .sticky carries an inline display:grid */
+  .inst-a,.inst-b{background:var(--s1);border:1px solid var(--line2);border-radius:var(--r);padding:16px}
+  .inst-b > .row:first-child{margin-top:0 !important}
+  .inst-a{order:-3}
+  .chartbox{order:-2}
+  .inst-b{order:-1}
+}
 .fld{display:grid;gap:5px;margin-bottom:10px}
 .fld>label,.lbl{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
 .in{width:100%;background:var(--s2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;outline:none;font-family:var(--mono);font-size:14px}
@@ -376,7 +386,7 @@ function loadDB(){
         if(s.tpMode === 'ATR' || s.tpMode === 'R') base.settings.tpMode = s.tpMode;
         if(s.show && typeof s.show === 'object') Object.keys(base.settings.show).forEach(k => { if(typeof s.show[k] === 'boolean') base.settings.show[k] = s.show[k]; });
       }
-      if(Array.isArray(raw.trades)) base.trades = raw.trades.map(cleanTrade).filter(Boolean);
+      if(Array.isArray(raw.trades)) base.trades = raw.trades.map(cleanTrade).filter(t => t && usable(t));
       if(raw.rules && typeof raw.rules === 'object'){
         Object.keys(raw.rules).forEach(k => { if(/^[0-9W-]{4,10}$/.test(k)){ const r = raw.rules[k]; base.rules[k] = { action: ENUM(NEXT_ACTIONS, r && r.action, ''), kept: r && (r.kept === 'y' || r.kept === 'n') ? r.kept : '' }; } });
       }
@@ -493,7 +503,20 @@ function processScore(t){
     const a = t.answers[q.id];
     if(a === 'y' || a === 'n'){ ans++; tot += q.w; if(a === q.good) got += q.w; }
   });
-  return { score: tot ? Math.round(got / tot * 100) : null, answered: ans, applicable: app.length, completeness: Math.round(ans / app.length * 100) };
+  let score = tot ? got / tot * 100 : null;
+  if(score != null){
+    // behaviour you tagged counts too: each mistake -6 (max 3), each negative emotion at entry/exit -4
+    const mistakes = Math.min(3, (t.mistakes || []).length) * 6;
+    const emo = (EMO_NEG.includes(t.emotion) ? 4 : 0) + (t.status === 'closed' && EMO_NEG.includes(t.emotionAfter) ? 4 : 0);
+    score = Math.max(0, Math.round(score - mistakes - emo));
+  }
+  return { score, answered: ans, applicable: app.length, completeness: Math.round(ans / app.length * 100) };
+}
+function usable(t){
+  const d = riskDist(t);
+  if(!fin(d) || d <= 0) return false;
+  if(fin(t.target) && !(t.side === 'long' ? t.target > t.entry : t.target < t.entry)) t.target = null;
+  return t.status !== 'closed' || fin(t.exit);
 }
 function bad(t, id){ const q = QUESTIONS.find(x => x.id === id); return t.answers[id] && t.answers[id] !== 'na' && t.answers[id] !== q.good; }
 function goodA(t, id){ const q = QUESTIONS.find(x => x.id === id); return t.answers[id] === q.good; }
@@ -525,6 +548,7 @@ function buildReview(t){
     out.tone = s >= 75 ? 'up' : s >= 55 ? 'am' : 'dn';
     out.headline = `${out.verdict} (process ${s}/100)` + (rr ? `, planned ${rr.toFixed(1)}R.` : '.');
   }
+  if(ps.completeness < 70) out.headline += ` Based on ${ps.answered} of ${ps.applicable} answers, so treat it as partial.`;
   QUESTIONS.forEach(q => {
     if(q.phase === 'review' && t.status !== 'closed') return;
     const a = t.answers[q.id]; if(a !== 'y' && a !== 'n') return;
@@ -554,7 +578,6 @@ function buildReview(t){
   if(out.strengths.length) parts.push('What went right: ' + out.strengths.slice(0, 4).join(', ') + '.');
   if(out.flags.length) parts.push('Flags: ' + out.flags.slice(0, 5).join('; ') + '.');
   if(out.next) parts.push('Next time: ' + out.next.toLowerCase() + '.');
-  if(ps.completeness < 70) parts.push(`Journal is ${ps.completeness}% complete, so this review is partial.`);
   out.comment = parts.join(' ');
   return out;
 }
@@ -1078,7 +1101,8 @@ function buildSheet(){
   </div>
   <div class="sh-body">
     <div class="col">
-      <div class="card">
+      <div class="card" id="instCard">
+        <div class="inst-a">
         <h3>1 · Instrument</h3>
         <button class="coinbtn" data-sh="pick" type="button">
           <span class="av">${esc(coin.slice(0, 4) || '+')}</span>
@@ -1086,6 +1110,8 @@ function buildSheet(){
             <span class="mono" id="ltpLine" style="display:block;font-size:12.5px"></span></span>
           <span class="mu">›</span>
         </button>
+        </div>
+        <div class="inst-b">
         <div class="row" style="margin-top:12px;flex-wrap:wrap">
           <div class="seg ${D.side}" data-seg="side"><button type="button" data-v="long" class="${D.side === 'long' ? 'on' : ''}">Long</button><button type="button" data-v="short" class="${D.side === 'short' ? 'on' : ''}">Short</button></div>
           <div class="seg" data-seg="status"><button type="button" data-v="planned" class="${D.status === 'planned' ? 'on' : ''}">Planned</button><button type="button" data-v="open" class="${D.status === 'open' ? 'on' : ''}">Open</button><button type="button" data-v="closed" class="${D.status === 'closed' ? 'on' : ''}">Closed</button></div>
@@ -1093,6 +1119,7 @@ function buildSheet(){
         <div class="row wrapm" style="margin-top:12px">
           <div class="fld" style="flex:1;min-width:130px;margin:0"><label>Leverage (optional)</label><input class="in" data-f="lev" inputmode="decimal" placeholder="e.g. 10" value="${esc(D.lev)}"></div>
           <div class="fld" style="flex:1.6;min-width:190px;margin:0"><label>${D.status === 'planned' ? 'Planned entry time' : 'Entered at'}</label><input class="in" type="datetime-local" data-f="openedAt" value="${toLocalInput(D.openedAt)}"></div>
+        </div>
         </div>
       </div>
 
@@ -1143,6 +1170,7 @@ function buildSheet(){
 
       <div class="card" id="qCard">
         <h3>5 · Questions <small>tap, no typing</small></h3>
+        <div class="note" style="margin:-4px 0 6px">N/A answers are ignored. Tagged mistakes and negative emotions also lower the process score.</div>
         ${phases.map(ph => {
           const qs = QUESTIONS.filter(q => q.phase === ph);
           const locked = ph === 'review' && !closed;
@@ -1468,7 +1496,7 @@ $('#fileImport').addEventListener('change', e => {
   rd.onload = () => {
     try{
       const raw = JSON.parse(rd.result);
-      const incoming = (Array.isArray(raw.trades) ? raw.trades : []).map(cleanTrade).filter(Boolean);
+      const incoming = (Array.isArray(raw.trades) ? raw.trades : []).map(cleanTrade).filter(t => t && usable(t));
       if(!incoming.length) throw new Error('no trades');
       const have = new Set(DB.trades.map(t => t.id)); let added = 0;
       incoming.forEach(t => { if(!have.has(t.id)){ if(!t.review) recompute(t); DB.trades.push(t); added++; } });
