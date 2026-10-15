@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-15T00:40:32Z",
+  "updated": "2026-10-15T00:50:33Z",
   "markets": [
     {
       "t": "KXFED-27APR-T6.00",
@@ -2899,8 +2899,8 @@
       "s": "Above 4.00%",
       "k": 4,
       "c": "2026-10-28T17:55:00Z",
-      "b": "0.2500",
-      "a": "0.2800",
+      "b": "0.2600",
+      "a": "0.2900",
       "l": "0.3000",
       "v": "228874.59",
       "title": "Will the upper bound of the federal funds rate be above 4.00% following the Fed's Oct 28, 2026 meeting?"
