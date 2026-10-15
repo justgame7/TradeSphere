@@ -413,7 +413,7 @@
    (America/New_York) unless noted, converted to the user's local
    time for display.
    ============================================================ */
-const VERIFIED_THROUGH = "2026-10-07";
+const VERIFIED_THROUGH = "2026-10-15";
 
 const EVENTS = [
   {
@@ -547,7 +547,7 @@ const EVENTS = [
     verified: false,
     date: "2026-12-15T12:00:00-05:00",
     tentative: true,
-    desc: "Ethereum's next major hard fork (enshrined proposer-builder separation + block-level access lists). The Sepolia public-testnet fork went live on Oct 6; developers will assess it before scheduling Hoodi, and no mainnet date has been set — the Ethereum Foundation roadmap lists Q4 2026 as an unconfirmed target and the schedule has already slipped from an earlier H1 2026 goal. The December placeholder date shown is illustrative only. Watch ethereum.org/roadmap and the core-dev calls for the confirmed Hoodi and mainnet dates.",
+    desc: "Ethereum's next major hard fork (enshrined proposer-builder separation + block-level access lists). The Sepolia public-testnet fork went live on Oct 6; the Hoodi testnet fork has since been reported for Oct 26 (see below), and no mainnet date has been set — the Ethereum Foundation roadmap lists Q4 2026 as an unconfirmed target and the schedule has already slipped from an earlier H1 2026 goal. The December placeholder date shown is illustrative only. Watch ethereum.org/roadmap and the core-dev calls for the confirmed Hoodi and mainnet dates.",
     source: { name: "Ethereum Foundation roadmap", url: "https://ethereum.org/roadmap/glamsterdam/" }
   },
   {
@@ -880,9 +880,9 @@ const EVENTS = [
     title: "US Retail Sales — September 2026 data",
     category: "macro",
     impact: "medium",
-    verified: false,
+    verified: true,
     date: "2026-10-15T08:30:00-04:00",
-    desc: "Census Bureau advance retail sales. Date taken from secondary economic calendars (same morning as PPI) — not yet checked against the Census schedule page.",
+    desc: "Census Bureau advance retail sales for September, released the same morning as PPI. Confirmed on the Census Bureau's advance retail sales release page (release dated Thursday, Oct 15, 2026).",
     source: { name: "Census retail sales schedule", url: "https://www.census.gov/retail/marts/www/martsdates.html" }
   },
   {
@@ -902,7 +902,7 @@ const EVENTS = [
     impact: "medium",
     verified: true,
     date: "2026-10-31T23:59:00+09:00",
-    desc: "Court-approved deadline for the Mt. Gox trustee to finish creditor repayments. The estate still holds ~34,689 BTC per Arkham data. The deadline has been extended three times (2023, 2024, 2025) — last year's extension came just four days before it lapsed — so watch for another extension notice in the final week, or for distribution/wallet movements if the trustee instead starts paying out. No 2026 update was found when this calendar was re-verified (Oct 7).",
+    desc: "Court-approved deadline for the Mt. Gox trustee to finish creditor repayments. The estate still holds ~34,689 BTC per Arkham data. The deadline has been extended three times (2023, 2024, 2025) — last year's extension came just four days before it lapsed — so watch for another extension notice in the final week, or for distribution/wallet movements if the trustee instead starts paying out. Re-checked Oct 15: still Oct 31, 2026 with no new extension announced — check the trustee's notices.",
     source: { name: "The Block — Mt. Gox postpones repayment deadline", url: "https://www.theblock.co/post/376205/mt-gox-postpones-repayment-deadline" }
   },
   {
@@ -911,9 +911,9 @@ const EVENTS = [
     category: "network",
     impact: "high",
     verified: false,
-    date: "2026-10-31T00:00:00+00:00",
+    date: "2026-11-09T00:00:00+00:00",
     tentative: true,
-    desc: "Alpenglow (the ~150ms-finality consensus rewrite) activated on Solana testnet on Sep 24 (54ms median finalization) and devnet on Sep 25. Mainnet is tied to the Agave 4.3 release, expected late September–October, but no activation date has been announced — the placeholder date shown is the end of that window and is illustrative only.",
+    desc: "Alpenglow (the ~150ms-finality consensus rewrite) activated on Solana testnet in late September (54ms median finalization) and devnet shortly after. As of Oct 15, Anza has NOT announced a mainnet-beta date: it follows an unspecified observation period after devnet, and Firedancer/Frankendancer validators must move to Agave 4.3 first. The earlier Sep 28 date was a general feature-activation entry in the Agave 4.3 schedule, not an Alpenglow date. Nov 9 is the Agave v4.4 mainnet feature-activation window and is an illustrative placeholder only — wait for Anza's Discord announcement.",
     source: { name: "Crypto Briefing — Alpenglow testnet results", url: "https://cryptobriefing.com/solana-alpenglow-54ms-finalization-testnet/" }
   },
   {
@@ -921,9 +921,9 @@ const EVENTS = [
     title: "ECB monetary policy decision",
     category: "macro",
     impact: "medium",
-    verified: false,
+    verified: true,
     date: "2026-10-29T14:15:00+01:00",
-    desc: "ECB Governing Council rate decision. Date from secondary calendars — not yet checked against the ECB's own schedule. Lands the day after the FOMC decision and alongside Q3 GDP and September PCE.",
+    desc: "ECB Governing Council rate decision (Oct 28–29 meeting). Confirmed on the ECB's own meeting calendar. Lands the day after the FOMC decision and alongside Q3 GDP and September PCE.",
     source: { name: "ECB — monetary policy meetings", url: "https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html" }
   },
   {
@@ -941,9 +941,9 @@ const EVENTS = [
     title: "Bank of Japan decision + Outlook Report",
     category: "macro",
     impact: "high",
-    verified: false,
+    verified: true,
     date: "2026-10-30T12:00:00+09:00",
-    desc: "Two-day meeting (Oct 29–30) with the quarterly Outlook Report; the decision lands around midday Tokyo time. A BoJ tightening surprise narrows the US–Japan rate gap and has rattled crypto through yen-carry unwinds before. Date from secondary calendars — confirm at boj.or.jp.",
+    desc: "Two-day meeting (Oct 29–30) with the quarterly Outlook Report (Oct 30); the decision lands around midday Tokyo time. A BoJ tightening surprise narrows the US–Japan rate gap and has rattled crypto through yen-carry unwinds before. Meeting dates confirmed on the Bank of Japan's schedule.",
     source: { name: "Bank of Japan — monetary policy meetings", url: "https://www.boj.or.jp/en/mopo/mpmsche_minu/index.htm" }
   },
   {
@@ -1071,9 +1071,9 @@ const EVENTS = [
     title: "Bank of Japan decision",
     category: "macro",
     impact: "medium",
-    verified: false,
+    verified: true,
     date: "2026-12-18T12:00:00+09:00",
-    desc: "Final BoJ meeting of the year (Dec 17–18). Date from secondary calendars — confirm at boj.or.jp.",
+    desc: "Final BoJ meeting of the year (Dec 17–18). Meeting dates confirmed on the Bank of Japan's schedule.",
     source: { name: "Bank of Japan — monetary policy meetings", url: "https://www.boj.or.jp/en/mopo/mpmsche_minu/index.htm" }
   },
   {
@@ -1085,6 +1085,27 @@ const EVENTS = [
     date: "2026-12-23T08:30:00-05:00",
     desc: "Personal Income & Outlays for November, released together with BEA's third estimate of Q3 GDP — the last major US data print of the year.",
     source: { name: "BEA release schedule", url: "https://www.bea.gov/news/schedule" }
+  },
+  {
+    id: "glamsterdam-hoodi",
+    title: "Ethereum Glamsterdam — Hoodi testnet fork",
+    category: "network",
+    impact: "low",
+    verified: false,
+    date: "2026-10-26T17:42:00+00:00",
+    tentative: true,
+    desc: "Hoodi activation of Glamsterdam, reportedly moved to Oct 26 at 17:42 UTC following the Oct 8 core-devs call. Single secondary source — confirm on the ACD call notes / ethereum.org before relying on it. Mainnet date still not set.",
+    source: { name: "Ethereum Foundation roadmap", url: "https://ethereum.org/roadmap/glamsterdam/" }
+  },
+  {
+    id: "ecb-dec",
+    title: "ECB monetary policy decision",
+    category: "macro",
+    impact: "medium",
+    verified: true,
+    date: "2026-12-17T14:15:00+01:00",
+    desc: "Final ECB monetary policy meeting of the year (Dec 16–17), followed by a press conference. Confirmed on the ECB's meeting calendar.",
+    source: { name: "ECB — monetary policy meetings", url: "https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html" }
   },
   {
     id: "us-china-truce",
