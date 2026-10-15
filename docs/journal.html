@@ -151,6 +151,12 @@ input[type=datetime-local].in{min-width:0;width:100%;max-width:100%;font-size:13
 .stars{display:inline-flex;gap:2px}
 .stars button{border:0;background:transparent;font-size:20px;color:var(--fa);padding:0 2px}
 .stars button.on{color:var(--am)}
+.lev-slider{width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:99px;background:var(--s3);border:1px solid var(--line);outline:none;margin:8px 0 2px}
+.lev-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:var(--ac);border:3px solid var(--bg);box-shadow:0 0 0 1px var(--ac);cursor:pointer}
+.lev-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--ac);border:3px solid var(--bg);box-shadow:0 0 0 1px var(--ac);cursor:pointer}
+.lev-marks{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--fa)}
+.levbadge{font:700 13px var(--mono);padding:2px 10px;border-radius:99px;background:var(--s3)}
+.levbadge.up{background:var(--upd);color:var(--up)}.levbadge.am{background:var(--amd);color:var(--am)}.levbadge.dn{background:var(--dnd);color:var(--dn)}
 .phase{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ac2);margin:14px 0 4px}
 .phase:first-child{margin-top:0}
 
@@ -304,7 +310,10 @@ const NEXT_ACTIONS = [['wait_close','Wait for candle close'],['smaller','Trade s
   ['trust_stop','Trust the stop'],['partials','Take partials'],['no_chase','Don’t chase'],['limit','Use limit orders']];
 const LBL = {}; [EMOTIONS, EXIT_REASONS, MISTAKES, NEXT_ACTIONS].forEach(l => l.forEach(x => LBL[x[0]] = x[1]));
 
-const DEFAULTS = { tf:'4h', period:14, slMult:2, tpMode:'R', tpR:2, tpMult:3, riskPct:1, portfolio:0,
+// Same assumptions as Meridian: Binance USDT-M regular-tier fees, leverage slider up to 25x.
+const FEE_RATES = { maker:0.0002, taker:0.0005 };
+const MAX_LEV = 25;
+const DEFAULTS = { tf:'4h', period:14, slMult:2, tpMode:'R', tpR:2, tpMult:3, riskPct:1, portfolio:0, lev:1, feeType:'maker', sizeMode:'risk',
                    chartWin:90, show:{ ema:true, zones:true, ltp:true, atr:false, mfe:true, liq:false } };
 
 /* =====================================================================
@@ -354,8 +363,10 @@ function cleanTrade(t){
   return {
     id:String(t.id), symbol:String(t.symbol), side: t.side === 'short' ? 'short' : 'long',
     status: ['planned','open','closed'].includes(t.status) ? t.status : 'open',
-    entry:n(t.entry), stop:n(t.stop), target:n(t.target), exit:n(t.exit), fee:n(t.fee) || 0, lev:n(t.lev),
-    riskPct:n(t.riskPct), qty:n(t.qty),
+    entry:n(t.entry), stop:n(t.stop), target:n(t.target), exit:n(t.exit), fee:n(t.fee) || 0, feeManual:!!t.feeManual,
+    lev:(n(t.lev) != null && t.lev >= 1 && t.lev <= 125) ? t.lev : 1, feeType: t.feeType === 'taker' ? 'taker' : 'maker',
+    sizeMode: ['risk','qty','amount'].includes(t.sizeMode) ? t.sizeMode : 'risk', amountIn:n(t.amountIn),
+    riskPct:n(t.riskPct), qty:(n(t.qty) != null && t.qty > 0) ? t.qty : null,
     atr:{ on: !!(t.atr && t.atr.on), tf: ENUM(Object.keys(TF_MS), t.atr && t.atr.tf, '4h'), period: n(t.atr && t.atr.period) || 14,
           val: n(t.atr && t.atr.val), slMult: n(t.atr && t.atr.slMult), tpMode: (t.atr && t.atr.tpMode) === 'ATR' ? 'ATR' : 'R',
           tpR: n(t.atr && t.atr.tpR), tpMult: n(t.atr && t.atr.tpMult), tpOn: !(t.atr && t.atr.tpOn === false) },
@@ -383,6 +394,9 @@ function loadDB(){
         const s = raw.settings;
         ['period','slMult','tpR','tpMult','riskPct','portfolio','chartWin'].forEach(k => { if(fin(s[k])) base.settings[k] = s[k]; });
         if(Object.keys(TF_MS).includes(s.tf)) base.settings.tf = s.tf;
+        if(fin(s.lev) && s.lev >= 1 && s.lev <= 125) base.settings.lev = s.lev;
+        if(s.feeType === 'maker' || s.feeType === 'taker') base.settings.feeType = s.feeType;
+        if(['risk','qty','amount'].includes(s.sizeMode)) base.settings.sizeMode = s.sizeMode;
         if(s.tpMode === 'ATR' || s.tpMode === 'R') base.settings.tpMode = s.tpMode;
         if(s.show && typeof s.show === 'object') Object.keys(base.settings.show).forEach(k => { if(typeof s.show[k] === 'boolean') base.settings.show[k] = s.show[k]; });
       }
@@ -716,7 +730,7 @@ function excursion(t, cs){
   return { mfePx:lo, maePx:hi, mfe:Math.max(0, (t.entry - lo) / d), mae:Math.max(0, (hi - t.entry) / d) };
 }
 function liqApprox(t){
-  if(!fin(t.entry) || !fin(t.lev) || t.lev < 1) return null;
+  if(!fin(t.entry) || !fin(t.lev) || t.lev <= 1) return null;
   return t.side === 'long' ? t.entry * (1 - 1 / t.lev + 0.005) : t.entry * (1 + 1 / t.lev - 0.005);
 }
 
@@ -770,8 +784,8 @@ function renderTrades(){
           <span class="chip ${t.side === 'long' ? 'up' : 'dn'}">${t.side === 'long' ? 'Long' : 'Short'}</span>
           <span class="chip ${t.status === 'open' ? 'ac' : t.status === 'planned' ? 'am' : ''}">${t.status}</span>
           ${rv.verdict ? `<span class="chip ${vcls}">${esc(rv.verdict)}</span>` : ''}</div>
-          <div class="m2"><span>${esc(srcLabel(t))}</span><span class="mono">E ${fmtPx(t.entry)}</span><span class="mono">SL ${fmtPx(t.stop)}</span><span class="mono">TP ${fmtPx(t.target)}</span><span>${fmtDT(t.closedAt || t.openedAt)}</span></div></div>
-        <div class="rt"><b class="${cls(rShow)}">${rShow != null ? fmtR(rShow) : '—'}</b><small>${t.status === 'open' ? 'unrealized' : t.status === 'closed' ? 'process ' + (rv.score != null ? rv.score : '—') : 'plan ' + (rv.score != null ? rv.score : '—')}</small></div>
+          <div class="m2"><span>${esc(srcLabel(t))}</span><span class="mono">E ${fmtPx(t.entry)}</span><span class="mono">SL ${fmtPx(t.stop)}</span><span class="mono">TP ${fmtPx(t.target)}</span>${fin(t.qty) ? `<span class="mono">Qty ${fmtPx(t.qty)}${t.lev > 1 ? ' · ' + t.lev + 'x' : ''}</span>` : ''}<span>${fmtDT(t.closedAt || t.openedAt)}</span></div></div>
+        <div class="rt"><b class="${cls(rShow)}">${rShow != null ? fmtR(rShow) : '—'}</b><small>${t.status === 'open' ? 'unrealized' : t.status === 'closed' ? (fin(pnlUsd(t)) ? (pnlUsd(t) >= 0 ? '+' : '') + pnlUsd(t).toFixed(2) + ' USDT · ' : '') + 'process ' + (rv.score != null ? rv.score : '—') : 'plan ' + (rv.score != null ? rv.score : '—')}</small></div>
       </div>`;
     }).join('') + '</div>';
   }
@@ -1012,7 +1026,7 @@ let sheetCandles = null, chartCandles = null, ltpTimer = null, atrCandles = null
 
 function newDraft(){
   const s = DB.settings;
-  return { id:uid(), symbol:'', side:'long', status:'open', entry:'', stop:'', target:'', exit:'', fee:'', lev:'', riskPct:s.riskPct,
+  return { id:uid(), symbol:'', side:'long', status:'open', entry:'', stop:'', target:'', exit:'', fee:'', lev:s.lev || 1, feeType:s.feeType || 'maker', sizeMode:s.sizeMode || 'risk', qtyIn:'', amountIn:'', riskPct:s.riskPct,
     atrOn:true, atrTf:s.tf, atrPeriod:s.period, atrVal:null, atrAuto:null, atrEdited:false, slMult:s.slMult,
     tpOn:true, tpMode:s.tpMode, tpR:s.tpR, tpMult:s.tpMult, openedAt:Date.now(), closedAt:null,
     screener:'', other:'', answers:{}, emotion:'', emotionAfter:'', exitReason:'', mistakes:[], nextAction:'', execStars:0, setupStars:0, note:'',
@@ -1021,7 +1035,8 @@ function newDraft(){
 function draftFromTrade(t){
   const d = newDraft();
   Object.assign(d, { id:t.id, symbol:t.symbol, side:t.side, status:t.status, entry:t.entry != null ? String(t.entry) : '', stop:t.stop != null ? String(t.stop) : '',
-    target:t.target != null ? String(t.target) : '', exit:t.exit != null ? String(t.exit) : '', fee:t.fee ? String(t.fee) : '', lev:t.lev != null ? String(t.lev) : '',
+    target:t.target != null ? String(t.target) : '', exit:t.exit != null ? String(t.exit) : '', fee:t.feeManual ? String(t.fee) : '', lev:t.lev || 1, feeType:t.feeType, sizeMode:t.sizeMode,
+    qtyIn:(t.sizeMode === 'qty' && fin(t.qty)) ? String(+t.qty.toPrecision(8)) : '', amountIn:(t.sizeMode === 'amount' && fin(t.amountIn)) ? String(t.amountIn) : '',
     riskPct:t.riskPct != null ? t.riskPct : d.riskPct, atrOn:t.atr.on, atrTf:t.atr.tf, atrPeriod:t.atr.period, atrVal:t.atr.val, atrEdited:t.atr.val != null,
     slMult:t.atr.slMult != null ? t.atr.slMult : d.slMult, tpOn:t.atr.tpOn, tpMode:t.atr.tpMode, tpR:t.atr.tpR != null ? t.atr.tpR : d.tpR, tpMult:t.atr.tpMult != null ? t.atr.tpMult : d.tpMult,
     openedAt:t.openedAt, closedAt:t.closedAt, screener:t.src.screener, other:t.src.other, answers:Object.assign({}, t.answers),
@@ -1032,7 +1047,8 @@ function draftFromTrade(t){
 }
 function draftToTrade(d){
   const t = { id:d.id, symbol:d.symbol, side:d.side, status:d.status, entry:num(d.entry), stop:num(d.stop), target:num(d.target), exit:num(d.exit),
-    fee:num(d.fee) || 0, lev:num(d.lev), riskPct:d.riskPct, qty:null,
+    fee:0, feeManual:false, lev:Math.max(1, Math.min(125, num(d.lev) || 1)), feeType:d.feeType === 'taker' ? 'taker' : 'maker',
+    sizeMode:d.sizeMode, amountIn:num(d.amountIn), riskPct:d.riskPct, qty:null,
     atr:{ on:d.atrOn, tf:d.atrTf, period:d.atrPeriod, val:d.atrVal, slMult:d.slMult, tpMode:d.tpMode, tpR:d.tpR, tpMult:d.tpMult, tpOn:d.tpOn },
     openedAt:d.openedAt, closedAt:d.status === 'closed' ? (d.closedAt || Date.now()) : null, createdAt:d.createdAt,
     src:{ screener:d.screener, other:d.screener === 'none' || !d.screener ? d.other : '' }, answers:d.answers, emotion:d.emotion,
@@ -1040,7 +1056,16 @@ function draftToTrade(d){
     mistakes:d.status === 'closed' ? d.mistakes : [], nextAction:d.nextAction, execStars:d.execStars, setupStars:d.setupStars, note:d.note,
     chartTf:d.chartTf, review:null };
   const dist = riskDist(t), pv = portfolioValue();
-  if(fin(dist) && dist > 0 && pv > 0 && fin(t.riskPct)) t.qty = (pv * t.riskPct / 100) / dist;
+  let qty = null;
+  if(d.sizeMode === 'qty'){ const q = num(d.qtyIn); if(fin(q) && q > 0) qty = q; }
+  else if(d.sizeMode === 'amount'){ const a = num(d.amountIn); if(fin(a) && a > 0 && fin(t.entry) && t.entry > 0) qty = a / t.entry; }
+  else if(fin(dist) && dist > 0 && pv > 0 && fin(t.riskPct)) qty = (pv * t.riskPct / 100) / dist;
+  t.qty = qty;
+  // fees: entry (+ exit once closed) at the chosen maker/taker rate, unless a manual figure was typed
+  const rate = FEE_RATES[t.feeType];
+  const manual = String(d.fee).trim() !== '' ? num(d.fee) : null;
+  if(manual != null){ t.fee = Math.max(0, manual); t.feeManual = true; }
+  else if(fin(qty) && fin(t.entry)) t.fee = qty * t.entry * rate + ((t.status === 'closed' && fin(t.exit)) ? qty * t.exit * rate : 0);
   return t;
 }
 /* apply ATR-driven stop/target into the draft */
@@ -1117,7 +1142,6 @@ function buildSheet(){
           <div class="seg" data-seg="status"><button type="button" data-v="planned" class="${D.status === 'planned' ? 'on' : ''}">Planned</button><button type="button" data-v="open" class="${D.status === 'open' ? 'on' : ''}">Open</button><button type="button" data-v="closed" class="${D.status === 'closed' ? 'on' : ''}">Closed</button></div>
         </div>
         <div class="row wrapm" style="margin-top:12px">
-          <div class="fld" style="flex:1;min-width:130px;margin:0"><label>Leverage (optional)</label><input class="in" data-f="lev" inputmode="decimal" placeholder="e.g. 10" value="${esc(D.lev)}"></div>
           <div class="fld" style="flex:1.6;min-width:190px;margin:0"><label>${D.status === 'planned' ? 'Planned entry time' : 'Entered at'}</label><input class="in" type="datetime-local" data-f="openedAt" value="${toLocalInput(D.openedAt)}"></div>
         </div>
         </div>
@@ -1155,8 +1179,34 @@ function buildSheet(){
         <div class="sumgrid" id="sumGrid"></div>
       </div>
 
+      <div class="card" id="sizeCard">
+        <h3>3 · Position size <small>quantity · leverage · fees</small></h3>
+        <div class="seg" data-seg="sizeMode">
+          <button type="button" data-v="risk" class="${D.sizeMode === 'risk' ? 'on' : ''}">By risk %</button>
+          <button type="button" data-v="qty" class="${D.sizeMode === 'qty' ? 'on' : ''}">By quantity</button>
+          <button type="button" data-v="amount" class="${D.sizeMode === 'amount' ? 'on' : ''}">By USDT amount</button>
+        </div>
+        <div class="row wrapm" style="margin-top:12px">
+          ${D.sizeMode === 'risk' ? `<div class="fld" style="flex:1;min-width:130px;margin:0"><label>Risk per trade (%)</label><input class="in" data-f="riskPct" inputmode="decimal" value="${D.riskPct}"></div>` : ''}
+          ${D.sizeMode === 'qty' ? `<div class="fld" style="flex:1;min-width:150px;margin:0"><label>Quantity (${esc(coin || 'coin')})</label><input class="in" data-f="qtyIn" inputmode="decimal" placeholder="0.00" value="${esc(D.qtyIn)}"></div>` : ''}
+          ${D.sizeMode === 'amount' ? `<div class="fld" style="flex:1;min-width:150px;margin:0"><label>Position amount (USDT)</label><input class="in" data-f="amountIn" inputmode="decimal" placeholder="0.00" value="${esc(D.amountIn)}"></div>` : ''}
+          <div class="fld" style="flex:1;min-width:150px;margin:0"><label>Portfolio value (USDT)</label><input class="in" data-f="portfolio" inputmode="decimal" placeholder="for risk % &amp; margin" value="${portfolioValue() || ''}"></div>
+        </div>
+        <div class="fld" style="margin-top:14px">
+          <div class="row" style="justify-content:space-between"><label class="lbl">Leverage</label><span class="levbadge" id="levBadge"></span></div>
+          <input type="range" class="lev-slider" data-f="lev" min="1" max="${MAX_LEV}" step="1" value="${Math.min(MAX_LEV, D.lev)}">
+          <div class="lev-marks"><span>1x</span><span>7x</span><span>13x</span><span>19x</span><span>25x</span></div>
+        </div>
+        <div class="fld"><label>Fee type <small class="mu" style="text-transform:none;letter-spacing:0">(charged on entry and exit)</small></label>
+          <div class="seg" data-seg="feeType">
+            <button type="button" data-v="maker" class="${D.feeType === 'maker' ? 'on' : ''}">Maker 0.02%</button>
+            <button type="button" data-v="taker" class="${D.feeType === 'taker' ? 'on' : ''}">Taker 0.05%</button>
+          </div></div>
+        <div class="sumgrid" id="sizeGrid"></div>
+      </div>
+
       <div class="card">
-        <h3>3 · How was this trade found?</h3>
+        <h3>4 · How was this trade found?</h3>
         <div class="fld"><label>Screener used (from this app)</label>
           <select class="in" data-f="screener"><option value="">Select…</option>${SCREENERS.map(s => `<option value="${s.id}" ${D.screener === s.id ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>
         <div class="fld" id="otherBox" style="${D.screener === 'none' ? '' : 'display:none'}"><label>Where did the idea come from?</label>
@@ -1164,26 +1214,26 @@ function buildSheet(){
       </div>
 
       <div class="card">
-        <h3>4 · Mindset <small>how did you feel at entry?</small></h3>
+        <h3>5 · Mindset <small>how did you feel at entry?</small></h3>
         ${pillRow(EMOTIONS, D.emotion, 'emotion')}
       </div>
 
       <div class="card" id="qCard">
-        <h3>5 · Questions <small>tap, no typing</small></h3>
+        <h3>6 · Questions <small>tap, no typing</small></h3>
         <div class="note" style="margin:-4px 0 6px">N/A answers are ignored. Tagged mistakes and negative emotions also lower the process score.</div>
         ${phases.map(ph => {
           const qs = QUESTIONS.filter(q => q.phase === ph);
           const locked = ph === 'review' && !closed;
-          return `<div class="phase">${PHASE_LABEL[ph]}</div>` + qs.map(q => `<div class="q ${locked ? 'dis' : ''}"><div class="qt">${esc(q.t)}${q.good === 'n' ? '<small>Answer “Yes” only if this happened</small>' : ''}${q.id === 'rr' ? '<small id="rrHint"></small>' : ''}</div>
+          return `<div class="phase">${PHASE_LABEL[ph]}</div>` + qs.map(q => `<div class="q ${locked ? 'dis' : ''}"><div class="qt">${esc(q.t)}${q.good === 'n' ? '<small>Answer “Yes” only if this happened</small>' : ''}${q.id === 'rr' ? '<small id="rrHint"></small>' : ''}${q.id === 'risk' ? '<small id="riskHint"></small>' : ''}</div>
             <div class="yn" ${locked ? 'style="pointer-events:none"' : ''}>${ynBtns(q)}</div></div>`).join('');
         }).join('')}
       </div>
 
       ${closed ? `<div class="card" id="closeCard">
-        <h3>6 · Close details</h3>
+        <h3>7 · Close details</h3>
         <div class="row" style="flex-wrap:wrap">
           <div class="fld" style="flex:1;min-width:140px"><label>Exit price</label><input class="in" data-f="exit" inputmode="decimal" value="${esc(D.exit)}" placeholder="0.00"></div>
-          <div class="fld" style="flex:1;min-width:140px"><label>Fees (USDT)</label><input class="in" data-f="fee" inputmode="decimal" value="${esc(D.fee)}" placeholder="0"></div>
+          <div class="fld" style="flex:1;min-width:140px"><label>Fees (USDT) <small class="mu" style="text-transform:none;letter-spacing:0">blank = auto</small></label><input class="in" data-f="fee" inputmode="decimal" value="${esc(D.fee)}" placeholder="auto"></div>
           <div class="fld" style="flex:1.4;min-width:180px"><label>Closed at</label><input class="in" type="datetime-local" data-f="closedAt" value="${toLocalInput(D.closedAt || Date.now())}"></div>
         </div>
         <div class="phase">Exit reason</div>${pillRow(EXIT_REASONS, D.exitReason, 'exitReason')}
@@ -1193,7 +1243,7 @@ function buildSheet(){
         <div class="row" style="margin-top:14px;justify-content:space-between;flex-wrap:wrap"><div><div class="lbl">Execution</div>${starRow('execStars', D.execStars)}</div><div><div class="lbl">Setup quality</div>${starRow('setupStars', D.setupStars)}</div></div>
       </div>` : ''}
 
-      <div class="card"><h3>${closed ? '7' : '6'} · Note <small>optional, not used in analytics</small></h3>
+      <div class="card"><h3>${closed ? '8' : '7'} · Note <small>optional, not used in analytics</small></h3>
         <textarea class="in" data-f="note" rows="2" maxlength="280" style="font-family:var(--ui)" placeholder="One line, if you want">${esc(D.note)}</textarea></div>
     </div>
 
@@ -1230,7 +1280,7 @@ function update(){
     an.innerHTML = fin(atr) ? `ATR(${D.atrPeriod}) ${TF_LABEL[D.atrTf]} = <span class="mono">${fmtPx(atr)}</span> · ${fin(num(D.entry)) ? ((atr * D.slMult / num(D.entry)) * 100).toFixed(2) + '% stop distance' : 'set entry'}${D.atrEdited ? ' · <a href="#" data-sh="atrauto" style="color:var(--ac2)">reset to auto</a>' : ''}`
       : '<span class="mu">ATR loads after you choose a coin</span>';
   }
-  // summary grid
+  // levels summary
   const dist = riskDist(t), rr = plannedRR(t), pv = portfolioValue();
   const entry = t.entry;
   const tile = (l, v, c) => `<div><small>${l}</small><b class="${c || ''}">${v}</b></div>`;
@@ -1239,18 +1289,40 @@ function update(){
     sg += tile('Risk to stop', (dist / entry * 100).toFixed(2) + '%', 'dn');
     if(fin(t.target)) sg += tile('Reward to target', (Math.abs(t.target - entry) / entry * 100).toFixed(2) + '%', 'up');
     sg += tile('Reward : risk', rr ? rr.toFixed(2) + 'R' : '—', rr && rr >= 1.5 ? 'up' : rr ? 'am' : '');
-    if(pv > 0 && fin(t.riskPct)){
-      const riskUsd = pv * t.riskPct / 100, qty = riskUsd / dist;
-      sg += tile('Risk (' + t.riskPct + '%)', riskUsd.toFixed(2) + ' USDT');
-      sg += tile('Position size', fmtPx(qty * 1) + ' ' + esc((D.symbol || '').replace(/USDT$/, '')));
-      sg += tile('Notional', bigNum(qty * entry) + ' USDT');
-      if(fin(t.lev) && t.lev > 0) sg += tile('Margin @' + t.lev + 'x', bigNum(qty * entry / t.lev) + ' USDT');
-    }
   }else if(fin(entry) && fin(t.stop)){
     sg = '<div style="grid-column:1/-1;color:var(--am);background:var(--amd);border-color:transparent">Stop-loss must be ' + (D.side === 'long' ? 'below' : 'above') + ' entry for a ' + D.side + '.</div>';
   }
-  if(!pv && fin(dist)) sg += '<div style="grid-column:1/-1" class="note">Set your portfolio value in Trading Settings to see position size.</div>';
   $('#sumGrid').innerHTML = sg;
+  // position size summary (same maths as Meridian: margin = notional / leverage, fees on notional)
+  const symb = esc((D.symbol || '').replace(/USDT$/, '') || 'coin');
+  let zg = '', riskPctActual = null;
+  const lev = t.lev || 1;
+  const lb = $('#levBadge');
+  if(lb){ lb.textContent = lev + 'x'; lb.className = 'levbadge ' + (lev <= 5 ? 'up' : lev <= 15 ? 'am' : 'dn'); }
+  if(fin(t.qty) && fin(entry) && entry > 0){
+    const notional = t.qty * entry, margin = notional / lev;
+    const riskUsd = (fin(dist) && dist > 0) ? t.qty * dist : null;
+    riskPctActual = (riskUsd != null && pv > 0) ? riskUsd / pv * 100 : null;
+    const entryFee = notional * FEE_RATES[t.feeType];
+    zg += tile('Quantity', fmtPx(t.qty) + ' ' + symb);
+    zg += tile('Position size', bigNum(notional) + ' USDT');
+    zg += tile('Margin @' + lev + 'x', bigNum(margin) + ' USDT');
+    if(riskUsd != null) zg += tile('Risk to stop', riskUsd.toFixed(2) + ' USDT' + (riskPctActual != null ? ' · ' + riskPctActual.toFixed(2) + '%' : ''), 'dn');
+    if(fin(t.target) && fin(dist)) zg += tile('Reward to target', (t.qty * Math.abs(t.target - entry)).toFixed(2) + ' USDT', 'up');
+    zg += tile('Entry fee', entryFee.toFixed(4) + ' USDT');
+    if(t.status === 'closed' && fin(t.exit)) zg += tile('Total fees', (t.fee || 0).toFixed(4) + ' USDT');
+    const warns = [];
+    if(pv > 0 && margin > pv + 1e-9) warns.push(`Margin ${margin.toFixed(2)} USDT is more than your portfolio value (${pv.toFixed(2)} USDT).`);
+    if(riskPctActual != null && D.sizeMode !== 'risk' && riskPctActual > (DB.settings.riskPct || 1) * 2) warns.push(`This sizes the trade at ${riskPctActual.toFixed(1)}% risk, well above your usual ${DB.settings.riskPct}%.`);
+    warns.forEach(w => { zg += `<div style="grid-column:1/-1;color:var(--am);background:var(--amd);border-color:transparent">${esc(w)}</div>`; });
+  }else if(D.sizeMode === 'risk' && !(pv > 0)){
+    zg = '<div style="grid-column:1/-1" class="note">Enter your portfolio value above to size by risk %, or switch to quantity / USDT amount.</div>';
+  }else{
+    zg = '<div style="grid-column:1/-1" class="note">Enter entry and ' + (D.sizeMode === 'qty' ? 'a quantity' : D.sizeMode === 'amount' ? 'an amount' : 'a stop-loss') + ' to see size, margin and fees.</div>';
+  }
+  const sgEl = $('#sizeGrid'); if(sgEl) sgEl.innerHTML = zg;
+  const rkh = $('#riskHint'); if(rkh) rkh.textContent = riskPctActual != null ? `Actual risk ${riskPctActual.toFixed(2)}% of portfolio` : '';
+  const fe = $('[data-f="fee"]', $('#sheet')); if(fe) fe.placeholder = (fin(t.qty) && fin(entry) && !t.feeManual) ? 'auto ' + (t.fee || 0).toFixed(4) : 'auto';
   const rh = $('#rrHint'); if(rh) rh.textContent = rr ? `Planned ${rr.toFixed(2)}R` : '';
   // ltp line
   const ll = $('#ltpLine');
@@ -1376,6 +1448,7 @@ function saveDraft(){
   if(i >= 0) DB.trades[i] = t; else DB.trades.push(t);
   DB.settings.tf = D.atrTf; DB.settings.period = D.atrPeriod; DB.settings.slMult = D.slMult; DB.settings.tpMode = D.tpMode;
   DB.settings.tpR = D.tpR; DB.settings.tpMult = D.tpMult; DB.settings.riskPct = D.riskPct;
+  DB.settings.lev = Math.max(1, Math.min(MAX_LEV, D.lev || 1)); DB.settings.feeType = D.feeType; DB.settings.sizeMode = D.sizeMode;
   saveDB(); closeSheet(); render(); toast('Saved · ' + (t.review.verdict || 'review updated'));
 }
 
@@ -1419,6 +1492,12 @@ sheet.addEventListener('click', e => {
     if(key === 'side'){ D.side = v; applyAtr(); buildSheet(); }
     else if(key === 'status'){ D.status = v; if(v === 'closed'){ if(!D.closedAt) D.closedAt = Date.now(); if(!D.exit && fin(D.ltp)) D.exit = String(D.ltp); } buildSheet(); loadSymbolData(false); }
     else if(key === 'tpMode'){ D.tpMode = v; applyAtr(); buildSheet(); }
+    else if(key === 'sizeMode'){
+      const cur = curTrade();
+      if(fin(cur.qty)){ if(v === 'qty') D.qtyIn = String(+cur.qty.toPrecision(8)); if(v === 'amount' && fin(cur.entry)) D.amountIn = String(+(cur.qty * cur.entry).toFixed(2)); }
+      D.sizeMode = v; buildSheet();
+    }
+    else if(key === 'feeType'){ D.feeType = v; seg.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === seg)); update(); }
     else if(key === 'chartTf'){ D.chartTf = v; chartCandles = null; buildSheet(); loadSymbolData(false); }
     else if(key === 'chartWin'){ DB.settings.chartWin = +v; saveDB(); seg.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === seg)); drawPlanChart(); }
     return;
@@ -1465,7 +1544,10 @@ sheet.addEventListener('input', e => {
   if(!D) return;
   const f = e.target.dataset.f; if(!f) return;
   const v = e.target.value;
-  if(['entry', 'exit', 'fee', 'lev', 'note'].includes(f)){ D[f] = v; if(f === 'entry') applyAtr(); }
+  if(['entry', 'exit', 'fee', 'note', 'qtyIn', 'amountIn'].includes(f)){ D[f] = v; if(f === 'entry') applyAtr(); }
+  else if(f === 'lev'){ const n = Math.round(num(v) || 1); D.lev = Math.max(1, Math.min(MAX_LEV, n)); }
+  else if(f === 'riskPct'){ const n = num(v); if(n != null && n > 0 && n <= 100) D.riskPct = n; }
+  else if(f === 'portfolio'){ const n = num(v); DB.settings.portfolio = (n != null && n > 0) ? n : 0; saveDB(); }
   else if(f === 'stop'){ D.stop = v; if(D.atrOn){ D.atrOn = false; const cb = $('[data-c="atrOn"]', sheet); if(cb) cb.checked = false; } if(D.tpOn) applyAtr(); }
   else if(f === 'target'){ D.target = v; if(D.tpOn){ D.tpOn = false; const cb = $('[data-c="tpOn"]', sheet); if(cb) cb.checked = false; const tb = $('#tpBox'); if(tb) tb.style.display = 'none'; } }
   else if(f === 'atrVal'){ const n = num(v); D.atrVal = n; D.atrEdited = n != null; applyAtr(); }
