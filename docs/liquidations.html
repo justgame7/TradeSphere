@@ -226,6 +226,31 @@
     padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);
   }
   .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+
+  /* ---- Hyperliquid liquidation heatmap ---- */
+  .heat-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;padding:14px 16px 6px;font:600 11px var(--font-mono);color:var(--muted);}
+  .heat-head b{color:var(--text);}
+  .heat-long{color:var(--accent);} .heat-short{color:var(--red);}
+  .heat-grid{padding:4px 16px 12px;}
+  .heat-row{display:grid;grid-template-columns:76px 1fr 64px;align-items:center;gap:8px;height:15px;font:10.5px var(--font-mono);color:var(--faint);position:relative;}
+  .heat-row .px{text-align:right;}
+  .heat-row .amt{text-align:left;color:var(--muted);}
+  .heat-track{position:relative;height:11px;}
+  .heat-bar{position:absolute;left:0;top:0;height:100%;border-radius:0 3px 3px 0;min-width:1px;}
+  .heat-bar.long{background:linear-gradient(90deg,rgba(53,224,192,.25),rgba(53,224,192,.85));}
+  .heat-bar.short{background:linear-gradient(90deg,rgba(255,84,112,.25),rgba(255,84,112,.85));}
+  .heat-bar.stale{opacity:.28;background-image:repeating-linear-gradient(45deg,transparent 0 3px,rgba(0,0,0,.45) 3px 5px);}
+  .heat-row.now{background:rgba(245,166,35,.12);border-top:1px solid var(--amber);border-bottom:1px solid var(--amber);color:var(--amber);font-weight:700;}
+  .heat-row.now .px,.heat-row.now .amt{color:var(--amber);}
+  .heat-liq{position:absolute;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 6px currentColor;}
+  .heat-liq.longliq{background:var(--red);color:var(--red);}
+  .heat-liq.shortliq{background:var(--accent);color:var(--accent);}
+  .heat-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 16px 14px;font:10.5px var(--font-mono);color:var(--faint);border-top:1px solid var(--border-soft);}
+  .heat-feed{padding:8px 16px 12px;font:11px var(--font-mono);color:var(--muted);border-top:1px solid var(--border-soft);}
+  .heat-feed .ev{display:flex;gap:10px;padding:2px 0;}
+  .heat-feed .ev .t{color:var(--faint);}
+  .live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--faint);margin-right:5px;}
+  .live-dot.on{background:var(--accent);box-shadow:0 0 6px var(--accent);}
 </style>
 </head>
 <body>
@@ -294,12 +319,20 @@
   <!-- Liquidation Totals (1h / 8h / 24h) -->
   <div class="section" id="sec-liqtotals">
     <div class="section-head toggleable" data-toggle="sec-liqtotals">
-      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">🧮</span>Liquidation Totals</div>
+      <div class="section-title"><button class="section-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><span class="si">🧮</span>Liquidations</div>
       <div class="section-note" id="liqTotalsNote"></div>
     </div>
     <div class="section-body">
-      <div class="section-note-inline">Long vs. short liquidations aggregated across exchanges over the last 1h / 8h / 24h, per coin. Powered by the free <a href="https://coinalyze.net" target="_blank" rel="noopener">Coinalyze</a> API.</div>
-      <div class="panel" id="liqTotalsPanel"></div>
+      <div class="chip-row tabs" id="liqViewChips"></div>
+      <div id="liqTotalsView">
+        <div class="section-note-inline">Long vs. short liquidations aggregated across exchanges over the last 1h / 8h / 24h, per coin. Powered by the free <a href="https://coinalyze.net" target="_blank" rel="noopener">Coinalyze</a> API.</div>
+        <div class="panel" id="liqTotalsPanel"></div>
+      </div>
+      <div id="liqHeatView" hidden>
+        <div class="section-note-inline">Where Hyperliquid positions get liquidated if price moves there. Built from real on-chain positions of the top accounts, not a leverage model, so coverage is partial but levels are exact. The live price and real Binance liquidations are overlaid.</div>
+        <div class="chip-row" id="heatRangeChips"></div>
+        <div class="panel" id="liqHeatPanel"></div>
+      </div>
     </div>
   </div>
 
@@ -347,6 +380,7 @@ const SYMBOLS = [
   { sym:'DOGEUSDT', label:'DOGE', grad:'linear-gradient(135deg,#f0c24b,#c9791a)' },
   { sym:'HYPEUSDT', label:'HYPE', grad:'linear-gradient(135deg,#35e0c0,#1c8f79)' },
   { sym:'ADAUSDT',  label:'ADA',  grad:'linear-gradient(135deg,#5b8cff,#2b4fb0)' },
+  { sym:'ZECUSDT',  label:'ZEC',  grad:'linear-gradient(135deg,#f0c24b,#8a6a12)' },
 ];
 
 const RATIO_TYPES = {
@@ -649,6 +683,7 @@ function renderLiqTotals(){
   const note = document.getElementById('liqTotalsNote');
   if(!panel) return;
 
+  if(LIQ_VIEW !== 'totals') return; // heatmap owns the shared note while active
   if(coinalyzeStatus === 'nokey' || coinalyzeStatus === 'error'){
     const errLine = coinalyzeStatus === 'error'
       ? `<div class="keybar-msg" style="color:#ffb3c1;word-break:break-word;">Couldn\u2019t load totals \u2014 ${escapeHtml(coinalyzeErrorMsg)}</div>`
@@ -697,6 +732,213 @@ function renderLiqTotals(){
       </table>
     </div>`;
   note.textContent = coinalyzeUpdatedAt ? `Updated ${timeAgo(coinalyzeUpdatedAt.getTime())} \u00b7 aggregated across exchanges` : '';
+}
+
+// ==================== Hyperliquid liquidation heatmap + live overlay ====================
+// Positions snapshot is produced by scripts/hl-liq.js (GitHub Action) from
+// Hyperliquid's public clearinghouseState for the top accounts, so liquidation
+// prices are exact for the accounts covered. Live overlay: Hyperliquid
+// WebSocket trades for the live price, Binance forceOrder stream for real
+// liquidation events (marked on the price ladder).
+const HL_DATA_URL = (() => {
+  try{ const o = localStorage.getItem('hl-liq-data-url'); if(o) return o; }catch(err){}
+  return 'https://raw.githubusercontent.com/justgame7/TradeSphere/main/data/hl-liq.json';
+})();
+const HL_WS_URL = 'wss://api.hyperliquid.xyz/ws';
+const BINANCE_LIQ_WS = 'wss://fstream.binance.com/ws/';
+const HEAT_ROWS = 41;
+const HEAT_RANGES = [5, 10, 20, 30, 50];
+const LIQ_EVENT_KEEP = 60;
+
+let LIQ_VIEW = 'totals';
+let HEAT = { range:10, snapshot:null, status:'idle', error:'', livePrice:null, liveAt:0, events:[], hlWs:null, bnWs:null, hlOn:false, bnOn:false, renderTimer:null, wsCoin:null };
+
+function heatCoin(){
+  const s = SYMBOLS.find(x => x.sym === STATE.symbol);
+  return s ? s.label : STATE.symbol.replace('USDT','');
+}
+function renderLiqViewChips(){
+  const row = document.getElementById('liqViewChips');
+  row.innerHTML = '';
+  [['totals','Totals (all exchanges)'],['heat','Hyperliquid heatmap · live']].forEach(([key, label]) => {
+    row.appendChild(buildChip(key === LIQ_VIEW, label, () => setLiqView(key)));
+  });
+}
+function renderHeatRangeChips(){
+  const row = document.getElementById('heatRangeChips');
+  row.innerHTML = '';
+  HEAT_RANGES.forEach(r => {
+    row.appendChild(buildChip(r === HEAT.range, '±' + r + '%', () => { HEAT.range = r; renderHeatRangeChips(); renderHeatmap(); }));
+  });
+}
+function setLiqView(view){
+  LIQ_VIEW = view;
+  document.getElementById('liqTotalsView').hidden = view !== 'totals';
+  document.getElementById('liqHeatView').hidden = view !== 'heat';
+  renderLiqViewChips();
+  if(view === 'heat'){
+    renderHeatRangeChips();
+    loadHeatSnapshot();
+    connectHeatLive();
+    renderHeatmap();
+  }else{
+    disconnectHeatLive();
+    renderLiqTotals();
+  }
+}
+async function loadHeatSnapshot(force){
+  if(HEAT.status === 'loading') return;
+  if(HEAT.snapshot && !force && Date.now() - HEAT.snapshotFetchedAt < 4 * 60 * 1000) return;
+  HEAT.status = 'loading';
+  renderHeatmap();
+  try{
+    const data = await fetchJSON(HL_DATA_URL + (HL_DATA_URL.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 60000));
+    if(!data || !data.coins) throw new Error('unexpected snapshot format');
+    HEAT.snapshot = data;
+    HEAT.snapshotFetchedAt = Date.now();
+    HEAT.status = 'ok';
+  }catch(err){
+    HEAT.status = 'error';
+    HEAT.error = (err && err.message) || 'failed to load snapshot';
+  }
+  renderHeatmap();
+}
+function connectHeatLive(){
+  const coin = heatCoin();
+  if(HEAT.wsCoin === coin && HEAT.hlWs && HEAT.bnWs) return;
+  disconnectHeatLive();
+  HEAT.wsCoin = coin;
+  HEAT.livePrice = null;
+  HEAT.events = [];
+  try{
+    const hl = new WebSocket(HL_WS_URL);
+    HEAT.hlWs = hl;
+    hl.onopen = () => {
+      HEAT.hlOn = true;
+      hl.send(JSON.stringify({ method:'subscribe', subscription:{ type:'trades', coin } }));
+      scheduleHeatRender();
+    };
+    hl.onmessage = ev => {
+      try{
+        const m = JSON.parse(ev.data);
+        if(m.channel === 'trades' && Array.isArray(m.data) && m.data.length){
+          const px = parseFloat(m.data[m.data.length - 1].px);
+          if(isFinite(px)){ HEAT.livePrice = px; HEAT.liveAt = Date.now(); scheduleHeatRender(); }
+        }
+      }catch(err){ /* ignore malformed frame */ }
+    };
+    hl.onclose = () => { if(HEAT.hlWs === hl){ HEAT.hlOn = false; scheduleHeatRender(); } };
+    hl.onerror = () => { try{ hl.close(); }catch(err){} };
+  }catch(err){ HEAT.hlOn = false; }
+  try{
+    const sym = STATE.symbol.toLowerCase();
+    const bn = new WebSocket(BINANCE_LIQ_WS + sym + '@forceOrder');
+    HEAT.bnWs = bn;
+    bn.onopen = () => { HEAT.bnOn = true; scheduleHeatRender(); };
+    bn.onmessage = ev => {
+      try{
+        const o = (JSON.parse(ev.data) || {}).o;
+        if(!o) return;
+        const qty = parseFloat(o.z || o.q), px = parseFloat(o.ap) || parseFloat(o.p);
+        if(!isFinite(qty) || !isFinite(px)) return;
+        // SELL = a long position was force-closed; BUY = a short was.
+        HEAT.events.unshift({ t: o.T || Date.now(), px, usd: qty * px, side: o.S === 'SELL' ? 'long' : 'short' });
+        if(HEAT.events.length > LIQ_EVENT_KEEP) HEAT.events.length = LIQ_EVENT_KEEP;
+        scheduleHeatRender();
+      }catch(err){ /* ignore malformed frame */ }
+    };
+    bn.onclose = () => { if(HEAT.bnWs === bn){ HEAT.bnOn = false; scheduleHeatRender(); } };
+    bn.onerror = () => { try{ bn.close(); }catch(err){} };
+  }catch(err){ HEAT.bnOn = false; }
+}
+function disconnectHeatLive(){
+  const ws = [HEAT.hlWs, HEAT.bnWs];
+  HEAT.hlWs = HEAT.bnWs = null;
+  HEAT.hlOn = HEAT.bnOn = false;
+  HEAT.wsCoin = null;
+  ws.forEach(w => { try{ if(w){ w.onclose = null; w.close(); } }catch(err){} });
+}
+function scheduleHeatRender(){
+  if(LIQ_VIEW !== 'heat' || HEAT.renderTimer) return;
+  HEAT.renderTimer = setTimeout(() => { HEAT.renderTimer = null; renderHeatmap(); }, 1000);
+}
+function formatHeatPx(p){
+  const d = p >= 1000 ? 0 : p >= 100 ? 1 : p >= 1 ? 3 : 5;
+  return p.toLocaleString(undefined, { minimumFractionDigits:d, maximumFractionDigits:d });
+}
+function renderHeatmap(){
+  const panel = document.getElementById('liqHeatPanel');
+  const note = document.getElementById('liqTotalsNote');
+  if(!panel || LIQ_VIEW !== 'heat') return;
+  if(HEAT.status === 'loading' && !HEAT.snapshot){
+    panel.innerHTML = '<div class="skel-block" style="height:320px;border-radius:14px"></div>';
+    note.textContent = 'Loading…';
+    return;
+  }
+  if(HEAT.status === 'error' && !HEAT.snapshot){
+    panel.innerHTML = `<div class="error-state">Couldn’t load the Hyperliquid snapshot — ${escapeHtml(HEAT.error)}<br>
+      It is written by the <b>hyperliquid-liq-snapshot</b> GitHub Action to <b>data/hl-liq.json</b>.
+      <br><button class="retry-btn" id="heatRetry" type="button">Try again</button></div>`;
+    document.getElementById('heatRetry').addEventListener('click', () => loadHeatSnapshot(true));
+    note.textContent = '';
+    return;
+  }
+  const snap = HEAT.snapshot;
+  const coin = heatCoin();
+  const c = snap && snap.coins[coin];
+  if(!c){
+    panel.innerHTML = `<div class="empty-note"><b>${escapeHtml(coin)}</b> has no tracked Hyperliquid positions in the latest snapshot.</div>`;
+    note.textContent = '';
+    return;
+  }
+  const mark = c.mark || HEAT.livePrice;
+  const live = HEAT.livePrice || mark;
+  const half = HEAT.range / 100;
+  const lo = live * (1 - half), hi = live * (1 + half);
+  const step = (hi - lo) / (HEAT_ROWS - 1);
+  const bins = Array.from({ length: HEAT_ROWS }, (_, i) => ({ px: hi - i * step, long: 0, short: 0 }));
+  const binIdx = px => Math.round((hi - px) / step);
+  let longInRange = 0, shortInRange = 0;
+  c.long.forEach(([liq, usd]) => { const i = binIdx(liq); if(i >= 0 && i < HEAT_ROWS){ bins[i].long += usd; longInRange += usd; } });
+  c.short.forEach(([liq, usd]) => { const i = binIdx(liq); if(i >= 0 && i < HEAT_ROWS){ bins[i].short += usd; shortInRange += usd; } });
+  const maxBin = Math.max(1, ...bins.map(b => Math.max(b.long, b.short)));
+  const nowIdx = Math.min(HEAT_ROWS - 1, Math.max(0, binIdx(live)));
+
+  // Level where a snapshot position would already have been liquidated by the
+  // move since the snapshot (long liq above live price, short liq below it).
+  const rows = bins.map((b, i) => {
+    const amt = b.long + b.short;
+    const isLong = b.long >= b.short;
+    const usd = isLong ? b.long : b.short;
+    const stale = (isLong && b.px >= live) || (!isLong && b.px <= live);
+    // sqrt scale so one whale position doesn't flatten every other level
+    const w = amt ? Math.max(1.5, Math.sqrt(usd / maxBin) * 100) : 0;
+    const evs = HEAT.events.filter(e => Math.abs(binIdx(e.px) - i) < 0.5 && e.px >= lo && e.px <= hi);
+    const dots = evs.slice(0, 4).map((e, k) =>
+      `<span class="heat-liq ${e.side}liq" style="left:${Math.min(96, 2 + k * 5)}%" title="${e.side} liquidated ${formatUSD(e.usd)} @ ${formatHeatPx(e.px)}"></span>`).join('');
+    return `<div class="heat-row${i === nowIdx ? ' now' : ''}">
+      <span class="px">${formatHeatPx(b.px)}</span>
+      <span class="heat-track">${amt ? `<span class="heat-bar ${isLong ? 'long' : 'short'}${stale ? ' stale' : ''}" style="width:${w.toFixed(1)}%"></span>` : ''}${dots}</span>
+      <span class="amt">${amt ? formatUSD(amt) : ''}${i === nowIdx ? ' ◀ now' : ''}</span>
+    </div>`;
+  }).join('');
+
+  const ageMin = snap.updated ? Math.max(0, Math.round((Date.now() - Date.parse(snap.updated)) / 60000)) : null;
+  const feed = HEAT.events.slice(0, 6).map(e =>
+    `<div class="ev"><span class="t">${new Date(e.t).toLocaleTimeString()}</span><span class="${e.side === 'long' ? 'heat-short' : 'heat-long'}">${e.side} liq</span><span>${formatUSD(e.usd)} @ ${formatHeatPx(e.px)}</span></div>`).join('');
+
+  panel.innerHTML = `
+    <div class="heat-head">
+      <span><b>${escapeHtml(coin)}</b> · live ${formatHeatPx(live)}${HEAT.livePrice ? '' : ' (snapshot price)'}</span>
+      <span><span class="heat-long">longs ${formatUSD(longInRange)}</span> below · <span class="heat-short">shorts ${formatUSD(shortInRange)}</span> above (±${HEAT.range}%)</span>
+    </div>
+    <div class="heat-grid">${rows}</div>
+    ${feed ? `<div class="heat-feed"><div style="color:var(--faint);margin-bottom:4px">Real Binance liquidations (live)</div>${feed}</div>` : ''}
+    <div class="heat-foot">
+      <span><span class="live-dot ${HEAT.hlOn ? 'on' : ''}"></span>HL price ${HEAT.hlOn ? 'live' : 'offline'} · <span class="live-dot ${HEAT.bnOn ? 'on' : ''}"></span>Binance liqs ${HEAT.bnOn ? 'live' : 'offline'}</span>
+      <span>${snap.accountsWithPositions || 0} of ${snap.accountsScanned || 0} top accounts hold positions · snapshot ${ageMin === null ? '?' : ageMin + 'm old'} · hatched = already passed since snapshot</span>
+    </div>`;
+  note.textContent = `Hyperliquid on-chain · ${ageMin === null ? '' : ageMin + 'm old'}`;
 }
 
 // ==================== Chip builders ====================
@@ -752,6 +994,7 @@ function onSymbolChange(){
   renderSymbolChips();
   renderRatioTypeChips();
   fetchAll();
+  if(LIQ_VIEW === 'heat'){ connectHeatLive(); renderHeatmap(); }
 }
 
 // ==================== Chart builder (generic sparkline) ====================
@@ -1092,6 +1335,7 @@ document.getElementById('noticeToggle').addEventListener('click', () => {
 renderSymbolChips();
 renderRatioTypeChips();
 renderPeriodChips();
+renderLiqViewChips();
 
 loadCache();
 fetchAll();

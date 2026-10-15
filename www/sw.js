@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crypto-screener-v23';
+const CACHE_NAME = 'crypto-screener-v24';
 const APP_SHELL = ['./', './index.html', './screener.html', './position-sizing.html', './portfolio.html', './watchlist.html', './macro.html', './news.html', './youtube.html', './trump-truth.html', './trading-settings.html', './defi.html', './oil.html', './etf-flows.html', './fear-greed.html', './season-index.html', './btc-returns.html', './liquidations.html', './pulse.html', './calendar.html', './calendar-sub.html', './prediction-markets.html', './journal.html', './net-config.js', './manifest.json', './icon-192.png', './icon-512.png', './logo.svg'];
 
 self.addEventListener('install', event => {
