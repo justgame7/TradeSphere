@@ -608,7 +608,7 @@ function drawChart(host, o){
   const cs = o.candles;
   if(!cs || cs.length < 3){ host.innerHTML = '<div class="chart-empty">' + esc(o.msg || 'Choose a coin to load its chart') + '</div>'; return; }
   const p = o.plan || {};
-  const W = Math.max(300, host.clientWidth || 640), H = o.h || 380;
+  const W = Math.max(300, host.clientWidth || 640), H = o.h || (W < 520 ? 420 : 380);
   const pl = 8, pr = 78, pt = 16, pb = 26;
   const idxOf = ts => { let lo = 0, hi = cs.length - 1, r = -1; while(lo <= hi){ const m = (lo + hi) >> 1; if(cs[m].t <= ts){ r = m; lo = m + 1; } else hi = m - 1; } return r; };
   const eI = p.entryTs ? idxOf(p.entryTs) : -1, xI = p.exitTs ? idxOf(p.exitTs) : -1;
@@ -620,10 +620,22 @@ function drawChart(host, o){
   const view = cs.slice(start, end), n = view.length, pad = 7;
   const plotW = W - pl - pr, plotH = H - pt - pb, step = plotW / (n + pad);
   const X = i => pl + (i - start + 0.5) * step;
+  // Scale fits the visible candles (plus entry / exit / live price). Stop, target and liquidation only
+  // stretch the scale when they sit within ~1.2x the candle span of price; farther ones are pinned to the
+  // chart edge with an arrow and their distance, so the candles always fill the plot.
   let lo = Math.min.apply(null, view.map(c => c.l)), hi = Math.max.apply(null, view.map(c => c.h));
-  [p.entry, p.stop, p.target, p.exit, o.ltp, p.liq].forEach(v => { if(fin(v)){ lo = Math.min(lo, v); hi = Math.max(hi, v); } });
-  const sp = (hi - lo) || hi * 0.01; lo -= sp * 0.07; hi += sp * 0.07;
+  [p.entry, p.exit, o.ltp].forEach(v => { if(fin(v)){ lo = Math.min(lo, v); hi = Math.max(hi, v); } });
+  const span0 = (hi - lo) || hi * 0.01, reach = Math.max(span0 * 1.2, hi * 0.004);
+  let lo2 = lo, hi2 = hi;
+  [p.stop, p.target].concat(o.show.liq ? [p.liq] : []).forEach(v => {
+    if(!fin(v)) return;
+    if(v > hi){ if(v - hi <= reach) hi2 = Math.max(hi2, v); }
+    else if(v < lo){ if(lo - v <= reach) lo2 = Math.min(lo2, v); }
+  });
+  lo = lo2; hi = hi2;
+  const sp = (hi - lo) || hi * 0.01; lo -= sp * 0.06; hi += sp * 0.06;
   const Y = v => pt + (hi - v) / (hi - lo) * plotH;
+  const Yc = v => Math.min(pt + plotH - 1, Math.max(pt + 1, Y(v)));   // clamped to the plot area
   const dec = pxDec(hi);
   const f = v => v.toLocaleString('en-US', { minimumFractionDigits:dec, maximumFractionDigits:dec });
   let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" font-family="Geist Mono, monospace">`;
@@ -634,10 +646,11 @@ function drawChart(host, o){
          `<text x="${W - pr + 6}" y="${y + 3.5}" fill="#6b7288" font-size="10.5">${f(v)}</text>`;
   }
   // time labels
-  const tl = Math.max(1, Math.floor(n / 5));
+  const maxL = Math.max(2, Math.floor(plotW / 82));
+  const tl = Math.max(1, Math.ceil(n / maxL));
   for(let i = 0; i < n; i += tl){
     const c = view[i]; const d = new Date(c.t);
-    const lab = o.tf === '1d' ? d.toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : d.toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }).replace(',', '');
+    const lab = o.tf === '1d' ? d.toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : d.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', '');
     s += `<text x="${X(start + i)}" y="${H - 8}" fill="#565d72" font-size="9.5" text-anchor="middle">${esc(lab)}</text>`;
   }
   const xr = W - pr;
@@ -646,13 +659,13 @@ function drawChart(host, o){
   // zones
   if(o.show.zones && fin(p.entry)){
     const x0 = p.entryTs ? xEntry : X(end - 1), x1 = xI >= 0 ? xExit : xr;
-    if(fin(p.target)){ const y1 = Y(p.target), y2 = Y(p.entry); s += `<rect x="${x0}" y="${Math.min(y1, y2)}" width="${Math.max(0, x1 - x0)}" height="${Math.abs(y2 - y1)}" fill="rgba(61,220,151,.11)"/>`; }
-    if(fin(p.stop)){ const y1 = Y(p.stop), y2 = Y(p.entry); s += `<rect x="${x0}" y="${Math.min(y1, y2)}" width="${Math.max(0, x1 - x0)}" height="${Math.abs(y2 - y1)}" fill="rgba(255,92,112,.11)"/>`; }
+    if(fin(p.target)){ const y1 = Yc(p.target), y2 = Yc(p.entry); s += `<rect x="${x0}" y="${Math.min(y1, y2)}" width="${Math.max(0, x1 - x0)}" height="${Math.abs(y2 - y1)}" fill="rgba(61,220,151,.11)"/>`; }
+    if(fin(p.stop)){ const y1 = Yc(p.stop), y2 = Yc(p.entry); s += `<rect x="${x0}" y="${Math.min(y1, y2)}" width="${Math.max(0, x1 - x0)}" height="${Math.abs(y2 - y1)}" fill="rgba(255,92,112,.11)"/>`; }
   }
   // ATR band around entry
   if(o.show.atr && fin(p.entry) && fin(o.atr)){
-    [p.entry + o.atr, p.entry - o.atr].forEach(v => { s += `<line x1="${pl}" x2="${xr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#6482ff" stroke-opacity=".35" stroke-dasharray="2 5"/>`; });
-    s += `<text x="${pl + 4}" y="${Y(p.entry + o.atr) - 4}" fill="#8da2ff" font-size="9.5">ATR ${f(o.atr)}</text>`;
+    [p.entry + o.atr, p.entry - o.atr].forEach(v => { const yy = Y(v); if(yy >= pt && yy <= pt + plotH) s += `<line x1="${pl}" x2="${xr}" y1="${yy}" y2="${yy}" stroke="#6482ff" stroke-opacity=".35" stroke-dasharray="2 5"/>`; });
+    const ya = Y(p.entry + o.atr); if(ya >= pt + 10 && ya <= pt + plotH) s += `<text x="${pl + 4}" y="${ya - 4}" fill="#8da2ff" font-size="9.5">ATR ${f(o.atr)}</text>`;
   }
   // EMAs
   if(o.show.ema){
@@ -674,9 +687,11 @@ function drawChart(host, o){
   const labels = [];
   const R = (fin(p.entry) && fin(p.stop)) ? Math.abs(p.entry - p.stop) : null;
   const line = (v, col, dash, text, bold) => {
-    if(!fin(v)) return; const y = Y(v);
-    s += `<line x1="${pl}" x2="${xr}" y1="${y}" y2="${y}" stroke="${col}" stroke-width="1.2" stroke-dasharray="${dash}"/>`;
-    labels.push({ y, col, text, bold });
+    if(!fin(v)) return;
+    const raw = Y(v), out = raw < pt ? 'up' : raw > pt + plotH ? 'down' : null, y = Yc(v);
+    if(out && fin(p.entry) && p.entry > 0) text = (out === 'up' ? '\u25B2 ' : '\u25BC ') + text + '  ' + fmtPct((v - p.entry) / p.entry * 100, 1);
+    s += `<line x1="${pl}" x2="${xr}" y1="${y}" y2="${y}" stroke="${col}" stroke-width="${out ? 2 : 1.2}" stroke-dasharray="${dash}"/>`;
+    labels.push({ y: out === 'up' ? y + 18 : y, col, text, bold });
   };
   line(p.target, '#3ddc97', '5 4', 'Target ' + (fin(p.target) ? f(p.target) : '') + (R && fin(p.target) ? '  +' + (Math.abs(p.target - p.entry) / R).toFixed(1) + 'R' : ''), false);
   line(p.entry, '#e9ebf3', '5 4', 'Entry ' + (fin(p.entry) ? f(p.entry) : ''), true);
