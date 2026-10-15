@@ -245,6 +245,7 @@
   .heat-long{color:var(--accent);} .heat-short{color:var(--red);}
   .heat-grid{padding:4px 16px 12px;}
   .heat-row{display:grid;grid-template-columns:76px 1fr 64px;align-items:center;gap:8px;height:15px;font:10.5px var(--font-mono);color:var(--faint);position:relative;}
+  .heat-row .px,.heat-row .amt{white-space:nowrap;overflow:hidden;}
   .heat-row .px{text-align:right;}
   .heat-row .amt{text-align:left;color:var(--muted);}
   .heat-track{position:relative;height:11px;}
@@ -254,6 +255,8 @@
   .heat-bar.stale{opacity:.28;background-image:repeating-linear-gradient(45deg,transparent 0 3px,rgba(0,0,0,.45) 3px 5px);}
   .heat-row.now{background:rgba(245,166,35,.12);border-top:1px solid var(--amber);border-bottom:1px solid var(--amber);color:var(--amber);font-weight:700;}
   .heat-row.now .px,.heat-row.now .amt{color:var(--amber);}
+  .now-tag{position:absolute;right:0;top:50%;transform:translateY(-50%);font:700 10px var(--font-mono);color:var(--amber);background:rgba(18,21,27,.85);padding:0 4px;border-radius:4px;}
+  .heat-row{box-sizing:border-box;overflow:hidden;}
   .heat-liq{position:absolute;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 6px currentColor;}
   .heat-liq.longliq{background:var(--red);color:var(--red);}
   .heat-liq.shortliq{background:var(--accent);color:var(--accent);}
@@ -950,8 +953,8 @@ function renderHeatmap(){
       `<span class="heat-liq ${e.side}liq" style="left:${Math.min(96, 2 + k * 5)}%" title="${e.side} liquidated ${formatUSD(e.usd)} @ ${formatHeatPx(e.px)}"></span>`).join('');
     return `<div class="heat-row${i === nowIdx ? ' now' : ''}">
       <span class="px">${formatHeatPx(b.px)}</span>
-      <span class="heat-track">${amt ? `<span class="heat-bar ${isLong ? 'long' : 'short'}${stale ? ' stale' : ''}" style="width:${w.toFixed(1)}%"></span>` : ''}${dots}</span>
-      <span class="amt">${amt ? formatUSD(amt) : ''}${i === nowIdx ? ' ◀ now' : ''}</span>
+      <span class="heat-track">${amt ? `<span class="heat-bar ${isLong ? 'long' : 'short'}${stale ? ' stale' : ''}" style="width:${w.toFixed(1)}%"></span>` : ''}${dots}${i === nowIdx ? '<span class="now-tag">◀ now</span>' : ''}</span>
+      <span class="amt">${amt ? formatUSD(amt) : ''}</span>
     </div>`;
   }).join('');
 
