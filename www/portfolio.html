@@ -715,14 +715,14 @@ a{color:inherit;}
   </header>
 
   <nav class="tabs" role="tablist">
-    <button class="tab active" data-tab="crypto"><span class="dot" style="background:var(--violet)"></span>Crypto</button>
-    <button class="tab" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="crypto"><span class="dot" style="background:var(--violet)"></span>Crypto</button>
+    <button class="tab active" data-tab="overview">Overview</button>
     <button class="tab" data-tab="stocksIN"><span class="dot" style="background:var(--saffron)"></span>IN Stocks</button>
     <button class="tab" data-tab="stocksUS"><span class="dot" style="background:var(--azure)"></span>US Stocks</button>
   </nav>
 
   <!-- ======================= OVERVIEW ======================= -->
-  <section class="view" id="view-overview">
+  <section class="view active" id="view-overview">
     <div class="bento">
       <div class="card hero-card full">
         <div class="hero-top">
@@ -811,7 +811,7 @@ a{color:inherit;}
   </section>
 
   <!-- ======================= CRYPTO ======================= -->
-  <section class="view active" id="view-crypto">
+  <section class="view" id="view-crypto">
     <div class="stat-strip" id="cryptoStats"></div>
     <div class="holdings-list" id="cryptoHoldings"></div>
     <div class="card wallet-card">
@@ -1515,8 +1515,8 @@ function applyTabVisibility(){
   if(activeHidden){
     tabs.forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-    document.querySelector('.tab[data-tab="crypto"]').classList.add('active');
-    document.getElementById('view-crypto').classList.add('active');
+    document.querySelector('.tab[data-tab="overview"]').classList.add('active');
+    document.getElementById('view-overview').classList.add('active');
   }
 }
 
