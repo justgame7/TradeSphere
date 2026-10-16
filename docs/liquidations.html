@@ -785,7 +785,7 @@ const HEAT_RANGES = [5, 10, 20, 30, 50];
 const LIQ_EVENT_KEEP = 60;
 
 let LIQ_VIEW = 'heat'; // heatmap tab is the default
-let HEAT = { range:10, source:'both', cex:{}, snapshot:null, status:'idle', error:'', livePrice:null, liveAt:0, events:[], hlWs:null, bnWs:null, hlOn:false, bnOn:false, renderTimer:null, wsCoin:null };
+let HEAT = { range:10, source:'hl', cex:{}, snapshot:null, status:'idle', error:'', livePrice:null, liveAt:0, events:[], hlWs:null, bnWs:null, hlOn:false, bnOn:false, renderTimer:null, wsCoin:null };
 
 function heatCoin(){
   const s = SYMBOLS.find(x => x.sym === STATE.symbol);
@@ -1014,9 +1014,9 @@ function ensureHeatData(force){
   if(HEAT.source !== 'hl') loadCexModel(heatCoin(), force);
 }
 const HEAT_SOURCES = [
-  ['both', 'Combined', 'Hyperliquid exact positions + modeled CEX (Binance/Bybit/OKX) estimate. Solid bar = Hyperliquid, dark segment = CEX model.'],
   ['hl',   'Hyperliquid · exact', 'Real on-chain positions of the top Hyperliquid accounts. Levels are exact; coverage is partial.'],
   ['cex',  'CEX · modeled', 'Estimate reconstructed from Binance open-interest history, long/short ratios and an assumed leverage mix, scaled to Binance + Bybit + OKX open interest. Treat sizes as rough.'],
+  ['both', 'Combined', 'Hyperliquid exact positions + modeled CEX (Binance/Bybit/OKX) estimate. Solid bar = Hyperliquid, dark segment = CEX model.'],
 ];
 function renderHeatSourceChips(){
   const row = document.getElementById('heatSourceChips');
