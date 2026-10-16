@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-16T18:30:57Z",
+  "updated": "2026-10-16T18:40:35Z",
   "markets": [
     {
       "t": "KXFED-27APR-T6.00",
@@ -643,7 +643,7 @@
       "s": "Above 4.25%",
       "k": 4.25,
       "c": "2027-12-08T18:55:00Z",
-      "b": "0.6500",
+      "b": "0.7300",
       "a": "0.9700",
       "l": "0.8800",
       "v": "10142.68",
@@ -920,7 +920,7 @@
       "k": 4.75,
       "c": "2027-10-27T17:55:00Z",
       "b": "0.0600",
-      "a": "0.8800",
+      "a": "0.9000",
       "l": "0.0000",
       "v": "0.00",
       "title": "Will the upper bound of the federal funds rate be above 4.75% following the Fed's Oct 27, 2027 meeting?"
@@ -1220,7 +1220,7 @@
       "k": 4.75,
       "c": "2027-09-15T17:55:00Z",
       "b": "0.0600",
-      "a": "0.8800",
+      "a": "0.9000",
       "l": "0.0000",
       "v": "0.00",
       "title": "Will the upper bound of the federal funds rate be above 4.75% following the Fed's Sep 15, 2027 meeting?"
@@ -1232,7 +1232,7 @@
       "k": 4.5,
       "c": "2027-09-15T17:55:00Z",
       "b": "0.1200",
-      "a": "0.8700",
+      "a": "0.9300",
       "l": "0.8200",
       "v": "1.00",
       "title": "Will the upper bound of the federal funds rate be above 4.50% following the Fed's Sep 15, 2027 meeting?"
@@ -1244,7 +1244,7 @@
       "k": 4.25,
       "c": "2027-09-15T17:55:00Z",
       "b": "0.2100",
-      "a": "0.8300",
+      "a": "0.9500",
       "l": "0.0000",
       "v": "0.00",
       "title": "Will the upper bound of the federal funds rate be above 4.25% following the Fed's Sep 15, 2027 meeting?"
@@ -1544,7 +1544,7 @@
       "k": 4.25,
       "c": "2027-07-28T17:55:00Z",
       "b": "0.2100",
-      "a": "0.8300",
+      "a": "0.9500",
       "l": "0.0000",
       "v": "0.00",
       "title": "Will the upper bound of the federal funds rate be above 4.25% following the Fed's Jul 28, 2027 meeting?"
@@ -2071,7 +2071,7 @@
       "s": "Above 4.00%",
       "k": 4,
       "c": "2027-04-28T17:55:00Z",
-      "b": "0.7800",
+      "b": "0.8000",
       "a": "0.9600",
       "l": "0.7400",
       "v": "20806.76",
@@ -2323,7 +2323,7 @@
       "s": "Above 3.25%",
       "k": 3.25,
       "c": "2027-03-17T17:55:00Z",
-      "b": "0.8100",
+      "b": "0.7700",
       "a": "0.9900",
       "l": "0.9900",
       "v": "4752.56",
