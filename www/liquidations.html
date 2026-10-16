@@ -249,7 +249,9 @@
   .heat-row .px{text-align:right;}
   .heat-row .amt{text-align:left;color:var(--muted);}
   .heat-track{position:relative;height:11px;}
-  .heat-bar{position:absolute;left:0;top:0;height:100%;border-radius:0 3px 3px 0;min-width:1px;}
+  .heat-bar{position:absolute;left:0;top:0;height:100%;border-radius:0 3px 3px 0;min-width:1px;display:flex;overflow:hidden;}
+  .heat-bar .seg{height:100%;min-width:0;}
+  .heat-bar .seg.cex{background:rgba(10,12,16,.42);}
   .heat-bar.long{background:linear-gradient(90deg,rgba(53,224,192,.25),rgba(53,224,192,.85));}
   .heat-bar.short{background:linear-gradient(90deg,rgba(255,84,112,.25),rgba(255,84,112,.85));}
   .heat-bar.stale{opacity:.28;background-image:repeating-linear-gradient(45deg,transparent 0 3px,rgba(0,0,0,.45) 3px 5px);}
@@ -349,7 +351,9 @@
         <div class="section-title"><span class="si">🔥</span>Liquidation Heatmap</div>
         <div class="section-note" id="heatNote"></div>
       </div>
-      <div class="section-note-inline">Where Hyperliquid positions get liquidated if price moves there. Built from real on-chain positions of the top accounts, not a leverage model, so coverage is partial but levels are exact. The live price and real Binance liquidations are overlaid.</div>
+      <div class="section-note-inline">Estimated liquidations if price moves to each level, with the live price and real Binance liquidations overlaid.</div>
+      <div class="chip-row tabs" id="heatSourceChips"></div>
+      <div class="chip-sub" id="heatSourceDesc"></div>
       <div class="chip-row" id="heatRangeChips"></div>
       <div class="panel" id="liqHeatPanel"></div>
     </div>
@@ -781,7 +785,7 @@ const HEAT_RANGES = [5, 10, 20, 30, 50];
 const LIQ_EVENT_KEEP = 60;
 
 let LIQ_VIEW = 'heat'; // heatmap tab is the default
-let HEAT = { range:10, snapshot:null, status:'idle', error:'', livePrice:null, liveAt:0, events:[], hlWs:null, bnWs:null, hlOn:false, bnOn:false, renderTimer:null, wsCoin:null };
+let HEAT = { range:10, source:'both', cex:{}, snapshot:null, status:'idle', error:'', livePrice:null, liveAt:0, events:[], hlWs:null, bnWs:null, hlOn:false, bnOn:false, renderTimer:null, wsCoin:null };
 
 function heatCoin(){
   const s = SYMBOLS.find(x => x.sym === STATE.symbol);
@@ -811,8 +815,9 @@ function switchPageView(view){
   document.getElementById('tabHeatBtn').classList.toggle('active', view === 'heat');
   if(view === 'heat'){
     syncHeatSymbols();
+    renderHeatSourceChips();
     renderHeatRangeChips();
-    loadHeatSnapshot();
+    ensureHeatData();
     connectHeatLive();
     renderHeatmap();
   }else{
@@ -901,79 +906,231 @@ function formatHeatPx(p){
   const d = p >= 1000 ? 0 : p >= 100 ? 1 : p >= 1 ? 3 : 5;
   return p.toLocaleString(undefined, { minimumFractionDigits:d, maximumFractionDigits:d });
 }
+// ---- CEX liquidation model (estimate, not exact) ----
+// Exchanges don't publish positions, so this reconstructs them from public
+// Binance data: each hour's open-interest increase is treated as new positions
+// opened at that hour's typical price, split long/short by the account
+// long/short ratio blended with taker buy share, and spread across assumed
+// leverage tiers. Positions are dropped once later price action would have
+// liquidated them, and scaled down when OI falls. Notionals are then scaled by
+// (Binance + Bybit + OKX open interest) / Binance open interest.
+const CEX_LEV_TIERS = [[5,.15],[10,.25],[20,.20],[25,.15],[50,.15],[100,.10]];
+const CEX_MMR = 0.005; // approx. maintenance margin rate
+const CEX_TTL_MS = 5 * 60 * 1000;
+const BYBIT_TICKERS = 'https://api.bybit.com/v5/market/tickers?category=linear';
+const OKX_OI = 'https://www.okx.com/api/v5/public/open-interest?instType=SWAP';
+let CEX_VENUES = { t:0, bybit:{}, okx:{} };
+
+async function loadVenueOI(){
+  if(Date.now() - CEX_VENUES.t < CEX_TTL_MS) return CEX_VENUES;
+  const [by, ok] = await Promise.allSettled([fetchJSON(BYBIT_TICKERS), fetchJSON(OKX_OI)]);
+  const bybit = {}, okx = {};
+  if(by.status === 'fulfilled' && by.value && by.value.result){
+    by.value.result.list.forEach(t => { if(t.symbol.endsWith('USDT')) bybit[t.symbol.slice(0, -4)] = parseFloat(t.openInterestValue) || 0; });
+  }
+  if(ok.status === 'fulfilled' && ok.value && Array.isArray(ok.value.data)){
+    ok.value.data.forEach(d => { if(d.instId.endsWith('-USDT-SWAP')) okx[d.instId.split('-')[0]] = parseFloat(d.oiUsd) || 0; });
+  }
+  CEX_VENUES = { t: Date.now(), bybit, okx };
+  return CEX_VENUES;
+}
+async function buildCexModel(sym, label){
+  const [kl, oiH, lsH, venues] = await Promise.all([
+    fetchJSON(apiUrlV1('klines', { symbol: sym, interval: '1h', limit: 500 })),
+    fetchJSON(apiUrlData('openInterestHist', { symbol: sym, period: '1h', limit: 500 })),
+    fetchJSON(apiUrlData('globalLongShortAccountRatio', { symbol: sym, period: '1h', limit: 500 })),
+    loadVenueOI(),
+  ]);
+  if(!Array.isArray(kl) || !Array.isArray(oiH) || !oiH.length) throw new Error('no Binance history for ' + sym);
+  const oiMap = new Map(oiH.map(o => [o.timestamp, parseFloat(o.sumOpenInterest)]));
+  const lsMap = new Map((Array.isArray(lsH) ? lsH : []).map(o => [o.timestamp, parseFloat(o.longAccount)]));
+  let cohorts = [], prevOI = null, oiLast = null, lastClose = null;
+  const addCohorts = (amount, typ, lf) => {
+    for(const [lev, w] of CEX_LEV_TIERS){
+      cohorts.push({ side:'long',  lev, size: amount * w * 2 * lf,       liq: typ * (1 - 1 / lev + CEX_MMR) });
+      cohorts.push({ side:'short', lev, size: amount * w * 2 * (1 - lf), liq: typ * (1 + 1 / lev - CEX_MMR) });
+    }
+  };
+  const lfFor = (k) => {
+    const acctLong = lsMap.has(k[0]) ? lsMap.get(k[0]) : 0.5;
+    const vol = +k[5], takerShare = vol > 0 ? +k[9] / vol : 0.5;
+    return Math.min(0.8, Math.max(0.2, 0.5 * acctLong + 0.5 * takerShare));
+  };
+  // Positions that already existed when the window starts: their entries are
+  // unknown, so assume they were opened across the window's price range in
+  // proportion to traded volume (instead of piling them at one price).
+  const firstOi = kl.map(k => oiMap.get(k[0])).find(v => v != null && isFinite(v));
+  if(firstOi != null){
+    const totalVol = kl.reduce((t, k) => t + (+k[5] || 0), 0) || 1;
+    kl.forEach(k => addCohorts(firstOi * ((+k[5] || 0) / totalVol), (+k[2] + +k[3] + +k[4]) / 3, lfFor(k)));
+    prevOI = firstOi;
+  }
+  for(const k of kl){
+    const ts = k[0], hi = +k[2], lo = +k[3], cl = +k[4];
+    lastClose = cl;
+    // positions liquidated by this candle's range
+    cohorts = cohorts.filter(c => c.side === 'long' ? lo > c.liq : hi < c.liq);
+    const oi = oiMap.get(ts);
+    if(oi == null || !isFinite(oi)) continue;
+    const delta = prevOI == null ? 0 : oi - prevOI;
+    if(delta > 0){
+      addCohorts(delta, (hi + lo + cl) / 3, lfFor(k));
+    }else if(delta < 0 && prevOI > 0){
+      const f = Math.max(0, 1 - (-delta) / prevOI);
+      cohorts.forEach(c => { c.size *= f; });
+    }
+    prevOI = oi; oiLast = oi;
+  }
+  if(oiLast == null || lastClose == null) throw new Error('could not align open interest with price history');
+  const binanceUsd = oiLast * lastClose;
+  const bybit = venues.bybit[label] || 0, okx = venues.okx[label] || 0;
+  const scale = binanceUsd > 0 ? (binanceUsd + bybit + okx) / binanceUsd : 1;
+  const sideOut = side => cohorts.filter(c => c.side === side).map(c => [c.liq, Math.round(c.size * c.liq * scale), c.lev, 0]);
+  const sizeSum = side => cohorts.filter(c => c.side === side).reduce((t, c) => t + c.size, 0);
+  const coverage = oiLast > 0 ? (sizeSum('long') + sizeSum('short')) / (2 * oiLast) : 0;
+  return {
+    mark: lastClose, long: sideOut('long'), short: sideOut('short'),
+    scale, coverage, hours: kl.length, venues: { binance: binanceUsd, bybit, okx },
+  };
+}
+async function loadCexModel(label, force){
+  const cur = HEAT.cex[label];
+  if(cur && cur.loading) return;
+  if(cur && cur.data && !force && Date.now() - cur.t < CEX_TTL_MS) return;
+  HEAT.cex[label] = { data: cur && cur.data, t: cur ? cur.t : 0, loading: true, error: '' };
+  renderHeatmap();
+  try{
+    const sym = (SYMBOLS.find(x => x.label === label) || {}).sym;
+    if(!sym) throw new Error('unsupported coin');
+    const data = await buildCexModel(sym, label);
+    HEAT.cex[label] = { data, t: Date.now(), loading: false, error: '' };
+  }catch(err){
+    HEAT.cex[label] = { data: cur && cur.data, t: cur ? cur.t : 0, loading: false, error: (err && err.message) || 'failed' };
+  }
+  renderHeatmap();
+}
+function ensureHeatData(force){
+  if(HEAT.source !== 'cex') loadHeatSnapshot(force);
+  if(HEAT.source !== 'hl') loadCexModel(heatCoin(), force);
+}
+const HEAT_SOURCES = [
+  ['both', 'Combined', 'Hyperliquid exact positions + modeled CEX (Binance/Bybit/OKX) estimate. Solid bar = Hyperliquid, dark segment = CEX model.'],
+  ['hl',   'Hyperliquid · exact', 'Real on-chain positions of the top Hyperliquid accounts. Levels are exact; coverage is partial.'],
+  ['cex',  'CEX · modeled', 'Estimate reconstructed from Binance open-interest history, long/short ratios and an assumed leverage mix, scaled to Binance + Bybit + OKX open interest. Treat sizes as rough.'],
+];
+function renderHeatSourceChips(){
+  const row = document.getElementById('heatSourceChips');
+  row.innerHTML = '';
+  HEAT_SOURCES.forEach(([key, label]) => {
+    row.appendChild(buildChip(key === HEAT.source, label, () => {
+      HEAT.source = key;
+      renderHeatSourceChips();
+      syncHeatSymbols();
+      ensureHeatData();
+      renderHeatmap();
+    }));
+  });
+  document.getElementById('heatSourceDesc').textContent = HEAT_SOURCES.find(x => x[0] === HEAT.source)[2];
+}
+
 function renderHeatmap(){
   const panel = document.getElementById('liqHeatPanel');
   const note = document.getElementById('heatNote');
   if(!panel || LIQ_VIEW !== 'heat') return;
-  if(HEAT.status === 'loading' && !HEAT.snapshot){
-    panel.innerHTML = '<div class="skel-block" style="height:320px;border-radius:14px"></div>';
-    note.textContent = 'Loading…';
-    return;
-  }
-  if(HEAT.status === 'error' && !HEAT.snapshot){
-    panel.innerHTML = `<div class="error-state">Couldn’t load the Hyperliquid snapshot — ${escapeHtml(HEAT.error)}<br>
-      It is written by the <b>hyperliquid-liq-snapshot</b> GitHub Action to <b>data/hl-liq.json</b>.
-      <br><button class="retry-btn" id="heatRetry" type="button">Try again</button></div>`;
-    document.getElementById('heatRetry').addEventListener('click', () => loadHeatSnapshot(true));
-    note.textContent = '';
-    return;
-  }
-  const snap = HEAT.snapshot;
   const coin = heatCoin();
-  const c = snap && snap.coins[coin];
-  if(!c){
-    panel.innerHTML = `<div class="empty-note"><b>${escapeHtml(coin)}</b> has no tracked Hyperliquid positions in the latest snapshot.</div>`;
+  const useHL = HEAT.source !== 'cex', useCX = HEAT.source !== 'hl';
+  const hl = useHL && HEAT.snapshot ? HEAT.snapshot.coins[coin] : null;
+  const cxEntry = useCX ? HEAT.cex[coin] : null;
+  const cx = cxEntry && cxEntry.data ? cxEntry.data : null;
+
+  if(!hl && !cx){
+    const hlPending = useHL && !HEAT.snapshot && HEAT.status !== 'error';
+    const cxPending = useCX && !(cxEntry && cxEntry.error);
+    if(hlPending || cxPending){
+      panel.innerHTML = '<div class="skel-block" style="height:320px;border-radius:14px"></div>';
+      note.textContent = 'Loading…';
+      return;
+    }
+    const errs = [];
+    if(useHL && HEAT.status === 'error') errs.push('Hyperliquid snapshot: ' + HEAT.error);
+    if(useCX && cxEntry && cxEntry.error) errs.push('CEX model: ' + cxEntry.error);
+    if(errs.length){
+      panel.innerHTML = `<div class="error-state">${errs.map(escapeHtml).join('<br>')}
+        <br><button class="retry-btn" id="heatRetry" type="button">Try again</button></div>`;
+      document.getElementById('heatRetry').addEventListener('click', () => ensureHeatData(true));
+    }else{
+      panel.innerHTML = `<div class="empty-note"><b>${escapeHtml(coin)}</b> has no tracked positions for this source.</div>`;
+    }
     note.textContent = '';
     return;
   }
-  const mark = c.mark || HEAT.livePrice;
+
+  const mark = (cx && cx.mark) || (hl && hl.mark);
   const live = HEAT.livePrice || mark;
   const half = HEAT.range / 100;
   const lo = live * (1 - half), hi = live * (1 + half);
   const step = (hi - lo) / (HEAT_ROWS - 1);
-  const bins = Array.from({ length: HEAT_ROWS }, (_, i) => ({ px: hi - i * step, long: 0, short: 0 }));
+  const bins = Array.from({ length: HEAT_ROWS }, (_, i) => ({ px: hi - i * step, hlL: 0, hlS: 0, cxL: 0, cxS: 0 }));
   const binIdx = px => Math.round((hi - px) / step);
-  let longInRange = 0, shortInRange = 0;
-  c.long.forEach(([liq, usd]) => { const i = binIdx(liq); if(i >= 0 && i < HEAT_ROWS){ bins[i].long += usd; longInRange += usd; } });
-  c.short.forEach(([liq, usd]) => { const i = binIdx(liq); if(i >= 0 && i < HEAT_ROWS){ bins[i].short += usd; shortInRange += usd; } });
-  const maxBin = Math.max(1, ...bins.map(b => Math.max(b.long, b.short)));
+  const tot = { hlL: 0, hlS: 0, cxL: 0, cxS: 0 };
+  const fill = (list, key) => (list || []).forEach(([liq, usd]) => {
+    const i = binIdx(liq);
+    if(i >= 0 && i < HEAT_ROWS){ bins[i][key] += usd; tot[key] += usd; }
+  });
+  if(hl){ fill(hl.long, 'hlL'); fill(hl.short, 'hlS'); }
+  if(cx){ fill(cx.long, 'cxL'); fill(cx.short, 'cxS'); }
+  const maxBin = Math.max(1, ...bins.map(b => Math.max(b.hlL + b.cxL, b.hlS + b.cxS)));
   const nowIdx = Math.min(HEAT_ROWS - 1, Math.max(0, binIdx(live)));
 
-  // Level where a snapshot position would already have been liquidated by the
-  // move since the snapshot (long liq above live price, short liq below it).
+  // A level is "stale" when the move since the snapshot has already passed it
+  // (long liq above live price, short liq below it).
   const rows = bins.map((b, i) => {
-    const amt = b.long + b.short;
-    const isLong = b.long >= b.short;
-    const usd = isLong ? b.long : b.short;
+    const longTot = b.hlL + b.cxL, shortTot = b.hlS + b.cxS;
+    const amt = longTot + shortTot;
+    const isLong = longTot >= shortTot;
+    const usd = isLong ? longTot : shortTot;
+    const hlUsd = isLong ? b.hlL : b.hlS, cxUsd = isLong ? b.cxL : b.cxS;
     const stale = (isLong && b.px >= live) || (!isLong && b.px <= live);
     // sqrt scale so one whale position doesn't flatten every other level
     const w = amt ? Math.max(1.5, Math.sqrt(usd / maxBin) * 100) : 0;
     const evs = HEAT.events.filter(e => Math.abs(binIdx(e.px) - i) < 0.5 && e.px >= lo && e.px <= hi);
     const dots = evs.slice(0, 4).map((e, k) =>
       `<span class="heat-liq ${e.side}liq" style="left:${Math.min(96, 2 + k * 5)}%" title="${e.side} liquidated ${formatUSD(e.usd)} @ ${formatHeatPx(e.px)}"></span>`).join('');
+    const tip = (hlUsd ? 'Hyperliquid ' + formatUSD(hlUsd) : '') + (hlUsd && cxUsd ? ' + ' : '') + (cxUsd ? 'CEX (modeled) ' + formatUSD(cxUsd) : '');
+    const bar = amt ? `<span class="heat-bar ${isLong ? 'long' : 'short'}${stale ? ' stale' : ''}" style="width:${w.toFixed(1)}%" title="${tip}"><span class="seg" style="flex:${hlUsd} 1 0%"></span><span class="seg cex" style="flex:${cxUsd} 1 0%"></span></span>` : '';
     return `<div class="heat-row${i === nowIdx ? ' now' : ''}">
       <span class="px">${formatHeatPx(b.px)}</span>
-      <span class="heat-track">${amt ? `<span class="heat-bar ${isLong ? 'long' : 'short'}${stale ? ' stale' : ''}" style="width:${w.toFixed(1)}%"></span>` : ''}${dots}${i === nowIdx ? '<span class="now-tag">◀ now</span>' : ''}</span>
+      <span class="heat-track">${bar}${dots}${i === nowIdx ? '<span class="now-tag">◀ now</span>' : ''}</span>
       <span class="amt">${amt ? formatUSD(amt) : ''}</span>
     </div>`;
   }).join('');
 
-  const ageMin = snap.updated ? Math.max(0, Math.round((Date.now() - Date.parse(snap.updated)) / 60000)) : null;
   const feed = HEAT.events.slice(0, 6).map(e =>
     `<div class="ev"><span class="t">${new Date(e.t).toLocaleTimeString()}</span><span class="${e.side === 'long' ? 'heat-short' : 'heat-long'}">${e.side} liq</span><span>${formatUSD(e.usd)} @ ${formatHeatPx(e.px)}</span></div>`).join('');
 
+  const snap = HEAT.snapshot;
+  const ageMin = hl && snap && snap.updated ? Math.max(0, Math.round((Date.now() - Date.parse(snap.updated)) / 60000)) : null;
+  const srcBits = [];
+  if(hl) srcBits.push(`Hyperliquid exact: ${snap.accountsWithPositions || 0} of ${snap.accountsScanned || 0} top accounts hold positions, snapshot ${ageMin === null ? '?' : ageMin + 'm'} old`);
+  if(cx) srcBits.push(`CEX modeled from ${cx.hours}h of Binance OI, ×${cx.scale.toFixed(2)} to include Bybit + OKX, ${Math.round(cx.coverage * 100)}% of OI reconstructed`);
+  const missing = [];
+  if(useHL && !hl) missing.push('Hyperliquid has no data for this coin');
+  if(useCX && !cx) missing.push('CEX model unavailable' + (cxEntry && cxEntry.error ? ' (' + cxEntry.error + ')' : ''));
+  const longAll = tot.hlL + tot.cxL, shortAll = tot.hlS + tot.cxS;
+  const split = (h, c) => (hl && cx) ? ` <span style="color:var(--faint)">(HL ${formatUSD(h)} · CEX ${formatUSD(c)})</span>` : '';
+
   panel.innerHTML = `
     <div class="heat-head">
-      <span><b>${escapeHtml(coin)}</b> · live ${formatHeatPx(live)}${HEAT.livePrice ? '' : ' (snapshot price)'}</span>
-      <span><span class="heat-long">longs ${formatUSD(longInRange)}</span> below · <span class="heat-short">shorts ${formatUSD(shortInRange)}</span> above (±${HEAT.range}%)</span>
+      <span><b>${escapeHtml(coin)}</b> · live ${formatHeatPx(live)}${HEAT.livePrice ? '' : ' (last known)'}</span>
+      <span><span class="heat-long">longs ${formatUSD(longAll)}</span>${split(tot.hlL, tot.cxL)} below · <span class="heat-short">shorts ${formatUSD(shortAll)}</span>${split(tot.hlS, tot.cxS)} above (±${HEAT.range}%)</span>
     </div>
     <div class="heat-grid">${rows}</div>
     ${feed ? `<div class="heat-feed"><div style="color:var(--faint);margin-bottom:4px">Real Binance liquidations (live)</div>${feed}</div>` : ''}
     <div class="heat-foot">
       <span><span class="live-dot ${HEAT.hlOn ? 'on' : ''}"></span>HL price ${HEAT.hlOn ? 'live' : 'offline'} · <span class="live-dot ${HEAT.bnOn ? 'on' : ''}"></span>Binance liqs ${HEAT.bnOn ? 'live' : 'offline'}</span>
-      <span>${snap.accountsWithPositions || 0} of ${snap.accountsScanned || 0} top accounts hold positions · snapshot ${ageMin === null ? '?' : ageMin + 'm old'} · hatched = already passed since snapshot</span>
+      <span>${srcBits.concat(missing).join(' · ')} · hatched = price already passed this level</span>
     </div>`;
-  note.textContent = `Hyperliquid on-chain · ${ageMin === null ? '' : ageMin + 'm old'}`;
+  note.textContent = HEAT.source === 'hl' ? `Hyperliquid on-chain${ageMin === null ? '' : ' · ' + ageMin + 'm old'}` : (HEAT.source === 'cex' ? 'CEX modeled estimate' : 'Hyperliquid exact + CEX modeled');
 }
 
 // ==================== Chip builders ====================
@@ -1002,7 +1159,7 @@ function heatCoinAvailable(label){
   return sum(c.long) >= HEAT_MIN_SIDE_USD && sum(c.short) >= HEAT_MIN_SIDE_USD;
 }
 function visibleSymbols(){
-  if(LIQ_VIEW !== 'heat' || !HEAT.snapshot) return SYMBOLS;
+  if(LIQ_VIEW !== 'heat' || HEAT.source !== 'hl' || !HEAT.snapshot) return SYMBOLS;
   const list = SYMBOLS.filter(s => heatCoinAvailable(s.label));
   return list.length ? list : SYMBOLS;
 }
@@ -1044,7 +1201,7 @@ function onSymbolChange(){
   renderSymbolChips();
   renderRatioTypeChips();
   fetchAll();
-  if(LIQ_VIEW === 'heat'){ connectHeatLive(); renderHeatmap(); }
+  if(LIQ_VIEW === 'heat'){ connectHeatLive(); ensureHeatData(); renderHeatmap(); }
 }
 
 // ==================== Chart builder (generic sparkline) ====================
@@ -1394,6 +1551,7 @@ switchPageView('heat');
 
 setInterval(fetchAll, REFRESH_INTERVAL_MS);
 setInterval(updateLastUpdatedLabel, 60000);
+setInterval(() => { if(LIQ_VIEW === 'heat' && HEAT.source !== 'hl') loadCexModel(heatCoin(), true); }, CEX_TTL_MS);
 setInterval(fetchCoinalyzeTotals, COINALYZE_REFRESH_INTERVAL_MS);
 </script>
 </body>
