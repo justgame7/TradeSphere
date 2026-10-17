@@ -8264,7 +8264,10 @@ const GROUPS = [
     ['bbUpper','Bollinger Upper'],['bbMid','Bollinger Mid'],['bbLower','Bollinger Lower'],
     ['bbPctB','BB %B'],['bbWidth','BB Bandwidth'],
     ['kcUpper','Keltner Upper'],['kcLower','Keltner Lower'],
-    ['dcHigh','Donchian High'],['dcLow','Donchian Low'],
+    ['dcHigh10','Donchian High (10)'],['dcHigh','Donchian High (20)'],['dcHigh55','Donchian High (55)'],
+    ['dcLow10','Donchian Low (10)'],['dcLow','Donchian Low (20)'],['dcLow55','Donchian Low (55)'],
+    ['dcSys1','Donchian Long (High 20 / Low 10)'],['dcSys2','Donchian Long (High 55 / Low 20)'],
+    ['dcSys1S','Donchian Short (Low 20 / High 10)'],['dcSys2S','Donchian Short (Low 55 / High 20)'],
     ['hv','Historical Volatility']
   ]},
   { key:'ichimoku', name:'Ichimoku Cloud', icon:'☁️', color:'var(--blue)', members:[
@@ -8395,6 +8398,18 @@ function computeValues(candles, tf, ticker, derivs, btcCandles, ethCandles){
   const dc = donchian(candles);
   set('dcHigh', px(dc.high), '', dist(dc.high, price));
   set('dcLow', px(dc.low), '', dist(dc.low, price));
+  [[10,'10'],[55,'55']].forEach(([len, sfx])=>{
+    const d = donchian(candles, len);
+    set('dcHigh'+sfx, px(d.high), '', dist(d.high, price));
+    set('dcLow'+sfx, px(d.low), '', dist(d.low, price));
+  });
+  // Turtle entry/exit presets: one row that shows the entry level and the exit level together.
+  const dc10 = donchian(candles, 10), dc55 = donchian(candles, 55);
+  set('dcSys1', `${px(dc.high)} / ${px(dc10.low)}`);
+  set('dcSys2', `${px(dc55.high)} / ${px(dc.low)}`);
+  // Short side mirrors it: entry on the entry-length low, exit on the exit-length high.
+  set('dcSys1S', `${px(dc.low)} / ${px(dc10.high)}`);
+  set('dcSys2S', `${px(dc55.low)} / ${px(dc.high)}`);
   set('hv', pctPlain(historicalVol(cl, 20, PERIODS_PER_YEAR[tf]||365),1), '', 'annualised');
 
   /* ---- Volume ---- */
@@ -8624,7 +8639,7 @@ let chartBarCount = 45; // currently selected window size
 // coin's own perp, with one-at-a-time study chips (same set and study ids as index.html's Market Indices breakdown).
 let tvChartMode = false;
 let tvChartStudy = new Set(['supertrend']);
-const TV_STUDY_BUTTONS = [['ichimoku','Ichimoku'],['supertrend','Supertrend'],['bb','Bollinger'],['ema','EMA'],['rsi','RSI'],['macd','MACD'],['cci','CCI(34)'],['swing','Swing']];
+const TV_STUDY_BUTTONS = [['ichimoku','Ichimoku'],['supertrend','Supertrend'],['bb','Bollinger'],['ema','EMA'],['rsi','RSI'],['macd','MACD'],['cci','CCI(34)'],['donchian','Donchian'],['swing','Swing']];
 const TV_STUDY_MAP = {
   ichimoku: 'IchimokuCloud@tv-basicstudies',
   supertrend: 'STD;Supertrend',
@@ -8640,6 +8655,14 @@ const TV_STUDY_MAP = {
       styles: { plot_0: { color: c, linewidth: 2 }, Plot: { color: c, linewidth: 2 } }
     };
   }),
+  // Donchian Channels, one length per key; the chart chip cycles 20 -> 55 -> off.
+  // `length` is the named input; `in_0` is what Pine-based STD; scripts read.
+  ...Object.fromEntries([[20, '#26C6DA'], [55, '#FF9800']].map(([n, c]) => ['donchian' + n, {
+    id: 'STD;Donchian_Channels',
+    inputs: { length: n, in_0: n },
+    override: { 'Plot.color': c, 'plot.color': c, 'upper.color': c, 'lower.color': c, 'basis.color': c },
+    overrides: { 'Plot.color': c, 'plot.color': c, 'upper.color': c, 'lower.color': c, 'basis.color': c }
+  }])),
   rsi: 'RSI@tv-basicstudies',
   macd: 'MACD@tv-basicstudies',
   cci: { id: 'CCI@tv-basicstudies', inputs: { length: 34 } },
@@ -8665,16 +8688,18 @@ let trendOverlayEnabled = false; // "Chart" checkbox in the Trend header — sho
 // BB Bandwidth and Historical Vol are all normalized/derived readings on
 // their own scale and can't be meaningfully overlaid — same convention as
 // the Trend section above.
-const VOLATILITY_CHARTABLE = new Set(['bbUpper','bbMid','bbLower','kcUpper','kcLower','dcHigh','dcLow']);
+const VOLATILITY_CHARTABLE = new Set(['bbUpper','bbMid','bbLower','kcUpper','kcLower','dcHigh','dcLow','dcHigh10','dcLow10','dcHigh55','dcLow55','dcSys1','dcSys2','dcSys1S','dcSys2S']);
 // Bollinger Upper/Mid/Lower is the one band set traders reliably want
 // auto-added, so the header "Chart" checkbox sweeps in just those three.
 // Keltner Upper/Lower and Donchian High/Low overlap Bollinger visually and
 // clutter the chart fast, so they're left for manual, deliberate checking —
 // still individually chartable, just only ever get checked by hand, never
 // swept in by "select all".
-const VOLATILITY_MASTER_EXCLUDE = new Set(['kcUpper','kcLower','dcHigh','dcLow']);
+const VOLATILITY_MASTER_EXCLUDE = new Set(['kcUpper','kcLower','dcHigh','dcLow','dcHigh10','dcLow10','dcHigh55','dcLow55','dcSys1','dcSys2','dcSys1S','dcSys2S']);
+// A preset row ticks/unticks its two Donchian lines together (entry + exit).
+const VOLATILITY_PRESETS = { dcSys1:['dcHigh','dcLow10'], dcSys2:['dcHigh55','dcLow'], dcSys1S:['dcLow','dcHigh10'], dcSys2S:['dcLow55','dcHigh'] };
 let volatilityMemberOverlay = new Set(); // individually-checked Volatility member keys shown on the Chart
-let volatilityOverlayEnabled = false; // "Chart" checkbox in the Volatility header — shows only Bollinger Upper/Mid/Lower, see VOLATILITY_MASTER_EXCLUDE
+let volatilityOverlayEnabled = false; // legacy header-sweep flag, now always false: the Volatility header checkbox loads the dcSys1 preset instead
 // Momentum indicators are all bounded/unbounded oscillators (RSI, Stoch,
 // CCI, Williams %R, MFI, ROC) — none of them share the price chart's $
 // scale, so the Momentum section has no Chart checkboxes at all (header or
@@ -8728,6 +8753,7 @@ function trendShown(key){
   return trendOverlayEnabled || trendMemberOverlay.has(key);
 }
 function volatilityShown(key){
+  if(VOLATILITY_PRESETS[key]) return VOLATILITY_PRESETS[key].every(k => volatilityMemberOverlay.has(k));
   if(VOLATILITY_MASTER_EXCLUDE.has(key)) return volatilityMemberOverlay.has(key);
   return volatilityOverlayEnabled || volatilityMemberOverlay.has(key);
 }
@@ -8938,12 +8964,21 @@ function setTvChartMode(on){
   if(tvChartMode && chartIdx>=0) collapsedGroups.delete(chartIdx); // show it straight away
   renderGroups(latestValues);
 }
+function tvDonchianLabel(){
+  return tvChartStudy.has('donchian20') ? 'Donchian 20' : tvChartStudy.has('donchian55') ? 'Donchian 55' : 'Donchian';
+}
 function setTvStudy(key){
   // One study at a time: tapping the active one turns it off (plain chart), another switches to it alone.
-  const wasActive = tvChartStudy.has(key);
+  // Donchian cycles 20 -> 55 -> off on successive taps.
+  if(key==='donchian') key = tvChartStudy.has('donchian20') ? 'donchian55' : tvChartStudy.has('donchian55') ? null : 'donchian20';
+  const wasActive = key!==null && tvChartStudy.has(key);
   tvChartStudy.clear();
-  if(!wasActive) tvChartStudy.add(key);
-  document.querySelectorAll('#taGroupsGrid .taTvStudy').forEach(b=>b.classList.toggle('active', tvChartStudy.has(b.dataset.study)));
+  if(key!==null && !wasActive) tvChartStudy.add(key);
+  document.querySelectorAll('#taGroupsGrid .taTvStudy').forEach(b=>{
+    const d = b.dataset.study==='donchian';
+    b.classList.toggle('active', d ? (tvChartStudy.has('donchian20')||tvChartStudy.has('donchian55')) : tvChartStudy.has(b.dataset.study));
+    if(d) b.textContent = tvDonchianLabel();
+  });
   syncTvChartFrame();
 }
 
@@ -8995,7 +9030,7 @@ function renderGroups(values){
     const body = g.isChart
       ? (tvChartMode
         ? `<div class="index-chart-wrap" style="margin-top:0;"><iframe id="taTvFrame" class="index-chart-frame" title="TradingView chart"></iframe></div>
-           <div class="index-study-toggle" style="margin-top:10px;">${TV_STUDY_BUTTONS.map(([k,l])=>`<button type="button" class="taTvStudy${tvChartStudy.has(k)?' active':''}" data-study="${k}"${k==='swing'?' title="Mark swing highs / lows"':''}>${l}</button>`).join('')}</div>`
+           <div class="index-study-toggle" style="margin-top:10px;">${TV_STUDY_BUTTONS.map(([k,l])=>`<button type="button" class="taTvStudy${(k==='donchian'?(tvChartStudy.has('donchian20')||tvChartStudy.has('donchian55')):tvChartStudy.has(k))?' active':''}" data-study="${k}"${k==='swing'?' title="Mark swing highs / lows"':k==='donchian'?' title="Tap: 20, again: 55, again: off"':''}>${k==='donchian'?tvDonchianLabel():l}</button>`).join('')}</div>`
         : `<div class="analysis-chart-wrap"><canvas id="taChartCanvas"></canvas><div class="analysis-chart-empty" id="taChartEmpty">No chart data yet</div></div>`)
       : g.subs
         ? g.subs.map(sub => renderRelStrengthSub(sub, values)).join('')
@@ -9052,8 +9087,8 @@ function renderGroups(values){
         ${g.key==='trend' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Trend indicator on the Chart" onclick="event.stopPropagation()">
           <input type="checkbox" class="taTrendChartToggle" ${trendOverlayEnabled ? 'checked' : ''}>
         </label>` : ''}
-        ${g.key==='volatility' ? `<label class="analysis-ict-chart-toggle" title="Overlay Bollinger Upper/Mid/Lower on the Chart" onclick="event.stopPropagation()">
-          <input type="checkbox" class="taVolatilityChartToggle" ${volatilityOverlayEnabled ? 'checked' : ''}>
+        ${g.key==='volatility' ? `<label class="analysis-ict-chart-toggle" title="Overlay Donchian Long (High 20 / Low 10) on the Chart" onclick="event.stopPropagation()">
+          <input type="checkbox" class="taVolatilityChartToggle" ${volatilityShown('dcSys1') ? 'checked' : ''}>
         </label>` : ''}
         ${g.key==='ichimoku' ? `<label class="analysis-ict-chart-toggle" title="Overlay every chartable Ichimoku line on the Chart" onclick="event.stopPropagation()">
           <input type="checkbox" class="taIchimokuChartToggle" ${ichimokuOverlayEnabled ? 'checked' : ''}>
@@ -9131,11 +9166,10 @@ function toggleTrendOverlay(checked){
   renderGroups(latestValues);
 }
 function toggleVolatilityOverlay(checked){
-  volatilityOverlayEnabled = checked;
-  // Wipe only the header-controlled members — anything from
-  // VOLATILITY_MASTER_EXCLUDE that was checked by hand stays checked, since
-  // the header never governed it in the first place.
-  volatilityMemberOverlay = new Set([...volatilityMemberOverlay].filter(k => VOLATILITY_MASTER_EXCLUDE.has(k)));
+  // The header checkbox loads the Donchian Long (High 20 / Low 10) preset (not Bollinger)
+  // and clears every Volatility line when unticked.
+  volatilityOverlayEnabled = false;
+  volatilityMemberOverlay = new Set(checked ? VOLATILITY_PRESETS.dcSys1 : []);
   const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
   if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
   renderGroups(latestValues);
@@ -9208,8 +9242,7 @@ function toggleVolatilityMember(key, checked){
     const headerKeys = [...VOLATILITY_CHARTABLE].filter(k => !VOLATILITY_MASTER_EXCLUDE.has(k));
     volatilityMemberOverlay = new Set([...headerKeys, ...keptExcluded]);
   }
-  if(checked) volatilityMemberOverlay.add(key);
-  else volatilityMemberOverlay.delete(key);
+  (VOLATILITY_PRESETS[key] || [key]).forEach(k => { if(checked) volatilityMemberOverlay.add(k); else volatilityMemberOverlay.delete(k); });
   const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
   if(checked && chartIdx>=0 && collapsedGroups.has(chartIdx)) collapsedGroups.delete(chartIdx);
   renderGroups(latestValues);
@@ -9358,13 +9391,14 @@ function drawTaChart(){
         if(volatilityShown('kcLower')) volLevels.push(kc.lower[i]);
       }
     }
-    if(volatilityShown('dcHigh')||volatilityShown('dcLow')){
-      const dc = donchianSeries(latestCandles, 20);
+    DONCHIAN_LENS.forEach(([len, sfx])=>{
+      if(!(volatilityShown('dcHigh'+sfx)||volatilityShown('dcLow'+sfx))) return;
+      const dc = donchianSeries(latestCandles, len);
       for(let i=startIdx;i<latestCandles.length;i++){
-        if(volatilityShown('dcHigh')) volLevels.push(dc.high[i]);
-        if(volatilityShown('dcLow')) volLevels.push(dc.low[i]);
+        if(volatilityShown('dcHigh'+sfx)) volLevels.push(dc.high[i]);
+        if(volatilityShown('dcLow'+sfx)) volLevels.push(dc.low[i]);
       }
-    }
+    });
     volLevels.forEach(v=>{ if(Number.isFinite(v)){ if(v>max) max=v; if(v<min) min=v; } });
   }
   // Same widening for any checked Ichimoku overlay — Span A/B (and the
@@ -9550,7 +9584,33 @@ function drawTrendOverlay(ctx, bars, startIdx, x, y){
 // Draws whichever Volatility members are individually checked (Bollinger
 // Bands, Keltner Channel, Donchian Channel) on top of the candles. Same
 // draw-a-line-series approach as drawTrendOverlay() above.
-const VOLATILITY_LINE_COLOR = { bbUpper:'#a78bfa', bbMid:'#8b93a3', bbLower:'#a78bfa', kcUpper:'#5b8cff', kcLower:'#5b8cff', dcHigh:'#f0c24b', dcLow:'#f0c24b' };
+const VOLATILITY_LINE_COLOR = { bbUpper:'#a78bfa', bbMid:'#8b93a3', bbLower:'#a78bfa', kcUpper:'#5b8cff', kcLower:'#5b8cff', dcHigh:'#f0c24b', dcLow:'#f0c24b', dcHigh10:'#26c6da', dcLow10:'#26c6da', dcHigh55:'#ff9800', dcLow55:'#ff9800' };
+const DONCHIAN_LENS = [[10,'10'],[20,''],[55,'55']];
+// Turtle-style systems behind the dcSys* preset rows: breakout entry length / exit length.
+const DONCHIAN_SYSTEMS = {
+  dcSys1:{ side:'long', entry:20, exit:10 }, dcSys2:{ side:'long', entry:55, exit:20 },
+  dcSys1S:{ side:'short', entry:20, exit:10 }, dcSys2S:{ side:'short', entry:55, exit:20 }
+};
+// Same rules as the Pine script: compare the close with the PRIOR bars' N-bar extreme.
+// Long: enter on a close above the entry-length high, exit on a close below the exit-length low.
+// Short: enter on a close below the entry-length low, exit on a close above the exit-length high.
+// Returns [{i, type:'entry'|'exit'}] over the full candle series.
+function donchianSignals(candles, sys){
+  const en = donchianSeries(candles, sys.entry), ex = donchianSeries(candles, sys.exit);
+  const out = [];
+  let inPos = false;
+  for(let i=1;i<candles.length;i++){
+    const close = candles[i].close;
+    const entryLvl = sys.side==='long' ? en.high[i-1] : en.low[i-1];
+    const exitLvl = sys.side==='long' ? ex.low[i-1] : ex.high[i-1];
+    if(!Number.isFinite(entryLvl) || !Number.isFinite(exitLvl)) continue;
+    const entered = sys.side==='long' ? close > entryLvl : close < entryLvl;
+    const exited = sys.side==='long' ? close < exitLvl : close > exitLvl;
+    if(!inPos && entered){ inPos = true; out.push({ i, type:'entry' }); }
+    else if(inPos && exited){ inPos = false; out.push({ i, type:'exit' }); }
+  }
+  return out;
+}
 function drawVolatilityOverlay(ctx, bars, startIdx, x, y){
   if(!latestCandles || !(volatilityOverlayEnabled || volatilityMemberOverlay.size)) return;
   const cl = closes(latestCandles);
@@ -9577,11 +9637,31 @@ function drawVolatilityOverlay(ctx, bars, startIdx, x, y){
     if(volatilityShown('kcUpper')) drawLineSeries(kc.upper, VOLATILITY_LINE_COLOR.kcUpper, true);
     if(volatilityShown('kcLower')) drawLineSeries(kc.lower, VOLATILITY_LINE_COLOR.kcLower, true);
   }
-  if(volatilityShown('dcHigh')||volatilityShown('dcLow')){
-    const dc = donchianSeries(latestCandles, 20);
-    if(volatilityShown('dcHigh')) drawLineSeries(dc.high, VOLATILITY_LINE_COLOR.dcHigh, true);
-    if(volatilityShown('dcLow')) drawLineSeries(dc.low, VOLATILITY_LINE_COLOR.dcLow, true);
-  }
+  DONCHIAN_LENS.forEach(([len, sfx])=>{
+    if(!(volatilityShown('dcHigh'+sfx)||volatilityShown('dcLow'+sfx))) return;
+    const dc = donchianSeries(latestCandles, len);
+    if(volatilityShown('dcHigh'+sfx)) drawLineSeries(dc.high, VOLATILITY_LINE_COLOR['dcHigh'+sfx], true);
+    if(volatilityShown('dcLow'+sfx)) drawLineSeries(dc.low, VOLATILITY_LINE_COLOR['dcLow'+sfx], true);
+  });
+  // Entry (green 1) / exit (red 2) markers for every ticked Donchian preset.
+  Object.keys(DONCHIAN_SYSTEMS).forEach(key=>{
+    if(!volatilityShown(key)) return;
+    const sys = DONCHIAN_SYSTEMS[key];
+    donchianSignals(latestCandles, sys).forEach(sig=>{
+      const bi = sig.i - startIdx;
+      if(bi < 0 || bi >= bars.length) return;
+      const bar = latestCandles[sig.i];
+      const isEntry = sig.type==='entry';
+      const below = (sys.side==='long') === isEntry; // long entry / short exit sit under the bar
+      const cx = x(bi), cy = below ? y(bar.low) + 13 : y(bar.high) - 13;
+      ctx.save();
+      ctx.fillStyle = isEntry ? 'rgba(46,125,91,.9)' : 'rgba(178,59,53,.9)';
+      ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(isEntry ? '1' : '2', cx, cy + 0.5);
+      ctx.restore();
+    });
+  });
 }
 
 // Draws whichever Ichimoku members are individually checked (Tenkan/Kijun/
