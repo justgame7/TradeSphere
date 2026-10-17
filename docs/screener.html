@@ -12249,7 +12249,7 @@ function renderPlaybook(){
   if(!host) return;
   const rf = v => `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`;
   host.innerHTML = '<div class="bx-three">' + PLAYBOOK.map(col => `
-    <details class="bx-box bx-fold"${col.tf === '1d' ? ' open' : ''}>
+    <details class="bx-box bx-fold">
       <summary><h4>${col.name} <span class="bx-n">${col.rows.length} screen${col.rows.length > 1 ? 's' : ''}</span></h4><div class="cap" style="margin:4px 0 0;">${col.verdict}</div></summary>
       ${col.rows.map(r => `<div style="padding:9px 0;border-top:1px solid var(--border-soft);">
         <div style="font-weight:600;font-size:12.5px;">${esc(r.title)}</div>
