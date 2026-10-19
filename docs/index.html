@@ -1780,7 +1780,7 @@
         <!-- "Copy all values" is hidden, not removed — the button and copyValues()
              below are left fully intact so this can be switched back on later. -->
         <button type="button" class="analysis-icon-btn" id="taCopyBtn" title="Copy all values" aria-label="Copy all values" onclick="TechAnalysis.copyValues()" style="display:none;">⧉</button>
-        <button type="button" class="analysis-icon-btn" id="taClearChecksBtn" title="Clear all checkboxes" aria-label="Clear all checkboxes" disabled onclick="TechAnalysis.clearAllChecks()"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="3"></rect><path d="M5.5 5.5l5 5M10.5 5.5l-5 5"></path></svg></button>
+        <button type="button" class="analysis-icon-btn" id="taClearChecksBtn" title="Cycle chart overlays: Market Structure, then Volatility (Donchian), then off" aria-label="Cycle chart overlays" onclick="TechAnalysis.cycleOverlays()"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="3"></rect><path d="M5.5 5.5l5 5M10.5 5.5l-5 5"></path></svg></button>
         <button type="button" class="analysis-icon-btn analysis-toggle-all" id="taToggleAllBtn" title="Collapse all sections" aria-label="Collapse all sections" onclick="TechAnalysis.toggleAll()"><span class="taa-chevron">⌄</span></button>
         <button type="button" class="analysis-icon-btn pl-trigger" id="taPulseBtn" title="Trends, news &amp; social" aria-label="Trends, news and social pulse" onclick="TrendPulse.open()"><svg viewBox="0 0 16 16" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8.6h2.6l1.6-4.4 2.7 7.6 1.9-5.2h4.2"></path><circle cx="13.6" cy="3" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
         <button type="button" class="analysis-close" id="taCloseBtn" aria-label="Close" onclick="TechAnalysis.close()">✕</button>
@@ -6563,7 +6563,7 @@ function anyOverlayChecked(){
 function updateClearChecksBtn(){
   const btn = el('taClearChecksBtn');
   if(!btn) return;
-  btn.disabled = !anyOverlayChecked();
+  btn.disabled = false; // the button now cycles presets, so it is always usable
 }
 // Clears every Chart-overlay checkbox in one go — both header "select all"
 // toggles and individually-checked members — across ICT, Trend, Volatility,
@@ -6576,6 +6576,37 @@ function clearAllChecks(){
   ichimokuOverlayEnabled = false; ichimokuMemberOverlay = new Set();
   structureOverlayEnabled = false; structureMemberOverlay = new Set();
   volumeOverlayEnabled = false; volumeMemberOverlay = new Set();
+  renderGroups(latestValues);
+}
+
+// The header button steps through Market Structure -> Volatility (Donchian Long
+// 20/10) -> everything off -> Market Structure ... Market Structure is the page
+// default, so the first tap goes to Volatility. Any other hand-picked mix of
+// checkboxes counts as "custom" and the next tap simply clears it.
+// ICT's own default (BOS + CHoCH on the chart) belongs to the Market Structure preset.
+const DEFAULT_ICT_MEMBERS = ['bos','choch'];
+function isDefaultIct(){
+  return ictMemberOverlay.size === DEFAULT_ICT_MEMBERS.length && DEFAULT_ICT_MEMBERS.every(k => ictMemberOverlay.has(k));
+}
+function cycleOverlays(){
+  const structureOnly = structureOverlayEnabled && !structureMemberOverlay.size &&
+    !ictOverlayEnabled && isDefaultIct() && !trendOverlayEnabled && !trendMemberOverlay.size &&
+    !volatilityOverlayEnabled && !volatilityMemberOverlay.size && !ichimokuOverlayEnabled && !ichimokuMemberOverlay.size &&
+    !volumeOverlayEnabled && !volumeMemberOverlay.size;
+  const anyOn = anyOverlayChecked();
+  clearAllChecks(); // also re-renders; set the next state below and render again
+  const idxOf = k => GROUPS.findIndex(g=>g.key===k);
+  const open = k => { const i = idxOf(k); if(i>=0) collapsedGroups.delete(i); };
+  const close = k => { const i = idxOf(k); if(i>=0) collapsedGroups.add(i); };
+  if(structureOnly){
+    volatilityMemberOverlay = new Set(VOLATILITY_PRESETS.dcSys1);
+    close('structure'); open('volatility');
+  } else if(!anyOn){
+    structureOverlayEnabled = true;
+    ictMemberOverlay = new Set(DEFAULT_ICT_MEMBERS);
+    close('volatility'); open('structure');
+  } // Volatility preset or a custom mix -> stays cleared
+  open('chart');
   renderGroups(latestValues);
 }
 
@@ -6851,7 +6882,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-window.TechAnalysis = { open, openSymbol, close, setTf, refresh, getSymbol: () => currentSymbol, copyValues, clearAllChecks, toggleAll: toggleAllGroups, addToWatchlist, showCoinInfo, showAnalysis, closeAnalysis, GROUPS, _compute: computeValues };
+window.TechAnalysis = { open, openSymbol, close, setTf, refresh, getSymbol: () => currentSymbol, copyValues, clearAllChecks, cycleOverlays, toggleAll: toggleAllGroups, addToWatchlist, showCoinInfo, showAnalysis, closeAnalysis, GROUPS, _compute: computeValues };
 })();
 </script>
 
