@@ -6564,6 +6564,19 @@ function updateClearChecksBtn(){
   const btn = el('taClearChecksBtn');
   if(!btn) return;
   btn.disabled = false; // the button now cycles presets, so it is always usable
+  // The icon previews what the next tap does: Volatility, then "off" (the X), then Market Structure.
+  const state = overlayCycleState();
+  const next = state==='structure' ? 'volatility' : state==='off' ? 'structure' : 'off';
+  if(btn.dataset.next === next) return;
+  btn.dataset.next = next;
+  if(!btn.dataset.xIcon) btn.dataset.xIcon = btn.innerHTML;
+  if(next==='off'){
+    btn.innerHTML = btn.dataset.xIcon;
+    btn.title = btn.ariaLabel = 'Next: clear all chart overlays';
+  } else {
+    btn.innerHTML = `<span style="font-size:13px;font-weight:700;line-height:1;font-family:var(--font-mono);">${next==='volatility' ? 'V' : 'M'}</span>`;
+    btn.title = btn.ariaLabel = next==='volatility' ? 'Next: Volatility (Donchian Long 20/10)' : 'Next: Market Structure';
+  }
 }
 // Clears every Chart-overlay checkbox in one go — both header "select all"
 // toggles and individually-checked members — across ICT, Trend, Volatility,
@@ -6588,20 +6601,28 @@ const DEFAULT_ICT_MEMBERS = ['bos','choch'];
 function isDefaultIct(){
   return ictMemberOverlay.size === DEFAULT_ICT_MEMBERS.length && DEFAULT_ICT_MEMBERS.every(k => ictMemberOverlay.has(k));
 }
+// Which preset the chart overlays are currently in: 'structure' (page default),
+// 'volatility' (Donchian Long 20/10), 'off', or 'custom' for any other mix.
+function overlayCycleState(){
+  const othersOff = !ictOverlayEnabled && !trendOverlayEnabled && !trendMemberOverlay.size &&
+    !ichimokuOverlayEnabled && !ichimokuMemberOverlay.size && !volumeOverlayEnabled && !volumeMemberOverlay.size;
+  if(!anyOverlayChecked()) return 'off';
+  if(othersOff && isDefaultIct() && structureOverlayEnabled && !structureMemberOverlay.size &&
+     !volatilityOverlayEnabled && !volatilityMemberOverlay.size) return 'structure';
+  if(othersOff && !ictMemberOverlay.size && !structureOverlayEnabled && !structureMemberOverlay.size &&
+     !volatilityOverlayEnabled && volatilityMemberOverlay.size === VOLATILITY_PRESETS.dcSys1.length && volatilityShown('dcSys1')) return 'volatility';
+  return 'custom';
+}
 function cycleOverlays(){
-  const structureOnly = structureOverlayEnabled && !structureMemberOverlay.size &&
-    !ictOverlayEnabled && isDefaultIct() && !trendOverlayEnabled && !trendMemberOverlay.size &&
-    !volatilityOverlayEnabled && !volatilityMemberOverlay.size && !ichimokuOverlayEnabled && !ichimokuMemberOverlay.size &&
-    !volumeOverlayEnabled && !volumeMemberOverlay.size;
-  const anyOn = anyOverlayChecked();
+  const state = overlayCycleState();
   clearAllChecks(); // also re-renders; set the next state below and render again
   const idxOf = k => GROUPS.findIndex(g=>g.key===k);
   const open = k => { const i = idxOf(k); if(i>=0) collapsedGroups.delete(i); };
   const close = k => { const i = idxOf(k); if(i>=0) collapsedGroups.add(i); };
-  if(structureOnly){
+  if(state==='structure'){
     volatilityMemberOverlay = new Set(VOLATILITY_PRESETS.dcSys1);
     close('structure'); open('volatility');
-  } else if(!anyOn){
+  } else if(state==='off'){
     structureOverlayEnabled = true;
     ictMemberOverlay = new Set(DEFAULT_ICT_MEMBERS);
     close('volatility'); open('structure');
