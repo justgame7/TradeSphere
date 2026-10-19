@@ -5382,7 +5382,7 @@ let chartBarCount = 45; // currently selected window size
 // coin's own perp, with the same one-at-a-time study chips the Market Indices breakdown uses (INDEX_STUDY_MAP).
 let tvChartMode = false;
 let tvChartStudy = new Set(['supertrend']);
-const TV_STUDY_BUTTONS = [['ichimoku','Ichimoku'],['supertrend','Supertrend'],['bb','Bollinger'],['ema','EMA'],['rsi','RSI'],['macd','MACD'],['cci','CCI(34)'],['donchian','Donchian'],['swing','Swing']];
+const TV_STUDY_BUTTONS = [['ichimoku','Ichimoku'],['supertrend','Supertrend'],['bb','Bollinger'],['ema','EMA'],['rsi','RSI'],['macd','MACD'],['cci','CCI(34)'],['donchian','Donchian'],['avp','Anchored VP'],['swing','Swing']];
 // Trend indicators that can be drawn straight onto the price Chart (same $
 // scale, no separate panel needed). MACD, ADX/±DI and Aroon live on their
 // own 0–100 or unbounded scale and can't be meaningfully overlaid on a
@@ -5639,6 +5639,27 @@ function syncRatioChartFrames(){
 function tvCoinSymbol(){
   return `${currentSource === 'Bybit' ? 'BYBIT' : 'BINANCE'}:${currentSymbol}.P`;
 }
+// Anchored Volume Profile: TradingView's embed can't take a clicked anchor, so use its Fixed Range Volume
+// Profile study with the range running from the anchor bar to the latest bar. The anchor is the major swing
+// of the last 90 bars: the lowest low (avpLow) or the highest high (avpHigh).
+const TV_AVP_LOOKBACK = 90;
+function tvAvpAnchorTime(k){
+  const c = latestCandles;
+  if(!c || !c.length) return null;
+  let best = Math.max(0, c.length - TV_AVP_LOOKBACK);
+  for(let i=best;i<c.length;i++){
+    if(k==='avpHigh' ? c[i].high > c[best].high : c[i].low < c[best].low) best = i;
+  }
+  return c[best].time;
+}
+function tvStudyDefs(k){
+  if(k==='avpLow' || k==='avpHigh'){
+    const from = tvAvpAnchorTime(k);
+    if(from === null) return [];
+    return [{ id: 'VbPFixed@tv-basicstudies', inputs: { first_bar_time: from, last_bar_time: latestCandles[latestCandles.length - 1].time } }];
+  }
+  return INDEX_STUDY_MAP[k] || [];
+}
 function tvChartDoc(){
   const cfg = {
     autosize: true,
@@ -5655,7 +5676,7 @@ function tvChartDoc(){
     allow_symbol_change: false,
     save_image: false,
     withdateranges: false,
-    studies: Array.from(tvChartStudy).flatMap(k => INDEX_STUDY_MAP[k] || []),
+    studies: Array.from(tvChartStudy).flatMap(k => tvStudyDefs(k)),
     support_host: 'https://www.tradingview.com'
   };
   const json = JSON.stringify(cfg).replace(/</g, '\\u003c');
@@ -5675,7 +5696,8 @@ function syncTvChartFrame(){
   if(!frame || !tvChartMode || !currentSymbol) return;
   const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
   if(chartIdx<0 || collapsedGroups.has(chartIdx)) return;
-  const key = [tvCoinSymbol(), currentTf, Array.from(tvChartStudy).join(',')].join('|');
+  const avpK = ['avpLow','avpHigh'].find(k => tvChartStudy.has(k));
+  const key = [tvCoinSymbol(), currentTf, Array.from(tvChartStudy).join(','), avpK ? tvAvpAnchorTime(avpK) : ''].join('|');
   if(frame.dataset.key === key) return;
   frame.dataset.key = key;
   frame.srcdoc = tvChartDoc();
@@ -5692,20 +5714,28 @@ function setTvChartMode(on){
   if(tvChartMode && chartIdx>=0) collapsedGroups.delete(chartIdx); // show it straight away
   renderGroups(latestValues);
 }
-function tvDonchianLabel(){
-  return tvChartStudy.has('donchian20') ? 'Donchian 20' : tvChartStudy.has('donchian55') ? 'Donchian 55' : 'Donchian';
-}
+// Chips that step through several variants on repeated taps, then off:
+// Donchian 20 -> 55, Anchored Volume Profile from the last swing low -> last swing high.
+const TV_CYCLES = {
+  donchian: { base:'Donchian', keys:['donchian20','donchian55'], labels:{ donchian20:'Donchian 20', donchian55:'Donchian 55' },
+              hint:'Tap: 20, again: 55, again: off' },
+  avp: { base:'Anchored VP', keys:['avpLow','avpHigh'], labels:{ avpLow:'AVP: Low', avpHigh:'AVP: High' },
+         hint:'Tap: profile from the lowest low of the last 90 bars, again: from the highest high, again: off' }
+};
+function tvCycleActive(k){ return TV_CYCLES[k].keys.find(x => tvChartStudy.has(x)) || null; }
+function tvCycleLabel(k){ const a = tvCycleActive(k); return a ? TV_CYCLES[k].labels[a] : TV_CYCLES[k].base; }
 function setTvStudy(key){
   // One study at a time: tapping the active one turns it off (plain chart), another switches to it alone.
-  // Donchian cycles 20 -> 55 -> off on successive taps.
-  if(key==='donchian') key = tvChartStudy.has('donchian20') ? 'donchian55' : tvChartStudy.has('donchian55') ? null : 'donchian20';
+  // Cycling chips (see TV_CYCLES) move to their next variant on each tap and then off.
+  const cyc = TV_CYCLES[key];
+  if(cyc){ const i = cyc.keys.indexOf(tvCycleActive(key)); key = i + 1 < cyc.keys.length ? cyc.keys[i + 1] : null; }
   const wasActive = key!==null && tvChartStudy.has(key);
   tvChartStudy.clear();
   if(key!==null && !wasActive) tvChartStudy.add(key);
   document.querySelectorAll('#taGroupsGrid .taTvStudy').forEach(b=>{
-    const d = b.dataset.study==='donchian';
-    b.classList.toggle('active', d ? (tvChartStudy.has('donchian20')||tvChartStudy.has('donchian55')) : tvChartStudy.has(b.dataset.study));
-    if(d) b.textContent = tvDonchianLabel();
+    const c = TV_CYCLES[b.dataset.study];
+    b.classList.toggle('active', c ? !!tvCycleActive(b.dataset.study) : tvChartStudy.has(b.dataset.study));
+    if(c) b.textContent = tvCycleLabel(b.dataset.study);
   });
   syncTvChartFrame();
 }
@@ -5758,7 +5788,7 @@ function renderGroups(values){
     const body = g.isChart
       ? (tvChartMode
         ? `<div class="index-chart-wrap" style="margin-top:0;"><iframe id="taTvFrame" class="index-chart-frame" title="TradingView chart"></iframe></div>
-           <div class="index-study-toggle" style="margin-top:10px;">${TV_STUDY_BUTTONS.map(([k,l])=>`<button type="button" class="taTvStudy${(k==='donchian'?(tvChartStudy.has('donchian20')||tvChartStudy.has('donchian55')):tvChartStudy.has(k))?' active':''}" data-study="${k}"${k==='swing'?' title="Mark swing highs / lows"':k==='donchian'?' title="Tap: 20, again: 55, again: off"':''}>${k==='donchian'?tvDonchianLabel():l}</button>`).join('')}</div>`
+           <div class="index-study-toggle" style="margin-top:10px;">${TV_STUDY_BUTTONS.map(([k,l])=>`<button type="button" class="taTvStudy${(TV_CYCLES[k] ? tvCycleActive(k) : tvChartStudy.has(k))?' active':''}" data-study="${k}"${k==='swing'?' title="Mark swing highs / lows"':TV_CYCLES[k]?` title="${TV_CYCLES[k].hint}"`:''}>${TV_CYCLES[k]?tvCycleLabel(k):l}</button>`).join('')}</div>`
         : `<div class="analysis-chart-wrap"><canvas id="taChartCanvas"></canvas><div class="analysis-chart-empty" id="taChartEmpty">No chart data yet</div></div>`)
       : g.subs
         ? g.subs.map(sub => renderRelStrengthSub(sub, values)).join('')
