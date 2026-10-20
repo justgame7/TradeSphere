@@ -887,6 +887,13 @@
   .tf-track::-webkit-scrollbar{display:none;}
   .tf-track button{flex:0 0 40px;width:40px;padding:8px 0;text-align:center;scroll-snap-align:start;}
   .analysis-tf-toggle.tf-scroll button.active{box-shadow:none;}
+  /* Desktop / tablet: there is room, so show every timeframe at once instead of the scrolling 3-slot window.
+     Phones (under 768px) keep the compact scrolling box above. */
+  @media(min-width:768px){
+    .analysis-tf-toggle.tf-scroll{width:auto;overflow:visible;}
+    .tf-track{width:auto;overflow:visible;scroll-snap-type:none;}
+    .tf-track button{flex:0 0 auto;width:auto;padding:8px 13px;}
+  }
   .analysis-status-row{display:flex;align-items:center;gap:8px;margin:0 0 16px;color:var(--faint);font:600 11px var(--font-mono);letter-spacing:.03em;}
   .analysis-status-row .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none;}
 
