@@ -1479,6 +1479,15 @@
   .analysis-group-card.chart-group{grid-column:1/-1;}
   .analysis-chart-wrap{height:240px;background:#0b0e14;border:1px solid var(--border);border-radius:12px;padding:8px;position:relative;}
   .analysis-chart-wrap canvas{width:100%;height:100%;display:block;}
+  /* Tap-a-marker details sit under the chart box (never over the candles) */
+  .analysis-marker-info{margin-top:8px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;font:600 12px var(--font-mono);color:var(--text);}
+  .analysis-marker-info[hidden]{display:none;}
+  .analysis-marker-info .mi-tag{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;color:#fff;font-size:10px;font-weight:700;}
+  .analysis-marker-info .mi-tag.entry{background:rgba(46,125,91,.95);}
+  .analysis-marker-info .mi-tag.exit{background:rgba(178,59,53,.95);}
+  .analysis-marker-info .mi-k{color:var(--faint);font-weight:500;margin-right:5px;}
+  .analysis-marker-info .mi-pos{color:var(--accent);}
+  .analysis-marker-info .mi-neg{color:var(--red);}
   .analysis-chart-empty{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;color:var(--faint);font:600 12px var(--font-mono);pointer-events:none;text-align:center;}
   @media(max-width:700px){.analysis-chart-wrap{height:190px;}}
   /* ---- Relative Strength (vs BTC / vs ETH): optional TradingView ratio chart ---- */
@@ -9068,7 +9077,7 @@ function renderGroups(values){
       ? (tvChartMode
         ? `<div class="index-chart-wrap" style="margin-top:0;"><iframe id="taTvFrame" class="index-chart-frame" title="TradingView chart"></iframe></div>
            <div class="index-study-toggle" style="margin-top:10px;">${TV_STUDY_BUTTONS.map(([k,l])=>`<button type="button" class="taTvStudy${(TV_CYCLES[k] ? tvCycleActive(k) : tvChartStudy.has(k))?' active':''}" data-study="${k}"${k==='swing'?' title="Mark swing highs / lows"':TV_CYCLES[k]?` title="${TV_CYCLES[k].hint}"`:''}>${TV_CYCLES[k]?tvCycleLabel(k):l}</button>`).join('')}</div>`
-        : `<div class="analysis-chart-wrap"><canvas id="taChartCanvas"></canvas><div class="analysis-chart-empty" id="taChartEmpty">No chart data yet</div></div>`)
+        : `<div class="analysis-chart-wrap"><canvas id="taChartCanvas"></canvas><div class="analysis-chart-empty" id="taChartEmpty">No chart data yet</div></div><div class="analysis-marker-info" id="taMarkerInfo" hidden></div>`)
       : g.subs
         ? g.subs.map(sub => renderRelStrengthSub(sub, values)).join('')
         : g.members.map(([key,label])=>{
@@ -9364,6 +9373,52 @@ function toggleAllGroups(){
 // safe to call unconditionally after any render or toggle — a hidden canvas
 // (display:none body) has a zero-size bounding rect and is simply skipped;
 // the section redraws itself next time it's expanded.
+// Donchian entry/exit circles drawn on the chart are tappable: tapping one shows that candle's close
+// (plus the trade's result on exits) in the strip under the chart; tapping it again hides the strip.
+let donchianMarkerHits = [];   // [{cx, cy, key, i, type}] in canvas CSS px, rebuilt on every draw
+let selectedMarker = null;     // {key, i, type} of the marker whose details are showing
+function donchianMarkerInfoHtml(m){
+  const sys = DONCHIAN_SYSTEMS[m.key];
+  if(!sys || !latestCandles || !volatilityShown(m.key)) return null;
+  const sigs = donchianSignals(latestCandles, sys);
+  const k = sigs.findIndex(g => g.i === m.i && g.type === m.type);
+  if(k < 0) return null;
+  const c = latestCandles[m.i];
+  const isLong = sys.side === 'long';
+  const dayOnly = /^(1d|3d|1w|1M)$/.test(currentTf);
+  const when = new Date(c.time).toLocaleString(undefined, dayOnly ? { day:'2-digit', month:'short', year:'numeric' }
+    : { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  const label = `${isLong ? 'Long' : 'Short'} ${m.type === 'entry' ? 'entry' : 'exit'} (${sys.entry}/${sys.exit})`;
+  const cell = (key, val, cls) => `<span><span class="mi-k">${key}</span><span${cls ? ` class="${cls}"` : ''}>${val}</span></span>`;
+  let html = `<span class="mi-tag ${m.type}">${m.type === 'entry' ? '1' : '2'}</span><span>${label}</span>` +
+             cell('Close', px(c.close)) + cell('Candle', when);
+  if(m.type === 'exit' && k > 0 && sigs[k-1].type === 'entry'){
+    const ec = latestCandles[sigs[k-1].i].close;
+    const pct = (isLong ? c.close - ec : ec - c.close) / ec * 100;
+    html += cell('Entry close', px(ec)) +
+            cell('Result', `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`, pct >= 0 ? 'mi-pos' : 'mi-neg');
+  }
+  return html;
+}
+function renderMarkerInfo(){
+  const box = el('taMarkerInfo');
+  if(!box) return;
+  const html = selectedMarker ? donchianMarkerInfoHtml(selectedMarker) : null;
+  if(!html){ selectedMarker = null; box.hidden = true; box.innerHTML = ''; return; }
+  box.innerHTML = html;
+  box.hidden = false;
+}
+function onTaChartTap(e){
+  const canvas = el('taChartCanvas'); if(!canvas) return;
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  let hit = null, best = 14 * 14; // 14px tap radius (the circles are 8px, fingers need more)
+  donchianMarkerHits.forEach(h => { const d = (h.cx-x)*(h.cx-x) + (h.cy-y)*(h.cy-y); if(d <= best){ best = d; hit = h; } });
+  if(!hit){ if(selectedMarker){ selectedMarker = null; renderMarkerInfo(); } return; }
+  const same = selectedMarker && selectedMarker.key === hit.key && selectedMarker.i === hit.i && selectedMarker.type === hit.type;
+  selectedMarker = same ? null : { key: hit.key, i: hit.i, type: hit.type };
+  renderMarkerInfo();
+}
 function drawTaChart(){
   const chartIdx = GROUPS.findIndex(g=>g.key==='chart');
   if(chartIdx<0 || collapsedGroups.has(chartIdx)) return;
@@ -9379,6 +9434,7 @@ function drawTaChart(){
   if(empty) empty.style.display = 'none';
   const bars = latestCandles.slice(-chartBarCount);
   const startIdx = latestCandles.length - bars.length; // full-array index of bars[0]
+  donchianMarkerHits = [];
   const ratio = window.devicePixelRatio || 1;
   canvas.width = rect.width * ratio; canvas.height = rect.height * ratio;
   const ctx = canvas.getContext('2d');
@@ -9508,6 +9564,7 @@ function drawTaChart(){
   if(ichimokuOverlayEnabled || ichimokuMemberOverlay.size) drawIchimokuOverlay(ctx, bars, startIdx, x, y);
   if((structureOverlayEnabled || structureMemberOverlay.size) && latestStructure) drawMarketStructureOverlay(ctx, bars, startIdx, x, y, width, height, pad);
   if((volumeOverlayEnabled || volumeMemberOverlay.size) && latestVolume) drawVolumeOverlay(ctx, bars, startIdx, x, y, width, height, pad);
+  renderMarkerInfo();
 }
 
 // Draws the ICT/Smart Money section's own data (FVGs, order blocks, breaker,
@@ -9691,6 +9748,7 @@ function drawVolatilityOverlay(ctx, bars, startIdx, x, y){
       const isEntry = sig.type==='entry';
       const below = (sys.side==='long') === isEntry; // long entry / short exit sit under the bar
       const cx = x(bi), cy = below ? y(bar.low) + 13 : y(bar.high) - 13;
+      donchianMarkerHits.push({ cx, cy, key, i: sig.i, type: sig.type });
       ctx.save();
       ctx.fillStyle = isEntry ? 'rgba(46,125,91,.9)' : 'rgba(178,59,53,.9)';
       ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill();
@@ -10183,6 +10241,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(btn) setTf(btn.dataset.tf);
   });
   el('taGroupsGrid').addEventListener('click', e=>{
+    if(e.target.id === 'taChartCanvas'){ onTaChartTap(e); return; }
     const barBtn = e.target.closest('.taBarCountBtn');
     if(barBtn){ setChartBarCount(parseInt(barBtn.dataset.bars, 10)); return; }
     if(e.target.closest('.taTvBtn')){ setTvChartMode(!tvChartMode); return; }
