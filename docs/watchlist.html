@@ -141,6 +141,7 @@
     font:700 11px var(--font-mono);color:var(--faint);border:1px solid var(--border);
   }
   .watch-rank.top{color:var(--gold);border-color:rgba(240,194,75,.4);background:rgba(240,194,75,.08);}
+  .coin-icon-link{cursor:pointer;}
   .coin-icon{width:32px;height:32px;border-radius:50%;flex-shrink:0;object-fit:cover;box-shadow:0 4px 12px rgba(0,0,0,.3);}
   .coin-icon-fallback{
     width:32px;height:32px;border-radius:50%;flex-shrink:0;
@@ -589,7 +590,6 @@
 
 <div class="analysis-overlay" id="analysisOverlay">
   <div class="analysis-overlay-inner">
-    <button class="analysis-overlay-close" id="analysisOverlayClose" type="button" aria-label="Close analysis">×</button>
     <iframe class="analysis-overlay-frame" id="analysisOverlayFrame" title="Coin analysis" src="about:blank"></iframe>
   </div>
 </div>
@@ -1545,8 +1545,8 @@ function renderCoinRow(coin, ticker, rankInfo){
   const rank = rankInfo && rankInfo.rank;
   const isTopRank = typeof rank === 'number' && rank <= 10;
   const icon = (rankInfo && rankInfo.image)
-    ? `<img class="coin-icon" src="${escapeHtml(rankInfo.image)}" alt="${coin.symbol}">`
-    : `<span class="coin-icon-fallback" style="background:${coin.gradient}">${coin.symbol[0]}</span>`;
+    ? `<img class="coin-icon coin-icon-link" src="${escapeHtml(rankInfo.image)}" alt="${coin.symbol}" title="Open ${coin.symbol} technical breakdown" onclick="event.preventDefault(); event.stopPropagation(); openAnalysisOverlay('${coin.binanceSymbol}')">`
+    : `<span class="coin-icon-fallback coin-icon-link" style="background:${coin.gradient}" title="Open ${coin.symbol} technical breakdown" onclick="event.preventDefault(); event.stopPropagation(); openAnalysisOverlay('${coin.binanceSymbol}')">${coin.symbol[0]}</span>`;
 
   return `
     <div class="watch-item" data-symbol="${coin.binanceSymbol}">
@@ -1933,16 +1933,35 @@ function showDegradedBanner(text){
 function openAnalysisOverlay(binanceSymbol){
   if(!binanceSymbol) return;
   const frame = document.getElementById('analysisOverlayFrame');
-  frame.src = `screener.html?symbol=${encodeURIComponent(binanceSymbol)}`;
+  // location.replace so the iframe load adds no joint-history entry of its own (Back must hit the entry pushed below).
+  frame.contentWindow.location.replace(`screener.html?breakdown=${encodeURIComponent(binanceSymbol)}`);
   document.getElementById('analysisOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  // History entry so a real Back (hardware button, swipe-back) closes the
+  // breakdown and returns to the watchlist instead of leaving the page.
+  if(!history.state || !history.state.wlBreakdown){
+    history.pushState({ wlBreakdown: true }, '', location.href);
+  }
 }
-function closeAnalysisOverlay(){
+function hideAnalysisOverlay(){
   document.getElementById('analysisOverlay').classList.remove('open');
-  document.getElementById('analysisOverlayFrame').src = 'about:blank';
+  document.getElementById('analysisOverlayFrame').contentWindow.location.replace('about:blank');
   document.body.style.overflow = '';
 }
-document.getElementById('analysisOverlayClose').addEventListener('click', closeAnalysisOverlay);
+function closeAnalysisOverlay(){
+  if(!document.getElementById('analysisOverlay').classList.contains('open')) return;
+  // Consume the pushed entry; the popstate handler below hides the overlay.
+  if(history.state && history.state.wlBreakdown) history.back();
+  else hideAnalysisOverlay();
+}
+window.addEventListener('popstate', () => {
+  if(document.getElementById('analysisOverlay').classList.contains('open')) hideAnalysisOverlay();
+});
+// The embedded breakdown's own ✕ asks the parent to close.
+window.addEventListener('message', (e) => {
+  const frame = document.getElementById('analysisOverlayFrame');
+  if(e.source === frame.contentWindow && e.data && e.data.type === 'ta-breakdown-closed') closeAnalysisOverlay();
+});
 document.getElementById('analysisOverlay').addEventListener('click', (e) => {
   if(e.target.id === 'analysisOverlay') closeAnalysisOverlay();
 });

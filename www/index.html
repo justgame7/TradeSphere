@@ -497,6 +497,7 @@
     opacity:0;pointer-events:none;transition:opacity .25s ease;
   }
   .top50-backdrop.open{opacity:1;pointer-events:auto;}
+  body.ta-over-top50 .top50-backdrop, body.ta-over-top50 .top50-modal{visibility:hidden;}
   .top50-modal{
     position:fixed;left:0;right:0;bottom:0;z-index:201;
     height:min(88dvh,760px);
@@ -2686,7 +2687,9 @@ function openScreenerForCoin(coin){
   // (coin.futuresSymbol); resolveBinanceFuturesSymbol() is kept only as a
   // fallback for any caller that passes a plain coin/base without one.
   const symbol = coin.futuresSymbol || resolveBinanceFuturesSymbol(coin.symbol || '');
-  closeTop50Modal();
+  // Leave the All Coins sheet open underneath (just hidden while the
+  // breakdown covers it) so closing the breakdown lands back on the list.
+  if(top50Modal.classList.contains('open')) document.body.classList.add('ta-over-top50');
   if(window.TechAnalysis){
     window.TechAnalysis.openSymbol(symbol);
   }
@@ -3035,11 +3038,6 @@ function handleAndroidBack(){
     return;
   }
 
-  if(top50Modal.classList.contains('open')){
-    closeTop50Modal();
-    return;
-  }
-
   if(indicesModal && indicesModal.classList.contains('open')){
     closeIndicesModal();
     return;
@@ -3070,6 +3068,11 @@ function handleAndroidBack(){
 
   if(indexOverlay && indexOverlay.classList.contains('open')){
     closeIndexBreakdown();
+    return;
+  }
+
+  if(top50Modal.classList.contains('open')){
+    closeTop50Modal();
     return;
   }
 
@@ -3164,11 +3167,6 @@ window.addEventListener('popstate', event => {
     syncHistoryForCurrentPage();
     return;
   }
-  if(top50Modal.classList.contains('open')){
-    closeTop50Modal();
-    syncHistoryForCurrentPage();
-    return;
-  }
   if(indicesModal && indicesModal.classList.contains('open')){
     closeIndicesModal();
     syncHistoryForCurrentPage();
@@ -3202,6 +3200,11 @@ window.addEventListener('popstate', event => {
   }
   if(indexOverlay && indexOverlay.classList.contains('open')){
     closeIndexBreakdown();
+    syncHistoryForCurrentPage();
+    return;
+  }
+  if(top50Modal.classList.contains('open')){
+    closeTop50Modal();
     syncHistoryForCurrentPage();
     return;
   }
@@ -6827,6 +6830,7 @@ function close(){
   loadToken++;
   clearTvChartFrame(); // stop the TradingView widget while the overlay is closed
   el('analysisOverlay').classList.remove('open');
+  document.body.classList.remove('ta-over-top50');
   document.body.style.overflow = '';
   // Collapse the buffer entry pushed in openFor() back onto the underlying
   // page state - same reasoning as closeTop50Modal() in the outer script.

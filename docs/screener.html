@@ -10038,6 +10038,14 @@ async function load(symbol, tf){
   setStatus(`${symbol} · ${tfLabel(tf)} · ${candles.length} candles · last bar ${lastBar.toLocaleString()} · ${source}`, 'ok');
 }
 
+// screener.html?breakdown=BTCUSDT (watchlist.html's coin icon) opens this
+// Technical Breakdown overlay straight away, inside an iframe.
+const EMBEDDED = window.parent !== window && new URLSearchParams(location.search).has('breakdown');
+if(EMBEDDED){
+  window.addEventListener('load', () => {
+    openSymbol(new URLSearchParams(location.search).get('breakdown'));
+  });
+}
 function open(){
   const input = el('taCoinSearchInput');
   const symbol = normalizeSymbol(input.value);
@@ -10072,13 +10080,16 @@ function openFor(symbol, tfWanted){
   // app — same trick index.html uses for its own overlays. Guarded so
   // re-opening for a different symbol while already open (e.g. typing a new
   // symbol into the search box) doesn't push a second entry.
-  if(!history.state || !history.state.analysis){
+  // Skipped when embedded (?breakdown= from watchlist.html): the parent page
+  // owns the history entry and closes the overlay on its own popstate.
+  if(!EMBEDDED && (!history.state || !history.state.analysis)){
     history.pushState({ analysis: true }, '', location.href);
   }
   load(symbol, currentTf);
 }
 function close(){
   loadToken++;
+  if(EMBEDDED){ window.parent.postMessage({ type:'ta-breakdown-closed' }, '*'); return; }
   clearTvChartFrame(); // stop the TradingView widget while the overlay is closed
   el('analysisOverlay').classList.remove('open');
   document.body.classList.remove('ta-open');
