@@ -663,6 +663,7 @@
   .home-card[data-page="watchlist"] .home-icon{background:linear-gradient(135deg,#f0c24b,#b8860b);}
   .home-card[data-page="fear-greed"] .home-icon{background:linear-gradient(135deg,#ff5470,#35e0c0);}
   .home-card[data-page="btc-returns"] .home-icon{background:linear-gradient(135deg,#f7931a,#35e0c0);}
+  .home-card[data-page="btc-cycles"] .home-icon{background:linear-gradient(135deg,#f7931a,#ff5470);}
   .home-card[data-page="season"] .home-icon{background:linear-gradient(135deg,#f5a623,#35e0c0);}
   .home-card[data-page="pulse"] .home-icon{background:linear-gradient(135deg,#5b8cff,#35e0c0);}
   .home-card[data-page="settings"] .home-icon{background:linear-gradient(135deg,#9aa5b8,#5b6478);}
@@ -723,6 +724,7 @@
   .modern-grid .modern-card[data-page="defi"]{--glow:53,224,192;}
   .modern-grid .modern-card[data-page="etf"]{--glow:245,166,35;}
   .modern-grid .modern-card[data-page="btc-returns"]{--glow:247,147,26;}
+  .modern-grid .modern-card[data-page="btc-cycles"]{--glow:255,84,112;}
   .modern-grid .modern-card[data-page="fear-greed"]{--glow:255,84,112;}
   .modern-grid .modern-card[data-page="predictions"]{--glow:167,139,250;}
   .modern-grid .modern-card[data-page="sizing"]{--glow:110,168,255;}
@@ -1385,6 +1387,11 @@
       <span class="nav-label">Bitcoin Returns<small>Monthly, quarterly &amp; yearly performance</small></span>
     </div>
 
+    <div class="nav-item" data-page="btc-cycles">
+      <span class="nav-icon">🔁</span>
+      <span class="nav-label">BTC Cycle Analogs<small>Current drawdown vs past cycles</small></span>
+    </div>
+
     <div class="nav-item" data-page="watchlist">
       <span class="nav-icon">👀</span>
       <span class="nav-label">Watchlist<small>Live BTC, ETH, SOL & HYPE prices</small></span>
@@ -1564,6 +1571,10 @@
                 <span class="home-icon">📆</span>
                 <span><span class="home-title">Bitcoin Returns</span><span class="home-desc">Monthly, quarterly &amp; yearly performance</span></span>
               </button>
+              <button class="home-card modern-card" type="button" data-page="btc-cycles">
+                <span class="home-icon">🔁</span>
+                <span><span class="home-title">BTC Cycle Analogs</span><span class="home-desc">Current drawdown vs past cycles</span></span>
+              </button>
               <button class="home-card modern-card modern-card--banner" type="button" data-page="predictions">
                 <span class="home-icon">🎯</span>
                 <span><span class="home-title">Prediction Markets</span><span class="home-desc">Fed, CPI, ETFs & crypto policy odds</span></span>
@@ -1616,6 +1627,11 @@
       <div class="page-loading" id="loading-btc-returns">Loading Bitcoin Returns…</div>
       <!-- lazy-loaded on first open -->
       <iframe id="iframe-btc-returns" data-src="btc-returns.html"></iframe>
+    </div>
+    <div class="page" data-page="btc-cycles">
+      <div class="page-loading" id="loading-btc-cycles">Loading BTC Cycle Analogs…</div>
+      <!-- lazy-loaded on first open -->
+      <iframe id="iframe-btc-cycles" data-src="btc-cycles.html"></iframe>
     </div>
     <div class="page" data-page="sizing">
       <div class="page-loading" id="loading-sizing">Loading position sizer…</div>
@@ -1916,6 +1932,7 @@ const PAGE_TITLES = {
   watchlist: 'Watchlist',
   'fear-greed': 'Fear & Greed Index',
   'btc-returns': 'Bitcoin Returns',
+  'btc-cycles': 'BTC Cycle Analogs',
   season: 'Season Index',
   settings: 'Trading Settings',
   meridian: 'Meridian',

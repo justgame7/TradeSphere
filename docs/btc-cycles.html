@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
+<script src="net-config.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTC Cycle Analogs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10; --panel:#12151B; --panel2:#171B22; --border:#232833; --border-soft:#1B1F28;
+    --text:#E6E9EF; --muted:#8B93A3; --faint:#565F70;
+    --accent:#35E0C0; --red:#FF5470; --amber:#F5A623; --blue:#5B8CFF; --btc:#F7931A;
+    --font-display:'Space Grotesk', sans-serif; --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font-display);background:var(--bg);color:var(--text);padding:28px 20px 70px;
+    background-image:radial-gradient(circle at 12% 0%, rgba(247,147,26,0.07), transparent 40%),
+                     radial-gradient(circle at 92% 15%, rgba(255,84,112,0.06), transparent 35%);
+  }
+  .wrap{max-width:900px;margin:0 auto;}
+
+  .topheader{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
+  .eyebrow{display:flex;align-items:center;gap:8px;font:700 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--btc);box-shadow:0 0 8px var(--btc);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .updated-label{font:10.5px var(--font-mono);color:var(--faint);white-space:nowrap;}
+  .updated-label.label-error{color:var(--red);}
+  .refresh-btn{background:var(--panel);border:1px solid var(--border);color:var(--text);width:32px;height:32px;padding:0;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .refresh-btn:hover{border-color:var(--btc);color:var(--btc);}
+  .refresh-btn svg{width:14px;height:14px;transition:transform .4s;}
+  .refresh-btn.spinning svg{transform:rotate(360deg);}
+  .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:10px 0 16px;max-width:680px;}
+
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;}
+  .chip-label{font:600 11px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-right:2px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--border);color:var(--muted);
+    font:600 12px var(--font-mono);padding:7px 12px;border-radius:20px;cursor:pointer;transition:border-color .15s,color .15s,opacity .15s;}
+  .chip .sw{width:10px;height:10px;border-radius:3px;flex:none;}
+  .chip small{font:500 10px var(--font-mono);color:var(--faint);}
+  .chip:not(.on){opacity:.55;}
+  .chip.on{color:var(--text);}
+  .chip.locked{cursor:default;opacity:1;color:var(--text);}
+
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;}
+  .tile{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 12px;display:flex;flex-direction:column;gap:3px;}
+  .tile-l{font:10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;}
+  .tile-v{font:700 19px var(--font-mono);}
+  .tile-s{font:10.5px var(--font-mono);color:var(--muted);}
+  .pos{color:var(--accent);} .neg{color:var(--red);}
+
+  .chart-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 14px 10px;margin-bottom:10px;}
+  .chart-title{font:600 13px var(--font-display);margin:0 2px 4px;}
+  .chart-sub{font:10.5px var(--font-mono);color:var(--faint);margin:0 2px 6px;}
+  #cv{width:100%;height:340px;display:block;touch-action:pan-y;}
+  .readout{display:flex;flex-wrap:wrap;gap:4px 16px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:14px;font:600 12px var(--font-mono);min-height:40px;}
+  .readout .d{color:var(--faint);}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:14px;}
+  .card h3{margin:0 0 10px;font:700 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  table{width:100%;border-collapse:collapse;font:12px var(--font-mono);}
+  th{font:600 10px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;text-align:right;padding:6px 6px;border-bottom:1px solid var(--border-soft);}
+  th:first-child,td:first-child{text-align:left;}
+  td{text-align:right;padding:9px 6px;border-bottom:1px solid var(--border-soft);white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  .dotc{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px;vertical-align:baseline;}
+  .scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .na{color:var(--faint);}
+  .empty{color:var(--faint);font:12px var(--font-mono);padding:6px 0;}
+
+  details.explain{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:14px;}
+  details.explain summary{cursor:pointer;font:700 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);list-style:none;}
+  details.explain summary::-webkit-details-marker{display:none;}
+  details.explain summary::after{content:'+';float:right;color:var(--faint);}
+  details.explain[open] summary::after{content:'\2212';}
+  details.explain ul{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.65;}
+  details.explain li{margin-bottom:6px;}
+  details.explain b{color:var(--text);font-weight:600;}
+
+  .notice{font-size:12px;line-height:1.6;color:var(--muted);padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--panel2);}
+  .notice b{color:var(--text);}
+  .src-tag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font:10.5px var(--font-mono);color:var(--faint);}
+  .src-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+  .loading{color:var(--faint);font:12px var(--font-mono);padding:30px 0;text-align:center;}
+  .error-box{border:1px solid var(--red);background:rgba(255,84,112,.08);color:var(--red);border-radius:12px;padding:14px;font:12px var(--font-mono);}
+
+  @media (max-width:560px){
+    body{padding:20px 12px 60px;}
+    #cv{height:280px;}
+    .tile-v{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topheader">
+    <div class="eyebrow"><span class="dot"></span>BTC Cycle Analogs</div>
+    <div class="header-right">
+      <span class="updated-label" id="updatedLabel"></span>
+      <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+  </div>
+  <p class="sub">How the current Bitcoin drawdown compares with earlier cycles, each lined up on the day of its peak. Pick which past cycles to overlay; the current cycle always stays on.</p>
+
+  <div class="chip-row" id="chips"></div>
+  <div id="content"><div class="loading">Loading BTC history…</div></div>
+
+  <details class="explain">
+    <summary>How to read this</summary>
+    <ul>
+      <li><b>X-axis, days since peak.</b> Day 0 is the cycle's peak, so every cycle starts at the same point and the paths can be compared directly.</li>
+      <li><b>Y-axis, ROI.</b> The close as a multiple of the peak close: 1 is the peak, 0.6 is 40% below it, 2 is double. The axis is logarithmic, so equal vertical distances are equal percentage moves.</li>
+      <li><b>The idea.</b> The 2019 and 2025 peaks both came as quantitative tightening (QT, the central bank shrinking its balance sheet) was running down. Some traders therefore treat the 2019 path as a template for 2025. The overlay lets you check that for yourself, and against other cycles too.</li>
+      <li><b>Same-day ROI and what happened next.</b> The table shows each past cycle on the same day count as today, and how it moved over the following 90 and 180 days. That is history, not a forecast.</li>
+      <li><b>Similarity.</b> Correlation compares the shape of the paths (1 means they move together), and average gap is how far apart the two lines sat on average. A high correlation on trending data is easy to get, so lean on the gap too.</li>
+      <li><b>Limits.</b> There are only a few cycles. They had different causes (the 2020 rally came after a crash and heavy stimulus). A matching path so far does not mean it continues to match.</li>
+    </ul>
+  </details>
+
+  <div class="notice">
+    <b>Historical comparison, not a prediction.</b>
+    Each cycle is the daily BTC-USD close divided by the close on its peak day. Peak days used: 17 Dec 2017, 27 Jun 2019, 10 Nov 2021 and 6 Oct 2025.
+    <div class="src-tag"><span class="dot"></span><span id="srcTag">Source: Yahoo Finance daily (BTC-USD), Binance daily as fallback</span></div>
+  </div>
+
+</div>
+
+<script>
+const REFRESH_MS = 15 * 60 * 1000;
+const PROXY_TIMEOUT_MS = 10000;
+const CACHE_KEY = 'ts-btc-cycles-cache-v1';
+const SEL_KEY = 'ts-btc-cycles-selected-v1';
+const DAY = 86400000;
+
+// peak = the day each cycle is anchored to (day 0). Past cycles are optional overlays.
+const CYCLES = [
+  { k: '2018', label: '2018', sub: 'Dec 2017 peak', peak: '2017-12-17', color: '#F5A623' },
+  { k: '2019', label: '2019', sub: 'Jun 2019 peak', peak: '2019-06-27', color: '#5B8CFF' },
+  { k: '2022', label: '2022', sub: 'Nov 2021 peak', peak: '2021-11-10', color: '#35E0C0' }
+];
+const CURRENT = { k: 'cur', label: '2025', sub: 'Oct 2025 peak', peak: '2025-10-06', color: '#FF5470' };
+
+let selected = new Set(['2019']);
+try{ const s = JSON.parse(localStorage.getItem(SEL_KEY) || 'null'); if(Array.isArray(s)) selected = new Set(s.filter(k => CYCLES.some(c => c.k === k))); }catch(e){}
+
+let pts = null;        // [[ms, close], ...] ascending
+let series = {};       // k -> ROI array indexed by day since peak
+let hoverDay = null;
+let srcLabel = '';
+
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 3) => Number.isFinite(v) ? v.toFixed(d) : '-';
+const pctFmt = v => Number.isFinite(v) ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%' : '-';
+const pcls = v => v >= 0 ? 'pos' : 'neg';
+
+// ---------------- fetch ----------------
+async function fetchTimeout(url, ms){
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+  try{ return await fetch(url, { cache: 'no-store', signal: ctl.signal }); } finally { clearTimeout(t); }
+}
+async function getJSON(url){
+  try{
+    const r = await fetchTimeout(url, PROXY_TIMEOUT_MS);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  }catch(e){
+    try{
+      const r = await fetchTimeout(TS_NET.workerUrl(url), PROXY_TIMEOUT_MS);
+      if(!r.ok) throw new Error('worker HTTP ' + r.status);
+      return await r.json();
+    }catch(e2){
+      return await Promise.any(TS_NET.corsProxies().map(b => (async () => {
+        const r = await fetchTimeout(b(url), PROXY_TIMEOUT_MS);
+        if(!r.ok) throw new Error('proxy HTTP ' + r.status);
+        return r.json();
+      })()));
+    }
+  }
+}
+async function fetchYahoo(){
+  const d = await getJSON('https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?range=max&interval=1d');
+  const r = d && d.chart && d.chart.result && d.chart.result[0];
+  if(!r || !r.timestamp) throw new Error('Unexpected Yahoo response');
+  const cl = (r.indicators && r.indicators.quote && r.indicators.quote[0] && r.indicators.quote[0].close) || [];
+  const out = [];
+  r.timestamp.forEach((t, i) => { if(typeof cl[i] === 'number' && isFinite(cl[i])) out.push([t * 1000, cl[i]]); });
+  if(out.length < 1000) throw new Error('Yahoo returned too little history');
+  return out;
+}
+async function fetchBinance(){
+  const out = [];
+  let start = Date.UTC(2017, 7, 17);
+  for(let i = 0; i < 6; i++){
+    const rows = await getJSON(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1d&startTime=${start}&limit=1000`);
+    if(!Array.isArray(rows) || !rows.length) break;
+    rows.forEach(k => out.push([+k[0], +k[4]]));
+    start = +rows[rows.length - 1][0] + DAY;
+    if(rows.length < 1000) break;
+  }
+  if(out.length < 1000) throw new Error('Binance returned too little history');
+  return out;
+}
+
+// ---------------- compute ----------------
+function buildSeries(points, peakStr){
+  const t0 = Date.parse(peakStr + 'T00:00:00Z');
+  const i0 = points.findIndex(p => p[0] >= t0 - DAY / 2);
+  if(i0 < 0 || Math.abs(points[i0][0] - t0) > 3 * DAY) return null;
+  const base = points[i0][1], out = [];
+  for(let i = i0; i < points.length; i++){
+    const d = Math.round((points[i][0] - t0) / DAY);
+    if(d >= 0) out[d] = points[i][1] / base;
+  }
+  for(let d = 1; d < out.length; d++) if(out[d] == null) out[d] = out[d - 1];
+  out[0] = 1;
+  return out;
+}
+function computeAll(){
+  series = {};
+  [CURRENT, ...CYCLES].forEach(c => { const s = buildSeries(pts, c.peak); if(s) series[c.k] = s; });
+}
+function similarity(cur, past){
+  const n = Math.min(cur.length, past.length);
+  if(n < 10) return null;
+  let sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0, gap = 0;
+  for(let i = 0; i < n; i++){
+    const a = Math.log(cur[i]), b = Math.log(past[i]);
+    sa += a; sb += b; saa += a * a; sbb += b * b; sab += a * b; gap += Math.abs(a - b);
+  }
+  const cov = sab / n - (sa / n) * (sb / n), va = saa / n - (sa / n) ** 2, vb = sbb / n - (sb / n) ** 2;
+  const corr = va > 0 && vb > 0 ? cov / Math.sqrt(va * vb) : null;
+  return { corr, gap: (Math.exp(gap / n) - 1) * 100 };
+}
+
+// ---------------- render ----------------
+function visibleCycles(){ return CYCLES.filter(c => selected.has(c.k) && series[c.k]); }
+
+function renderChips(){
+  const el = $('chips');
+  el.innerHTML = '<span class="chip-label">Overlay past cycles</span>' + CYCLES.map(c =>
+    `<button type="button" class="chip${selected.has(c.k) ? ' on' : ''}" data-k="${c.k}" aria-pressed="${selected.has(c.k)}"><span class="sw" style="background:${c.color}"></span>${c.label} <small>${c.sub}</small></button>`
+  ).join('') + `<span class="chip locked"><span class="sw" style="background:${CURRENT.color}"></span>${CURRENT.label} <small>current, always on</small></span>`;
+}
+
+function tile(l, v, s, cls){
+  return `<div class="tile"><span class="tile-l">${l}</span><span class="tile-v ${cls || ''}">${v}</span><span class="tile-s">${s}</span></div>`;
+}
+
+function renderBody(){
+  const cur = series.cur;
+  if(!cur){ $('content').innerHTML = '<div class="error-box">Could not find the 6 Oct 2025 peak in the downloaded price history.</div>'; return; }
+  const d = cur.length - 1, now = cur[d];
+  const low = Math.min(...cur), lowDay = cur.indexOf(low);
+  const vis = visibleCycles();
+
+  let html = '<div class="tiles">' +
+    tile('Day since peak', d, 'peak ' + CURRENT.peak) +
+    tile('ROI now', fmt(now), 'to peak', now >= 1 ? 'pos' : '') +
+    tile('Drawdown', ((1 - now) * 100).toFixed(1) + '%', 'from the peak close', 'neg') +
+    tile('Low so far', fmt(low, 2), 'day ' + lowDay + ', ' + (d - lowDay) + 'd ago') +
+    vis.map(c => { const v = series[c.k][d]; return tile(c.label + ' on day ' + d, v == null ? '-' : fmt(v), 'same day, ' + c.label + ' cycle'); }).join('') +
+    '</div>';
+
+  html += `<div class="chart-card"><div class="chart-title">BTC ROI since peak, log scale</div><div class="chart-sub">Hover or drag across the chart to read each cycle on a given day</div><canvas id="cv" role="img" aria-label="Log-scale chart of Bitcoin return since each cycle peak, current cycle in red"></canvas></div>`;
+  html += '<div class="readout" id="readout"></div>';
+
+  // what happened next
+  html += '<div class="card"><h3>Same day, then what happened next</h3>';
+  if(!vis.length){
+    html += '<div class="empty">Select a past cycle above to compare.</div>';
+  } else {
+    html += `<div class="scroll-x"><table><thead><tr><th>Cycle</th><th>ROI on day ${d}</th><th>Next 90 days</th><th>Next 180 days</th><th>Correlation</th><th>Avg gap</th></tr></thead><tbody>` +
+      vis.map(c => {
+        const s = series[c.k], v0 = s[d];
+        const nx = n => (s[d + n] != null && v0 != null) ? (s[d + n] / v0 - 1) * 100 : null;
+        const a = nx(90), b = nx(180), sim = similarity(cur, s);
+        const cell = v => v == null ? '<span class="na">n/a yet</span>' : `<span class="${pcls(v)}">${pctFmt(v)}</span>`;
+        return `<tr><td><span class="dotc" style="background:${c.color}"></span>${c.label}</td><td>${v0 == null ? '<span class="na">-</span>' : fmt(v0)}</td><td>${cell(a)}</td><td>${cell(b)}</td><td>${sim && sim.corr != null ? sim.corr.toFixed(2) : '-'}</td><td>${sim ? sim.gap.toFixed(0) + '%' : '-'}</td></tr>`;
+      }).join('') + '</tbody></table></div>' +
+      '<p class="tile-s" style="margin:10px 0 0;">Next 90 / 180 days is how that past cycle moved from the same day count. It is history, not a forecast. Correlation and average gap compare the paths from day 0 to day ' + d + '.</p>';
+  }
+  html += '</div>';
+  $('content').innerHTML = html;
+  drawChart();
+  renderReadout(hoverDay == null ? d : hoverDay);
+}
+
+function renderReadout(day){
+  const el = $('readout'); if(!el || !series.cur) return;
+  let h = `<span class="d">Day ${day}</span>`;
+  [CURRENT, ...visibleCycles()].forEach(c => {
+    const s = series[c.k], v = s && s[day];
+    h += `<span style="color:${c.color}">${c.label}: ${v == null ? '-' : fmt(v)}</span>`;
+  });
+  el.innerHTML = h;
+}
+
+// chart geometry is shared by draw and hover
+const G = {};
+function drawChart(){
+  const cv = $('cv'); if(!cv || !series.cur) return;
+  const W = cv.clientWidth || 600, H = cv.clientHeight || 340, r = window.devicePixelRatio || 1;
+  cv.width = W * r; cv.height = H * r;
+  const x = cv.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.scale(r, r);
+  const vis = visibleCycles(), all = [{ ...CURRENT }, ...vis];
+  let XM = series.cur.length - 1 + 20, mn = Infinity, mx = -Infinity;
+  all.forEach(c => { const s = series[c.k]; XM = Math.max(XM, s.length - 1); s.forEach(v => { if(v < mn) mn = v; if(v > mx) mx = v; }); });
+  XM = Math.min(Math.max(XM, 100), 700);
+  const lo = Math.log(Math.max(0.05, mn * 0.88)), hi = Math.log(Math.max(1.15, mx * 1.08));
+  const padL = 40, padR = 12, padT = 10, padB = 28, pw = W - padL - padR, ph = H - padT - padB;
+  const X = t => padL + t / XM * pw, Y = v => padT + (hi - Math.log(v)) / (hi - lo) * ph;
+  Object.assign(G, { W, H, padL, padR, padT, padB, pw, XM, X });
+
+  x.font = '10px JetBrains Mono, monospace'; x.lineWidth = 1;
+  [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1, 1.5, 2, 3, 5].forEach(v => {
+    const lv = Math.log(v); if(lv < lo || lv > hi) return;
+    const y = Y(v);
+    x.strokeStyle = v === 1 ? '#2a3147' : '#1B1F28'; x.beginPath(); x.moveTo(padL, y); x.lineTo(W - padR, y); x.stroke();
+    x.fillStyle = '#8B93A3'; x.textAlign = 'right'; x.fillText(String(v), padL - 6, y + 3);
+  });
+  const step = XM > 400 ? 100 : 50;
+  for(let t = 0; t <= XM; t += step){
+    x.fillStyle = '#8B93A3'; x.textAlign = 'center'; x.fillText(String(t), X(t), H - 10);
+  }
+  x.fillStyle = '#565F70'; x.textAlign = 'center'; x.fillText('Days since peak', padL + pw / 2, H - 0.5);
+
+  const line = (c, w, a) => {
+    const s = series[c.k]; x.strokeStyle = c.color; x.globalAlpha = a; x.lineWidth = w; x.lineJoin = 'round';
+    x.beginPath(); for(let i = 0; i < s.length && i <= XM; i++){ const px = X(i), py = Y(s[i]); i ? x.lineTo(px, py) : x.moveTo(px, py); } x.stroke(); x.globalAlpha = 1;
+  };
+  vis.forEach(c => line(c, 1.4, 0.9));
+  line(CURRENT, 2.4, 1);
+  const cs = series.cur, ex = X(cs.length - 1), ey = Y(cs[cs.length - 1]);
+  x.fillStyle = CURRENT.color; x.beginPath(); x.arc(ex, ey, 4, 0, Math.PI * 2); x.fill();
+
+  if(hoverDay != null){
+    const hx = X(hoverDay);
+    x.strokeStyle = '#8B93A3'; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(hx, padT); x.lineTo(hx, H - padB); x.stroke(); x.setLineDash([]);
+  }
+}
+function setHoverFromEvent(e){
+  const cv = $('cv'); if(!cv || !G.pw) return;
+  const rc = cv.getBoundingClientRect(), px = (e.clientX - rc.left) * G.W / rc.width;
+  hoverDay = Math.max(0, Math.min(G.XM, Math.round((px - G.padL) / G.pw * G.XM)));
+  drawChart(); renderReadout(hoverDay);
+}
+function clearHover(){ hoverDay = null; drawChart(); if(series.cur) renderReadout(series.cur.length - 1); }
+
+// ---------------- load ----------------
+function setUpdated(text, err){ const l = $('updatedLabel'); l.textContent = text; l.classList.toggle('label-error', !!err); }
+function loadCache(){
+  try{ const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); if(c && Array.isArray(c.pts) && c.pts.length > 1000) return c; }catch(e){}
+  return null;
+}
+function saveCache(points, src){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), src, pts: points })); }catch(e){} }
+
+async function load(force){
+  const btn = $('refreshBtn'); btn.classList.add('spinning');
+  const cached = loadCache();
+  if(cached && !pts){ pts = cached.pts; srcLabel = cached.src; $('srcTag').textContent = 'Source: ' + cached.src; computeAll(); renderBody(); setUpdated('cached ' + new Date(cached.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); }
+  if(!force && cached && Date.now() - cached.t < REFRESH_MS){ btn.classList.remove('spinning'); return; }
+  try{
+    let src = 'Yahoo Finance daily (BTC-USD)', data;
+    try{ data = await fetchYahoo(); }catch(e){ console.warn('[cycles] yahoo failed:', e && e.message); src = 'Binance daily (BTCUSDT)'; data = await fetchBinance(); }
+    pts = data; srcLabel = src; saveCache(data, src);
+    $('srcTag').textContent = 'Source: ' + src;
+    computeAll(); renderBody();
+    setUpdated('updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  }catch(err){
+    console.warn('[cycles] load failed:', err && err.message);
+    if(pts){ setUpdated('refresh failed, showing cached data', true); }
+    else { $('content').innerHTML = '<div class="error-box">Could not load BTC price history. Check your connection and tap refresh.</div>'; setUpdated('failed', true); }
+  }finally{ btn.classList.remove('spinning'); }
+}
+
+// ---------------- events ----------------
+$('chips').addEventListener('click', e => {
+  const b = e.target.closest('.chip[data-k]'); if(!b) return;
+  const k = b.dataset.k;
+  if(selected.has(k)) selected.delete(k); else selected.add(k);
+  try{ localStorage.setItem(SEL_KEY, JSON.stringify([...selected])); }catch(err){}
+  renderChips(); if(pts) renderBody();
+});
+document.addEventListener('mousemove', e => { if(e.target && e.target.id === 'cv') setHoverFromEvent(e); });
+document.addEventListener('mouseout', e => { if(e.target && e.target.id === 'cv') clearHover(); });
+document.addEventListener('touchmove', e => { if(e.target && e.target.id === 'cv' && e.touches[0]) setHoverFromEvent(e.touches[0]); }, { passive: true });
+document.addEventListener('touchend', e => { if(e.target && e.target.id === 'cv') clearHover(); });
+window.addEventListener('resize', () => { if(series.cur) drawChart(); });
+$('refreshBtn').addEventListener('click', () => load(true));
+
+renderChips();
+load(false);
+setInterval(() => load(true), REFRESH_MS);
+</script>
+</body>
+</html>
