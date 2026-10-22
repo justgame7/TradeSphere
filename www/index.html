@@ -2885,6 +2885,7 @@ const AlertsPanel = (() => {
   const modal = document.getElementById('alertsModal'), backdrop = document.getElementById('alertsBackdrop');
   const listEl = document.getElementById('alertsList'), updEl = document.getElementById('alertsUpdated');
   const tfRow = document.getElementById('alertsTfRow');
+  let liveTimer = null;
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
   try{ const t = localStorage.getItem(TAB_KEY); if(t === '4H' || t === '1D') tab = t; }catch(e){}
 
@@ -2932,16 +2933,43 @@ const AlertsPanel = (() => {
     return m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
   };
 
+  // Live price: the Home strip already refreshes Binance USDT-M prices every ~45s into binancePerpUniverse
+  // (tickerLastTs = when). Use that for every "now" so it is not stuck on the last closed candle.
+  let liveMap = null, liveTs = 0;
+  function loadLive(){
+    const u = (typeof getBinancePerpUniverse === 'function') ? getBinancePerpUniverse() : null;
+    if(!u || !u.length) return;
+    const m = {};
+    u.forEach(r => { const v = parseFloat(r.lastPrice); if(r.futuresSymbol && Number.isFinite(v)) m[r.futuresSymbol] = v; });
+    liveMap = m; liveTs = (typeof tickerLastTs === 'number' && tickerLastTs) || Date.now();
+  }
+  function livePx(base){
+    if(!liveMap) return null;
+    const sym = (typeof resolveBinanceFuturesSymbol === 'function' ? resolveBinanceFuturesSymbol(base) : base + 'USDT');
+    const v = liveMap[sym];
+    return Number.isFinite(v) ? v : null;
+  }
+  const signedPct = (v) => Number.isFinite(v) ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : '\u2014';
+  // Percent for a row from a price: kind 'open' = open P/L vs entry, 'fexit' = result if it closes here, 'fentry' = distance past the level.
+  function pctFor(kind, side, entry, level, px){
+    if(!Number.isFinite(px)) return NaN;
+    const long = side === 'long';
+    if(kind === 'fentry') return level ? (long ? px - level : level - px) / level * 100 : NaN;
+    return entry ? (long ? px - entry : entry - px) / entry * 100 : NaN;
+  }
+
   function rowHtml(t, tf, i){
     const isNew = newKeys.has(key(tf, t));
     const long = t.side === 'long', open = t.status === 'open';
     const mult = t.mult && t.mult > 1 ? ` <span class="alert-name">(${t.mult}x price)</span>` : '';
-    const pct = open ? t.unrealizedPct : t.resultPct;
+    const lp = open ? livePx(t.symbol) : null;
+    const nowPx = Number.isFinite(lp) ? lp : t.lastClose;
+    const pct = open ? (Number.isFinite(lp) ? pctFor('open', t.side, t.entryClose, t.entryLevel, lp) : t.unrealizedPct) : t.resultPct;
     const cls = Number.isFinite(pct) ? (pct >= 0 ? 'pos' : 'neg') : '';
     const lines = open
-      ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${fmtPx(t.entryLevel)} &middot; now <b>${fmtPx(t.lastClose)}</b></div>`
+      ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${fmtPx(t.entryLevel)} &middot; now <b class="px-now">${fmtPx(nowPx)}</b></div>`
       : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}</div>`;
-    return `<div class="alert-row${isNew ? ' is-new' : ''}" data-sym="${esc(t.symbol)}" role="button" tabindex="0" title="Open ${esc(t.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
+    return `<div class="alert-row${isNew ? ' is-new' : ''}" data-sym="${esc(t.symbol)}"${open ? ` data-live="open" data-side="${t.side}" data-entry="${t.entryClose}" data-level="${t.entryLevel}"` : ''} role="button" tabindex="0" title="Open ${esc(t.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
       <div class="alert-main">
         <div class="alert-top">
           <span class="alert-sym">${esc(t.symbol)}</span>${mult}
@@ -2964,16 +2992,18 @@ const AlertsPanel = (() => {
     const long = f.side === 'long', isExit = f.kind === 'exit';
     const mult = f.mult && f.mult > 1 ? ` <span class="alert-name">(${f.mult}x price)</span>` : '';
     let lines, right;
+    const lpf = livePx(f.symbol), fPx = Number.isFinite(lpf) ? lpf : f.price;
     if(isExit){
-      lines = `<div class="alert-line">Entry <b>${fmtPx(f.entryClose)}</b> &middot; ${esc(fmtTime(f.entryTime, tf))}<br>Price <b>${fmtPx(f.price)}</b> is ${long ? 'below' : 'above'} the 10-bar ${long ? 'low' : 'high'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
-      right = `<span class="alert-pct ${f.resultPct >= 0 ? 'pos' : 'neg'}">${fmtPct(f.resultPct)}</span><span class="alert-pct-l">if it closes here</span>`;
+      const rp = Number.isFinite(lpf) ? pctFor('fexit', f.side, f.entryClose, f.level, lpf) : f.resultPct;
+      lines = `<div class="alert-line">Entry <b>${fmtPx(f.entryClose)}</b> &middot; ${esc(fmtTime(f.entryTime, tf))}<br>Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'below' : 'above'} the 10-bar ${long ? 'low' : 'high'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
+      right = `<span class="alert-pct ${rp >= 0 ? 'pos' : 'neg'}">${fmtPct(rp)}</span><span class="alert-pct-l">if it closes here</span>`;
     }else{
-      const past = f.level ? (long ? f.price - f.level : f.level - f.price) / f.level * 100 : NaN;
-      lines = `<div class="alert-line">Price <b>${fmtPx(f.price)}</b> is ${long ? 'above' : 'below'} the 20-bar ${long ? 'high' : 'low'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
-      right = `<span class="alert-pct pos">${Number.isFinite(past) ? '+' + past.toFixed(2) + '%' : '—'}</span><span class="alert-pct-l">past the level</span>`;
+      const past = pctFor('fentry', f.side, f.entryClose, f.level, fPx);
+      lines = `<div class="alert-line">Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'above' : 'below'} the 20-bar ${long ? 'high' : 'low'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
+      right = `<span class="alert-pct ${past >= 0 ? 'pos' : 'neg'}">${signedPct(past)}</span><span class="alert-pct-l">past the level</span>`;
     }
     const isNew = newKeys.has(fkey(tf, f));
-    return `<div class="alert-row is-forming${isNew ? ' is-new' : ''}" data-sym="${esc(f.symbol)}" role="button" tabindex="0" title="Open ${esc(f.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
+    return `<div class="alert-row is-forming${isNew ? ' is-new' : ''}" data-sym="${esc(f.symbol)}" data-live="${isExit ? 'fexit' : 'fentry'}" data-side="${f.side}" data-entry="${f.entryClose == null ? '' : f.entryClose}" data-level="${f.level}" role="button" tabindex="0" title="Open ${esc(f.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
       <div class="alert-main">
         <div class="alert-top">
           <span class="alert-sym">${esc(f.symbol)}</span>${mult}
@@ -2987,6 +3017,26 @@ const AlertsPanel = (() => {
     </div>`;
   }
 
+  const priceAge = () => liveTs ? Math.max(0, Math.round((Date.now() - liveTs) / 1000)) : null;
+  function setHeader(){
+    if(!data) return;
+    const a = priceAge();
+    updEl.textContent = 'signals ' + ago(Date.parse(data.updated)) + (a == null ? '' : ' \u00b7 prices ' + (a < 90 ? a + 's' : Math.round(a / 60) + 'm') + ' ago') + (loadErr ? ' \u00b7 refresh failed' : '');
+  }
+  function refreshLive(){
+    loadLive();
+    listEl.querySelectorAll('.alert-row[data-live]').forEach(row => {
+      const px = livePx(row.dataset.sym);
+      if(!Number.isFinite(px)) return;
+      const kind = row.dataset.live;
+      const pct = pctFor(kind, row.dataset.side, parseFloat(row.dataset.entry), parseFloat(row.dataset.level), px);
+      const nowEl = row.querySelector('.px-now'); if(nowEl) nowEl.textContent = fmtPx(px);
+      const pEl = row.querySelector('.alert-pct');
+      if(pEl){ pEl.textContent = kind === 'fentry' ? signedPct(pct) : fmtPct(pct); pEl.classList.toggle('pos', pct >= 0); pEl.classList.toggle('neg', pct < 0); }
+    });
+    setHeader();
+  }
+
   function render(){
     tfRow.querySelectorAll('.top50-sort-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === tab));
     if(!data){
@@ -2994,7 +3044,8 @@ const AlertsPanel = (() => {
       updEl.textContent = '\u2014';
       return;
     }
-    updEl.textContent = 'updated ' + ago(Date.parse(data.updated)) + (loadErr ? ' \u00b7 refresh failed' : '');
+    loadLive();
+    setHeader();
     const tfd = (data.timeframes || {})[tab];
     if(!tfd){ listEl.innerHTML = '<div class="top50-empty">No ' + esc(tab) + ' scan yet.</div>'; return; }
     const trades = tfd.trades || [];
@@ -3051,8 +3102,11 @@ const AlertsPanel = (() => {
     if(!history.state || !history.state.alerts) history.pushState({ page: currentPage, alerts: true }, '', location.href);
     render();
     if(Date.now() - lastFetch > STALE_MS) load();
+    if(typeof loadTicker === 'function' && (!tickerLastTs || Date.now() - tickerLastTs > 60000)) { try{ loadTicker(); }catch(e){} }
+    clearInterval(liveTimer); liveTimer = setInterval(refreshLive, 5000);
   }
   function close(){
+    clearInterval(liveTimer);
     backdrop.classList.remove('open'); modal.classList.remove('open');
     if(history.state && history.state.alerts) history.replaceState({ page: currentPage }, '', location.href);
   }
