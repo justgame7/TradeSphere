@@ -13,9 +13,10 @@
 // reported in the output. The top-50 list comes from CoinGecko and is cached in data/top50.json (refreshed
 // once a day, and reused if CoinGecko is unavailable).
 //
-// Meant to be triggered every ~10 minutes (cron-job.org -> workflow_dispatch, see the workflow). 4H and
-// Daily candles only close a few times a day, so most runs find no new candle and exit without scanning
-// or changing any file.
+// Meant to be triggered every ~10 minutes (cron-job.org -> workflow_dispatch, see the workflow). Every run
+// scans both timeframes (like screen.js does). The file is only rewritten when the signals changed, so
+// most runs commit nothing. Set SKIP_IF_CURRENT=1 to skip a timeframe whose latest closed candle was
+// already scanned (a cheaper mode that exits in about a second between candle closes).
 //
 // Node 20+ (built-in fetch). Run: node scripts/donchian-alerts.js [--force]
 const fs = require('fs');
@@ -53,6 +54,7 @@ const EXCLUDED_SYMBOLS = new Set([
 ]);
 
 const FORCE = process.argv.includes('--force') || process.env.FORCE === '1';
+const SKIP_IF_CURRENT = process.env.SKIP_IF_CURRENT === '1' && !FORCE;
 
 // ---------------- fetch helpers (same pacing approach as screen.js) ----------------
 const CONCURRENCY = 3;
@@ -211,9 +213,9 @@ async function main() {
     const expected = Math.floor(now / tf.periodMs) * tf.periodMs - tf.periodMs;
     tf.expected = expected;
     const asOf = prev && prev.timeframes && prev.timeframes[tf.label] && prev.timeframes[tf.label].asOf;
-    return FORCE || !asOf || asOf < expected;
+    return !SKIP_IF_CURRENT || !asOf || asOf < expected;
   });
-  if (!due.length) { console.log('no new 4H/1D candle since the last scan, nothing to do'); return; }
+  if (!due.length) { console.log('no new 4H/1D candle since the last scan, nothing to do (SKIP_IF_CURRENT)'); return; }
   console.log('scanning: ' + due.map((t) => t.label).join(', '));
 
   const instruments = new Set(await fetchJSON(ACTIVE_INSTRUMENTS_URL));
