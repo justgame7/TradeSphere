@@ -646,22 +646,26 @@
   details.alerts-help ul{margin:10px 0 0;padding-left:18px;font:500 11px/1.6 var(--font-mono);color:var(--muted);}
   details.alerts-help li{margin-bottom:6px;}
   .alerts-actions{display:flex;align-items:center;gap:10px;flex:none;}
-  /* Phones: title + the three buttons share the top row, then each toggle (strategy, Donchian system, timeframe) is a
-     full-width segmented control with equal-width buttons, so everything lines up edge to edge. */
+  /* Phones: row 1 = bell + title (left) and the three buttons (right); row 2 = the "Top 50 coins ..." summary line across the
+     full width; then each toggle (strategy, Donchian system, timeframe) is a full-width segmented control with equal-width
+     buttons. display:contents lets the icon, title and summary line be laid out as separate items of the header. */
   @media(max-width:600px){
     #alertsOverlay{overflow-x:hidden;}
-    #alertsOverlay .analysis-topbar{align-items:flex-start;gap:12px 8px;}
-    #alertsOverlay .analysis-id{flex:1 1 0;min-width:0;order:1;align-items:flex-start;}
-    #alertsOverlay .alerts-actions{order:2;gap:6px;margin-left:auto;}
+    #alertsOverlay .analysis-topbar{align-items:center;gap:10px 10px;}
+    #alertsOverlay .analysis-id,#alertsOverlay .analysis-id-text{display:contents;}
+    #alertsOverlay .analysis-symbol-icon{order:1;width:34px;height:34px;border-radius:10px;}
+    #alertsOverlay .analysis-symbol{order:2;flex:1 1 0;min-width:0;font-size:16px;line-height:1.25;}
+    #alertsOverlay .analysis-symbol .quote{display:block;margin:2px 0 0;font-size:11px;}
+    #alertsOverlay .alerts-actions{order:3;gap:6px;margin-left:auto;}
     #alertsOverlay .alerts-actions .analysis-icon-btn,#alertsOverlay .alerts-actions .analysis-close{width:32px;height:32px;border-radius:9px;}
-    #alertsOverlay .analysis-controls{order:3;flex:1 1 100%;display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0;}
+    #alertsOverlay .analysis-meta{order:4;flex:1 1 100%;font-size:10px;letter-spacing:0;line-height:1.4;white-space:nowrap;}
+    #alertsOverlay .analysis-meta span{overflow:hidden;text-overflow:ellipsis;display:block;}
+    #alertsOverlay .analysis-controls{order:5;flex:1 1 100%;display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0;}
     #alertsOverlay .analysis-controls .analysis-tf-toggle{width:100%;box-sizing:border-box;}
     #alertsOverlay .analysis-controls .analysis-tf-toggle button{flex:1 1 0;min-width:0;padding:9px 0;font-size:12px;text-align:center;}
-    #alertsOverlay .analysis-symbol{font-size:16px;line-height:1.25;}
-    #alertsOverlay .analysis-symbol .quote{display:block;margin:2px 0 0;font-size:11px;}
-    #alertsOverlay .analysis-symbol-icon{width:34px;height:34px;border-radius:10px;}
-    #alertsOverlay .analysis-meta{font-size:10px;line-height:1.4;}
   }
+  /* very narrow phones: let the summary line wrap instead of cutting it off */
+  @media(max-width:340px){ #alertsOverlay .analysis-meta{white-space:normal;} #alertsOverlay .analysis-meta span{overflow:visible;text-overflow:clip;} }
   /* ---- Alerts full page: rows sit inside the Technical Breakdown style group cards ---- */
   #alertsOverlay .analysis-group-body{padding-bottom:6px;}
   #alertsOverlay .alert-row{border:none;border-bottom:1px solid var(--border-soft);border-radius:0;background:transparent;margin:0;padding:11px 4px;box-shadow:none;}
