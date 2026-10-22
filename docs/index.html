@@ -626,6 +626,12 @@
   .alert-right{flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;}
   .alert-row.is-forming{border-style:dashed;border-color:rgba(245,166,35,.4);background:rgba(245,166,35,.04);}
   .alert-pill.unconf{color:var(--amber);background:rgba(245,166,35,.14);border:1px dashed rgba(245,166,35,.55);}
+  .alert-pill.sys{color:var(--muted);background:var(--panel2);border:1px solid var(--border);}
+  /* per-timeframe "new" badge on the 1H / 4H / 1D / 1W tabs */
+  #alertsTfRow button{position:relative;}
+  .tf-badge{position:absolute;top:-7px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font:700 9.5px var(--font-mono);pointer-events:none;}
+  .tf-badge.ok{background:#1fae7a;color:#04170f;}
+  .tf-badge.forming{background:var(--amber);color:#1c1300;}
   .alert-pill.confirmed{color:var(--blue);background:rgba(91,140,255,.16);}
   .alerts-subnote{padding:0 8px 8px;font:500 10.5px var(--font-mono);color:var(--faint);line-height:1.5;}
   .alert-pct{font:700 13px var(--font-mono);}
@@ -1883,11 +1889,16 @@
       <div class="analysis-id">
         <div class="analysis-symbol-icon" id="alertsIcon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
         <div class="analysis-id-text">
-          <div class="analysis-symbol">Donchian alerts<span class="quote">20/10</span></div>
+          <div class="analysis-symbol">Donchian alerts<span class="quote">20/10 &middot; 55/20</span></div>
           <div class="analysis-meta"><span id="alertsMeta">Top 50 coins &middot; long + short</span></div>
         </div>
       </div>
       <div class="analysis-controls">
+        <div class="analysis-tf-toggle" id="alertsSysRow" title="Show one system or both">
+          <button type="button" data-sys="all" class="active">All</button>
+          <button type="button" data-sys="20/10">20/10</button>
+          <button type="button" data-sys="55/20">55/20</button>
+        </div>
         <div class="analysis-tf-toggle" id="alertsTfRow">
           <button type="button" data-tf="1H">1H</button>
           <button type="button" data-tf="4H">4H</button>
@@ -2903,21 +2914,24 @@ const AlertsPanel = (() => {
     try{ const o = localStorage.getItem('ts-alerts-data-url'); if(o) return o; }catch(e){}
     return 'https://raw.githubusercontent.com/justgame7/TradeSphere/main/data/donchian-alerts.json';
   })();
-  const SEEN_KEY = 'ts-alerts-seen-ts-v1';
+  const SEEN_KEY = 'ts-alerts-seen-tf-v1';
   const REFRESH_MS = 2 * 60 * 1000, STALE_MS = 60 * 1000;
   const btn = document.getElementById('alertsBtn'), badge = document.getElementById('alertsBadge'), badgeForming = document.getElementById('alertsBadgeForming');
   const overlay = document.getElementById('alertsOverlay'), grid = document.getElementById('alertsGrid');
   const statusEl = document.getElementById('alertsStatus'), metaEl = document.getElementById('alertsMeta');
-  const tfRow = document.getElementById('alertsTfRow'), toggleAllBtn = document.getElementById('alertsToggleAll');
+  const tfRow = document.getElementById('alertsTfRow'), sysRow = document.getElementById('alertsSysRow'), toggleAllBtn = document.getElementById('alertsToggleAll');
   const collapsedGrp = new Set(['help']); // group cards that start collapsed
   let unconfManual = false;                // true once the user opens/closes "Not confirmed yet" themselves (else it follows its count)
   let liveTimer = null;
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
+  let sysFilter = 'all';          // 'all' | '20/10' | '55/20'
+  let newByTf = {};               // per timeframe: keys that were new when this visit first showed that tab
 
   const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-  const key = (tf, t) => `${tf}|${t.symbol}|${t.side}|${t.entryTime}|${t.status === 'closed' ? 'c' : 'o'}`;
+  const sysOf = x => x.system || '20/10';   // files written before the 55/20 system existed are all 20/10
+  const key = (tf, t) => `${tf}|${sysOf(t)}|${t.symbol}|${t.side}|${t.entryTime}|${t.status === 'closed' ? 'c' : 'o'}`;
   // Unconfirmed (still-open candle) signals get their own keys, ending in '|u'.
-  const fkey = (tf, f) => `${tf}|${f.symbol}|${f.side}|${f.kind}|${f.candleTime}|u`;
+  const fkey = (tf, f) => `${tf}|${sysOf(f)}|${f.symbol}|${f.side}|${f.kind}|${f.candleTime}|u`;
   // Every signal in the file with the time the alert job FIRST SAW it (detectedAt, written by
   // scripts/donchian-alerts.js). A signal that was already old when it first entered the list (for example a
   // coin that just joined the scanned set with a trade open since last week) carries its candle time there,
@@ -2925,18 +2939,49 @@ const AlertsPanel = (() => {
   function allItems(){
     const out = [];
     if(data && data.timeframes) Object.keys(data.timeframes).forEach(tf => {
-      (data.timeframes[tf].trades || []).forEach(t => out.push({ key: key(tf, t), at: t.detectedAt || 0, forming: false }));
-      (data.timeframes[tf].forming || []).forEach(f => out.push({ key: fkey(tf, f), at: f.detectedAt || 0, forming: true }));
+      (data.timeframes[tf].trades || []).forEach(t => out.push({ tf, key: key(tf, t), at: t.detectedAt || 0, forming: false }));
+      (data.timeframes[tf].forming || []).forEach(f => out.push({ tf, key: fkey(tf, f), at: f.detectedAt || 0, forming: true }));
     });
     return out;
   }
-  // "Seen" = the moment the user last opened the page. Anything detected after it is new.
-  function loadSeenTs(){ try{ const v = parseInt(localStorage.getItem(SEEN_KEY) || '', 10); return Number.isFinite(v) ? v : null; }catch(e){ return null; } }
-  function saveSeenTs(v){ try{ localStorage.setItem(SEEN_KEY, String(v)); }catch(e){} }
-  function unseenItems(){
-    let seen = loadSeenTs();
-    if(seen == null){ seen = Date.now(); saveSeenTs(seen); } // first visit: nothing is new yet
-    return allItems().filter(it => it.at > seen);
+  // "Seen" is kept PER TIMEFRAME: looking at the 1D tab only clears 1D, so a new 4H alert keeps its badge on the 4H tab
+  // until you open that tab. Anything detected after the timeframe's last-seen time is new.
+  function loadSeenMap(){ try{ const o = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); return (o && typeof o === 'object') ? o : {}; }catch(e){ return {}; } }
+  function saveSeenMap(m){ try{ localStorage.setItem(SEEN_KEY, JSON.stringify(m)); }catch(e){} }
+  function unseenItems(tf){
+    if(!data || !data.timeframes) return [];
+    const m = loadSeenMap();
+    let changed = false;
+    Object.keys(data.timeframes).forEach(k => { if(!Number.isFinite(m[k])){ m[k] = Date.now(); changed = true; } }); // first time a timeframe is seen: nothing is new yet
+    if(changed) saveSeenMap(m);
+    return allItems().filter(it => (!tf || it.tf === tf) && it.at > m[it.tf]);
+  }
+  function markSeen(tf){
+    const m = loadSeenMap();
+    // newest detectedAt too, so a runner clock slightly ahead of this device can never leave a signal stuck as "new"
+    m[tf] = Math.max(Date.now(), ...allItems().filter(it => it.tf === tf).map(it => it.at));
+    saveSeenMap(m);
+  }
+  // Showing a timeframe: remember what was new on it for this visit (markers + sort), then mark it seen.
+  function markViewed(tf){
+    const fresh = unseenItems(tf).map(it => it.key);
+    if(!newByTf[tf]) newByTf[tf] = new Set();
+    fresh.forEach(k => newByTf[tf].add(k));
+    markSeen(tf);
+    updateBadge();
+  }
+  // Small count on each timeframe tab: new alerts there that you have not looked at yet.
+  function updateTabBadges(){
+    tfRow.querySelectorAll('button[data-tf]').forEach(b => {
+      let el = b.querySelector('.tf-badge');
+      const un = unseenItems(b.dataset.tf);
+      const nForming = un.filter(it => it.forming).length, nOk = un.length - nForming;
+      if(!un.length){ if(el) el.remove(); b.title = ''; return; }
+      if(!el){ el = document.createElement('span'); b.appendChild(el); }
+      el.className = 'tf-badge ' + (nOk ? 'ok' : 'forming');
+      el.textContent = un.length > 99 ? '99+' : String(un.length);
+      b.title = `${nOk} new confirmed, ${nForming} new unconfirmed`;
+    });
   }
   // Green = new CONFIRMED signals (candle closed), amber = new UNCONFIRMED ones (candle still open).
   // Each counts only what has not been shown to the user yet; opening the panel marks everything as seen.
@@ -2946,7 +2991,8 @@ const AlertsPanel = (() => {
     const show = (el, n) => { el.hidden = n === 0; el.textContent = n > 99 ? '99+' : String(n); };
     show(badge, nOk); show(badgeForming, nForming);
     btn.classList.toggle('has-new', un.length > 0);
-    btn.title = un.length ? `Donchian alerts (${nOk} new confirmed, ${nForming} new unconfirmed)` : 'Donchian 20/10 alerts';
+    btn.title = un.length ? `Donchian alerts (${nOk} new confirmed, ${nForming} new unconfirmed)` : 'Donchian alerts (20/10 and 55/20)';
+    updateTabBadges();
   }
 
   const fmtPx = v => {
@@ -3005,6 +3051,7 @@ const AlertsPanel = (() => {
         <div class="alert-top">
           <span class="alert-sym">${esc(t.symbol)}</span>${mult}
           <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
+          <span class="alert-pill sys">${esc(sysOf(t))}</span>
           <span class="alert-pill ${open ? 'confirmed' : 'closed'}">${open ? 'Confirmed' : 'Closed'}</span>
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
@@ -3025,14 +3072,15 @@ const AlertsPanel = (() => {
     const long = f.side === 'long', isExit = f.kind === 'exit';
     const mult = f.mult && f.mult > 1 ? ` <span class="alert-name">(${f.mult}x price)</span>` : '';
     let lines, right;
+    const [eN, eM] = sysOf(f).split('/'); // entry / exit lengths of this alert's system
     const lpf = livePx(f.symbol), fPx = Number.isFinite(lpf) ? lpf : f.price;
     if(isExit){
       const rp = Number.isFinite(lpf) ? pctFor('fexit', f.side, f.entryClose, f.level, lpf) : f.resultPct;
-      lines = `<div class="alert-line">Entry <b>${fmtPx(f.entryClose)}</b> &middot; ${esc(fmtTime(f.entryTime, tf))}<br>Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'below' : 'above'} the 10-bar ${long ? 'low' : 'high'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
+      lines = `<div class="alert-line">Entry <b>${fmtPx(f.entryClose)}</b> &middot; ${esc(fmtTime(f.entryTime, tf))}<br>Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'below' : 'above'} the ${eM}-bar ${long ? 'low' : 'high'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
       right = `<span class="alert-pct ${rp >= 0 ? 'pos' : 'neg'}">${fmtPct(rp)}</span><span class="alert-pct-l">if it closes here</span>`;
     }else{
       const past = pctFor('fentry', f.side, f.entryClose, f.level, fPx);
-      lines = `<div class="alert-line">Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'above' : 'below'} the 20-bar ${long ? 'high' : 'low'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
+      lines = `<div class="alert-line">Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'above' : 'below'} the ${eN}-bar ${long ? 'high' : 'low'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
       right = `<span class="alert-pct ${past >= 0 ? 'pos' : 'neg'}">${signedPct(past)}</span><span class="alert-pct-l">past the level</span>`;
     }
     const isNew = newKeys.has(fkey(tf, f));
@@ -3041,6 +3089,7 @@ const AlertsPanel = (() => {
         <div class="alert-top">
           <span class="alert-sym">${esc(f.symbol)}</span>${mult}
           <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
+          <span class="alert-pill sys">${esc(sysOf(f))}</span>
           <span class="alert-pill unconf">Unconfirmed ${isExit ? 'exit' : 'entry'}</span>
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
@@ -3061,8 +3110,9 @@ const AlertsPanel = (() => {
     if(tfd.scanned) parts.push(tfd.scanned + ' coins scanned');
     if(loadErr) parts.push('refresh failed');
     statusEl.textContent = parts.join(' · ');
-    const open = (tfd.trades || []).filter(t => t.status === 'open').length, unconf = (tfd.forming || []).length;
-    metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab} · ${open} confirmed · ${unconf} unconfirmed`;
+    const sysOk = x => sysFilter === 'all' || sysOf(x) === sysFilter;
+    const open = (tfd.trades || []).filter(t => t.status === 'open' && sysOk(t)).length, unconf = (tfd.forming || []).filter(sysOk).length;
+    metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab}${sysFilter === 'all' ? '' : ' · ' + sysFilter} · ${open} confirmed · ${unconf} unconfirmed`;
   }
   function refreshLive(){
     loadLive();
@@ -3101,14 +3151,18 @@ const AlertsPanel = (() => {
       statusEl.textContent = loadErr ? 'load failed' : 'Loading…';
       return;
     }
+    markViewed(tab);                       // this timeframe is being looked at: remember what was new, then clear its badge
+    newKeys = newByTf[tab] || new Set();
+    sysRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.sys === sysFilter));
     loadLive();
     setHeader();
     const tfd = (data.timeframes || {})[tab];
     if(!tfd){ grid.innerHTML = '<div class="alerts-empty" style="grid-column:1/-1;">No ' + esc(tab) + ' scan yet.</div>'; return; }
-    const trades = tfd.trades || [];
+    const sysOk = x => sysFilter === 'all' || sysOf(x) === sysFilter;
+    const trades = (tfd.trades || []).filter(sysOk);
     const open = trades.filter(t => t.status === 'open').sort((a, b) => b.entryTime - a.entryTime);
     const closed = trades.filter(t => t.status === 'closed').sort((a, b) => b.exitTime - a.exitTime);
-    const forming = (tfd.forming || []).slice().sort((a, b) => (a.kind === b.kind ? a.symbol.localeCompare(b.symbol) : a.kind === 'entry' ? -1 : 1));
+    const forming = (tfd.forming || []).filter(sysOk).slice().sort((a, b) => (a.kind === b.kind ? a.symbol.localeCompare(b.symbol) : a.kind === 'entry' ? -1 : 1));
     const newFirst = (list, keyFn) => list.slice().sort((a, b) => {
       const na = newKeys.has(keyFn(a)), nb = newKeys.has(keyFn(b));
       if(na !== nb) return na ? -1 : 1;                         // new ones first
@@ -3138,11 +3192,12 @@ const AlertsPanel = (() => {
     ].join('');
     const helpBody = `<div class="alerts-help-body"><ul>
       <li><b>Coins:</b> the top coins by market cap, excluding stablecoins, that trade as a USDT perpetual on CoinDCX. A coin CoinDCX doesn't list is skipped and the next one takes its place, so 50 coins are scanned.</li>
-      <li><b>Long entry:</b> a candle closes above the highest high of the previous 20 candles. <b>Short entry:</b> a candle closes below the lowest low of the previous 20 candles.</li>
-      <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous 10 candles. While short, it closes above the highest high of the previous 10.</li>
+      <li><b>Systems:</b> every alert is tagged with its system. <b>20/10</b> uses a 20-candle entry and a 10-candle exit. <b>55/20</b> is the slower one, with a 55-candle entry and a 20-candle exit, so fewer and later signals. Both run on 1H, 4H, 1D and 1W.</li>
+      <li><b>Long entry:</b> a candle closes above the highest high of the previous N candles. <b>Short entry:</b> a candle closes below the lowest low of the previous N candles (N = 20 or 55).</li>
+      <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous M candles. While short, it closes above the highest high of the previous M (M = 10 or 20).</li>
       <li><b>Confirmed:</b> the candle has closed, so the signal is final.</li>
       <li><b>Unconfirmed:</b> the candle is still open and the live price is already beyond the level. It can disappear before the candle closes.</li>
-      <li><b>Bell badges:</b> green is new confirmed signals, amber is new unconfirmed ones. Each clears once you open this page.</li>
+      <li><b>Badges:</b> on the bell, green is new confirmed signals and amber is new unconfirmed ones. Each timeframe tab (1H, 4H, 1D, 1W) also shows a count of new alerts on it, and that count clears when you open that tab.</li>
       <li>Tap a coin to open its technical breakdown.</li>
     </ul>
     <div class="alerts-help-sub">Latest scan (${esc(tab)})</div>
@@ -3171,11 +3226,8 @@ const AlertsPanel = (() => {
   function open(){
     unconfManual = false;
     tab = '1D';                                // the page always opens on Daily (switching tabs lasts for this visit only)
-    newKeys = new Set(unseenItems().map(it => it.key)); // what is new since the last visit, for the markers and the sort
-    // Everything shown now counts as seen. Use the newest detectedAt too, so a runner clock slightly ahead of this
-    // device can never leave a signal stuck as "new".
-    saveSeenTs(Math.max(Date.now(), ...allItems().map(it => it.at)));
-    updateBadge();
+    newByTf = {};                              // what is new is worked out per timeframe, when that tab is first shown
+    sysFilter = 'all';
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
     overlay.scrollTop = 0;
@@ -3236,6 +3288,12 @@ const AlertsPanel = (() => {
     const b = e.target.closest('button[data-tf]'); if(!b) return;
     tab = b.dataset.tf;
     unconfManual = false; // each timeframe re-applies the default for its own count
+    render();
+  });
+  sysRow.addEventListener('click', e => {
+    const b = e.target.closest('button[data-sys]'); if(!b) return;
+    sysFilter = b.dataset.sys;
+    unconfManual = false;
     render();
   });
   setInterval(() => { if(!document.hidden) load(); }, REFRESH_MS);
