@@ -3,7 +3,12 @@ on:
   # Trigger from cron-job.org via the workflow_dispatch API every 10 minutes, like the other data
   # workflows (GitHub's native schedule is unreliable); the cron below is only a backstop.
   # Most runs find no newly closed 4H/1D candle and exit without scanning or committing anything.
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force a full scan even if no new candle has closed'
+        type: boolean
+        default: false
   schedule:
     - cron: '*/10 * * * *'
 permissions:
@@ -21,6 +26,8 @@ jobs:
         with:
           node-version: '20'
       - name: Build Donchian 20/10 alerts
+        env:
+          FORCE: ${{ inputs.force && '1' || '' }}
         run: node scripts/donchian-alerts.js
 
       - name: Commit
