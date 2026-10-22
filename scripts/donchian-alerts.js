@@ -8,7 +8,7 @@
 // Long and short are tracked independently, one open trade per side. Only CLOSED candles are used, so a
 // signal never appears and then disappears while a candle is still forming.
 //
-// DATA SOURCE: CoinDCX public futures candles, same endpoint and pacing as screen.js (that is what is
+// DATA SOURCE: CoinDCX public futures candles, same endpoint and pacing as scripts/screen.js (that is what is
 // known to work from GitHub's servers). Coins CoinDCX does not list as a USDT perp are skipped and
 // reported in the output. The top-50 list comes from CoinGecko and is cached in data/top50.json (refreshed
 // once a day, and reused if CoinGecko is unavailable).
@@ -18,7 +18,7 @@
 // triggering right now but that is not confirmed until the candle closes (it can disappear again).
 //
 // Meant to be triggered every ~5 minutes (cron-job.org -> workflow_dispatch, see the workflow). Every run
-// scans both timeframes (like screen.js does). The file is only rewritten when the signals changed, so
+// scans both timeframes (like scripts/screen.js does). The file is only rewritten when the signals changed, so
 // most runs commit nothing. Set SKIP_IF_CURRENT=1 to skip a timeframe whose latest closed candle was
 // already scanned (a cheaper mode that exits in about a second between candle closes).
 //
@@ -60,7 +60,7 @@ const EXCLUDED_SYMBOLS = new Set([
 const FORCE = process.argv.includes('--force') || process.env.FORCE === '1';
 const SKIP_IF_CURRENT = process.env.SKIP_IF_CURRENT === '1' && !FORCE;
 
-// ---------------- fetch helpers (same pacing approach as screen.js) ----------------
+// ---------------- fetch helpers (same pacing approach as scripts/screen.js) ----------------
 const CONCURRENCY = 3;
 const MIN_REQUEST_GAP_MS = 300;
 const MAX_RETRIES = 6;
