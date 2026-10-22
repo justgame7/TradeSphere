@@ -593,6 +593,37 @@
   .top50-chg{font:700 11.5px var(--font-mono);padding:2px 7px;border-radius:8px;}
   .top50-chg.up{color:var(--accent);background:rgba(53,224,192,.12);}
   .top50-chg.down{color:var(--red);background:rgba(255,84,112,.12);}
+  /* Donchian alerts: bell button with badge + panel (the panel reuses the All Coins sheet styling) */
+  .alerts-btn{position:relative;}
+  .alerts-btn.has-new{color:var(--amber);border-color:rgba(245,166,35,.45);background:rgba(245,166,35,.08);}
+  .alerts-badge{
+    position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;
+    border-radius:8px;background:var(--red);color:#fff;font:700 9.5px var(--font-mono);
+    display:flex;align-items:center;justify-content:center;border:1.5px solid var(--bg);pointer-events:none;
+  }
+  .alerts-badge[hidden]{display:none;}
+  .alerts-rule{margin-top:10px;font:500 10.5px var(--font-mono);color:var(--faint);line-height:1.5;}
+  .alerts-sec{display:flex;align-items:center;gap:8px;padding:12px 8px 6px;font:700 10.5px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .alerts-sec .n{background:var(--panel2);border:1px solid var(--border-soft);border-radius:8px;padding:1px 7px;color:var(--text);}
+  .alert-row{display:flex;gap:10px;padding:11px 10px;margin:0 0 6px;border:1px solid var(--border-soft);border-radius:14px;background:var(--panel);animation:top50RowIn .3s ease backwards;}
+  .alert-row.is-new{border-color:rgba(245,166,35,.5);box-shadow:0 0 0 1px rgba(245,166,35,.12) inset;}
+  .alert-main{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px;}
+  .alert-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .alert-sym{font:700 13.5px var(--font-ui);color:var(--text);}
+  .alert-name{font:500 11px var(--font-ui);color:var(--faint);}
+  .alert-pill{font:700 9.5px var(--font-mono);letter-spacing:.06em;padding:2px 7px;border-radius:7px;text-transform:uppercase;}
+  .alert-pill.long{color:var(--accent);background:rgba(53,224,192,.14);}
+  .alert-pill.short{color:var(--red);background:rgba(255,84,112,.14);}
+  .alert-pill.open{color:var(--blue);background:rgba(91,140,255,.16);}
+  .alert-pill.closed{color:var(--muted);background:var(--panel2);}
+  .alert-pill.new{color:#1c1300;background:var(--amber);}
+  .alert-line{font:500 11px var(--font-mono);color:var(--muted);line-height:1.5;}
+  .alert-line b{color:var(--text);font-weight:600;}
+  .alert-right{flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;}
+  .alert-pct{font:700 13px var(--font-mono);}
+  .alert-pct.pos{color:var(--accent);} .alert-pct.neg{color:var(--red);}
+  .alert-pct-l{font:600 9.5px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.05em;}
+  .alerts-foot{padding:10px 10px 4px;font:500 10.5px var(--font-mono);color:var(--faint);line-height:1.6;}
   .top50-empty,.top50-error{padding:40px 20px;text-align:center;color:var(--faint);font-size:12.5px;}
   .top50-skeleton .top50-sym,.top50-skeleton .top50-name,.top50-skeleton .top50-price,.top50-skeleton .top50-chg,.top50-skeleton .top50-meta{
     color:transparent;border-radius:4px;
@@ -1459,6 +1490,10 @@
               <span class="ticker-updated" id="tickerUpdated"></span>
             </div>
             <div class="ticker-eyebrow-actions">
+              <button class="ticker-refresh alerts-btn" id="alertsBtn" type="button" aria-label="Donchian alerts" title="Donchian 20/10 alerts">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                <span class="alerts-badge" id="alertsBadge" hidden>0</span>
+              </button>
               <button class="ticker-refresh" id="cardDensityBtn" type="button" aria-label="Switch to compact view" title="Switch to compact view" aria-pressed="false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1.2"/><rect x="3" y="10" width="18" height="4" rx="1.2"/><rect x="3" y="16" width="18" height="4" rx="1.2"/></svg>
               </button>
@@ -1755,6 +1790,28 @@
       </div>
     </div>
     <div class="top50-list" id="top50List"></div>
+  </div>
+
+  <div class="top50-backdrop" id="alertsBackdrop"></div>
+  <div class="top50-modal" id="alertsModal" role="dialog" aria-modal="true" aria-label="Donchian alerts">
+    <div class="top50-handle"></div>
+    <div class="top50-head">
+      <div class="top50-head-row">
+        <div class="top50-title">
+          <span class="top50-title-main">Donchian alerts</span>
+          <span class="top50-title-sub"><span class="live-dot"></span><span id="alertsUpdated">&mdash;</span></span>
+        </div>
+        <button class="top50-close" id="alertsCloseBtn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+        </button>
+      </div>
+      <div class="top50-sort-row" id="alertsTfRow">
+        <button class="top50-sort-btn active" data-tf="1D" type="button">Daily</button>
+        <button class="top50-sort-btn" data-tf="4H" type="button">4H</button>
+      </div>
+      <div class="alerts-rule">Top 50 coins excluding stablecoins. Long entry: a candle closes above the previous 20-bar high. Short entry: closes below the previous 20-bar low. Exit: closes beyond the previous 10-bar low (long) or high (short).</div>
+    </div>
+    <div class="top50-list" id="alertsList"></div>
   </div>
 
   <div class="top50-backdrop" id="indicesBackdrop"></div>
@@ -2789,6 +2846,154 @@ top50Btn.addEventListener('click', openTop50Modal);
 top50CloseBtn.addEventListener('click', closeTop50Modal);
 top50Backdrop.addEventListener('click', closeTop50Modal);
 
+/* ================= Donchian 20/10 alerts (bell next to the Home strip buttons) =================
+   Data: data/donchian-alerts.json, written every ~10 min by .github/workflows/donchian-alerts.yml
+   (scripts/donchian-alerts.js). A long/short ENTRY shows as an open trade; once the exit rule fires the
+   same trade shows as CLOSED with its result. The badge counts trades the user has not been shown yet:
+   an entry counts once, and when it later closes it counts again as a new event. Opening the panel marks
+   everything as seen (the amber "new" markers inside it stay for that visit). */
+const AlertsPanel = (() => {
+  const DATA_URL = (() => {
+    try{ const o = localStorage.getItem('ts-alerts-data-url'); if(o) return o; }catch(e){}
+    return 'https://raw.githubusercontent.com/justgame7/TradeSphere/main/data/donchian-alerts.json';
+  })();
+  const SEEN_KEY = 'ts-alerts-seen-v1', TAB_KEY = 'ts-alerts-tab-v1';
+  const REFRESH_MS = 5 * 60 * 1000, STALE_MS = 2 * 60 * 1000;
+  const btn = document.getElementById('alertsBtn'), badge = document.getElementById('alertsBadge');
+  const modal = document.getElementById('alertsModal'), backdrop = document.getElementById('alertsBackdrop');
+  const listEl = document.getElementById('alertsList'), updEl = document.getElementById('alertsUpdated');
+  const tfRow = document.getElementById('alertsTfRow');
+  let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D';
+  try{ const t = localStorage.getItem(TAB_KEY); if(t === '4H' || t === '1D') tab = t; }catch(e){}
+
+  const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const key = (tf, t) => `${tf}|${t.symbol}|${t.side}|${t.entryTime}|${t.status === 'closed' ? 'c' : 'o'}`;
+  function allKeys(){
+    const out = [];
+    if(data && data.timeframes) Object.keys(data.timeframes).forEach(tf => (data.timeframes[tf].trades || []).forEach(t => out.push(key(tf, t))));
+    return out;
+  }
+  function loadSeen(){ try{ const a = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); return Array.isArray(a) ? new Set(a) : null; }catch(e){ return null; } }
+  function saveSeen(set){ try{ localStorage.setItem(SEEN_KEY, JSON.stringify([...set])); }catch(e){} }
+
+  function unseenKeys(){
+    let seen = loadSeen();
+    if(!seen){ seen = new Set(allKeys()); saveSeen(seen); } // first visit: everything already there counts as seen
+    return allKeys().filter(k => !seen.has(k));
+  }
+  function updateBadge(){
+    const n = unseenKeys().length;
+    badge.hidden = n === 0;
+    badge.textContent = n > 99 ? '99+' : String(n);
+    btn.classList.toggle('has-new', n > 0);
+    btn.title = n > 0 ? `Donchian alerts (${n} new)` : 'Donchian 20/10 alerts';
+  }
+
+  const fmtPx = v => {
+    if(!Number.isFinite(v)) return '\u2014';
+    const a = Math.abs(v), d = a >= 1000 ? 2 : a >= 1 ? 4 : a >= 0.01 ? 5 : 8;
+    return v.toLocaleString(undefined, { maximumFractionDigits: d });
+  };
+  const fmtPct = v => Number.isFinite(v) ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : '\u2014';
+  const fmtTime = (ms, tf) => new Date(ms).toLocaleString(undefined, tf === '4H'
+    ? { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' } : { day:'2-digit', month:'short', year:'numeric' });
+  const ago = ms => {
+    const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+    return m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
+  };
+
+  function rowHtml(t, tf, i){
+    const isNew = newKeys.has(key(tf, t));
+    const long = t.side === 'long', open = t.status === 'open';
+    const mult = t.mult && t.mult > 1 ? ` <span class="alert-name">(${t.mult}x price)</span>` : '';
+    const pct = open ? t.unrealizedPct : t.resultPct;
+    const cls = Number.isFinite(pct) ? (pct >= 0 ? 'pos' : 'neg') : '';
+    const lines = open
+      ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${fmtPx(t.entryLevel)} &middot; now <b>${fmtPx(t.lastClose)}</b></div>`
+      : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}</div>`;
+    return `<div class="alert-row${isNew ? ' is-new' : ''}" style="animation-delay:${Math.min(i, 12) * 18}ms">
+      <div class="alert-main">
+        <div class="alert-top">
+          <span class="alert-sym">${esc(t.symbol)}</span>${mult}
+          <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
+          <span class="alert-pill ${open ? 'open' : 'closed'}">${open ? 'Entry' : 'Closed'}</span>
+          ${isNew ? '<span class="alert-pill new">New</span>' : ''}
+        </div>
+        ${lines}
+      </div>
+      <div class="alert-right"><span class="alert-pct ${cls}">${fmtPct(pct)}</span><span class="alert-pct-l">${open ? 'open P/L' : 'result'}</span></div>
+    </div>`;
+  }
+
+  function render(){
+    tfRow.querySelectorAll('.top50-sort-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === tab));
+    if(!data){
+      listEl.innerHTML = loadErr ? '<div class="top50-error">Could not load the alerts. Check your connection and try again.</div>' : '<div class="top50-empty">Loading alerts&hellip;</div>';
+      updEl.textContent = '\u2014';
+      return;
+    }
+    updEl.textContent = 'updated ' + ago(Date.parse(data.updated)) + (loadErr ? ' \u00b7 refresh failed' : '');
+    const tfd = (data.timeframes || {})[tab];
+    if(!tfd){ listEl.innerHTML = '<div class="top50-empty">No ' + esc(tab) + ' scan yet.</div>'; return; }
+    const trades = tfd.trades || [];
+    const open = trades.filter(t => t.status === 'open').sort((a, b) => b.entryTime - a.entryTime);
+    const closed = trades.filter(t => t.status === 'closed').sort((a, b) => b.exitTime - a.exitTime);
+    let i = 0, html = '';
+    html += `<div class="alerts-sec">Open entries <span class="n">${open.length}</span></div>`;
+    html += open.length ? open.map(t => rowHtml(t, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">No open long or short entries.</div>';
+    html += `<div class="alerts-sec">Closed (last ${tab === '4H' ? '2 days' : '7 days'}) <span class="n">${closed.length}</span></div>`;
+    html += closed.length ? closed.map(t => rowHtml(t, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">No closed trades in this window.</div>';
+    const sk = (data.universe && data.universe.skipped) || [];
+    const failed = tfd.failed || [];
+    html += `<div class="alerts-foot">Last closed candle: ${esc(tfd.candleTime ? fmtTime(tfd.candleTime, tab) : '\u2014')} (your local time) &middot; ${tfd.scanned || 0} coins scanned.` +
+      (sk.length ? `<br>Not scanned (no CoinDCX perp): ${esc(sk.map(x => x.symbol).join(', '))}.` : '') +
+      (failed.length ? `<br>Failed this scan: ${esc(failed.join(', '))}.` : '') + '<br>Prices are the last closed candle. Results are close-to-close and ignore fees and funding.</div>';
+    listEl.innerHTML = html;
+  }
+
+  async function load(){
+    try{
+      const res = await fetch(DATA_URL + (DATA_URL.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      data = await res.json();
+      loadErr = false;
+    }catch(e){ loadErr = true; }
+    lastFetch = Date.now();
+    updateBadge();
+    if(modal.classList.contains('open')) render();
+  }
+
+  function open(){
+    newKeys = new Set(unseenKeys());           // what is new since the last visit, for the amber markers
+    saveSeen(new Set(allKeys()));              // everything shown now counts as seen (also prunes old keys)
+    updateBadge();
+    backdrop.classList.add('open'); modal.classList.add('open');
+    if(!history.state || !history.state.alerts) history.pushState({ page: currentPage, alerts: true }, '', location.href);
+    render();
+    if(Date.now() - lastFetch > STALE_MS) load();
+  }
+  function close(){
+    backdrop.classList.remove('open'); modal.classList.remove('open');
+    if(history.state && history.state.alerts) history.replaceState({ page: currentPage }, '', location.href);
+  }
+
+  btn.addEventListener('click', open);
+  document.getElementById('alertsCloseBtn').addEventListener('click', close);
+  backdrop.addEventListener('click', close);
+  tfRow.addEventListener('click', e => {
+    const b = e.target.closest('.top50-sort-btn'); if(!b) return;
+    tab = b.dataset.tf;
+    try{ localStorage.setItem(TAB_KEY, tab); }catch(err){}
+    render();
+  });
+  setInterval(() => { if(!document.hidden) load(); }, REFRESH_MS);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden && Date.now() - lastFetch > STALE_MS) load(); });
+  load();
+
+  return { open, close, isOpen: () => modal.classList.contains('open') };
+})();
+window.AlertsPanel = AlertsPanel;
+
 const top50SearchClearBtn = document.getElementById('top50SearchClear');
 function updateTop50SearchClearVisibility(){
   top50SearchClearBtn.style.display = top50SearchInput.value ? 'flex' : 'none';
@@ -3122,6 +3327,11 @@ function handleAndroidBack(){
     return;
   }
 
+  if(window.AlertsPanel && AlertsPanel.isOpen()){
+    AlertsPanel.close();
+    return;
+  }
+
   if(top50Modal.classList.contains('open')){
     closeTop50Modal();
     return;
@@ -3251,6 +3461,11 @@ window.addEventListener('popstate', event => {
   }
   if(indexOverlay && indexOverlay.classList.contains('open')){
     closeIndexBreakdown();
+    syncHistoryForCurrentPage();
+    return;
+  }
+  if(window.AlertsPanel && AlertsPanel.isOpen()){
+    AlertsPanel.close();
     syncHistoryForCurrentPage();
     return;
   }

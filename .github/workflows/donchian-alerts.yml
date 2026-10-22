@@ -1,0 +1,38 @@
+name: donchian-alerts
+on:
+  # Trigger from cron-job.org via the workflow_dispatch API every 10 minutes, like the other data
+  # workflows (GitHub's native schedule is unreliable); the cron below is only a backstop.
+  # Most runs find no newly closed 4H/1D candle and exit without scanning or committing anything.
+  workflow_dispatch: {}
+  schedule:
+    - cron: '*/10 * * * *'
+permissions:
+  contents: write
+concurrency:
+  group: donchian-alerts
+  cancel-in-progress: false
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build Donchian 20/10 alerts
+        run: node scripts/donchian-alerts.js
+
+      - name: Commit
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/donchian-alerts.json data/top50.json
+          git diff --cached --quiet && exit 0
+          git commit -m "update donchian alerts"
+          for i in 1 2 3 4 5; do
+            if git pull --rebase -X theirs origin main && git push; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            sleep $((RANDOM % 10 + 3))
+          done
+          echo "push failed after retries"; exit 1
