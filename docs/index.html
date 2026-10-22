@@ -631,6 +631,15 @@
   .alert-pct{font:700 13px var(--font-mono);}
   .alert-pct.pos{color:var(--accent);} .alert-pct.neg{color:var(--red);}
   .alert-pct-l{font:600 9.5px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.05em;}
+  details.alerts-help{margin:10px 6px 4px;padding:11px 14px;border:1px solid var(--border-soft);border-radius:14px;background:var(--panel);}
+  details.alerts-help summary{cursor:pointer;list-style:none;font:700 10.5px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  details.alerts-help summary::-webkit-details-marker{display:none;}
+  details.alerts-help summary::after{content:'+';float:right;color:var(--faint);font-size:14px;line-height:1;}
+  details.alerts-help[open] summary::after{content:'\2212';}
+  details.alerts-help ul{margin:10px 0 0;padding-left:18px;font:500 11px/1.6 var(--font-mono);color:var(--muted);}
+  details.alerts-help li{margin-bottom:6px;}
+  .alerts-help-sub{margin:12px 0 0;padding-top:10px;border-top:1px solid var(--border-soft);font:700 10px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);}
+  details.alerts-help b{color:var(--text);font-weight:600;}
   .alerts-foot{padding:10px 10px 4px;font:500 10.5px var(--font-mono);color:var(--faint);line-height:1.6;}
   .top50-empty,.top50-error{padding:40px 20px;text-align:center;color:var(--faint);font-size:12.5px;}
   .top50-skeleton .top50-sym,.top50-skeleton .top50-name,.top50-skeleton .top50-price,.top50-skeleton .top50-chg,.top50-skeleton .top50-meta{
@@ -1639,7 +1648,7 @@
                 <span class="home-icon">📆</span>
                 <span><span class="home-title">Bitcoin Returns</span><span class="home-desc">Monthly, quarterly &amp; yearly performance</span></span>
               </button>
-              <button class="home-card modern-card" type="button" data-page="btc-cycles">
+              <button class="home-card modern-card modern-card--hero" type="button" data-page="btc-cycles">
                 <span class="home-icon">🔁</span>
                 <span><span class="home-title">BTC Cycle Analogs</span><span class="home-desc">Current drawdown vs past cycles</span></span>
               </button>
@@ -1823,7 +1832,6 @@
         <button class="top50-sort-btn active" data-tf="1D" type="button">Daily</button>
         <button class="top50-sort-btn" data-tf="4H" type="button">4H</button>
       </div>
-      <div class="alerts-rule">Top 50 coins excluding stablecoins. Long entry: a candle closes above the previous 20-bar high. Short entry: closes below the previous 20-bar low. Exit: closes beyond the previous 10-bar low (long) or high (short).</div>
     </div>
     <div class="top50-list" id="alertsList"></div>
   </div>
@@ -2877,7 +2885,7 @@ const AlertsPanel = (() => {
   const modal = document.getElementById('alertsModal'), backdrop = document.getElementById('alertsBackdrop');
   const listEl = document.getElementById('alertsList'), updEl = document.getElementById('alertsUpdated');
   const tfRow = document.getElementById('alertsTfRow');
-  let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D';
+  let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
   try{ const t = localStorage.getItem(TAB_KEY); if(t === '4H' || t === '1D') tab = t; }catch(e){}
 
   const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
@@ -3003,9 +3011,23 @@ const AlertsPanel = (() => {
     html += closed.length ? closed.map(t => rowHtml(t, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">No closed trades in this window.</div>';
     const sk = (data.universe && data.universe.skipped) || [];
     const failed = tfd.failed || [];
-    html += `<div class="alerts-foot">Last closed candle: ${esc(tfd.candleTime ? fmtTime(tfd.candleTime, tab) : '\u2014')} (your local time) &middot; ${tfd.scanned || 0} coins scanned.` +
-      (sk.length ? `<br>Not scanned (no CoinDCX perp): ${esc(sk.map(x => x.symbol).join(', '))}.` : '') +
-      (failed.length ? `<br>Failed this scan: ${esc(failed.join(', '))}.` : '') + '<br>Confirmed prices are closed-candle closes. Results are close-to-close and ignore fees and funding. Bell badges: green = new confirmed signals, amber = new unconfirmed ones; each clears once you open this panel.</div>';
+    const scanItems = [
+      `<li><b>Last closed candle:</b> ${esc(tfd.candleTime ? fmtTime(tfd.candleTime, tab) : '—')} (your local time). ${tfd.scanned || 0} coins scanned.</li>`,
+      sk.length ? `<li><b>Not scanned (no CoinDCX perp):</b> ${esc(sk.map(x => x.symbol).join(', '))}.</li>` : '',
+      failed.length ? `<li><b>Failed this scan:</b> ${esc(failed.join(', '))}.</li>` : '',
+      '<li>Confirmed prices are closed-candle closes. Results are close-to-close and ignore fees and funding.</li>',
+    ].join('');
+    html += `<details class="alerts-help"${helpOpen ? ' open' : ''}><summary>How this works</summary><ul>
+      <li><b>Coins:</b> the top 50 by market cap, excluding stablecoins, that trade as a USDT perpetual on CoinDCX.</li>
+      <li><b>Long entry:</b> a candle closes above the highest high of the previous 20 candles. <b>Short entry:</b> a candle closes below the lowest low of the previous 20 candles.</li>
+      <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous 10 candles. While short, it closes above the highest high of the previous 10.</li>
+      <li><b>Confirmed:</b> the candle has closed, so the signal is final.</li>
+      <li><b>Unconfirmed:</b> the candle is still open and the live price is already beyond the level. It can disappear before the candle closes.</li>
+      <li><b>Bell badges:</b> green is new confirmed signals, amber is new unconfirmed ones. Each clears once you open this panel.</li>
+      <li>Tap a coin to open its technical breakdown.</li>
+    </ul>
+    <div class="alerts-help-sub">Latest scan (${esc(tab)})</div>
+    <ul>${scanItems}</ul></details>`;
     listEl.innerHTML = html;
   }
 
@@ -3047,6 +3069,7 @@ const AlertsPanel = (() => {
     document.body.classList.add('ta-over-top50');
     window.TechAnalysis.openSymbol(symbol);
   }
+  listEl.addEventListener('toggle', e => { if(e.target.matches && e.target.matches('details.alerts-help')) helpOpen = e.target.open; }, true);
   listEl.addEventListener('click', e => { const row = e.target.closest('.alert-row[data-sym]'); if(row) openCoin(row); });
   listEl.addEventListener('keydown', e => {
     if(e.key !== 'Enter' && e.key !== ' ') return;
