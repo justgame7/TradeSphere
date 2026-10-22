@@ -46,7 +46,7 @@ const COINDCX_API_BASE = 'https://api.coindcx.com';
 const COINDCX_PUBLIC_BASE = 'https://public.coindcx.com';
 const ACTIVE_INSTRUMENTS_URL = `${COINDCX_API_BASE}/exchange/v1/derivatives/futures/data/active_instruments`;
 const FUTURES_CANDLES_URL = `${COINDCX_PUBLIC_BASE}/market_data/candlesticks`;
-const COINGECKO_MARKETS = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false';
+const COINGECKO_MARKETS = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=150&page=1&sparkline=false';
 const COINGECKO_STABLES = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=stablecoins&order=market_cap_desc&per_page=250&page=1&sparkline=false';
 
 // Stablecoins plus pegged / tokenized assets that are not ordinary coins. Used on top of CoinGecko's own
@@ -98,7 +98,7 @@ async function fetchJSON(url, { paced = true } = {}) {
   throw lastErr;
 }
 
-// ---------------- universe: top 50 non-stablecoins that CoinDCX lists as USDT perps ----------------
+// ---------------- universe: the first 50 non-stablecoins (by market cap) that CoinDCX lists as USDT perps ----------------
 function readJSON(file) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } }
 
 function pairFor(symbol, instruments) {
@@ -111,26 +111,30 @@ function pairFor(symbol, instruments) {
 
 async function loadUniverse(instruments) {
   const cached = readJSON(TOP50_FILE);
-  const fresh = cached && cached.updated && Date.now() - Date.parse(cached.updated) < TOP50_MAX_AGE_MS;
+  // v: 2 = "50 scannable coins" (coins without a CoinDCX perp are skipped and replaced by the next ones).
+  const fresh = cached && cached.v === 2 && cached.updated && Date.now() - Date.parse(cached.updated) < TOP50_MAX_AGE_MS;
   if (fresh && !FORCE) { console.log('using cached top 50 (' + cached.updated + ')'); return cached; }
   try {
     const markets = await fetchJSON(COINGECKO_MARKETS, { paced: false });
     let stableIds = new Set();
     try { stableIds = new Set((await fetchJSON(COINGECKO_STABLES, { paced: false })).map((c) => c.id)); }
     catch (e) { console.warn('stablecoin category fetch failed, using the built-in list only: ' + e.message); }
-    const coins = markets
+    // Walk the market-cap ranking (stablecoins removed) and keep going until TOP_N coins that CoinDCX actually lists
+    // are collected. A coin with no CoinDCX USDT perp is skipped (and reported) and the next coin takes its place,
+    // so 50 coins are scanned, not 50 minus the unlisted ones.
+    const ranked = markets
       .filter((c) => !stableIds.has(c.id) && !EXCLUDED_SYMBOLS.has(String(c.symbol).toLowerCase()))
-      .slice(0, TOP_N)
       .map((c, i) => ({ rank: i + 1, cgRank: c.market_cap_rank, symbol: String(c.symbol).toUpperCase(), name: c.name }));
-    if (coins.length < 30) throw new Error('top list too short: ' + coins.length);
-    const out = { updated: new Date().toISOString(), coins: [], skipped: [] };
-    for (const c of coins) {
+    const out = { v: 2, updated: new Date().toISOString(), coins: [], skipped: [] };
+    for (const c of ranked) {
+      if (out.coins.length >= TOP_N) break;
       const m = pairFor(c.symbol, instruments);
       if (m) out.coins.push({ ...c, pair: m.pair, mult: m.mult });
       else out.skipped.push({ rank: c.rank, symbol: c.symbol, name: c.name, reason: 'no CoinDCX USDT perp' });
     }
+    if (out.coins.length < 30) throw new Error('too few scannable coins: ' + out.coins.length);
     fs.writeFileSync(TOP50_FILE, JSON.stringify(out));
-    console.log(`top 50 refreshed: ${out.coins.length} scannable, ${out.skipped.length} skipped`);
+    console.log(`top list refreshed: ${out.coins.length} scannable (down to rank ${out.coins[out.coins.length - 1].rank}), ${out.skipped.length} skipped`);
     return out;
   } catch (e) {
     if (cached) { console.warn('CoinGecko failed (' + e.message + '), reusing cached top 50'); return cached; }
@@ -261,7 +265,7 @@ async function main() {
   const next = {
     updated: new Date().toISOString(),
     rules: { entry: ENTRY_LEN, exit: EXIT_LEN },
-    universe: { source: 'CoinGecko top 50 excluding stablecoins; candles from CoinDCX USDT perps', updated: universe.updated, scanned: universe.coins.length, skipped: universe.skipped },
+    universe: { source: 'CoinGecko market-cap ranking excluding stablecoins, first 50 listed on CoinDCX as USDT perps; candles from CoinDCX', updated: universe.updated, scanned: universe.coins.length, skipped: universe.skipped },
     timeframes: { ...((prev && prev.timeframes) || {}) },
   };
 

@@ -638,6 +638,20 @@
   details.alerts-help[open] summary::after{content:'\2212';}
   details.alerts-help ul{margin:10px 0 0;padding-left:18px;font:500 11px/1.6 var(--font-mono);color:var(--muted);}
   details.alerts-help li{margin-bottom:6px;}
+  /* ---- Alerts full page: rows sit inside the Technical Breakdown style group cards ---- */
+  #alertsOverlay .analysis-group-body{padding-bottom:6px;}
+  #alertsOverlay .alert-row{border:none;border-bottom:1px solid var(--border-soft);border-radius:0;background:transparent;margin:0;padding:11px 4px;box-shadow:none;}
+  #alertsOverlay .alert-row:last-child{border-bottom:none;}
+  #alertsOverlay .alert-row.is-new{box-shadow:inset 3px 0 0 var(--amber);padding-left:10px;background:rgba(245,166,35,.05);}
+  #alertsOverlay .alert-row.is-forming{background:rgba(245,166,35,.04);border-bottom:1px dashed rgba(245,166,35,.3);}
+  #alertsOverlay .alert-row.is-forming:last-child{border-bottom:none;}
+  #alertsOverlay .alert-row:hover{background:var(--panel2);}
+  #alertsOverlay .alerts-subnote{padding:0 4px 10px;}
+  #alertsOverlay .alerts-empty{padding:16px 4px;color:var(--faint);font:500 12px var(--font-mono);}
+  #alertsOverlay .alerts-help-body ul{margin:0 0 4px;padding-left:18px;font:500 11.5px/1.65 var(--font-mono);color:var(--muted);}
+  #alertsOverlay .alerts-help-body li{margin-bottom:6px;}
+  #alertsOverlay .alerts-help-body b{color:var(--text);font-weight:600;}
+  #alertsOverlay .alerts-help-body .alerts-help-sub{margin-top:10px;}
   .alerts-help-sub{margin:12px 0 0;padding-top:10px;border-top:1px solid var(--border-soft);font:700 10px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);}
   details.alerts-help b{color:var(--text);font-weight:600;}
   .alerts-foot{padding:10px 10px 4px;font:500 10.5px var(--font-mono);color:var(--faint);line-height:1.6;}
@@ -1815,27 +1829,6 @@
     <div class="top50-list" id="top50List"></div>
   </div>
 
-  <div class="top50-backdrop" id="alertsBackdrop"></div>
-  <div class="top50-modal" id="alertsModal" role="dialog" aria-modal="true" aria-label="Donchian alerts">
-    <div class="top50-handle"></div>
-    <div class="top50-head">
-      <div class="top50-head-row">
-        <div class="top50-title">
-          <span class="top50-title-main">Donchian alerts</span>
-          <span class="top50-title-sub"><span class="live-dot"></span><span id="alertsUpdated">&mdash;</span></span>
-        </div>
-        <button class="top50-close" id="alertsCloseBtn" type="button" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
-        </button>
-      </div>
-      <div class="top50-sort-row" id="alertsTfRow">
-        <button class="top50-sort-btn active" data-tf="1D" type="button">Daily</button>
-        <button class="top50-sort-btn" data-tf="4H" type="button">4H</button>
-      </div>
-    </div>
-    <div class="top50-list" id="alertsList"></div>
-  </div>
-
   <div class="top50-backdrop" id="indicesBackdrop"></div>
   <div class="top50-modal" id="indicesModal" role="dialog" aria-modal="true" aria-label="Market indices">
     <div class="top50-handle"></div>
@@ -1877,6 +1870,33 @@
         <button type="button" class="coininfo-website" id="coinInfoCoingecko">—</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Donchian alerts: full-page overlay styled like the Technical Breakdown. Placed before analysisOverlay so a coin
+     opened from here (breakdown) stacks on top of it. -->
+<div class="analysis-overlay" id="alertsOverlay" role="dialog" aria-modal="true" aria-label="Donchian alerts">
+  <div class="analysis-shell">
+    <div class="analysis-topbar">
+      <div class="analysis-id">
+        <div class="analysis-symbol-icon" id="alertsIcon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+        <div class="analysis-id-text">
+          <div class="analysis-symbol">Donchian alerts<span class="quote">20/10</span></div>
+          <div class="analysis-meta"><span id="alertsMeta">Top 50 coins &middot; long + short</span></div>
+        </div>
+      </div>
+      <div class="analysis-controls">
+        <div class="analysis-tf-toggle" id="alertsTfRow">
+          <button type="button" data-tf="4H">4H</button>
+          <button type="button" data-tf="1D" class="active">1D</button>
+        </div>
+        <button type="button" class="analysis-icon-btn analysis-toggle-all" id="alertsToggleAll" title="Collapse all sections" aria-label="Collapse all sections"><span class="taa-chevron">&#8964;</span></button>
+        <button type="button" class="analysis-icon-btn" id="alertsRefreshBtn" title="Refresh alerts" aria-label="Refresh alerts"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></button>
+        <button type="button" class="analysis-close" id="alertsCloseBtn" aria-label="Close">&#10005;</button>
+      </div>
+    </div>
+    <div class="analysis-status-row" id="alertsStatusRow"><span class="dot"></span><span id="alertsStatus">Loading&hellip;</span></div>
+    <div class="analysis-groups-grid" id="alertsGrid"></div>
   </div>
 </div>
 
@@ -2882,9 +2902,10 @@ const AlertsPanel = (() => {
   const SEEN_KEY = 'ts-alerts-seen-v1', TAB_KEY = 'ts-alerts-tab-v1';
   const REFRESH_MS = 2 * 60 * 1000, STALE_MS = 60 * 1000;
   const btn = document.getElementById('alertsBtn'), badge = document.getElementById('alertsBadge'), badgeForming = document.getElementById('alertsBadgeForming');
-  const modal = document.getElementById('alertsModal'), backdrop = document.getElementById('alertsBackdrop');
-  const listEl = document.getElementById('alertsList'), updEl = document.getElementById('alertsUpdated');
-  const tfRow = document.getElementById('alertsTfRow');
+  const overlay = document.getElementById('alertsOverlay'), grid = document.getElementById('alertsGrid');
+  const statusEl = document.getElementById('alertsStatus'), metaEl = document.getElementById('alertsMeta');
+  const tfRow = document.getElementById('alertsTfRow'), toggleAllBtn = document.getElementById('alertsToggleAll');
+  const collapsedGrp = new Set(['help']); // group cards that start collapsed
   let liveTimer = null;
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
   try{ const t = localStorage.getItem(TAB_KEY); if(t === '4H' || t === '1D') tab = t; }catch(e){}
@@ -3021,11 +3042,18 @@ const AlertsPanel = (() => {
   function setHeader(){
     if(!data) return;
     const a = priceAge();
-    updEl.textContent = 'signals ' + ago(Date.parse(data.updated)) + (a == null ? '' : ' \u00b7 prices ' + (a < 90 ? a + 's' : Math.round(a / 60) + 'm') + ' ago') + (loadErr ? ' \u00b7 refresh failed' : '');
+    const tfd = (data.timeframes || {})[tab] || {};
+    const parts = ['signals ' + ago(Date.parse(data.updated))];
+    if(a != null) parts.push('prices ' + (a < 90 ? a + 's' : Math.round(a / 60) + 'm') + ' ago');
+    if(tfd.scanned) parts.push(tfd.scanned + ' coins scanned');
+    if(loadErr) parts.push('refresh failed');
+    statusEl.textContent = parts.join(' · ');
+    const open = (tfd.trades || []).filter(t => t.status === 'open').length, unconf = (tfd.forming || []).length;
+    metaEl.textContent = `Top 50 coins · ${tab === '4H' ? '4H' : 'Daily'} · ${open} confirmed · ${unconf} unconfirmed`;
   }
   function refreshLive(){
     loadLive();
-    listEl.querySelectorAll('.alert-row[data-live]').forEach(row => {
+    grid.querySelectorAll('.alert-row[data-live]').forEach(row => {
       const px = livePx(row.dataset.sym);
       if(!Number.isFinite(px)) return;
       const kind = row.dataset.live;
@@ -3037,49 +3065,72 @@ const AlertsPanel = (() => {
     setHeader();
   }
 
+  const groupCard = (id, icon, color, title, count, body) => `<div class="analysis-group-card${collapsedGrp.has(id) ? ' collapsed' : ''}" data-grp="${id}" style="--grp-color:${color}">
+      <div class="analysis-group-head">
+        <span class="analysis-group-icon">${icon}</span>
+        <span class="analysis-group-title">${title}</span>
+        ${count == null ? '' : `<span class="analysis-group-count">${count}</span>`}
+        <button type="button" class="analysis-group-chevron" aria-label="Toggle ${esc(title)}" aria-expanded="${collapsedGrp.has(id) ? 'false' : 'true'}">⌄</button>
+      </div>
+      <div class="analysis-group-body">${body}</div>
+    </div>`;
+  function updateToggleAll(){
+    const ids = [...grid.querySelectorAll('.analysis-group-card')];
+    const all = ids.length && ids.every(c => c.classList.contains('collapsed'));
+    toggleAllBtn.classList.toggle('all-collapsed', !!all);
+    toggleAllBtn.title = toggleAllBtn.ariaLabel = all ? 'Expand all sections' : 'Collapse all sections';
+  }
+
   function render(){
-    tfRow.querySelectorAll('.top50-sort-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === tab));
+    tfRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tf === tab));
     if(!data){
-      listEl.innerHTML = loadErr ? '<div class="top50-error">Could not load the alerts. Check your connection and try again.</div>' : '<div class="top50-empty">Loading alerts&hellip;</div>';
-      updEl.textContent = '\u2014';
+      grid.innerHTML = `<div class="alerts-empty" style="grid-column:1/-1;">${loadErr ? 'Could not load the alerts. Check your connection and tap refresh.' : 'Loading alerts…'}</div>`;
+      statusEl.textContent = loadErr ? 'load failed' : 'Loading…';
       return;
     }
     loadLive();
     setHeader();
     const tfd = (data.timeframes || {})[tab];
-    if(!tfd){ listEl.innerHTML = '<div class="top50-empty">No ' + esc(tab) + ' scan yet.</div>'; return; }
+    if(!tfd){ grid.innerHTML = '<div class="alerts-empty" style="grid-column:1/-1;">No ' + esc(tab) + ' scan yet.</div>'; return; }
     const trades = tfd.trades || [];
     const open = trades.filter(t => t.status === 'open').sort((a, b) => b.entryTime - a.entryTime);
     const closed = trades.filter(t => t.status === 'closed').sort((a, b) => b.exitTime - a.exitTime);
     const forming = (tfd.forming || []).slice().sort((a, b) => (a.kind === b.kind ? a.symbol.localeCompare(b.symbol) : a.kind === 'entry' ? -1 : 1));
-    let i = 0, html = '';
-    html += `<div class="alerts-sec">Not confirmed yet <span class="n">${forming.length}</span></div>`;
-    html += `<div class="alerts-subnote">Triggered by the ${tab === '4H' ? '4H' : 'daily'} candle that is still open. These can disappear before it closes, and only count once the candle closes beyond the level.${tfd.formingAt ? ' Prices as of ' + esc(ago(Date.parse(tfd.formingAt))) + '.' : ''}</div>`;
-    html += forming.length ? forming.map(f => formingRowHtml(f, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">Nothing is triggering on the open candle right now.</div>';
-    html += `<div class="alerts-sec">Confirmed entries <span class="n">${open.length}</span></div>`;
-    html += open.length ? open.map(t => rowHtml(t, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">No confirmed long or short entries.</div>';
-    html += `<div class="alerts-sec">Closed, confirmed (last ${tab === '4H' ? '2 days' : '7 days'}) <span class="n">${closed.length}</span></div>`;
-    html += closed.length ? closed.map(t => rowHtml(t, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">No closed trades in this window.</div>';
+    const empty = msg => `<div class="alerts-empty">${msg}</div>`;
+    let i = 0;
+    const tfName = tab === '4H' ? '4H' : 'daily';
+
+    const unconfBody = `<div class="alerts-subnote">Triggered by the ${tfName} candle that is still open. These can disappear before it closes, and only count once the candle closes beyond the level.${tfd.formingAt ? ' Detected ' + esc(ago(Date.parse(tfd.formingAt))) + '.' : ''}</div>` +
+      (forming.length ? forming.map(f => formingRowHtml(f, tab, i++)).join('') : empty('Nothing is triggering on the open candle right now.'));
+    const openBody = open.length ? open.map(t => rowHtml(t, tab, i++)).join('') : empty('No confirmed long or short entries.');
+    const closedBody = closed.length ? closed.map(t => rowHtml(t, tab, i++)).join('') : empty('No closed trades in this window.');
+
     const sk = (data.universe && data.universe.skipped) || [];
     const failed = tfd.failed || [];
     const scanItems = [
       `<li><b>Last closed candle:</b> ${esc(tfd.candleTime ? fmtTime(tfd.candleTime, tab) : '—')} (your local time). ${tfd.scanned || 0} coins scanned.</li>`,
-      sk.length ? `<li><b>Not scanned (no CoinDCX perp):</b> ${esc(sk.map(x => x.symbol).join(', '))}.</li>` : '',
+      sk.length ? `<li><b>Skipped (no CoinDCX perp), replaced by the next coins:</b> ${esc(sk.map(x => x.symbol).join(', '))}.</li>` : '',
       failed.length ? `<li><b>Failed this scan:</b> ${esc(failed.join(', '))}.</li>` : '',
       '<li>Confirmed prices are closed-candle closes. Results are close-to-close and ignore fees and funding.</li>',
     ].join('');
-    html += `<details class="alerts-help"${helpOpen ? ' open' : ''}><summary>How this works</summary><ul>
-      <li><b>Coins:</b> the top 50 by market cap, excluding stablecoins, that trade as a USDT perpetual on CoinDCX.</li>
+    const helpBody = `<div class="alerts-help-body"><ul>
+      <li><b>Coins:</b> the top coins by market cap, excluding stablecoins, that trade as a USDT perpetual on CoinDCX. A coin CoinDCX doesn't list is skipped and the next one takes its place, so 50 coins are scanned.</li>
       <li><b>Long entry:</b> a candle closes above the highest high of the previous 20 candles. <b>Short entry:</b> a candle closes below the lowest low of the previous 20 candles.</li>
       <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous 10 candles. While short, it closes above the highest high of the previous 10.</li>
       <li><b>Confirmed:</b> the candle has closed, so the signal is final.</li>
       <li><b>Unconfirmed:</b> the candle is still open and the live price is already beyond the level. It can disappear before the candle closes.</li>
-      <li><b>Bell badges:</b> green is new confirmed signals, amber is new unconfirmed ones. Each clears once you open this panel.</li>
+      <li><b>Bell badges:</b> green is new confirmed signals, amber is new unconfirmed ones. Each clears once you open this page.</li>
       <li>Tap a coin to open its technical breakdown.</li>
     </ul>
     <div class="alerts-help-sub">Latest scan (${esc(tab)})</div>
-    <ul>${scanItems}</ul></details>`;
-    listEl.innerHTML = html;
+    <ul>${scanItems}</ul></div>`;
+
+    grid.innerHTML =
+      groupCard('unconf', '⏳', 'var(--amber)', 'Not confirmed yet', forming.length, unconfBody) +
+      groupCard('open', '✅', 'var(--accent)', 'Confirmed entries', open.length, openBody) +
+      groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '4H' ? '2 days' : '7 days'})`, closed.length, closedBody) +
+      groupCard('help', 'ℹ️', 'var(--violet)', 'How this works', null, helpBody);
+    updateToggleAll();
   }
 
   async function load(){
@@ -3091,14 +3142,16 @@ const AlertsPanel = (() => {
     }catch(e){ loadErr = true; }
     lastFetch = Date.now();
     updateBadge();
-    if(modal.classList.contains('open')) render();
+    if(overlay.classList.contains('open')) render();
   }
 
   function open(){
     newKeys = new Set(unseenKeys());           // what is new since the last visit, for the amber markers
     saveSeen(new Set(allKeys()));              // everything shown now counts as seen (also prunes old keys)
     updateBadge();
-    backdrop.classList.add('open'); modal.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    overlay.scrollTop = 0;
     if(!history.state || !history.state.alerts) history.pushState({ page: currentPage, alerts: true }, '', location.href);
     render();
     if(Date.now() - lastFetch > STALE_MS) load();
@@ -3107,30 +3160,51 @@ const AlertsPanel = (() => {
   }
   function close(){
     clearInterval(liveTimer);
-    backdrop.classList.remove('open'); modal.classList.remove('open');
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
     if(history.state && history.state.alerts) history.replaceState({ page: currentPage }, '', location.href);
   }
 
   btn.addEventListener('click', open);
   document.getElementById('alertsCloseBtn').addEventListener('click', close);
-  backdrop.addEventListener('click', close);
-  // Tapping a coin opens its technical breakdown on top of this sheet (the sheet is hidden underneath and
-  // comes back when the breakdown is closed, same as the All Coins list).
+  document.getElementById('alertsRefreshBtn').addEventListener('click', () => { load(); try{ if(typeof loadTicker === 'function') loadTicker(); }catch(e){} });
+  // Tapping a coin opens its technical breakdown on top of this page (it is a later overlay, so it stacks above);
+  // closing the breakdown returns here.
   function openCoin(row){
     const base = row.dataset.sym;
     if(!base || !window.TechAnalysis) return;
     const symbol = (typeof resolveBinanceFuturesSymbol === 'function' ? resolveBinanceFuturesSymbol(base) : base + 'USDT');
-    document.body.classList.add('ta-over-top50');
     window.TechAnalysis.openSymbol(symbol);
   }
-  listEl.addEventListener('toggle', e => { if(e.target.matches && e.target.matches('details.alerts-help')) helpOpen = e.target.open; }, true);
-  listEl.addEventListener('click', e => { const row = e.target.closest('.alert-row[data-sym]'); if(row) openCoin(row); });
-  listEl.addEventListener('keydown', e => {
+  grid.addEventListener('click', e => {
+    const row = e.target.closest('.alert-row[data-sym]');
+    if(row){ openCoin(row); return; }
+    const head = e.target.closest('.analysis-group-head');
+    if(!head) return;
+    const card = head.closest('.analysis-group-card'); if(!card) return;
+    const id = card.dataset.grp;
+    const collapsed = !card.classList.contains('collapsed');
+    card.classList.toggle('collapsed', collapsed);
+    if(collapsed) collapsedGrp.add(id); else collapsedGrp.delete(id);
+    const chev = card.querySelector('.analysis-group-chevron'); if(chev) chev.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    updateToggleAll();
+  });
+  grid.addEventListener('keydown', e => {
     if(e.key !== 'Enter' && e.key !== ' ') return;
     const row = e.target.closest('.alert-row[data-sym]'); if(row){ e.preventDefault(); openCoin(row); }
   });
+  toggleAllBtn.addEventListener('click', () => {
+    const cards = [...grid.querySelectorAll('.analysis-group-card')];
+    const collapse = cards.some(c => !c.classList.contains('collapsed'));
+    cards.forEach(c => {
+      c.classList.toggle('collapsed', collapse);
+      if(collapse) collapsedGrp.add(c.dataset.grp); else collapsedGrp.delete(c.dataset.grp);
+      const chev = c.querySelector('.analysis-group-chevron'); if(chev) chev.setAttribute('aria-expanded', collapse ? 'false' : 'true');
+    });
+    updateToggleAll();
+  });
   tfRow.addEventListener('click', e => {
-    const b = e.target.closest('.top50-sort-btn'); if(!b) return;
+    const b = e.target.closest('button[data-tf]'); if(!b) return;
     tab = b.dataset.tf;
     try{ localStorage.setItem(TAB_KEY, tab); }catch(err){}
     render();
@@ -3139,7 +3213,7 @@ const AlertsPanel = (() => {
   document.addEventListener('visibilitychange', () => { if(!document.hidden && Date.now() - lastFetch > STALE_MS) load(); });
   load();
 
-  return { open, close, isOpen: () => modal.classList.contains('open') };
+  return { open, close, isOpen: () => overlay.classList.contains('open') };
 })();
 window.AlertsPanel = AlertsPanel;
 
