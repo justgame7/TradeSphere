@@ -1,5 +1,5 @@
 // Builds data/donchian-alerts.json: Donchian 20/10 breakout trades (long and short) for the top 50
-// non-stablecoin coins, on the 1H, 4H and Daily timeframes. Same rules as the TradingView Pine script and the
+// non-stablecoin coins, on the 1H, 4H, Daily and Weekly timeframes. Same rules as the TradingView Pine script and the
 // in-app chart markers:
 //   long  entry: a candle CLOSES above the highest high of the previous 20 candles
 //   long  exit : while long, a candle closes below the lowest low of the previous 10 candles
@@ -36,6 +36,8 @@ const TIMEFRAMES = [
   { label: '1H', resolution: '1h', periodMs: HOUR, historyDays: 14, keepClosedMs: 1 * DAY },
   { label: '4H', resolution: '4h', periodMs: 4 * HOUR, historyDays: 60, keepClosedMs: 2 * DAY },
   { label: '1D', resolution: '1d', periodMs: DAY, historyDays: 300, keepClosedMs: 7 * DAY },
+  // Weekly candles open on Monday 00:00 UTC (epoch day 0 was a Thursday, so Monday is 4 days after it).
+  { label: '1W', resolution: '1w', periodMs: 7 * DAY, offsetMs: 4 * DAY, historyDays: 1100, keepClosedMs: 28 * DAY },
 ];
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -252,12 +254,13 @@ async function main() {
 
   // Which timeframes have a newly closed candle since the last scan? Expected = open time of the last fully closed candle.
   const due = TIMEFRAMES.filter((tf) => {
-    const expected = Math.floor(now / tf.periodMs) * tf.periodMs - tf.periodMs;
+    const off = tf.offsetMs || 0;
+    const expected = Math.floor((now - off) / tf.periodMs) * tf.periodMs + off - tf.periodMs;
     tf.expected = expected;
     const asOf = prev && prev.timeframes && prev.timeframes[tf.label] && prev.timeframes[tf.label].asOf;
     return !SKIP_IF_CURRENT || !asOf || asOf < expected;
   });
-  if (!due.length) { console.log('no new 1H/4H/1D candle since the last scan, nothing to do (SKIP_IF_CURRENT)'); return; }
+  if (!due.length) { console.log('no new 1H/4H/1D/1W candle since the last scan, nothing to do (SKIP_IF_CURRENT)'); return; }
   console.log('scanning: ' + due.map((t) => t.label).join(', '));
 
   const instruments = new Set(await fetchJSON(ACTIVE_INSTRUMENTS_URL));

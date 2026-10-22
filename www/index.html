@@ -1892,6 +1892,7 @@
           <button type="button" data-tf="1H">1H</button>
           <button type="button" data-tf="4H">4H</button>
           <button type="button" data-tf="1D" class="active">1D</button>
+          <button type="button" data-tf="1W">1W</button>
         </div>
         <button type="button" class="analysis-icon-btn analysis-toggle-all" id="alertsToggleAll" title="Collapse all sections" aria-label="Collapse all sections"><span class="taa-chevron">&#8964;</span></button>
         <button type="button" class="analysis-icon-btn" id="alertsRefreshBtn" title="Refresh alerts" aria-label="Refresh alerts"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></button>
@@ -2909,6 +2910,7 @@ const AlertsPanel = (() => {
   const statusEl = document.getElementById('alertsStatus'), metaEl = document.getElementById('alertsMeta');
   const tfRow = document.getElementById('alertsTfRow'), toggleAllBtn = document.getElementById('alertsToggleAll');
   const collapsedGrp = new Set(['help']); // group cards that start collapsed
+  let unconfManual = false;                // true once the user opens/closes "Not confirmed yet" themselves (else it follows its count)
   let liveTimer = null;
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
 
@@ -3016,6 +3018,7 @@ const AlertsPanel = (() => {
   const untilClose = ms => {
     const m = Math.round((ms - Date.now()) / 60000);
     if(m <= 0) return 'closing now';
+    if(m >= 1440) return Math.floor(m / 1440) + 'd ' + Math.floor((m % 1440) / 60) + 'h';
     return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
   };
   function formingRowHtml(f, tf, i){
@@ -3059,7 +3062,7 @@ const AlertsPanel = (() => {
     if(loadErr) parts.push('refresh failed');
     statusEl.textContent = parts.join(' · ');
     const open = (tfd.trades || []).filter(t => t.status === 'open').length, unconf = (tfd.forming || []).length;
-    metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab} · ${open} confirmed · ${unconf} unconfirmed`;
+    metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab} · ${open} confirmed · ${unconf} unconfirmed`;
   }
   function refreshLive(){
     loadLive();
@@ -3111,9 +3114,11 @@ const AlertsPanel = (() => {
       if(na !== nb) return na ? -1 : 1;                         // new ones first
       return na ? (b.detectedAt || 0) - (a.detectedAt || 0) : 0; // newest first among them, the rest keep their order
     });
+    // "Not confirmed yet" starts collapsed when there is nothing in it, and open when there is, until the user toggles it.
+    if(!unconfManual){ if(forming.length === 0) collapsedGrp.add('unconf'); else collapsedGrp.delete('unconf'); }
     const empty = msg => `<div class="alerts-empty">${msg}</div>`;
     let i = 0;
-    const tfName = tab === '1D' ? 'daily' : tab;
+    const tfName = tab === '1D' ? 'daily' : tab === '1W' ? 'weekly' : tab;
 
     open.splice(0, open.length, ...newFirst(open, t => key(tab, t)));
     closed.splice(0, closed.length, ...newFirst(closed, t => key(tab, t)));
@@ -3146,7 +3151,7 @@ const AlertsPanel = (() => {
     grid.innerHTML =
       groupCard('unconf', '⏳', 'var(--amber)', 'Not confirmed yet', forming.length, unconfBody) +
       groupCard('open', '✅', 'var(--accent)', 'Confirmed entries', open.length, openBody) +
-      groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '1H' ? '24 hours' : tab === '4H' ? '2 days' : '7 days'})`, closed.length, closedBody) +
+      groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '1H' ? '24 hours' : tab === '4H' ? '2 days' : tab === '1W' ? '4 weeks' : '7 days'})`, closed.length, closedBody) +
       groupCard('help', 'ℹ️', 'var(--violet)', 'How this works', null, helpBody);
     updateToggleAll();
   }
@@ -3164,6 +3169,7 @@ const AlertsPanel = (() => {
   }
 
   function open(){
+    unconfManual = false;
     tab = '1D';                                // the page always opens on Daily (switching tabs lasts for this visit only)
     newKeys = new Set(unseenItems().map(it => it.key)); // what is new since the last visit, for the markers and the sort
     // Everything shown now counts as seen. Use the newest detectedAt too, so a runner clock slightly ahead of this
@@ -3204,6 +3210,7 @@ const AlertsPanel = (() => {
     if(!head) return;
     const card = head.closest('.analysis-group-card'); if(!card) return;
     const id = card.dataset.grp;
+    if(id === 'unconf') unconfManual = true;
     const collapsed = !card.classList.contains('collapsed');
     card.classList.toggle('collapsed', collapsed);
     if(collapsed) collapsedGrp.add(id); else collapsedGrp.delete(id);
@@ -3216,6 +3223,7 @@ const AlertsPanel = (() => {
   });
   toggleAllBtn.addEventListener('click', () => {
     const cards = [...grid.querySelectorAll('.analysis-group-card')];
+    unconfManual = true;
     const collapse = cards.some(c => !c.classList.contains('collapsed'));
     cards.forEach(c => {
       c.classList.toggle('collapsed', collapse);
@@ -3227,6 +3235,7 @@ const AlertsPanel = (() => {
   tfRow.addEventListener('click', e => {
     const b = e.target.closest('button[data-tf]'); if(!b) return;
     tab = b.dataset.tf;
+    unconfManual = false; // each timeframe re-applies the default for its own count
     render();
   });
   setInterval(() => { if(!document.hidden) load(); }, REFRESH_MS);
