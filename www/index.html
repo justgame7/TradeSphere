@@ -2902,7 +2902,7 @@ const AlertsPanel = (() => {
     try{ const o = localStorage.getItem('ts-alerts-data-url'); if(o) return o; }catch(e){}
     return 'https://raw.githubusercontent.com/justgame7/TradeSphere/main/data/donchian-alerts.json';
   })();
-  const SEEN_KEY = 'ts-alerts-seen-ts-v1', TAB_KEY = 'ts-alerts-tab-v1';
+  const SEEN_KEY = 'ts-alerts-seen-ts-v1';
   const REFRESH_MS = 2 * 60 * 1000, STALE_MS = 60 * 1000;
   const btn = document.getElementById('alertsBtn'), badge = document.getElementById('alertsBadge'), badgeForming = document.getElementById('alertsBadgeForming');
   const overlay = document.getElementById('alertsOverlay'), grid = document.getElementById('alertsGrid');
@@ -2911,7 +2911,6 @@ const AlertsPanel = (() => {
   const collapsedGrp = new Set(['help']); // group cards that start collapsed
   let liveTimer = null;
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
-  try{ const t = localStorage.getItem(TAB_KEY); if(t === '1H' || t === '4H' || t === '1D') tab = t; }catch(e){}
 
   const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const key = (tf, t) => `${tf}|${t.symbol}|${t.side}|${t.entryTime}|${t.status === 'closed' ? 'c' : 'o'}`;
@@ -3165,6 +3164,7 @@ const AlertsPanel = (() => {
   }
 
   function open(){
+    tab = '1D';                                // the page always opens on Daily (switching tabs lasts for this visit only)
     newKeys = new Set(unseenItems().map(it => it.key)); // what is new since the last visit, for the markers and the sort
     // Everything shown now counts as seen. Use the newest detectedAt too, so a runner clock slightly ahead of this
     // device can never leave a signal stuck as "new".
@@ -3227,7 +3227,6 @@ const AlertsPanel = (() => {
   tfRow.addEventListener('click', e => {
     const b = e.target.closest('button[data-tf]'); if(!b) return;
     tab = b.dataset.tf;
-    try{ localStorage.setItem(TAB_KEY, tab); }catch(err){}
     render();
   });
   setInterval(() => { if(!document.hidden) load(); }, REFRESH_MS);
