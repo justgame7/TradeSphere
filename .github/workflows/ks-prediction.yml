@@ -7,6 +7,9 @@ permissions:
   contents: write
 jobs:
   fetch:
+    # DISABLED for now: the job is skipped, so the cron-job.org trigger (every 10 min) does nothing.
+    # To turn it back on, delete the next line (or change it to `if: true`).
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
