@@ -628,7 +628,8 @@
   .alert-pill.unconf{color:var(--amber);background:rgba(245,166,35,.14);border:1px dashed rgba(245,166,35,.55);}
   .alert-pill.sys{color:var(--muted);background:var(--panel2);border:1px solid var(--border);}
   /* per-timeframe "new" badge on the 1H / 4H / 1D / 1W tabs */
-  #alertsTfRow button{position:relative;}
+  #alertsTfRow button,#alertsStratRow button{position:relative;}
+  #alertsSysRow[hidden]{display:none;}
   .tf-badge{position:absolute;top:-7px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font:700 9.5px var(--font-mono);pointer-events:none;}
   .tf-badge.ok{background:#1fae7a;color:#04170f;}
   .tf-badge.forming{background:var(--amber);color:#1c1300;}
@@ -1540,7 +1541,7 @@
               <span class="ticker-updated" id="tickerUpdated"></span>
             </div>
             <div class="ticker-eyebrow-actions">
-              <button class="ticker-refresh alerts-btn" id="alertsBtn" type="button" aria-label="Donchian alerts" title="Donchian 20/10 alerts">
+              <button class="ticker-refresh alerts-btn" id="alertsBtn" type="button" aria-label="Alerts" title="Alerts (Donchian, Ichimoku)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
                 <span class="alerts-badge ok" id="alertsBadge" hidden>0</span>
                 <span class="alerts-badge forming" id="alertsBadgeForming" hidden>0</span>
@@ -1891,18 +1892,22 @@
 
 <!-- Donchian alerts: full-page overlay styled like the Technical Breakdown. Placed before analysisOverlay so a coin
      opened from here (breakdown) stacks on top of it. -->
-<div class="analysis-overlay" id="alertsOverlay" role="dialog" aria-modal="true" aria-label="Donchian alerts">
+<div class="analysis-overlay" id="alertsOverlay" role="dialog" aria-modal="true" aria-label="Strategy alerts">
   <div class="analysis-shell">
     <div class="analysis-topbar">
       <div class="analysis-id">
         <div class="analysis-symbol-icon" id="alertsIcon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
         <div class="analysis-id-text">
-          <div class="analysis-symbol">Donchian alerts<span class="quote">20/10 &middot; 55/20</span></div>
+          <div class="analysis-symbol"><span id="alertsTitle">Donchian alerts</span><span class="quote" id="alertsQuote">20/10 &middot; 55/20</span></div>
           <div class="analysis-meta"><span id="alertsMeta">Top 50 coins &middot; long + short</span></div>
         </div>
       </div>
       <div class="analysis-controls">
-        <div class="analysis-tf-toggle" id="alertsSysRow" title="Show one system or both">
+        <div class="analysis-tf-toggle" id="alertsStratRow" title="Strategy">
+          <button type="button" data-strat="donchian" class="active">Donchian</button>
+          <button type="button" data-strat="ichimoku">Ichimoku</button>
+        </div>
+        <div class="analysis-tf-toggle" id="alertsSysRow" title="Show one Donchian system or both">
           <button type="button" data-sys="all" class="active">All</button>
           <button type="button" data-sys="20/10">20/10</button>
           <button type="button" data-sys="55/20">55/20</button>
@@ -2927,16 +2932,20 @@ const AlertsPanel = (() => {
   const btn = document.getElementById('alertsBtn'), badge = document.getElementById('alertsBadge'), badgeForming = document.getElementById('alertsBadgeForming');
   const overlay = document.getElementById('alertsOverlay'), grid = document.getElementById('alertsGrid');
   const statusEl = document.getElementById('alertsStatus'), metaEl = document.getElementById('alertsMeta');
-  const tfRow = document.getElementById('alertsTfRow'), sysRow = document.getElementById('alertsSysRow'), toggleAllBtn = document.getElementById('alertsToggleAll');
+  const tfRow = document.getElementById('alertsTfRow'), sysRow = document.getElementById('alertsSysRow'), stratRow = document.getElementById('alertsStratRow'), titleEl = document.getElementById('alertsTitle'), quoteEl = document.getElementById('alertsQuote'), toggleAllBtn = document.getElementById('alertsToggleAll');
   const collapsedGrp = new Set(['help']); // group cards that start collapsed
   let unconfManual = false;                // true once the user opens/closes "Not confirmed yet" themselves (else it follows its count)
   let liveTimer = null;
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
-  let sysFilter = 'all';          // 'all' | '20/10' | '55/20'
+  let strategy = 'donchian';      // 'donchian' | 'ichimoku' (Donchian is the default)
+  let sysFilter = 'all';          // Donchian only: 'all' | '20/10' | '55/20'
   let newByTf = {};               // per timeframe: keys that were new when this visit first showed that tab
 
   const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const sysOf = x => x.system || '20/10';   // files written before the 55/20 system existed are all 20/10
+  const stratOf = x => (sysOf(x) === 'Ichimoku' ? 'ichimoku' : 'donchian');
+  // Is this alert part of what the toggles currently select?
+  const okItem = x => stratOf(x) === strategy && (strategy === 'ichimoku' || sysFilter === 'all' || sysOf(x) === sysFilter);
   const key = (tf, t) => `${tf}|${sysOf(t)}|${t.symbol}|${t.side}|${t.entryTime}|${t.status === 'closed' ? 'c' : 'o'}`;
   // Unconfirmed (still-open candle) signals get their own keys, ending in '|u'.
   const fkey = (tf, f) => `${tf}|${sysOf(f)}|${f.symbol}|${f.side}|${f.kind}|${f.candleTime}|u`;
@@ -2947,49 +2956,59 @@ const AlertsPanel = (() => {
   function allItems(){
     const out = [];
     if(data && data.timeframes) Object.keys(data.timeframes).forEach(tf => {
-      (data.timeframes[tf].trades || []).forEach(t => out.push({ tf, key: key(tf, t), at: t.detectedAt || 0, forming: false }));
-      (data.timeframes[tf].forming || []).forEach(f => out.push({ tf, key: fkey(tf, f), at: f.detectedAt || 0, forming: true }));
+      (data.timeframes[tf].trades || []).forEach(t => out.push({ tf, strat: stratOf(t), key: key(tf, t), at: t.detectedAt || 0, forming: false }));
+      (data.timeframes[tf].forming || []).forEach(f => out.push({ tf, strat: stratOf(f), key: fkey(tf, f), at: f.detectedAt || 0, forming: true }));
     });
     return out;
   }
-  // "Seen" is kept PER TIMEFRAME: looking at the 1D tab only clears 1D, so a new 4H alert keeps its badge on the 4H tab
-  // until you open that tab. Anything detected after the timeframe's last-seen time is new.
+  // "Seen" is kept per STRATEGY and TIMEFRAME: looking at Donchian 1D only clears that one, so a new Ichimoku 4H alert keeps
+  // its badge until you open it. Anything detected after the last-seen time of its (strategy, timeframe) is new.
+  const seenKey = (strat, tf) => `${strat}|${tf}`;
   function loadSeenMap(){ try{ const o = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); return (o && typeof o === 'object') ? o : {}; }catch(e){ return {}; } }
   function saveSeenMap(m){ try{ localStorage.setItem(SEEN_KEY, JSON.stringify(m)); }catch(e){} }
-  function unseenItems(tf){
+  function unseenItems(tf, strat){
     if(!data || !data.timeframes) return [];
     const m = loadSeenMap();
     let changed = false;
-    Object.keys(data.timeframes).forEach(k => { if(!Number.isFinite(m[k])){ m[k] = Date.now(); changed = true; } }); // first time a timeframe is seen: nothing is new yet
+    Object.keys(data.timeframes).forEach(k => ['donchian', 'ichimoku'].forEach(st => {
+      const sk = seenKey(st, k);
+      if(!Number.isFinite(m[sk])){
+        // earlier versions stored Donchian-only seen times under the bare timeframe name; otherwise nothing is new the first time
+        m[sk] = (st === 'donchian' && Number.isFinite(m[k])) ? m[k] : Date.now();
+        changed = true;
+      }
+    }));
     if(changed) saveSeenMap(m);
-    return allItems().filter(it => (!tf || it.tf === tf) && it.at > m[it.tf]);
+    return allItems().filter(it => (!tf || it.tf === tf) && (!strat || it.strat === strat) && it.at > m[seenKey(it.strat, it.tf)]);
   }
-  function markSeen(tf){
+  function markSeen(strat, tf){
     const m = loadSeenMap();
     // newest detectedAt too, so a runner clock slightly ahead of this device can never leave a signal stuck as "new"
-    m[tf] = Math.max(Date.now(), ...allItems().filter(it => it.tf === tf).map(it => it.at));
+    m[seenKey(strat, tf)] = Math.max(Date.now(), ...allItems().filter(it => it.tf === tf && it.strat === strat).map(it => it.at));
     saveSeenMap(m);
   }
-  // Showing a timeframe: remember what was new on it for this visit (markers + sort), then mark it seen.
-  function markViewed(tf){
-    const fresh = unseenItems(tf).map(it => it.key);
-    if(!newByTf[tf]) newByTf[tf] = new Set();
-    fresh.forEach(k => newByTf[tf].add(k));
-    markSeen(tf);
+  // Showing a (strategy, timeframe): remember what was new on it for this visit (markers + sort), then mark it seen.
+  function markViewed(strat, tf){
+    const fresh = unseenItems(tf, strat).map(it => it.key);
+    const k = seenKey(strat, tf);
+    if(!newByTf[k]) newByTf[k] = new Set();
+    fresh.forEach(x => newByTf[k].add(x));
+    markSeen(strat, tf);
     updateBadge();
   }
-  // Small count on each timeframe tab: new alerts there that you have not looked at yet.
+  function paintBadge(b, un){
+    let el = b.querySelector('.tf-badge');
+    const nForming = un.filter(it => it.forming).length, nOk = un.length - nForming;
+    if(!un.length){ if(el) el.remove(); b.title = ''; return; }
+    if(!el){ el = document.createElement('span'); b.appendChild(el); }
+    el.className = 'tf-badge ' + (nOk ? 'ok' : 'forming');
+    el.textContent = un.length > 99 ? '99+' : String(un.length);
+    b.title = `${nOk} new confirmed, ${nForming} new unconfirmed`;
+  }
+  // Counts on the timeframe tabs (for the selected strategy) and on the Donchian / Ichimoku buttons (all timeframes).
   function updateTabBadges(){
-    tfRow.querySelectorAll('button[data-tf]').forEach(b => {
-      let el = b.querySelector('.tf-badge');
-      const un = unseenItems(b.dataset.tf);
-      const nForming = un.filter(it => it.forming).length, nOk = un.length - nForming;
-      if(!un.length){ if(el) el.remove(); b.title = ''; return; }
-      if(!el){ el = document.createElement('span'); b.appendChild(el); }
-      el.className = 'tf-badge ' + (nOk ? 'ok' : 'forming');
-      el.textContent = un.length > 99 ? '99+' : String(un.length);
-      b.title = `${nOk} new confirmed, ${nForming} new unconfirmed`;
-    });
+    tfRow.querySelectorAll('button[data-tf]').forEach(b => paintBadge(b, unseenItems(b.dataset.tf, strategy)));
+    stratRow.querySelectorAll('button[data-strat]').forEach(b => paintBadge(b, unseenItems(null, b.dataset.strat)));
   }
   // Green = new CONFIRMED signals (candle closed), amber = new UNCONFIRMED ones (candle still open).
   // Each counts only what has not been shown to the user yet; opening the panel marks everything as seen.
@@ -2999,7 +3018,7 @@ const AlertsPanel = (() => {
     const show = (el, n) => { el.hidden = n === 0; el.textContent = n > 99 ? '99+' : String(n); };
     show(badge, nOk); show(badgeForming, nForming);
     btn.classList.toggle('has-new', un.length > 0);
-    btn.title = un.length ? `Donchian alerts (${nOk} new confirmed, ${nForming} new unconfirmed)` : 'Donchian alerts (20/10 and 55/20)';
+    btn.title = un.length ? `Alerts (${nOk} new confirmed, ${nForming} new unconfirmed)` : 'Alerts (Donchian, Ichimoku)';
     updateTabBadges();
   }
 
@@ -3051,15 +3070,17 @@ const AlertsPanel = (() => {
     const nowPx = Number.isFinite(lp) ? lp : t.lastClose;
     const pct = open ? (Number.isFinite(lp) ? pctFor('open', t.side, t.entryClose, t.entryLevel, lp) : t.unrealizedPct) : t.resultPct;
     const cls = Number.isFinite(pct) ? (pct >= 0 ? 'pos' : 'neg') : '';
+    const ichi = sysOf(t) === 'Ichimoku';
+    const lvlName = ichi ? (t.trigger === 'CK' ? 'Chikou-bar cloud ' : 'cloud ') + (long ? 'top' : 'bottom') + ' ' : '';
     const lines = open
-      ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${fmtPx(t.entryLevel)} &middot; now <b class="px-now">${fmtPx(nowPx)}</b></div>`
-      : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}</div>`;
+      ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${lvlName}${fmtPx(t.entryLevel)} &middot; now <b class="px-now">${fmtPx(nowPx)}</b></div>`
+      : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}${ichi ? `<br>Closed ${long ? 'below' : 'above'} Kijun ${fmtPx(t.exitLevel)}` : ''}</div>`;
     return `<div class="alert-row${isNew ? ' is-new' : ''}" data-sym="${esc(t.symbol)}"${open ? ` data-live="open" data-side="${t.side}" data-entry="${t.entryClose}" data-level="${t.entryLevel}"` : ''} role="button" tabindex="0" title="Open ${esc(t.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
       <div class="alert-main">
         <div class="alert-top">
           <span class="alert-sym">${esc(t.symbol)}</span>${mult}
           <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
-          <span class="alert-pill sys">${esc(sysOf(t))}</span>
+          <span class="alert-pill sys">${esc(sysOf(t))}</span>${ichi && t.trigger ? `<span class="alert-pill sys">${esc(t.trigger)}</span>` : ''}
           <span class="alert-pill ${open ? 'confirmed' : 'closed'}">${open ? 'Confirmed' : 'Closed'}</span>
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
@@ -3072,23 +3093,26 @@ const AlertsPanel = (() => {
 
   const untilClose = ms => {
     const m = Math.round((ms - Date.now()) / 60000);
-    if(m <= 0) return 'closing now';
-    if(m >= 1440) return Math.floor(m / 1440) + 'd ' + Math.floor((m % 1440) / 60) + 'h';
-    return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
+    if(m <= 0) return 'now';
+    if(m >= 1440) return 'in ' + Math.floor(m / 1440) + 'd ' + Math.floor((m % 1440) / 60) + 'h';
+    return 'in ' + (m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm');
   };
   function formingRowHtml(f, tf, i){
     const long = f.side === 'long', isExit = f.kind === 'exit';
     const mult = f.mult && f.mult > 1 ? ` <span class="alert-name">(${f.mult}x price)</span>` : '';
     let lines, right;
-    const [eN, eM] = sysOf(f).split('/'); // entry / exit lengths of this alert's system
+    const ichi = sysOf(f) === 'Ichimoku';
+    const [eN, eM] = sysOf(f).split('/'); // Donchian: entry / exit lengths of this alert's system
+    const exitLabel = ichi ? 'Kijun' : `the ${eM}-bar ${long ? 'low' : 'high'}`;
+    const entryLabel = ichi ? `the ${f.trigger === 'CK' ? 'Chikou-bar cloud ' : 'cloud '}${long ? 'top' : 'bottom'}` : `the ${eN}-bar ${long ? 'high' : 'low'}`;
     const lpf = livePx(f.symbol), fPx = Number.isFinite(lpf) ? lpf : f.price;
     if(isExit){
       const rp = Number.isFinite(lpf) ? pctFor('fexit', f.side, f.entryClose, f.level, lpf) : f.resultPct;
-      lines = `<div class="alert-line">Entry <b>${fmtPx(f.entryClose)}</b> &middot; ${esc(fmtTime(f.entryTime, tf))}<br>Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'below' : 'above'} the ${eM}-bar ${long ? 'low' : 'high'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
+      lines = `<div class="alert-line">Entry <b>${fmtPx(f.entryClose)}</b> &middot; ${esc(fmtTime(f.entryTime, tf))}<br>Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'below' : 'above'} ${exitLabel} ${fmtPx(f.level)} &middot; closes ${untilClose(f.closesAt)}</div>`;
       right = `<span class="alert-pct ${rp >= 0 ? 'pos' : 'neg'}">${fmtPct(rp)}</span><span class="alert-pct-l">if it closes here</span>`;
     }else{
       const past = pctFor('fentry', f.side, f.entryClose, f.level, fPx);
-      lines = `<div class="alert-line">Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'above' : 'below'} the ${eN}-bar ${long ? 'high' : 'low'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
+      lines = `<div class="alert-line">Price <b class="px-now">${fmtPx(fPx)}</b> is ${long ? 'above' : 'below'} ${entryLabel} ${fmtPx(f.level)} &middot; closes ${untilClose(f.closesAt)}</div>`;
       right = `<span class="alert-pct ${past >= 0 ? 'pos' : 'neg'}">${signedPct(past)}</span><span class="alert-pct-l">past the level</span>`;
     }
     const isNew = newKeys.has(fkey(tf, f));
@@ -3097,7 +3121,7 @@ const AlertsPanel = (() => {
         <div class="alert-top">
           <span class="alert-sym">${esc(f.symbol)}</span>${mult}
           <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
-          <span class="alert-pill sys">${esc(sysOf(f))}</span>
+          <span class="alert-pill sys">${esc(sysOf(f))}</span>${ichi && f.trigger ? `<span class="alert-pill sys">${esc(f.trigger)}</span>` : ''}
           <span class="alert-pill unconf">Unconfirmed ${isExit ? 'exit' : 'entry'}</span>
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
@@ -3118,9 +3142,10 @@ const AlertsPanel = (() => {
     if(tfd.scanned) parts.push(tfd.scanned + ' coins scanned');
     if(loadErr) parts.push('refresh failed');
     statusEl.textContent = parts.join(' · ');
-    const sysOk = x => sysFilter === 'all' || sysOf(x) === sysFilter;
-    const open = (tfd.trades || []).filter(t => t.status === 'open' && sysOk(t)).length, unconf = (tfd.forming || []).filter(sysOk).length;
-    metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab}${sysFilter === 'all' ? '' : ' · ' + sysFilter} · ${open} confirmed · ${unconf} unconfirmed`;
+    const open = (tfd.trades || []).filter(t => t.status === 'open' && okItem(t)).length, unconf = (tfd.forming || []).filter(okItem).length;
+    titleEl.textContent = strategy === 'ichimoku' ? 'Ichimoku alerts' : 'Donchian alerts';
+    quoteEl.innerHTML = strategy === 'ichimoku' ? '9 &middot; 26 &middot; 52' : (sysFilter === 'all' ? '20/10 &middot; 55/20' : sysFilter);
+    metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab}${strategy === 'donchian' && sysFilter !== 'all' ? ' · ' + sysFilter : ''} · ${open} confirmed · ${unconf} unconfirmed`;
   }
   function refreshLive(){
     loadLive();
@@ -3159,18 +3184,19 @@ const AlertsPanel = (() => {
       statusEl.textContent = loadErr ? 'load failed' : 'Loading…';
       return;
     }
-    markViewed(tab);                       // this timeframe is being looked at: remember what was new, then clear its badge
-    newKeys = newByTf[tab] || new Set();
+    markViewed(strategy, tab);             // this (strategy, timeframe) is being looked at: remember what was new, then clear its badge
+    newKeys = newByTf[seenKey(strategy, tab)] || new Set();
+    stratRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.strat === strategy));
+    sysRow.hidden = strategy !== 'donchian';   // 20/10 and 55/20 only exist for Donchian
     sysRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.sys === sysFilter));
     loadLive();
     setHeader();
     const tfd = (data.timeframes || {})[tab];
     if(!tfd){ grid.innerHTML = '<div class="alerts-empty" style="grid-column:1/-1;">No ' + esc(tab) + ' scan yet.</div>'; return; }
-    const sysOk = x => sysFilter === 'all' || sysOf(x) === sysFilter;
-    const trades = (tfd.trades || []).filter(sysOk);
+    const trades = (tfd.trades || []).filter(okItem);
     const open = trades.filter(t => t.status === 'open').sort((a, b) => b.entryTime - a.entryTime);
     const closed = trades.filter(t => t.status === 'closed').sort((a, b) => b.exitTime - a.exitTime);
-    const forming = (tfd.forming || []).filter(sysOk).slice().sort((a, b) => (a.kind === b.kind ? a.symbol.localeCompare(b.symbol) : a.kind === 'entry' ? -1 : 1));
+    const forming = (tfd.forming || []).filter(okItem).slice().sort((a, b) => (a.kind === b.kind ? a.symbol.localeCompare(b.symbol) : a.kind === 'entry' ? -1 : 1));
     const newFirst = (list, keyFn) => list.slice().sort((a, b) => {
       const na = newKeys.has(keyFn(a)), nb = newKeys.has(keyFn(b));
       if(na !== nb) return na ? -1 : 1;                         // new ones first
@@ -3198,15 +3224,22 @@ const AlertsPanel = (() => {
       failed.length ? `<li><b>Failed this scan:</b> ${esc(failed.join(', '))}.</li>` : '',
       '<li>Confirmed prices are closed-candle closes. Results are close-to-close and ignore fees and funding.</li>',
     ].join('');
-    const helpBody = `<div class="alerts-help-body"><ul>
-      <li><b>Coins:</b> the top coins by market cap, excluding stablecoins, that trade as a USDT perpetual on CoinDCX. A coin CoinDCX doesn't list is skipped and the next one takes its place, so 50 coins are scanned.</li>
-      <li><b>Systems:</b> every alert is tagged with its system. <b>20/10</b> uses a 20-candle entry and a 10-candle exit. <b>55/20</b> is the slower one, with a 55-candle entry and a 20-candle exit, so fewer and later signals. Both run on 1H, 4H, 1D and 1W.</li>
+    const common = `<li><b>Coins:</b> the top coins by market cap, excluding stablecoins, that trade as a USDT perpetual on CoinDCX. A coin CoinDCX doesn't list is skipped and the next one takes its place, so 50 coins are scanned.</li>`;
+    const donchianHelp = `<li><b>Systems:</b> every Donchian alert is tagged with its system. <b>20/10</b> uses a 20-candle entry and a 10-candle exit. <b>55/20</b> is the slower one, with a 55-candle entry and a 20-candle exit, so fewer and later signals.</li>
       <li><b>Long entry:</b> a candle closes above the highest high of the previous N candles. <b>Short entry:</b> a candle closes below the lowest low of the previous N candles (N = 20 or 55).</li>
-      <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous M candles. While short, it closes above the highest high of the previous M (M = 10 or 20).</li>
-      <li><b>Confirmed:</b> the candle has closed, so the signal is final.</li>
-      <li><b>Unconfirmed:</b> the candle is still open and the live price is already beyond the level. It can disappear before the candle closes.</li>
-      <li><b>Badges:</b> on the bell, green is new confirmed signals and amber is new unconfirmed ones. Each timeframe tab (1H, 4H, 1D, 1W) also shows a count of new alerts on it, and that count clears when you open that tab.</li>
-      <li>Tap a coin to open its technical breakdown.</li>
+      <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous M candles. While short, it closes above the highest high of the previous M (M = 10 or 20).</li>`;
+    const ichimokuHelp = `<li><b>Ichimoku (9 / 26 / 52):</b> Tenkan 9, Kijun 26, Senkou B 52, with the cloud projected 26 candles ahead and the Chikou span the close shifted 26 back.</li>
+      <li><b>Long entry:</b> a candle closes above the cloud and one of two breakouts fires. <b>PK</b> (price): the previous close was below the cloud top and this close is above it. <b>CK</b> (Chikou): the Chikou span just crossed above the cloud. Either one enters, and the alert shows which. Short entry is the mirror image.</li>
+      <li><b>Trend filter:</b> for a long, Tenkan must be above Kijun and the future cloud bullish (Senkou A above B). For a short, the reverse.</li>
+      <li><b>Exit:</b> while long, a candle closes below Kijun. While short, it closes above Kijun.</li>`;
+    const commonTail = `<li><b>Confirmed:</b> the candle has closed, so the signal is final.</li>
+      <li><b>Unconfirmed:</b> the candle is still open and the live price is already triggering it. It can disappear before the candle closes.</li>
+      <li><b>Badges:</b> on the bell, green is new confirmed signals and amber is new unconfirmed ones. The Donchian and Ichimoku buttons and each timeframe tab (1H, 4H, 1D, 1W) also show a count of new alerts, and that count clears when you open it.</li>
+      <li>Tap a coin to open its technical breakdown.</li>`;
+    const helpBody = `<div class="alerts-help-body"><ul>
+      ${common}
+      ${strategy === 'ichimoku' ? ichimokuHelp : donchianHelp}
+      ${commonTail}
     </ul>
     <div class="alerts-help-sub">Latest scan (${esc(tab)})</div>
     <ul>${scanItems}</ul></div>`;
@@ -3234,7 +3267,8 @@ const AlertsPanel = (() => {
   function open(){
     unconfManual = false;
     tab = '1D';                                // the page always opens on Daily (switching tabs lasts for this visit only)
-    newByTf = {};                              // what is new is worked out per timeframe, when that tab is first shown
+    newByTf = {};                              // what is new is worked out per (strategy, timeframe), when that tab is first shown
+    strategy = 'donchian';                     // Donchian is the default view
     sysFilter = 'all';
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -3296,6 +3330,13 @@ const AlertsPanel = (() => {
     const b = e.target.closest('button[data-tf]'); if(!b) return;
     tab = b.dataset.tf;
     unconfManual = false; // each timeframe re-applies the default for its own count
+    render();
+  });
+  stratRow.addEventListener('click', e => {
+    const b = e.target.closest('button[data-strat]'); if(!b) return;
+    strategy = b.dataset.strat;
+    sysFilter = 'all';
+    unconfManual = false;
     render();
   });
   sysRow.addEventListener('click', e => {

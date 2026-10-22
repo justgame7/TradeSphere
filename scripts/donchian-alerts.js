@@ -1,4 +1,4 @@
-// Builds data/donchian-alerts.json: Donchian 20/10 and 55/20 breakout trades (long and short) for the top 50
+// Builds data/donchian-alerts.json: Donchian 20/10 and 55/20 breakout trades, plus Ichimoku breakout trades, (long and short) for the top 50
 // non-stablecoin coins, on the 1H, 4H, Daily and Weekly timeframes. Same rules as the TradingView Pine script and the
 // in-app chart markers:
 //   long  entry: a candle CLOSES above the highest high of the previous N candles
@@ -214,6 +214,98 @@ function formingSignals(closed, forming, trades, periodMs, sys) {
   return out.map((o) => ({ ...o, candleTime: forming.t, closesAt: forming.t + periodMs }));
 }
 
+// ---------------- Ichimoku breakout (same maths as screen.js / screener.html: 9 / 26 / 52, cloud shifted 26) ----------------
+// Entry (long): the close breaks above the cloud with the Chikou span clear of it and the trend filter on:
+//   PK (price breakout): previous close below the cloud top, this close above it
+//   CK (Chikou breakout): the Chikou span crosses above the cloud (previous close below the Chikou-bar cloud top, this close above it)
+//   both also need: close above the cloud top AND above the cloud top at the Chikou bar, Tenkan > Kijun, future Senkou A > B
+// Short is the mirror image. Either trigger enters; the trade records which one fired (PK, CK or CK+PK).
+// Exit: the close goes beyond Kijun (long: closes below Kijun, short: closes above it).
+// The volume gate used by the screener is not applied: these are the top 50 coins, all liquid.
+const ICHI = { tenkan: 9, kijun: 26, senkouB: 52 };
+const ICHI_MIN_BARS = 2 * ICHI.kijun + ICHI.senkouB + 10; // 114, same minimum as the screener
+
+function ichiSeries(c) {
+  const n = c.length;
+  const mid = (len, i) => {
+    if (i - len + 1 < 0) return NaN;
+    let hh = -Infinity, ll = Infinity;
+    for (let j = i - len + 1; j <= i; j++) { if (c[j].high > hh) hh = c[j].high; if (c[j].low < ll) ll = c[j].low; }
+    return (hh + ll) / 2;
+  };
+  const tenkan = [], kijun = [], sA = [], sB = [];
+  for (let i = 0; i < n; i++) {
+    tenkan[i] = mid(ICHI.tenkan, i); kijun[i] = mid(ICHI.kijun, i);
+    sA[i] = (Number.isNaN(tenkan[i]) || Number.isNaN(kijun[i])) ? NaN : (tenkan[i] + kijun[i]) / 2;
+    sB[i] = mid(ICHI.senkouB, i);
+  }
+  const cloudAt = (idx) => (idx < 0 ? { top: NaN, bottom: NaN } : { top: Math.max(sA[idx], sB[idx]), bottom: Math.min(sA[idx], sB[idx]) });
+  return { c, tenkan, kijun, sA, sB, cloudBar: (t) => cloudAt(t - ICHI.kijun), cloudChikou: (t) => cloudAt(t - 2 * ICHI.kijun) };
+}
+
+// Breakout signals at bar i, or null while there is not enough history for every line.
+function ichiSignalAt(S, i) {
+  if (i < 1) return null;
+  const price = S.c[i].close, prev = S.c[i - 1].close;
+  const cloud = S.cloudBar(i), cloudPrev = S.cloudBar(i - 1), chk = S.cloudChikou(i), chkPrev = S.cloudChikou(i - 1);
+  const tenkan = S.tenkan[i], kijun = S.kijun[i], futA = S.sA[i], futB = S.sB[i];
+  const vals = [cloud.top, cloud.bottom, cloudPrev.top, cloudPrev.bottom, chk.top, chk.bottom, chkPrev.top, chkPrev.bottom, tenkan, kijun, futA, futB];
+  if (!vals.every((v) => !Number.isNaN(v))) return null;
+  const longTrend = tenkan > kijun && futA > futB, shortTrend = tenkan < kijun && futB > futA;
+  const ckLong = prev < chkPrev.top && price > chk.top && price > cloud.top && longTrend;
+  const pkLong = prev < cloudPrev.top && price > cloud.top && price > chk.top && longTrend;
+  const ckShort = prev > chkPrev.bottom && price < chk.bottom && price < cloud.bottom && shortTrend;
+  const pkShort = prev > cloudPrev.bottom && price < cloud.bottom && price < chk.bottom && shortTrend;
+  return { price, kijun, cloud, chk, ckLong, pkLong, ckShort, pkShort };
+}
+const ichiTrigger = (ck, pk) => (ck && pk ? 'CK+PK' : ck ? 'CK' : 'PK');
+// Level that was broken: the Chikou-bar cloud edge for a pure CK breakout, otherwise the cloud edge (as the screener reports it).
+const ichiLevel = (sig, side, ck, pk) => (ck && !pk ? (side === 'long' ? sig.chk.top : sig.chk.bottom) : (side === 'long' ? sig.cloud.top : sig.cloud.bottom));
+
+function walkIchimoku(S, side) {
+  const trades = [];
+  let open = null;
+  for (let i = 1; i < S.c.length; i++) {
+    const sig = ichiSignalAt(S, i);
+    if (!sig) continue;
+    const c = S.c[i];
+    if (!open) {
+      const ck = side === 'long' ? sig.ckLong : sig.ckShort, pk = side === 'long' ? sig.pkLong : sig.pkShort;
+      if (ck || pk) open = { side, entryTime: c.t, entryClose: c.close, entryLevel: ichiLevel(sig, side, ck, pk), trigger: ichiTrigger(ck, pk) };
+    } else {
+      const out = side === 'long' ? c.close < sig.kijun : c.close > sig.kijun;
+      if (out) {
+        const pct = (side === 'long' ? c.close - open.entryClose : open.entryClose - c.close) / open.entryClose * 100;
+        trades.push({ ...open, status: 'closed', exitTime: c.t, exitClose: c.close, exitLevel: sig.kijun, resultPct: pct });
+        open = null;
+      }
+    }
+  }
+  if (open) trades.push({ ...open, status: 'open' });
+  return trades;
+}
+
+// The still-open candle appended as the last bar: is it triggering an Ichimoku entry or exit right now?
+function formingIchimoku(closed, forming, trades, periodMs) {
+  if (!forming || closed.length + 1 < ICHI_MIN_BARS) return [];
+  const S = ichiSeries([...closed, forming]);
+  const i = S.c.length - 1;
+  const sig = ichiSignalAt(S, i);
+  if (!sig) return [];
+  const out = [];
+  for (const side of ['long', 'short']) {
+    const open = trades.find((t) => t.side === side && t.status === 'open');
+    if (!open) {
+      const ck = side === 'long' ? sig.ckLong : sig.ckShort, pk = side === 'long' ? sig.pkLong : sig.pkShort;
+      if (ck || pk) out.push({ kind: 'entry', side, price: sig.price, level: ichiLevel(sig, side, ck, pk), trigger: ichiTrigger(ck, pk) });
+    } else if (side === 'long' ? sig.price < sig.kijun : sig.price > sig.kijun) {
+      const pct = (side === 'long' ? sig.price - open.entryClose : open.entryClose - sig.price) / open.entryClose * 100;
+      out.push({ kind: 'exit', side, price: sig.price, level: sig.kijun, entryTime: open.entryTime, entryClose: open.entryClose, resultPct: pct });
+    }
+  }
+  return out.map((o) => ({ ...o, candleTime: forming.t, closesAt: forming.t + periodMs }));
+}
+
 const round = (v, d = 6) => (Number.isFinite(v) ? +v.toPrecision(d + 3) : null);
 
 function scanCoin(coin, data, tf) {
@@ -244,6 +336,31 @@ function scanCoin(coin, data, tf) {
     }
     formingSignals(candles, data.forming, walked, tf.periodMs, sys).forEach((f) => forming.push({
       system: sys.key, symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, side: f.side, kind: f.kind,
+      candleTime: f.candleTime, closesAt: f.closesAt, price: round(f.price), level: round(f.level),
+      entryTime: f.entryTime || null, entryClose: round(f.entryClose), resultPct: f.resultPct == null ? null : +f.resultPct.toFixed(2),
+    }));
+  }
+  // Ichimoku breakout (long + short), same candles
+  if (candles.length >= ICHI_MIN_BARS) {
+    const S = ichiSeries(candles);
+    const walked = [];
+    for (const side of ['long', 'short']) {
+      for (const t of walkIchimoku(S, side)) {
+        walked.push(t);
+        if (t.status === 'closed' && t.exitTime < keepFrom) continue;
+        const unreal = t.status === 'open' ? (side === 'long' ? last.close - t.entryClose : t.entryClose - last.close) / t.entryClose * 100 : null;
+        trades.push({
+          system: 'Ichimoku', trigger: t.trigger, symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, side, status: t.status,
+          entryTime: t.entryTime, entryClose: round(t.entryClose), entryLevel: round(t.entryLevel),
+          exitTime: t.exitTime || null, exitClose: round(t.exitClose), exitLevel: round(t.exitLevel),
+          resultPct: t.status === 'closed' ? +t.resultPct.toFixed(2) : null,
+          lastClose: round(last.close), lastTime: last.t,
+          unrealizedPct: unreal == null ? null : +unreal.toFixed(2),
+        });
+      }
+    }
+    formingIchimoku(candles, data.forming, walked, tf.periodMs).forEach((f) => forming.push({
+      system: 'Ichimoku', trigger: f.trigger || null, symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, side: f.side, kind: f.kind,
       candleTime: f.candleTime, closesAt: f.closesAt, price: round(f.price), level: round(f.level),
       entryTime: f.entryTime || null, entryClose: round(f.entryClose), resultPct: f.resultPct == null ? null : +f.resultPct.toFixed(2),
     }));
