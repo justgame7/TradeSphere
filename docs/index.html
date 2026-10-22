@@ -258,6 +258,15 @@
     display:none;
   }
   .page.active{display:block;}
+  .install-banner{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:12px 14px;border:1px solid var(--accent-dim,#1E7F6F);border-radius:14px;background:linear-gradient(135deg,rgba(53,224,192,.10),rgba(91,140,255,.08));}
+  .install-banner[hidden]{display:none;}
+  .install-banner .ib-icon{width:38px;height:38px;border-radius:10px;flex:none;}
+  .install-banner .ib-text{flex:1;min-width:0;}
+  .install-banner .ib-title{font-weight:700;font-size:14px;color:var(--text);}
+  .install-banner .ib-sub{font-size:12px;color:var(--muted);line-height:1.4;margin-top:2px;}
+  .install-banner .ib-btn{flex:none;background:var(--accent);color:#07130f;border:none;border-radius:9px;padding:9px 14px;font:700 12px var(--font-display,inherit);cursor:pointer;}
+  .install-banner .ib-close{flex:none;background:transparent;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:2px 6px;}
+  .install-banner .ib-close:hover{color:var(--text);}
   .page iframe{
     width:100%;
     height:100%;
@@ -1430,6 +1439,16 @@
         <div class="home-header">
           <div class="home-greeting" id="homeGreeting">TradeSphere</div>
           <div class="home-subtext">Your crypto market cockpit</div>
+        </div>
+
+        <div class="install-banner" id="installBanner" hidden>
+          <img class="ib-icon" src="icon-192.png" alt="" width="38" height="38">
+          <div class="ib-text">
+            <div class="ib-title">Install TradeSphere</div>
+            <div class="ib-sub" id="installSub">Add it to your home screen to open full screen, like an app.</div>
+          </div>
+          <button type="button" class="ib-btn" id="installBtn">Install</button>
+          <button type="button" class="ib-close" id="installClose" aria-label="Dismiss">&times;</button>
         </div>
 
         <div class="ticker-section">
@@ -3971,6 +3990,40 @@ tiStudyToggle.addEventListener('click', e => {
     if(saved && document.querySelector('.page[data-page="' + saved + '"]')) start = saved;
   }catch(e){}
   activatePage(start);
+})();
+
+// Install prompt: shown on Home only when the app is not already installed. Chrome/Edge on Android and
+// desktop fire `beforeinstallprompt`, which we keep and replay when the user taps Install. iPhone/iPad
+// Safari has no such event, so it gets a short "Add to Home Screen" hint instead. Dismissing hides it
+// for a week. The Android (Capacitor) app and an already-installed web app never see it.
+(function(){
+  const banner = document.getElementById('installBanner');
+  if(!banner) return;
+  const btn = document.getElementById('installBtn'), sub = document.getElementById('installSub');
+  const KEY = 'ts-install-dismissed';
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || !!window.Capacitor;
+  if(standalone || location.protocol === 'file:') return;
+  try{ const t = +localStorage.getItem(KEY); if(t && Date.now() - t < 7 * 86400000) return; }catch(e){}
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; btn.hidden = false; banner.hidden = false; });
+  window.addEventListener('appinstalled', () => { banner.hidden = true; deferred = null; });
+  btn.addEventListener('click', async () => {
+    if(!deferred) return;
+    deferred.prompt();
+    try{ await deferred.userChoice; }catch(e){}
+    deferred = null; banner.hidden = true;
+  });
+  document.getElementById('installClose').addEventListener('click', () => {
+    banner.hidden = true;
+    try{ localStorage.setItem(KEY, String(Date.now())); }catch(e){}
+  });
+  const ua = navigator.userAgent || '';
+  const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if(ios){
+    btn.hidden = true;
+    sub.textContent = 'Tap the Share button, then "Add to Home Screen" to open it full screen.';
+    banner.hidden = false;
+  }
 })();
 
 // Memory: every page you open keeps its iframe (and its charts, timers and sockets) alive. On a phone
