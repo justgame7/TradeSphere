@@ -1,8 +1,9 @@
 name: donchian-alerts
 on:
-  # Trigger from cron-job.org via the workflow_dispatch API every 10 minutes, like the other data
+  # Trigger from cron-job.org via the workflow_dispatch API every 5 minutes, like the other data
   # workflows (GitHub's native schedule is unreliable); the cron below is only a backstop.
-  # Most runs find no newly closed 4H/1D candle and exit without scanning or committing anything.
+  # Every run scans 4H and 1D (confirmed signals from closed candles + unconfirmed ones from the open
+  # candle) and only commits when the set of signals changed.
   workflow_dispatch:
     inputs:
       force:
@@ -10,7 +11,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/5 * * * *'
 permissions:
   contents: write
 concurrency:

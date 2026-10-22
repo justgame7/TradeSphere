@@ -17,7 +17,7 @@
 // same rules and reported separately as "forming" signals: an entry or exit that the live price is
 // triggering right now but that is not confirmed until the candle closes (it can disappear again).
 //
-// Meant to be triggered every ~10 minutes (cron-job.org -> workflow_dispatch, see the workflow). Every run
+// Meant to be triggered every ~5 minutes (cron-job.org -> workflow_dispatch, see the workflow). Every run
 // scans both timeframes (like screen.js does). The file is only rewritten when the signals changed, so
 // most runs commit nothing. Set SKIP_IF_CURRENT=1 to skip a timeframe whose latest closed candle was
 // already scanned (a cheaper mode that exits in about a second between candle closes).
