@@ -13,6 +13,10 @@
 // reported in the output. The top-50 list comes from CoinGecko and is cached in data/top50.json (refreshed
 // once a day, and reused if CoinGecko is unavailable).
 //
+// Besides the confirmed (closed-candle) trades, the candle that is still forming is checked against the
+// same rules and reported separately as "forming" signals: an entry or exit that the live price is
+// triggering right now but that is not confirmed until the candle closes (it can disappear again).
+//
 // Meant to be triggered every ~10 minutes (cron-job.org -> workflow_dispatch, see the workflow). Every run
 // scans both timeframes (like screen.js does). The file is only rewritten when the signals changed, so
 // most runs commit nothing. Set SKIP_IF_CURRENT=1 to skip a timeframe whose latest closed candle was
@@ -142,9 +146,12 @@ async function getCandles(pair, tf) {
   const rows = Array.isArray(body) ? body : (body && Array.isArray(body.data) ? body.data : null);
   if (!rows) throw new Error('unexpected candlesticks response');
   const now = Date.now();
-  return [...rows].sort((a, b) => a.time - b.time)
+  const all = [...rows].sort((a, b) => a.time - b.time)
     .map((k) => ({ t: Number(k.time), high: parseFloat(k.high), low: parseFloat(k.low), close: parseFloat(k.close) }))
-    .filter((k) => Number.isFinite(k.close) && k.t + tf.periodMs <= now); // closed candles only
+    .filter((k) => Number.isFinite(k.close));
+  const closed = all.filter((k) => k.t + tf.periodMs <= now);
+  const forming = all.find((k) => k.t + tf.periodMs > now && k.t <= now) || null; // the candle still open
+  return { closed, forming };
 }
 
 // ---------------- Donchian 20/10 state machine (same rules as the Pine script) ----------------
@@ -172,15 +179,39 @@ function walk(candles, side) {
   return trades;
 }
 
+// Checks the still-open candle against the same rules, given the confirmed state from walk().
+// Returns an array of {kind:'entry'|'exit', side, ...} signals the live price is triggering right now.
+function formingSignals(closed, forming, trades, periodMs) {
+  const out = [];
+  if (!forming || closed.length < ENTRY_LEN) return out;
+  const prior = (n) => closed.slice(-n);
+  const hiE = Math.max(...prior(ENTRY_LEN).map((c) => c.high)), loE = Math.min(...prior(ENTRY_LEN).map((c) => c.low));
+  const hiX = Math.max(...prior(EXIT_LEN).map((c) => c.high)), loX = Math.min(...prior(EXIT_LEN).map((c) => c.low));
+  for (const side of ['long', 'short']) {
+    const open = trades.find((t) => t.side === side && t.status === 'open');
+    const px = forming.close;
+    if (!open) {
+      if (side === 'long' ? px > hiE : px < loE) out.push({ kind: 'entry', side, price: px, level: side === 'long' ? hiE : loE });
+    } else if (side === 'long' ? px < loX : px > hiX) {
+      const pct = (side === 'long' ? px - open.entryClose : open.entryClose - px) / open.entryClose * 100;
+      out.push({ kind: 'exit', side, price: px, level: side === 'long' ? loX : hiX, entryTime: open.entryTime, entryClose: open.entryClose, resultPct: pct });
+    }
+  }
+  return out.map((o) => ({ ...o, candleTime: forming.t, closesAt: forming.t + periodMs }));
+}
+
 const round = (v, d = 6) => (Number.isFinite(v) ? +v.toPrecision(d + 3) : null);
 
-function scanCoin(coin, candles, tf) {
-  if (candles.length < ENTRY_LEN + 2) return { trades: [], lastT: null };
+function scanCoin(coin, data, tf) {
+  const candles = data.closed;
+  if (candles.length < ENTRY_LEN + 2) return { trades: [], forming: [], lastT: null };
   const last = candles[candles.length - 1];
   const keepFrom = Date.now() - tf.keepClosedMs;
   const trades = [];
+  const walked = [];
   for (const side of ['long', 'short']) {
     for (const t of walk(candles, side)) {
+      walked.push(t);
       if (t.status === 'closed' && t.exitTime < keepFrom) continue;
       const unreal = t.status === 'open' ? (side === 'long' ? last.close - t.entryClose : t.entryClose - last.close) / t.entryClose * 100 : null;
       trades.push({
@@ -193,7 +224,12 @@ function scanCoin(coin, candles, tf) {
       });
     }
   }
-  return { trades, lastT: last.t };
+  const forming = formingSignals(candles, data.forming, walked, tf.periodMs).map((f) => ({
+    symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, side: f.side, kind: f.kind,
+    candleTime: f.candleTime, closesAt: f.closesAt, price: round(f.price), level: round(f.level),
+    entryTime: f.entryTime || null, entryClose: round(f.entryClose), resultPct: f.resultPct == null ? null : +f.resultPct.toFixed(2),
+  }));
+  return { trades, forming, lastT: last.t };
 }
 
 async function pool(items, worker) {
@@ -231,25 +267,35 @@ async function main() {
 
   for (const tf of due) {
     const trades = [];
+    const forming = [];
     const failed = [];
     let atExpected = 0;
     await pool(universe.coins, async (coin) => {
       try {
         const res = scanCoin(coin, await getCandles(coin.pair, tf), tf);
         trades.push(...res.trades);
+        forming.push(...res.forming);
         if (res.lastT === tf.expected) atExpected++;
       } catch (e) { failed.push(coin.symbol); console.warn(`${tf.label} ${coin.symbol}: ${e.message}`); }
     });
     if (failed.length >= universe.coins.length) throw new Error(`${tf.label}: every coin failed`);
     trades.sort((a, b) => (b.exitTime || b.entryTime) - (a.exitTime || a.entryTime));
+    forming.sort((a, b) => a.symbol.localeCompare(b.symbol));
     // Only mark this candle as scanned once most coins actually have it, otherwise try again on the next run.
     const complete = atExpected >= Math.ceil(universe.coins.length * 0.8);
     const prevAsOf = prev && prev.timeframes && prev.timeframes[tf.label] ? prev.timeframes[tf.label].asOf : null;
-    next.timeframes[tf.label] = { asOf: complete ? tf.expected : prevAsOf, candleTime: tf.expected, scanned: universe.coins.length - failed.length, failed, trades };
-    console.log(`${tf.label}: ${trades.length} trades (${trades.filter((t) => t.status === 'open').length} open), ${failed.length} failed, candle ${new Date(tf.expected).toISOString()} on ${atExpected}/${universe.coins.length} coins`);
+    next.timeframes[tf.label] = { asOf: complete ? tf.expected : prevAsOf, candleTime: tf.expected, scanned: universe.coins.length - failed.length, failed, trades, forming, formingAt: new Date().toISOString() };
+    console.log(`${tf.label}: ${trades.length} trades (${trades.filter((t) => t.status === 'open').length} open), ${forming.length} forming, ${failed.length} failed, candle ${new Date(tf.expected).toISOString()} on ${atExpected}/${universe.coins.length} coins`);
   }
 
-  const strip = (o) => JSON.stringify({ ...o, updated: null, universe: o.universe && { ...o.universe, updated: null } });
+  // Forming signals carry a live price that drifts every run; compare only WHICH signals exist so the file
+  // (and git history) change when a signal appears or disappears, not on every price tick.
+  const strip = (o) => JSON.stringify({
+    ...o, updated: null, universe: o.universe && { ...o.universe, updated: null },
+    timeframes: Object.fromEntries(Object.entries(o.timeframes || {}).map(([k, v]) => [k, {
+      ...v, formingAt: null, forming: (v.forming || []).map((f) => [f.symbol, f.side, f.kind, f.candleTime]),
+    }])),
+  });
   if (prev && strip(prev) === strip(next)) { console.log('no change in signals, file not rewritten'); return; }
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(next));

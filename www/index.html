@@ -620,6 +620,10 @@
   .alert-line{font:500 11px var(--font-mono);color:var(--muted);line-height:1.5;}
   .alert-line b{color:var(--text);font-weight:600;}
   .alert-right{flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;}
+  .alert-row.is-forming{border-style:dashed;border-color:rgba(245,166,35,.4);background:rgba(245,166,35,.04);}
+  .alert-pill.unconf{color:var(--amber);background:rgba(245,166,35,.14);border:1px dashed rgba(245,166,35,.55);}
+  .alert-pill.confirmed{color:var(--blue);background:rgba(91,140,255,.16);}
+  .alerts-subnote{padding:0 8px 8px;font:500 10.5px var(--font-mono);color:var(--faint);line-height:1.5;}
   .alert-pct{font:700 13px var(--font-mono);}
   .alert-pct.pos{color:var(--accent);} .alert-pct.neg{color:var(--red);}
   .alert-pct-l{font:600 9.5px var(--font-mono);color:var(--faint);text-transform:uppercase;letter-spacing:.05em;}
@@ -2916,12 +2920,42 @@ const AlertsPanel = (() => {
         <div class="alert-top">
           <span class="alert-sym">${esc(t.symbol)}</span>${mult}
           <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
-          <span class="alert-pill ${open ? 'open' : 'closed'}">${open ? 'Entry' : 'Closed'}</span>
+          <span class="alert-pill ${open ? 'confirmed' : 'closed'}">${open ? 'Confirmed' : 'Closed'}</span>
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
         ${lines}
       </div>
       <div class="alert-right"><span class="alert-pct ${cls}">${fmtPct(pct)}</span><span class="alert-pct-l">${open ? 'open P/L' : 'result'}</span></div>
+    </div>`;
+  }
+
+  const untilClose = ms => {
+    const m = Math.round((ms - Date.now()) / 60000);
+    if(m <= 0) return 'closing now';
+    return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
+  };
+  function formingRowHtml(f, tf, i){
+    const long = f.side === 'long', isExit = f.kind === 'exit';
+    const mult = f.mult && f.mult > 1 ? ` <span class="alert-name">(${f.mult}x price)</span>` : '';
+    let lines, right;
+    if(isExit){
+      lines = `<div class="alert-line">Entry <b>${fmtPx(f.entryClose)}</b> &middot; ${esc(fmtTime(f.entryTime, tf))}<br>Price <b>${fmtPx(f.price)}</b> is ${long ? 'below' : 'above'} the 10-bar ${long ? 'low' : 'high'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
+      right = `<span class="alert-pct ${f.resultPct >= 0 ? 'pos' : 'neg'}">${fmtPct(f.resultPct)}</span><span class="alert-pct-l">if it closes here</span>`;
+    }else{
+      const past = f.level ? (long ? f.price - f.level : f.level - f.price) / f.level * 100 : NaN;
+      lines = `<div class="alert-line">Price <b>${fmtPx(f.price)}</b> is ${long ? 'above' : 'below'} the 20-bar ${long ? 'high' : 'low'} ${fmtPx(f.level)} &middot; closes in ${untilClose(f.closesAt)}</div>`;
+      right = `<span class="alert-pct pos">${Number.isFinite(past) ? '+' + past.toFixed(2) + '%' : '—'}</span><span class="alert-pct-l">past the level</span>`;
+    }
+    return `<div class="alert-row is-forming" style="animation-delay:${Math.min(i, 12) * 18}ms">
+      <div class="alert-main">
+        <div class="alert-top">
+          <span class="alert-sym">${esc(f.symbol)}</span>${mult}
+          <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
+          <span class="alert-pill unconf">Unconfirmed ${isExit ? 'exit' : 'entry'}</span>
+        </div>
+        ${lines}
+      </div>
+      <div class="alert-right">${right}</div>
     </div>`;
   }
 
@@ -2938,16 +2972,20 @@ const AlertsPanel = (() => {
     const trades = tfd.trades || [];
     const open = trades.filter(t => t.status === 'open').sort((a, b) => b.entryTime - a.entryTime);
     const closed = trades.filter(t => t.status === 'closed').sort((a, b) => b.exitTime - a.exitTime);
+    const forming = (tfd.forming || []).slice().sort((a, b) => (a.kind === b.kind ? a.symbol.localeCompare(b.symbol) : a.kind === 'entry' ? -1 : 1));
     let i = 0, html = '';
-    html += `<div class="alerts-sec">Open entries <span class="n">${open.length}</span></div>`;
-    html += open.length ? open.map(t => rowHtml(t, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">No open long or short entries.</div>';
-    html += `<div class="alerts-sec">Closed (last ${tab === '4H' ? '2 days' : '7 days'}) <span class="n">${closed.length}</span></div>`;
+    html += `<div class="alerts-sec">Not confirmed yet <span class="n">${forming.length}</span></div>`;
+    html += `<div class="alerts-subnote">Triggered by the ${tab === '4H' ? '4H' : 'daily'} candle that is still open. These can disappear before it closes, and only count once the candle closes beyond the level.${tfd.formingAt ? ' Prices as of ' + esc(ago(Date.parse(tfd.formingAt))) + '.' : ''}</div>`;
+    html += forming.length ? forming.map(f => formingRowHtml(f, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">Nothing is triggering on the open candle right now.</div>';
+    html += `<div class="alerts-sec">Confirmed entries <span class="n">${open.length}</span></div>`;
+    html += open.length ? open.map(t => rowHtml(t, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">No confirmed long or short entries.</div>';
+    html += `<div class="alerts-sec">Closed, confirmed (last ${tab === '4H' ? '2 days' : '7 days'}) <span class="n">${closed.length}</span></div>`;
     html += closed.length ? closed.map(t => rowHtml(t, tab, i++)).join('') : '<div class="top50-empty" style="padding:14px 10px;">No closed trades in this window.</div>';
     const sk = (data.universe && data.universe.skipped) || [];
     const failed = tfd.failed || [];
     html += `<div class="alerts-foot">Last closed candle: ${esc(tfd.candleTime ? fmtTime(tfd.candleTime, tab) : '\u2014')} (your local time) &middot; ${tfd.scanned || 0} coins scanned.` +
       (sk.length ? `<br>Not scanned (no CoinDCX perp): ${esc(sk.map(x => x.symbol).join(', '))}.` : '') +
-      (failed.length ? `<br>Failed this scan: ${esc(failed.join(', '))}.` : '') + '<br>Prices are the last closed candle. Results are close-to-close and ignore fees and funding.</div>';
+      (failed.length ? `<br>Failed this scan: ${esc(failed.join(', '))}.` : '') + '<br>Confirmed prices are closed-candle closes. Results are close-to-close and ignore fees and funding. The badge counts confirmed signals only.</div>';
     listEl.innerHTML = html;
   }
 
