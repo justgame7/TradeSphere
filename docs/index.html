@@ -647,6 +647,8 @@
   #alertsOverlay .alert-row.is-forming:last-child{border-bottom:none;}
   #alertsOverlay .alert-row:hover{background:var(--panel2);}
   #alertsOverlay .alerts-subnote{padding:0 4px 10px;}
+  .alert-det{font:500 10px var(--font-mono);color:var(--faint);letter-spacing:.02em;}
+  .alert-row.is-new .alert-det{color:var(--amber);}
   #alertsOverlay .alerts-empty{padding:16px 4px;color:var(--faint);font:500 12px var(--font-mono);}
   #alertsOverlay .alerts-help-body ul{margin:0 0 4px;padding-left:18px;font:500 11.5px/1.65 var(--font-mono);color:var(--muted);}
   #alertsOverlay .alerts-help-body li{margin-bottom:6px;}
@@ -1887,6 +1889,7 @@
       </div>
       <div class="analysis-controls">
         <div class="analysis-tf-toggle" id="alertsTfRow">
+          <button type="button" data-tf="1H">1H</button>
           <button type="button" data-tf="4H">4H</button>
           <button type="button" data-tf="1D" class="active">1D</button>
         </div>
@@ -2899,7 +2902,7 @@ const AlertsPanel = (() => {
     try{ const o = localStorage.getItem('ts-alerts-data-url'); if(o) return o; }catch(e){}
     return 'https://raw.githubusercontent.com/justgame7/TradeSphere/main/data/donchian-alerts.json';
   })();
-  const SEEN_KEY = 'ts-alerts-seen-v1', TAB_KEY = 'ts-alerts-tab-v1';
+  const SEEN_KEY = 'ts-alerts-seen-ts-v1', TAB_KEY = 'ts-alerts-tab-v1';
   const REFRESH_MS = 2 * 60 * 1000, STALE_MS = 60 * 1000;
   const btn = document.getElementById('alertsBtn'), badge = document.getElementById('alertsBadge'), badgeForming = document.getElementById('alertsBadgeForming');
   const overlay = document.getElementById('alertsOverlay'), grid = document.getElementById('alertsGrid');
@@ -2908,33 +2911,37 @@ const AlertsPanel = (() => {
   const collapsedGrp = new Set(['help']); // group cards that start collapsed
   let liveTimer = null;
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
-  try{ const t = localStorage.getItem(TAB_KEY); if(t === '4H' || t === '1D') tab = t; }catch(e){}
+  try{ const t = localStorage.getItem(TAB_KEY); if(t === '1H' || t === '4H' || t === '1D') tab = t; }catch(e){}
 
   const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const key = (tf, t) => `${tf}|${t.symbol}|${t.side}|${t.entryTime}|${t.status === 'closed' ? 'c' : 'o'}`;
   // Unconfirmed (still-open candle) signals get their own keys, ending in '|u'.
   const fkey = (tf, f) => `${tf}|${f.symbol}|${f.side}|${f.kind}|${f.candleTime}|u`;
-  function allKeys(){
+  // Every signal in the file with the time the alert job FIRST SAW it (detectedAt, written by
+  // scripts/donchian-alerts.js). A signal that was already old when it first entered the list (for example a
+  // coin that just joined the scanned set with a trade open since last week) carries its candle time there,
+  // so it is not treated as new. Files written before detectedAt existed have none, and count as not new.
+  function allItems(){
     const out = [];
     if(data && data.timeframes) Object.keys(data.timeframes).forEach(tf => {
-      (data.timeframes[tf].trades || []).forEach(t => out.push(key(tf, t)));
-      (data.timeframes[tf].forming || []).forEach(f => out.push(fkey(tf, f)));
+      (data.timeframes[tf].trades || []).forEach(t => out.push({ key: key(tf, t), at: t.detectedAt || 0, forming: false }));
+      (data.timeframes[tf].forming || []).forEach(f => out.push({ key: fkey(tf, f), at: f.detectedAt || 0, forming: true }));
     });
     return out;
   }
-  function loadSeen(){ try{ const a = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); return Array.isArray(a) ? new Set(a) : null; }catch(e){ return null; } }
-  function saveSeen(set){ try{ localStorage.setItem(SEEN_KEY, JSON.stringify([...set])); }catch(e){} }
-
-  function unseenKeys(){
-    let seen = loadSeen();
-    if(!seen){ seen = new Set(allKeys()); saveSeen(seen); } // first visit: everything already there counts as seen
-    return allKeys().filter(k => !seen.has(k));
+  // "Seen" = the moment the user last opened the page. Anything detected after it is new.
+  function loadSeenTs(){ try{ const v = parseInt(localStorage.getItem(SEEN_KEY) || '', 10); return Number.isFinite(v) ? v : null; }catch(e){ return null; } }
+  function saveSeenTs(v){ try{ localStorage.setItem(SEEN_KEY, String(v)); }catch(e){} }
+  function unseenItems(){
+    let seen = loadSeenTs();
+    if(seen == null){ seen = Date.now(); saveSeenTs(seen); } // first visit: nothing is new yet
+    return allItems().filter(it => it.at > seen);
   }
   // Green = new CONFIRMED signals (candle closed), amber = new UNCONFIRMED ones (candle still open).
   // Each counts only what has not been shown to the user yet; opening the panel marks everything as seen.
   function updateBadge(){
-    const un = unseenKeys();
-    const nForming = un.filter(k => k.endsWith('|u')).length, nOk = un.length - nForming;
+    const un = unseenItems();
+    const nForming = un.filter(it => it.forming).length, nOk = un.length - nForming;
     const show = (el, n) => { el.hidden = n === 0; el.textContent = n > 99 ? '99+' : String(n); };
     show(badge, nOk); show(badgeForming, nForming);
     btn.classList.toggle('has-new', un.length > 0);
@@ -2947,8 +2954,10 @@ const AlertsPanel = (() => {
     return v.toLocaleString(undefined, { maximumFractionDigits: d });
   };
   const fmtPct = v => Number.isFinite(v) ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : '\u2014';
-  const fmtTime = (ms, tf) => new Date(ms).toLocaleString(undefined, tf === '4H'
+  const fmtTime = (ms, tf) => new Date(ms).toLocaleString(undefined, (tf === '4H' || tf === '1H')
     ? { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' } : { day:'2-digit', month:'short', year:'numeric' });
+  const fmtDetected = ms => new Date(ms).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const detLine = ms => ms ? `<div class="alert-det">Alert came ${esc(fmtDetected(ms))} &middot; ${esc(ago(ms))}</div>` : '';
   const ago = ms => {
     const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
     return m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
@@ -2999,6 +3008,7 @@ const AlertsPanel = (() => {
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
         ${lines}
+        ${detLine(t.detectedAt)}
       </div>
       <div class="alert-right"><span class="alert-pct ${cls}">${fmtPct(pct)}</span><span class="alert-pct-l">${open ? 'open P/L' : 'result'}</span></div>
     </div>`;
@@ -3033,6 +3043,7 @@ const AlertsPanel = (() => {
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
         ${lines}
+        ${detLine(f.detectedAt)}
       </div>
       <div class="alert-right">${right}</div>
     </div>`;
@@ -3049,7 +3060,7 @@ const AlertsPanel = (() => {
     if(loadErr) parts.push('refresh failed');
     statusEl.textContent = parts.join(' · ');
     const open = (tfd.trades || []).filter(t => t.status === 'open').length, unconf = (tfd.forming || []).length;
-    metaEl.textContent = `Top 50 coins · ${tab === '4H' ? '4H' : 'Daily'} · ${open} confirmed · ${unconf} unconfirmed`;
+    metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab} · ${open} confirmed · ${unconf} unconfirmed`;
   }
   function refreshLive(){
     loadLive();
@@ -3096,10 +3107,18 @@ const AlertsPanel = (() => {
     const open = trades.filter(t => t.status === 'open').sort((a, b) => b.entryTime - a.entryTime);
     const closed = trades.filter(t => t.status === 'closed').sort((a, b) => b.exitTime - a.exitTime);
     const forming = (tfd.forming || []).slice().sort((a, b) => (a.kind === b.kind ? a.symbol.localeCompare(b.symbol) : a.kind === 'entry' ? -1 : 1));
+    const newFirst = (list, keyFn) => list.slice().sort((a, b) => {
+      const na = newKeys.has(keyFn(a)), nb = newKeys.has(keyFn(b));
+      if(na !== nb) return na ? -1 : 1;                         // new ones first
+      return na ? (b.detectedAt || 0) - (a.detectedAt || 0) : 0; // newest first among them, the rest keep their order
+    });
     const empty = msg => `<div class="alerts-empty">${msg}</div>`;
     let i = 0;
-    const tfName = tab === '4H' ? '4H' : 'daily';
+    const tfName = tab === '1D' ? 'daily' : tab;
 
+    open.splice(0, open.length, ...newFirst(open, t => key(tab, t)));
+    closed.splice(0, closed.length, ...newFirst(closed, t => key(tab, t)));
+    forming.splice(0, forming.length, ...newFirst(forming, f => fkey(tab, f)));
     const unconfBody = `<div class="alerts-subnote">Triggered by the ${tfName} candle that is still open. These can disappear before it closes, and only count once the candle closes beyond the level.${tfd.formingAt ? ' Detected ' + esc(ago(Date.parse(tfd.formingAt))) + '.' : ''}</div>` +
       (forming.length ? forming.map(f => formingRowHtml(f, tab, i++)).join('') : empty('Nothing is triggering on the open candle right now.'));
     const openBody = open.length ? open.map(t => rowHtml(t, tab, i++)).join('') : empty('No confirmed long or short entries.');
@@ -3128,7 +3147,7 @@ const AlertsPanel = (() => {
     grid.innerHTML =
       groupCard('unconf', '⏳', 'var(--amber)', 'Not confirmed yet', forming.length, unconfBody) +
       groupCard('open', '✅', 'var(--accent)', 'Confirmed entries', open.length, openBody) +
-      groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '4H' ? '2 days' : '7 days'})`, closed.length, closedBody) +
+      groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '1H' ? '24 hours' : tab === '4H' ? '2 days' : '7 days'})`, closed.length, closedBody) +
       groupCard('help', 'ℹ️', 'var(--violet)', 'How this works', null, helpBody);
     updateToggleAll();
   }
@@ -3146,8 +3165,10 @@ const AlertsPanel = (() => {
   }
 
   function open(){
-    newKeys = new Set(unseenKeys());           // what is new since the last visit, for the amber markers
-    saveSeen(new Set(allKeys()));              // everything shown now counts as seen (also prunes old keys)
+    newKeys = new Set(unseenItems().map(it => it.key)); // what is new since the last visit, for the markers and the sort
+    // Everything shown now counts as seen. Use the newest detectedAt too, so a runner clock slightly ahead of this
+    // device can never leave a signal stuck as "new".
+    saveSeenTs(Math.max(Date.now(), ...allItems().map(it => it.at)));
     updateBadge();
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';

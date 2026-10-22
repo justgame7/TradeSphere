@@ -1,5 +1,5 @@
 // Builds data/donchian-alerts.json: Donchian 20/10 breakout trades (long and short) for the top 50
-// non-stablecoin coins, on the 4H and Daily timeframes. Same rules as the TradingView Pine script and the
+// non-stablecoin coins, on the 1H, 4H and Daily timeframes. Same rules as the TradingView Pine script and the
 // in-app chart markers:
 //   long  entry: a candle CLOSES above the highest high of the previous 20 candles
 //   long  exit : while long, a candle closes below the lowest low of the previous 10 candles
@@ -33,6 +33,7 @@ const HOUR = 3600e3, DAY = 86400e3;
 
 // keepClosedMs: how long a CLOSED trade stays in the list after its exit. Open trades always stay.
 const TIMEFRAMES = [
+  { label: '1H', resolution: '1h', periodMs: HOUR, historyDays: 14, keepClosedMs: 1 * DAY },
   { label: '4H', resolution: '4h', periodMs: 4 * HOUR, historyDays: 60, keepClosedMs: 2 * DAY },
   { label: '1D', resolution: '1d', periodMs: DAY, historyDays: 300, keepClosedMs: 7 * DAY },
 ];
@@ -41,6 +42,7 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const OUT = path.join(DATA_DIR, 'donchian-alerts.json');
 const TOP50_FILE = path.join(DATA_DIR, 'top50.json');
 const TOP50_MAX_AGE_MS = 24 * HOUR;
+const DETECT_GRACE_MS = 60 * 60e3; // a closed-candle signal first seen within an hour of its close counts as newly detected
 
 const COINDCX_API_BASE = 'https://api.coindcx.com';
 const COINDCX_PUBLIC_BASE = 'https://public.coindcx.com';
@@ -255,7 +257,7 @@ async function main() {
     const asOf = prev && prev.timeframes && prev.timeframes[tf.label] && prev.timeframes[tf.label].asOf;
     return !SKIP_IF_CURRENT || !asOf || asOf < expected;
   });
-  if (!due.length) { console.log('no new 4H/1D candle since the last scan, nothing to do (SKIP_IF_CURRENT)'); return; }
+  if (!due.length) { console.log('no new 1H/4H/1D candle since the last scan, nothing to do (SKIP_IF_CURRENT)'); return; }
   console.log('scanning: ' + due.map((t) => t.label).join(', '));
 
   const instruments = new Set(await fetchJSON(ACTIVE_INSTRUMENTS_URL));
@@ -285,6 +287,22 @@ async function main() {
     if (failed.length >= universe.coins.length) throw new Error(`${tf.label}: every coin failed`);
     trades.sort((a, b) => (b.exitTime || b.entryTime) - (a.exitTime || a.entryTime));
     forming.sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+    // detectedAt = when THIS job first saw the signal (carried over from the previous file while the signal
+    // stays the same). The app uses it for "New" and the badges. A signal that is already old the first time
+    // we see it (for example a coin that just joined the scanned list with a trade open since last week) is not
+    // new: it is stamped with its candle's close time instead of "now".
+    const prevTf = (prev && prev.timeframes && prev.timeframes[tf.label]) || {};
+    const prevAt = new Map();
+    (prevTf.trades || []).forEach((t) => { if (t.detectedAt) prevAt.set(`t|${t.symbol}|${t.side}|${t.entryTime}|${t.status}`, t.detectedAt); });
+    (prevTf.forming || []).forEach((f) => { if (f.detectedAt) prevAt.set(`f|${f.symbol}|${f.side}|${f.kind}|${f.candleTime}`, f.detectedAt); });
+    const nowMs = Date.now();
+    trades.forEach((t) => {
+      const known = prevAt.get(`t|${t.symbol}|${t.side}|${t.entryTime}|${t.status}`);
+      const eventClose = (t.exitTime || t.entryTime) + tf.periodMs;
+      t.detectedAt = known || (nowMs - eventClose <= DETECT_GRACE_MS ? nowMs : eventClose);
+    });
+    forming.forEach((f) => { f.detectedAt = prevAt.get(`f|${f.symbol}|${f.side}|${f.kind}|${f.candleTime}`) || nowMs; });
     // Only mark this candle as scanned once most coins actually have it, otherwise try again on the next run.
     const complete = atExpected >= Math.ceil(universe.coins.length * 0.8);
     const prevAsOf = prev && prev.timeframes && prev.timeframes[tf.label] ? prev.timeframes[tf.label].asOf : null;
