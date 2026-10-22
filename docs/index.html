@@ -644,6 +644,14 @@
   details.alerts-help[open] summary::after{content:'\2212';}
   details.alerts-help ul{margin:10px 0 0;padding-left:18px;font:500 11px/1.6 var(--font-mono);color:var(--muted);}
   details.alerts-help li{margin-bottom:6px;}
+  /* Phones: the header controls (system filter, timeframes, 3 buttons) are wider than the screen, so let them wrap
+     onto a second row instead of pushing the whole page sideways. */
+  @media(max-width:600px){
+    #alertsOverlay{overflow-x:hidden;}
+    #alertsOverlay .analysis-id{min-width:0;}
+    #alertsOverlay .analysis-controls{flex:1 1 100%;flex-wrap:wrap;gap:8px;min-width:0;}
+    #alertsOverlay .analysis-tf-toggle button{padding:8px 11px;font-size:11.5px;}
+  }
   /* ---- Alerts full page: rows sit inside the Technical Breakdown style group cards ---- */
   #alertsOverlay .analysis-group-body{padding-bottom:6px;}
   #alertsOverlay .alert-row{border:none;border-bottom:1px solid var(--border-soft);border-radius:0;background:transparent;margin:0;padding:11px 4px;box-shadow:none;}
