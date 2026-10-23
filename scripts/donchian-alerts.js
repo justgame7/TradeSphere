@@ -46,6 +46,8 @@ const TIMEFRAMES = [
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const OUT = path.join(DATA_DIR, 'donchian-alerts.json');
+// Compact trade history for the app's Summary report (every trade of the walk, not only the recent ones in OUT).
+const HIST_OUT = path.join(DATA_DIR, 'alerts-history.json');
 const TOP50_FILE = path.join(DATA_DIR, 'top50.json');
 const TOP50_MAX_AGE_MS = 24 * HOUR;
 const DETECT_GRACE_MS = 60 * 60e3; // a closed-candle signal first seen within an hour of its close counts as newly detected
@@ -389,17 +391,21 @@ function stopNow(candles, side, sys) {
 function scanCoin(coin, data, tf) {
   const candles = data.closed;
   const minNeeded = Math.min(...SYSTEMS.map((x) => x.entry)) + 2;
-  if (candles.length < minNeeded) return { trades: [], forming: [], retrace: null, lastT: null };
+  if (candles.length < minNeeded) return { trades: [], forming: [], retrace: null, hist: [], lastT: null };
   const last = candles[candles.length - 1];
   const keepFrom = Date.now() - tf.keepClosedMs;
   const trades = [];
   const forming = [];
+  const hist = [];
+  // [system, symbol, side (1 long, -1 short), entryTime, exitTime (0 while open), result % (null while open), exit reason (1 exit rule, 2 stop loss), entry close (open trades only)]
+  const addHist = (system, t, side) => hist.push([system, coin.symbol, side === 'long' ? 1 : -1, t.entryTime, t.exitTime || 0, t.status === 'closed' ? +t.resultPct.toFixed(2) : null, t.status === 'closed' ? (t.exitReason === 'stop' ? 2 : 1) : 0, t.status === 'open' ? round(t.entryClose) : null]);
   for (const sys of SYSTEMS) {
     if (candles.length < sys.entry + 2) continue; // not enough history for this system yet (e.g. a young coin on weekly)
     const walked = [];
     for (const side of ['long', 'short']) {
       for (const t of walk(candles, side, sys)) {
         walked.push(t);
+        addHist(sys.key, t, side);
         if (t.status === 'closed' && t.exitTime < keepFrom) continue;
         const unreal = t.status === 'open' ? (side === 'long' ? last.close - t.entryClose : t.entryClose - last.close) / t.entryClose * 100 : null;
         trades.push({
@@ -427,6 +433,7 @@ function scanCoin(coin, data, tf) {
     for (const side of ['long', 'short']) {
       for (const t of walkIchimoku(S, side)) {
         walked.push(t);
+        addHist('Ichimoku', t, side);
         if (t.status === 'closed' && t.exitTime < keepFrom) continue;
         const unreal = t.status === 'open' ? (side === 'long' ? last.close - t.entryClose : t.entryClose - last.close) / t.entryClose * 100 : null;
         trades.push({
@@ -455,7 +462,7 @@ function scanCoin(coin, data, tf) {
     high: round(rz.high), low: round(rz.low), highTime: rz.highTime, lowTime: rz.lowTime,
     l50: round(rz.l50), l618: round(rz.l618), atr: round(rz.atr), lastClose: round(rz.lastClose),
   } : null;
-  return { trades, forming, retrace, lastT: last.t };
+  return { trades, forming, retrace, hist, lastT: last.t };
 }
 
 async function pool(items, worker) {
@@ -492,7 +499,10 @@ async function main() {
     timeframes: { ...((prev && prev.timeframes) || {}) },
   };
 
+  const prevHist = readJSON(HIST_OUT);
+  const hist = { updated: null, tfs: { ...((prevHist && prevHist.tfs) || {}) } };
   for (const tf of due) {
+    const histTrades = [];
     const trades = [];
     const forming = [];
     const retrace = [];
@@ -504,6 +514,7 @@ async function main() {
         trades.push(...res.trades);
         forming.push(...res.forming);
         if (res.retrace) retrace.push(res.retrace);
+        histTrades.push(...res.hist);
         if (res.lastT === tf.expected) atExpected++;
       } catch (e) { failed.push(coin.symbol); console.warn(`${tf.label} ${coin.symbol}: ${e.message}`); }
     });
@@ -527,6 +538,8 @@ async function main() {
       t.detectedAt = known || (nowMs - eventClose <= DETECT_GRACE_MS ? nowMs : eventClose);
     });
     forming.forEach((f) => { f.detectedAt = prevAt.get(`f|${f.system}|${f.symbol}|${f.side}|${f.kind}|${f.candleTime}`) || nowMs; });
+    histTrades.sort((a, b) => a[3] - b[3] || a[1].localeCompare(b[1]) || String(a[0]).localeCompare(String(b[0])) || a[2] - b[2]);
+    hist.tfs[tf.label] = { periodMs: tf.periodMs, historyDays: tf.historyDays, trades: histTrades };
     // Only mark this candle as scanned once most coins actually have it, otherwise try again on the next run.
     const complete = atExpected >= Math.ceil(universe.coins.length * 0.8);
     const prevAsOf = prev && prev.timeframes && prev.timeframes[tf.label] ? prev.timeframes[tf.label].asOf : null;
@@ -542,8 +555,15 @@ async function main() {
       ...v, formingAt: null, forming: (v.forming || []).map((f) => [f.system, f.symbol, f.side, f.kind, f.candleTime]),
     }])),
   });
-  if (prev && strip(prev) === strip(next)) { console.log('no change in signals, file not rewritten'); return; }
+  // The history file is compared on its trades only (its timestamp is ignored), like the signals file above.
   fs.mkdirSync(DATA_DIR, { recursive: true });
+  const histKey = (h) => JSON.stringify(h && h.tfs);
+  if (!prevHist || histKey(prevHist) !== histKey(hist)) {
+    hist.updated = new Date().toISOString();
+    fs.writeFileSync(HIST_OUT, JSON.stringify(hist));
+    console.log('wrote ' + HIST_OUT);
+  }
+  if (prev && strip(prev) === strip(next)) { console.log('no change in signals, file not rewritten'); return; }
   fs.writeFileSync(OUT, JSON.stringify(next));
   console.log('wrote ' + OUT);
 }

@@ -645,6 +645,9 @@
   /* chart link on each alert row and the level chart popup */
   .alert-chart-link{margin-top:6px;background:none;border:none;padding:2px 0;font:600 10.5px var(--font-mono);color:var(--accent);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
   .alert-chart-link:hover{color:var(--text);}
+  .asummary{position:fixed;inset:0;z-index:70;background:var(--bg);}
+  .asummary[hidden]{display:none;}
+  .asummary iframe{width:100%;height:100%;border:0;display:block;background:var(--bg);}
   .achart{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,8,14,.62);}
   .achart[hidden]{display:none;}
   .achart-card{width:100%;max-width:760px;max-height:92%;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:16px 16px 22px;box-shadow:0 -10px 40px rgba(0,0,0,.45);}
@@ -1982,7 +1985,7 @@
       </div>
       <div class="alerts-actions">
         <button type="button" class="analysis-icon-btn analysis-toggle-all" id="alertsToggleAll" title="Collapse all sections" aria-label="Collapse all sections"><span class="taa-chevron">&#8964;</span></button>
-        <button type="button" class="analysis-icon-btn" id="alertsRefreshBtn" title="Refresh alerts" aria-label="Refresh alerts"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></button>
+        <button type="button" class="analysis-icon-btn" id="alertsSummaryBtn" title="Summary report" aria-label="Summary report"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></button>
         <button type="button" class="analysis-close" id="alertsCloseBtn" aria-label="Close">&#10005;</button>
       </div>
     </div>
@@ -1993,6 +1996,7 @@
     </div>
     <div class="analysis-groups-grid" id="alertsGrid"></div>
   </div>
+  <div class="asummary" id="alertsSummary" hidden><iframe id="alertsSummaryFrame" title="Alerts summary report"></iframe></div>
   <div class="achart" id="alertChart" hidden>
     <div class="achart-card" role="dialog" aria-label="Trade levels">
       <div class="achart-head"><span class="achart-title"></span><button type="button" class="achart-x achart-share" aria-label="Share chart" title="Share chart"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"></path></svg></button><button type="button" class="achart-x achart-close" aria-label="Close">&#10005;</button></div>
@@ -3179,7 +3183,9 @@ const AlertsPanel = (() => {
   const chartReg = [];
   const chartLink = item => `<button type="button" class="alert-chart-link" data-chart="${chartReg.push(item) - 1}">Chart &#8599;</button>`;
   const achart = document.getElementById('alertChart');
-  document.body.appendChild(achart);   // the alerts overlay has a backdrop-filter, which would make this "fixed" popup scroll with the list: keep it on the body
+  document.body.appendChild(achart);
+  const asum = document.getElementById('alertsSummary'), asumFrame = document.getElementById('alertsSummaryFrame');
+  document.body.appendChild(asum);   // same reason as the chart popup: keep it out of the blurred overlay   // the alerts overlay has a backdrop-filter, which would make this "fixed" popup scroll with the list: keep it on the body
 
   function ladderSvg(levels, cur){
     const W = 340, H = 250, top = 22, bot = H - 22, x0 = 150;
@@ -3460,6 +3466,14 @@ const AlertsPanel = (() => {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     if(btn){ btn.title = 'Saved as an image'; }
   }
+  // Summary report (alerts-summary.html in a full-screen frame). It reads the same alerts file plus data/alerts-history.json and
+  // rebuilds itself every couple of minutes, so it needs nothing from here except the live prices and a way back / to a coin.
+  function openSummary(){
+    if(!asumFrame.getAttribute('src')) asumFrame.setAttribute('src', 'alerts-summary.html');
+    closeChart();
+    asum.hidden = false;
+  }
+  function closeSummary(){ asum.hidden = true; }
   const closeChart = () => { achart.hidden = true; chartRedraw = null; chartToken++; };
 
   const untilClose = ms => {
@@ -3678,6 +3692,11 @@ const AlertsPanel = (() => {
   }
   // Back (phone back button / gesture): closes the chart popup first, then leaves the coin view, and only a second back closes the page.
   function back(fromPopstate){
+    if(!asum.hidden){                         // the summary report closes first
+      closeSummary();
+      if(fromPopstate && (!history.state || !history.state.alerts)) history.pushState({ page: currentPage, alerts: true }, '', location.href);
+      return true;
+    }
     if(!achart.hidden){                       // the level chart popup closes first, staying on the same list
       closeChart();
       if(fromPopstate && (!history.state || !history.state.alerts)) history.pushState({ page: currentPage, alerts: true }, '', location.href);
@@ -3815,7 +3834,7 @@ const AlertsPanel = (() => {
     clearInterval(liveTimer); liveTimer = setInterval(refreshLive, 5000);
   }
   function close(){
-    clearInterval(liveTimer); closeChart();
+    clearInterval(liveTimer); closeChart(); closeSummary();
     overlay.classList.remove('open');
     document.body.style.overflow = '';
     if(history.state && history.state.alerts) history.replaceState({ page: currentPage }, '', location.href);
@@ -3824,7 +3843,7 @@ const AlertsPanel = (() => {
   btn.addEventListener('click', open);
   document.getElementById('alertsCloseBtn').addEventListener('click', close);
   document.getElementById('alertsCoinBack').addEventListener('click', () => back(false));
-  document.getElementById('alertsRefreshBtn').addEventListener('click', () => { load(); try{ if(typeof loadTicker === 'function') loadTicker(); }catch(e){} });
+  document.getElementById('alertsSummaryBtn').addEventListener('click', openSummary);
   // Tapping a coin opens its technical breakdown on top of this page (it is a later overlay, so it stacks above);
   // closing the breakdown returns here.
   function openCoin(row){
@@ -3913,7 +3932,11 @@ const AlertsPanel = (() => {
   applySettings();
   load();
 
-  return { open, close, back, isOpen: () => overlay.classList.contains('open') };
+  return { open, close, back, isOpen: () => overlay.classList.contains('open'),
+    // used by the summary report frame
+    livePx: base => { if(!liveMap) loadLive(); return livePx(base); },
+    closeSummary,
+    showCoin: sym => { closeSummary(); if(!overlay.classList.contains('open')) open(); openCoinView(sym); } };
 })();
 window.AlertsPanel = AlertsPanel;
 

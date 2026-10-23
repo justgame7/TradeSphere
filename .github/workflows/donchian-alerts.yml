@@ -33,7 +33,7 @@ jobs:
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          git add data/donchian-alerts.json data/top50.json
+          git add data/donchian-alerts.json data/alerts-history.json data/top50.json
           git diff --cached --quiet && exit 0
           git commit -m "update donchian alerts"
           for i in 1 2 3 4 5; do
