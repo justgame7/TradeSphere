@@ -632,17 +632,17 @@
   #alertsSysRow[hidden]{display:none;}
   /* Retracement zone card: a reference list, separate from the Donchian / Ichimoku alerts */
   .analysis-group-card.rz-grey{opacity:.5;}
-  .rz-row{display:flex;gap:10px;padding:11px 4px;border-bottom:1px solid var(--border-soft);cursor:pointer;}
-  .rz-row:last-child{border-bottom:none;}
-  .rz-row:hover{background:var(--panel2);}
-  .rz-sym{font:700 13.5px var(--font-ui);color:var(--text);}
+  .rz-row{display:flex;gap:10px;padding:11px 12px;margin:0 0 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel);cursor:pointer;}
+  .rz-row:hover{border-color:var(--accent);}
   .rz-right{flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;}
   .rz-dist{font:700 12.5px var(--font-mono);color:var(--text);}
   @media(max-width:560px){.rz-row{flex-direction:column;gap:2px;}.rz-right{flex-direction:row;align-items:baseline;justify-content:flex-start;gap:6px;}}
-  .rz-note{margin-top:6px;padding:6px 9px;border-radius:8px;font:500 11px var(--font-mono);line-height:1.5;color:var(--muted);background:rgba(91,140,255,.08);border:1px solid rgba(91,140,255,.4);}
-  .rz-note b{color:var(--text);font-weight:600;}
-  .rz-tag{display:block;margin-top:2px;font-weight:700;font-size:10.5px;}
+  .rz-trade{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-top:6px;padding:5px 8px;border-radius:8px;font:500 10px var(--font-mono);white-space:nowrap;line-height:1.4;color:var(--muted);background:rgba(91,140,255,.08);border:1px solid rgba(91,140,255,.4);cursor:pointer;}
+  .rz-trade:hover{border-color:var(--accent);}
+  .rz-trade b{color:var(--text);font-weight:600;}
+  .rz-tag{font-weight:700;white-space:nowrap;}
   .rz-tag.good{color:var(--accent);} .rz-tag.bad{color:var(--amber);}
+  .rz-more{margin-top:5px;font:500 10.5px var(--font-mono);color:var(--faint);cursor:pointer;}
   /* tapping a coin name lists every alert for that coin (current strategy first, then the other one) */
   .alert-sym{cursor:pointer;text-decoration:underline dotted var(--faint);text-underline-offset:3px;}
   .alert-sym:hover{color:var(--accent);}
@@ -3251,8 +3251,7 @@ const AlertsPanel = (() => {
     const pct = Number.isFinite(lp) ? pctFor('open', t.side, t.entryClose, t.entryLevel, lp) : t.unrealizedPct;
     const strat = sysOf(t) === 'Ichimoku' ? 'Ichimoku' + (t.trigger ? ' ' + t.trigger : '') : 'Donchian ' + sysOf(t);
     const aligned = (long && r.dir === 'bullish') || (!long && r.dir === 'bearish');
-    const tag = aligned ? (long ? 'pullback into support' : 'bounce into resistance') : 'zone is against this trade';
-    return `<div class="rz-note">Open trade: <b>${esc(strat)} ${long ? 'long' : 'short'}</b> &middot; ${esc(tr.tf)} &middot; entered ${esc(fmtTime(t.entryTime, tr.tf))} at ${fmtPx(t.entryClose)} &middot; now <b class="${pct >= 0 ? 'pos' : 'neg'}">${fmtPct(pct)}</b><span class="rz-tag ${aligned ? 'good' : 'bad'}">${tag}</span></div>`;
+    return `<div class="rz-trade" data-sym="${esc(t.symbol)}" role="button" tabindex="0" title="All ${esc(t.symbol)} trades"><span><b>${esc(strat)} ${long ? 'long' : 'short'}</b> &middot; ${esc(tr.tf)} &middot; now <b class="${pct >= 0 ? 'pos' : 'neg'}">${fmtPct(pct)}</b></span><span class="rz-tag ${aligned ? 'good' : 'bad'}">${aligned ? '✓ zone' : '✗ against'}</span></div>`;
   }
   function retraceData(tf){
     const list = (((data && data.timeframes) || {})[tf] || {}).retrace || [];
@@ -3272,11 +3271,11 @@ const AlertsPanel = (() => {
     const leg = up ? `${fmtPx(r.low)} → ${fmtPx(r.high)}` : `${fmtPx(r.high)} → ${fmtPx(r.low)}`;
     const lv = [z.in50 ? `50% ${fmtPx(r.l50)}` : '', z.in618 ? `61.8% ${fmtPx(r.l618)}` : ''].filter(Boolean).join(' &middot; ');
     const shown = x.trades.slice(0, 3).map(tr => rzNote(tr, r)).join('');
-    const more = x.trades.length > 3 ? `<div class="alert-line" style="margin-top:4px;">+${x.trades.length - 3} more open trade${x.trades.length - 3 === 1 ? '' : 's'}</div>` : '';
+    const more = x.trades.length > 3 ? `<div class="rz-more" data-sym="${esc(r.symbol)}">+${x.trades.length - 3} more open trade${x.trades.length - 3 === 1 ? '' : 's'}</div>` : '';
     return `<div class="rz-row" data-sym="${esc(r.symbol)}" role="button" tabindex="0" title="Open ${esc(r.symbol)} technical breakdown">
       <div class="alert-main">
         <div class="alert-top">
-          <span class="rz-sym">${esc(r.symbol)}</span>${mult}
+          <span class="alert-sym">${esc(r.symbol)}</span>${mult}
           <span class="alert-pill ${up ? 'long' : 'short'}">${up ? '▲ Up-leg' : '▼ Down-leg'}</span>
           <span class="alert-pill sys">${z.tag}</span>
         </div>
@@ -3335,14 +3334,13 @@ const AlertsPanel = (() => {
     const cards = order.map(st => {
       const list = items.filter(it => it.strat === st).sort((a, b) => b.ts - a.ts);
       counts[st] = list.length;
-      const body = list.length
-        ? list.map(it => it.forming ? formingRowHtml(it.x, it.tf, i++) : rowHtml(it.x, it.tf, i++)).join('')
-        : `<div class="alerts-empty">No ${names[st]} alerts for ${esc(coinSym)} right now.</div>`;
+      if(!list.length) return '';                // a strategy with nothing for this coin is not shown
+      const body = list.map(it => it.forming ? formingRowHtml(it.x, it.tf, i++) : rowHtml(it.x, it.tf, i++)).join('');
       return groupCard('coin-' + st, st === 'ichimoku' ? '☁️' : '📈', st === 'ichimoku' ? 'var(--violet)' : 'var(--accent)', `${names[st]} · ${esc(coinSym)}`, list.length, body);
     });
-    grid.innerHTML = cards.join('');
-    coinMetaText = `${coinSym} · ${items.length} alert${items.length === 1 ? '' : 's'} · ${names[order[0]]} ${counts[order[0]]} · ${names[order[1]]} ${counts[order[1]]}`;
-    coinName.textContent = `Newest first, ${names[order[0]]} then ${names[order[1]]}`;
+    grid.innerHTML = cards.join('') || `<div class="alerts-empty" style="grid-column:1/-1;">No alerts for ${esc(coinSym)} right now.</div>`;
+    coinMetaText = `${coinSym} · ${items.length} alert${items.length === 1 ? '' : 's'} · ${order.filter(st => counts[st]).map(st => names[st] + ' ' + counts[st]).join(' · ')}`;
+    coinName.textContent = 'Newest first' + (order.every(st => counts[st]) ? `, ${names[order[0]]} then ${names[order[1]]}` : '');
     setHeader();
     updateToggleAll();
   }
@@ -3403,7 +3401,7 @@ const AlertsPanel = (() => {
           <li><b>Not a strategy:</b> a reference list. It never creates trades or badges.</li>
           <li><b>Zone:</b> the live price is within ${RZ_TOL}% of the 50% or 61.8% level of the latest swing leg (most recent swing high to most recent swing low, at least 3 x ATR(14) in size, pivots use 3 candles each side).</li>
           <li><b>Up-leg</b> (low came first): a pullback zone, possible support. <b>Down-leg</b> (high came first): a bounce zone, possible resistance.</li>
-          <li><b>Open trade note:</b> if the coin has an open Donchian or Ichimoku trade on any timeframe, it is listed under the coin with whether the zone is a pullback into support, a bounce into resistance, or against the trade. Coins with an open trade are listed first.</li>
+          <li><b>Open trade note:</b> if the coin has an open Donchian or Ichimoku trade on any timeframe, it is listed under the coin as one line: ✓ in zone (a long in an up-leg pullback or a short in a down-leg bounce) or ✗ against. Tap it or the coin name to see all that coin's trades. Coins with an open trade are listed first.</li>
           <li>1H is greyed out and shows no trade notes. Tap a coin to open its technical breakdown.</li></ul></div>`);
       updateToggleAll();
       return;
@@ -3438,7 +3436,7 @@ const AlertsPanel = (() => {
     const commonTail = `<li><b>Confirmed:</b> the candle has closed, so the signal is final.</li>
       <li><b>Unconfirmed:</b> the candle is still open and the live price is already triggering it. It can disappear before the candle closes.</li>
       <li><b>Badges:</b> on the bell, green is new confirmed signals and amber is new unconfirmed ones. The Donchian and Ichimoku buttons and each timeframe tab (1H, 4H, 1D, 1W) also show a count of new alerts, and that count clears when you open it.</li>
-      <li><b>In retracement zone:</b> a separate reference card, not a strategy. It lists coins whose live price is within 1% of the 50% or 61.8% level of their latest swing, for 4H, 1D and 1W (1H is greyed out). If the coin also has an open Donchian or Ichimoku trade, a note says so and whether the zone is a pullback into support, a bounce into resistance, or against the trade.</li>
+      <li><b>In retracement zone:</b> a separate reference card, not a strategy. It lists coins whose live price is within 1% of the 50% or 61.8% level of their latest swing, for 4H, 1D and 1W (1H is greyed out). If the coin also has an open Donchian or Ichimoku trade, a one-line note shows it with ✓ in zone (pullback into support or bounce into resistance) or ✗ against. Tap the note or the coin name for all its trades.</li>
       <li>Tap a coin to open its technical breakdown.</li>`;
     const helpBody = `<div class="alerts-help-body"><ul>
       ${common}
@@ -3509,9 +3507,11 @@ const AlertsPanel = (() => {
   grid.addEventListener('click', e => {
     const sym = e.target.closest('.alert-sym');
     if(sym && !coinSym){                       // the coin name: list every alert for that coin
-      const r = sym.closest('.alert-row[data-sym]');
+      const r = sym.closest('.alert-row[data-sym], .rz-row[data-sym]');
       if(r){ e.stopPropagation(); openCoinView(r.dataset.sym); return; }
     }
+    const tr = e.target.closest('.rz-trade[data-sym], .rz-more[data-sym]');
+    if(tr && !coinSym){ openCoinView(tr.dataset.sym); return; }   // a trade line in the retracement card: all trades for that coin
     const row = e.target.closest('.alert-row[data-sym], .rz-row[data-sym]');
     if(row){ openCoin(row); return; }
     const head = e.target.closest('.analysis-group-head');
@@ -3528,6 +3528,7 @@ const AlertsPanel = (() => {
   });
   grid.addEventListener('keydown', e => {
     if(e.key !== 'Enter' && e.key !== ' ') return;
+    const tl = e.target.closest('.rz-trade[data-sym]'); if(tl && !coinSym){ e.preventDefault(); openCoinView(tl.dataset.sym); return; }
     const row = e.target.closest('.alert-row[data-sym], .rz-row[data-sym]'); if(row){ e.preventDefault(); openCoin(row); }
   });
   toggleAllBtn.addEventListener('click', () => {
