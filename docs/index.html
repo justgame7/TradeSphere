@@ -1943,6 +1943,7 @@
         <div class="analysis-tf-toggle" id="alertsStratRow" title="Strategy">
           <button type="button" data-strat="donchian" class="active">Donchian</button>
           <button type="button" data-strat="ichimoku">Ichimoku</button>
+          <button type="button" data-strat="retrace">Retracement</button>
         </div>
         <div class="analysis-tf-toggle" id="alertsSysRow" title="Show one Donchian system or both">
           <button type="button" data-sys="all" class="active">All</button>
@@ -2986,7 +2987,7 @@ const AlertsPanel = (() => {
   let unconfManual = false;                // true once the user opens/closes "Not confirmed yet" themselves (else it follows its count)
   let liveTimer = null;
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
-  let strategy = 'donchian';      // 'donchian' | 'ichimoku' (Donchian is the default)
+  let strategy = 'donchian';      // 'donchian' | 'ichimoku' | 'retrace' (Donchian is the default; retrace is the zone list only, no trades)
   let coinSym = null, coinFirst = 'donchian', coinMetaText = '';   // coin view: every alert for one coin
   let sysFilter = 'all';          // Donchian only: 'all' | '20/10' | '55/20'
   let newByTf = {};               // per timeframe: keys that were new when this visit first showed that tab
@@ -3198,6 +3199,11 @@ const AlertsPanel = (() => {
     if(tfd.scanned) parts.push(tfd.scanned + ' coins scanned');
     if(loadErr) parts.push('refresh failed');
     statusEl.textContent = parts.join(' · ');
+    if(strategy === 'retrace'){
+      titleEl.textContent = 'Retracement zones'; quoteEl.innerHTML = '50% &middot; 61.8%';
+      metaEl.textContent = `Top 50 coins \u00b7 ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab} \u00b7 ${retraceData(tab).length} in zone`;
+      return;
+    }
     const open = (tfd.trades || []).filter(t => t.status === 'open' && okItem(t)).length, unconf = (tfd.forming || []).filter(okItem).length;
     titleEl.textContent = strategy === 'ichimoku' ? 'Ichimoku alerts' : 'Donchian alerts';
     quoteEl.innerHTML = strategy === 'ichimoku' ? '9 &middot; 26 &middot; 52' : (sysFilter === 'all' ? '20/10 &middot; 55/20' : sysFilter);
@@ -3367,7 +3373,7 @@ const AlertsPanel = (() => {
       return;
     }
     if(coinSym){ renderCoin(); return; }
-    markViewed(strategy, tab);             // this (strategy, timeframe) is being looked at: remember what was new, then clear its badge
+    if(strategy !== 'retrace') markViewed(strategy, tab);             // this (strategy, timeframe) is being looked at: remember what was new, then clear its badge
     newKeys = newByTf[seenKey(strategy, tab)] || new Set();
     stratRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.strat === strategy));
     sysRow.hidden = strategy !== 'donchian';   // 20/10 and 55/20 only exist for Donchian
@@ -3390,6 +3396,18 @@ const AlertsPanel = (() => {
     const rzRows = retraceData(tab);
     if(!retrManual){ if(rzRows.length === 0) collapsedGrp.add('retrace'); else collapsedGrp.delete('retrace'); }
     const empty = msg => `<div class="alerts-empty">${msg}</div>`;
+    if(strategy === 'retrace'){            // the Retracement tab: only the zone list (a state, not an event: no badges, no "new")
+      collapsedGrp.delete('retrace');
+      grid.innerHTML = groupCard('retrace', '\ud83c\udfaf', 'var(--amber)', 'In retracement zone', rzRows.length, retraceBodyHtml(tab, rzRows), tab === '1H' ? 'rz-grey' : '') +
+        groupCard('help', '\u2139\ufe0f', 'var(--violet)', 'How this works', null, `<div class="alerts-help-body"><ul>
+          <li><b>Not a strategy:</b> a reference list. It never creates trades or badges.</li>
+          <li><b>Zone:</b> the live price is within ${RZ_TOL}% of the 50% or 61.8% level of the latest swing leg (most recent swing high to most recent swing low, at least 3 x ATR(14) in size, pivots use 3 candles each side).</li>
+          <li><b>Up-leg</b> (low came first): a pullback zone, possible support. <b>Down-leg</b> (high came first): a bounce zone, possible resistance.</li>
+          <li><b>Open trade note:</b> if the coin has an open Donchian or Ichimoku trade on any timeframe, it is listed under the coin with whether the zone is a pullback into support, a bounce into resistance, or against the trade. Coins with an open trade are listed first.</li>
+          <li>1H is greyed out and shows no trade notes. Tap a coin to open its technical breakdown.</li></ul></div>`);
+      updateToggleAll();
+      return;
+    }
     let i = 0;
     const tfName = tab === '1D' ? 'daily' : tab === '1W' ? 'weekly' : tab;
 
