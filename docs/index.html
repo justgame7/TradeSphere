@@ -3304,17 +3304,19 @@ const AlertsPanel = (() => {
     ctx.font = '10px JetBrains Mono, monospace';
     const fromI = ei >= 0 ? Math.max(0, ei - start) : Math.max(0, bars.length - Math.round(bars.length * 0.35));
     const pills = o.levels.filter(l => Number.isFinite(l.v)).map(l => ({ ...l, yy: y(l.v), color: col(l.c) })).sort((a, b) => a.yy - b.yy);
-    let prev = -Infinity; pills.forEach(pl => { pl.py = Math.max(pl.yy, prev + 17); prev = pl.py; });
+    let prev = -Infinity; const gap = 29;   // the label sits under the price inside the tag, so the tags are two lines tall
+    pills.forEach(pl => { pl.py = Math.max(pl.yy, prev + gap); prev = pl.py; });
     const over = pills.length ? pills[pills.length - 1].py - (H - pad.b - 6) : 0; if(over > 0) pills.forEach(pl => { pl.py -= over; });
     pills.forEach(pl => {
       ctx.strokeStyle = pl.color; ctx.lineWidth = pl.k === 'now' ? 1.4 : 1.2; ctx.setLineDash(pl.k === 'now' ? [2, 3] : [6, 4]);
       ctx.beginPath(); ctx.moveTo(x(fromI), pl.yy); ctx.lineTo(W - pad.r, pl.yy); ctx.stroke(); ctx.setLineDash([]);
     });
     pills.forEach(pl => {
-      const txt = fmtPx(pl.v), w = pad.r - 4;
-      ctx.fillStyle = pl.color; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(W - pad.r + 2, pl.py - 8, w, 16, 4) : ctx.rect(W - pad.r + 2, pl.py - 8, w, 16); ctx.fill();
-      ctx.fillStyle = '#0b0f17'; ctx.textAlign = 'center'; ctx.font = 'bold 10px JetBrains Mono, monospace'; ctx.fillText(txt, W - pad.r + 2 + w / 2, pl.py + 0.5);
-      ctx.fillStyle = pl.color; ctx.textAlign = 'right'; ctx.font = '10px JetBrains Mono, monospace'; ctx.fillText(pl.label, W - pad.r - 4, pl.yy - 8);
+      const txt = fmtPx(pl.v), w = pad.r - 4, h = 27;
+      ctx.fillStyle = pl.color; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(W - pad.r + 2, pl.py - h / 2, w, h, 4) : ctx.rect(W - pad.r + 2, pl.py - h / 2, w, h); ctx.fill();
+      ctx.fillStyle = '#0b0f17'; ctx.textAlign = 'center'; ctx.font = 'bold 10px JetBrains Mono, monospace';
+      ctx.fillText(txt, W - pad.r + 2 + w / 2, pl.py - 5.5);
+      ctx.font = 'bold 9px JetBrains Mono, monospace'; ctx.fillText(pl.label, W - pad.r + 2 + w / 2, pl.py + 6.5);
     });
   }
   function openChart(id){
