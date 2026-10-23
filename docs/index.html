@@ -651,7 +651,7 @@
   @media(min-width:700px){.achart{align-items:center;}.achart-card{border-radius:18px;}}
   .achart-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
   .achart-title{flex:1;font:700 14px var(--font-ui);color:var(--text);}
-  .achart-x{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:15px;}
+  .achart-x{display:inline-flex;align-items:center;justify-content:center;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:15px;}
   .achart-sub{font:500 10.5px var(--font-mono);color:var(--faint);margin-bottom:10px;}
   .achart svg{width:100%;height:auto;display:block;}
   .achart-cv{position:relative;height:300px;border:1px solid var(--border);border-radius:12px;background:var(--bg);overflow:hidden;}
@@ -1995,7 +1995,7 @@
   </div>
   <div class="achart" id="alertChart" hidden>
     <div class="achart-card" role="dialog" aria-label="Trade levels">
-      <div class="achart-head"><span class="achart-title"></span><button type="button" class="achart-x" aria-label="Close">&#10005;</button></div>
+      <div class="achart-head"><span class="achart-title"></span><button type="button" class="achart-x achart-share" aria-label="Share chart" title="Share chart"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"></path></svg></button><button type="button" class="achart-x achart-close" aria-label="Close">&#10005;</button></div>
       <div class="achart-sub"></div>
       <div class="achart-body"></div>
     </div>
@@ -3402,6 +3402,62 @@ const AlertsPanel = (() => {
   }
   let chartToken = 0, chartRedraw = null;
   window.addEventListener('resize', () => { if(!achart.hidden && chartRedraw) chartRedraw(); });
+  // Share: the whole popup (title, chart, legend, figures, note) is redrawn onto one image and handed to the phone's share
+  // sheet; where file sharing is not supported (most desktops) the image is downloaded instead.
+  async function shareChart(btn){
+    const card = achart.querySelector('.achart-card'), cv = card.querySelector('canvas');
+    const css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
+    const bg = v('--panel') || '#141a26', txt = v('--text') || '#e8edf5', muted = v('--muted') || '#8b93a3', faint = v('--faint') || '#6f7889';
+    const title = card.querySelector('.achart-title').textContent, sub = card.querySelector('.achart-sub').textContent;
+    const facts = [...card.querySelectorAll('.achart-facts li')].map(li => [li.children[0].innerText, li.children[1].innerText]);
+    const note = card.querySelector('.achart-note').innerText;
+    const legend = [...card.querySelectorAll('.achart-legend > span')].map(sp => {
+      const i = sp.querySelector('i'), dot = sp.querySelector('.dot');
+      return { text: sp.innerText.trim(), color: i ? i.style.borderColor : dot ? dot.style.background : null, dot: !!dot };
+    });
+    const W = 760, P = 22, S = 2, font = 'JetBrains Mono, monospace';
+    const wrap = (ctx, text, maxW) => { const out = []; let line = ''; text.split(' ').forEach(wd => { const t = line ? line + ' ' + wd : wd; if(ctx.measureText(t).width > maxW && line){ out.push(line); line = wd; } else line = t; }); if(line) out.push(line); return out; };
+    const probe = document.createElement('canvas').getContext('2d'); probe.font = `500 12px ${font}`;
+    const noteLines = wrap(probe, note, W - 2 * P);
+    const chartH = cv ? Math.round((W - 2 * P) * cv.height / cv.width) : 0;
+    const H = P + 26 + 20 + 14 + (chartH ? chartH + 14 : 0) + (legend.length ? 24 : 0) + facts.length * 24 + 14 + noteLines.length * 17 + 36 + P;
+    const out = document.createElement('canvas'); out.width = W * S; out.height = H * S;
+    const ctx = out.getContext('2d'); ctx.scale(S, S);
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    let y = P + 18; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = txt; ctx.font = `700 19px ${font}`; ctx.fillText(title, P, y);
+    y += 22; ctx.fillStyle = faint; ctx.font = `500 12px ${font}`; ctx.fillText(sub, P, y);
+    y += 14;
+    if(chartH){ ctx.drawImage(cv, P, y, W - 2 * P, chartH); y += chartH + 14; }
+    if(legend.length){
+      let lx = P; y += 4;
+      ctx.font = `500 11px ${font}`;
+      legend.forEach(it => {
+        if(it.dot){ ctx.fillStyle = it.color; ctx.beginPath(); ctx.arc(lx + 6, y - 4, 6, 0, 7); ctx.fill(); lx += 16; }
+        else if(it.color){ ctx.strokeStyle = it.color; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(lx, y - 4); ctx.lineTo(lx + 14, y - 4); ctx.stroke(); ctx.setLineDash([]); lx += 20; }
+        ctx.fillStyle = faint; const label = it.dot ? it.text.replace(/^[0-9]\s*/, '') : it.text; ctx.fillText(label, lx, y); lx += ctx.measureText(label).width + 16;
+      });
+      y += 20;
+    }
+    facts.forEach(f => {
+      y += 24; ctx.font = `500 13px ${font}`; ctx.fillStyle = muted; ctx.textAlign = 'left'; ctx.fillText(f[0], P, y);
+      ctx.font = `600 13px ${font}`; ctx.fillStyle = txt; ctx.textAlign = 'right'; ctx.fillText(f[1], W - P, y); ctx.textAlign = 'left';
+    });
+    y += 12;
+    ctx.font = `500 12px ${font}`; ctx.fillStyle = faint;
+    noteLines.forEach(l => { y += 17; ctx.fillText(l, P, y); });
+    y += 30; ctx.font = `600 11px ${font}`; ctx.fillStyle = faint; ctx.fillText('TradeSphere · ' + new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }), P, y);
+    const blob = await new Promise(r => out.toBlob(r, 'image/png'));
+    if(!blob) return;
+    const name = title.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.png';
+    const file = new File([blob], name, { type: 'image/png' });
+    try{
+      if(navigator.canShare && navigator.canShare({ files: [file] })){ await navigator.share({ files: [file], title, text: title + ' (' + sub + ')' }); return; }
+    }catch(e){ if(e && e.name === 'AbortError') return; }   // the user closed the share sheet
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    if(btn){ btn.title = 'Saved as an image'; }
+  }
   const closeChart = () => { achart.hidden = true; chartRedraw = null; chartToken++; };
 
   const untilClose = ms => {
@@ -3774,7 +3830,7 @@ const AlertsPanel = (() => {
     const symbol = (typeof resolveBinanceFuturesSymbol === 'function' ? resolveBinanceFuturesSymbol(base) : base + 'USDT');
     window.TechAnalysis.openSymbol(symbol);
   }
-  achart.addEventListener('click', e => { if(e.target === achart || e.target.closest('.achart-x')) closeChart(); });
+  achart.addEventListener('click', e => { if(e.target === achart || e.target.closest('.achart-close')) closeChart(); const sh = e.target.closest('.achart-share'); if(sh) shareChart(sh); });
   document.addEventListener('keydown', e => { if(e.key === 'Escape' && !achart.hidden){ closeChart(); e.stopPropagation(); } }, true);
   grid.addEventListener('click', e => {
     const cl = e.target.closest('.alert-chart-link');
