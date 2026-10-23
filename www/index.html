@@ -630,6 +630,29 @@
   /* per-timeframe "new" badge on the 1H / 4H / 1D / 1W tabs */
   #alertsTfRow button,#alertsStratRow button{position:relative;}
   #alertsSysRow[hidden]{display:none;}
+  /* Retracement zone card: a reference list, separate from the Donchian / Ichimoku alerts */
+  .analysis-group-card.rz-grey{opacity:.5;}
+  .rz-row{display:flex;gap:10px;padding:11px 4px;border-bottom:1px solid var(--border-soft);cursor:pointer;}
+  .rz-row:last-child{border-bottom:none;}
+  .rz-row:hover{background:var(--panel2);}
+  .rz-sym{font:700 13.5px var(--font-ui);color:var(--text);}
+  .rz-right{flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;}
+  .rz-dist{font:700 12.5px var(--font-mono);color:var(--text);}
+  @media(max-width:560px){.rz-row{flex-direction:column;gap:2px;}.rz-right{flex-direction:row;align-items:baseline;justify-content:flex-start;gap:6px;}}
+  .rz-note{margin-top:6px;padding:6px 9px;border-radius:8px;font:500 11px var(--font-mono);line-height:1.5;color:var(--muted);background:rgba(91,140,255,.08);border:1px solid rgba(91,140,255,.4);}
+  .rz-note b{color:var(--text);font-weight:600;}
+  .rz-tag{display:block;margin-top:2px;font-weight:700;font-size:10.5px;}
+  .rz-tag.good{color:var(--accent);} .rz-tag.bad{color:var(--amber);}
+  /* tapping a coin name lists every alert for that coin (current strategy first, then the other one) */
+  .alert-sym{cursor:pointer;text-decoration:underline dotted var(--faint);text-underline-offset:3px;}
+  .alert-sym:hover{color:var(--accent);}
+  .alert-pill.tfp{color:var(--accent);background:rgba(53,224,192,.12);}
+  #alertsOverlay.coin-mode .analysis-controls{display:none !important;}
+  .alerts-coinbar{display:flex;align-items:center;gap:10px;margin:0 0 14px;}
+  .alerts-coinbar[hidden]{display:none;}
+  .alerts-back{flex:none;white-space:nowrap;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font:600 12px var(--font-mono);cursor:pointer;}
+  .alerts-back:hover{border-color:var(--accent);color:var(--accent);}
+  .alerts-coin-name{font:600 12px var(--font-mono);color:var(--muted);}
   #alertsTfRow button[hidden]{display:none;}
   .tf-badge{position:absolute;top:-7px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font:700 9.5px var(--font-mono);pointer-events:none;}
   .tf-badge.ok{background:#1fae7a;color:#04170f;}
@@ -1940,6 +1963,10 @@
       </div>
     </div>
     <div class="analysis-status-row" id="alertsStatusRow"><span class="dot"></span><span id="alertsStatus">Loading&hellip;</span></div>
+    <div class="alerts-coinbar" id="alertsCoinBar" hidden>
+      <button type="button" class="alerts-back" id="alertsCoinBack">&larr; All alerts</button>
+      <span class="alerts-coin-name" id="alertsCoinName"></span>
+    </div>
     <div class="analysis-groups-grid" id="alertsGrid"></div>
   </div>
 </div>
@@ -2953,12 +2980,14 @@ const AlertsPanel = (() => {
   const btn = document.getElementById('alertsBtn'), badge = document.getElementById('alertsBadge'), badgeForming = document.getElementById('alertsBadgeForming');
   const overlay = document.getElementById('alertsOverlay'), grid = document.getElementById('alertsGrid');
   const statusEl = document.getElementById('alertsStatus'), metaEl = document.getElementById('alertsMeta');
-  const tfRow = document.getElementById('alertsTfRow'), sysRow = document.getElementById('alertsSysRow'), stratRow = document.getElementById('alertsStratRow'), titleEl = document.getElementById('alertsTitle'), quoteEl = document.getElementById('alertsQuote'), toggleAllBtn = document.getElementById('alertsToggleAll');
+  const tfRow = document.getElementById('alertsTfRow'), sysRow = document.getElementById('alertsSysRow'), stratRow = document.getElementById('alertsStratRow'), coinBar = document.getElementById('alertsCoinBar'), coinName = document.getElementById('alertsCoinName'), titleEl = document.getElementById('alertsTitle'), quoteEl = document.getElementById('alertsQuote'), toggleAllBtn = document.getElementById('alertsToggleAll');
   const collapsedGrp = new Set(['help']); // group cards that start collapsed
+  let retrManual = false;                  // same idea for the retracement card (it starts collapsed when nothing is in the zone)
   let unconfManual = false;                // true once the user opens/closes "Not confirmed yet" themselves (else it follows its count)
   let liveTimer = null;
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
   let strategy = 'donchian';      // 'donchian' | 'ichimoku' (Donchian is the default)
+  let coinSym = null, coinFirst = 'donchian', coinMetaText = '';   // coin view: every alert for one coin
   let sysFilter = 'all';          // Donchian only: 'all' | '20/10' | '55/20'
   let newByTf = {};               // per timeframe: keys that were new when this visit first showed that tab
 
@@ -3102,7 +3131,7 @@ const AlertsPanel = (() => {
         <div class="alert-top">
           <span class="alert-sym">${esc(t.symbol)}</span>${mult}
           <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
-          <span class="alert-pill sys">${esc(sysOf(t))}</span>${ichi && t.trigger ? `<span class="alert-pill sys">${esc(t.trigger)}</span>` : ''}
+          ${coinSym ? `<span class="alert-pill tfp">${esc(tf)}</span>` : ''}<span class="alert-pill sys">${esc(sysOf(t))}</span>${ichi && t.trigger ? `<span class="alert-pill sys">${esc(t.trigger)}</span>` : ''}
           <span class="alert-pill ${open ? 'confirmed' : 'closed'}">${open ? 'Confirmed' : 'Closed'}</span>
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
@@ -3143,7 +3172,7 @@ const AlertsPanel = (() => {
         <div class="alert-top">
           <span class="alert-sym">${esc(f.symbol)}</span>${mult}
           <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
-          <span class="alert-pill sys">${esc(sysOf(f))}</span>${ichi && f.trigger ? `<span class="alert-pill sys">${esc(f.trigger)}</span>` : ''}
+          ${coinSym ? `<span class="alert-pill tfp">${esc(tf)}</span>` : ''}<span class="alert-pill sys">${esc(sysOf(f))}</span>${ichi && f.trigger ? `<span class="alert-pill sys">${esc(f.trigger)}</span>` : ''}
           <span class="alert-pill unconf">Unconfirmed ${isExit ? 'exit' : 'entry'}</span>
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
@@ -3158,6 +3187,11 @@ const AlertsPanel = (() => {
   function setHeader(){
     if(!data) return;
     const a = priceAge();
+    if(coinSym){
+      statusEl.textContent = ['signals ' + ago(Date.parse(data.updated)), a != null ? 'prices ' + (a < 90 ? a + 's' : Math.round(a / 60) + 'm') + ' ago' : ''].filter(Boolean).join(' \u00b7 ');
+      titleEl.textContent = coinSym; quoteEl.textContent = 'alerts'; metaEl.textContent = coinMetaText;
+      return;
+    }
     const tfd = (data.timeframes || {})[tab] || {};
     const parts = ['signals ' + ago(Date.parse(data.updated))];
     if(a != null) parts.push('prices ' + (a < 90 ? a + 's' : Math.round(a / 60) + 'm') + ' ago');
@@ -3180,10 +3214,87 @@ const AlertsPanel = (() => {
       const pEl = row.querySelector('.alert-pct');
       if(pEl){ pEl.textContent = kind === 'fentry' ? signedPct(pct) : fmtPct(pct); pEl.classList.toggle('pos', pct >= 0); pEl.classList.toggle('neg', pct < 0); }
     });
+    refreshRetrace();
     setHeader();
   }
 
-  const groupCard = (id, icon, color, title, count, body) => `<div class="analysis-group-card${collapsedGrp.has(id) ? ' collapsed' : ''}" data-grp="${id}" style="--grp-color:${color}">
+  // ---- Retracement zone (reference only): is a coin's LIVE price within RZ_TOL percent of the 50% or 61.8% level of its latest swing leg? ----
+  const RZ_TOL = 1;
+  const TF_ORDER = ['1H', '4H', '1D', '1W'];
+  function rzZone(r, px){
+    if(!Number.isFinite(px) || !(px > 0)) return null;
+    const d50 = Math.abs(px - r.l50) / px * 100, d618 = Math.abs(px - r.l618) / px * 100;
+    const in50 = d50 < RZ_TOL, in618 = d618 < RZ_TOL;
+    if(!in50 && !in618) return null;
+    const lvl = (in618 && (!in50 || d618 <= d50)) ? r.l618 : r.l50;
+    return { in50, in618, tag: in50 && in618 ? '50% + 61.8%' : in618 ? '61.8%' : '50%', level: lvl, signed: (px - lvl) / px * 100, near: Math.min(in50 ? d50 : Infinity, in618 ? d618 : Infinity) };
+  }
+  // Open (confirmed) Donchian / Ichimoku trades on a coin, nearest timeframe to the card first. 1H trades only when 1H is switched on.
+  function openTradesFor(symbol, cardTf){
+    const out = [];
+    Object.keys((data && data.timeframes) || {}).filter(tf => tf !== '1H' || show1H()).forEach(tf => {
+      ((data.timeframes[tf] || {}).trades || []).forEach(t => { if(t.symbol === symbol && t.status === 'open') out.push({ tf, t }); });
+    });
+    const ci = TF_ORDER.indexOf(cardTf);
+    out.sort((a, b) => Math.abs(TF_ORDER.indexOf(a.tf) - ci) - Math.abs(TF_ORDER.indexOf(b.tf) - ci) || b.t.entryTime - a.t.entryTime);
+    return out;
+  }
+  function rzNote(tr, r){
+    const t = tr.t, long = t.side === 'long';
+    const lp = livePx(t.symbol);
+    const pct = Number.isFinite(lp) ? pctFor('open', t.side, t.entryClose, t.entryLevel, lp) : t.unrealizedPct;
+    const strat = sysOf(t) === 'Ichimoku' ? 'Ichimoku' + (t.trigger ? ' ' + t.trigger : '') : 'Donchian ' + sysOf(t);
+    const aligned = (long && r.dir === 'bullish') || (!long && r.dir === 'bearish');
+    const tag = aligned ? (long ? 'pullback into support' : 'bounce into resistance') : 'zone is against this trade';
+    return `<div class="rz-note">Open trade: <b>${esc(strat)} ${long ? 'long' : 'short'}</b> &middot; ${esc(tr.tf)} &middot; entered ${esc(fmtTime(t.entryTime, tr.tf))} at ${fmtPx(t.entryClose)} &middot; now <b class="${pct >= 0 ? 'pos' : 'neg'}">${fmtPct(pct)}</b><span class="rz-tag ${aligned ? 'good' : 'bad'}">${tag}</span></div>`;
+  }
+  function retraceData(tf){
+    const list = (((data && data.timeframes) || {})[tf] || {}).retrace || [];
+    const rows = [];
+    list.forEach(r => {
+      const lp = livePx(r.symbol), px = Number.isFinite(lp) ? lp : r.lastClose;
+      const z = rzZone(r, px);
+      if(!z) return;
+      rows.push({ r, px, z, trades: tf === '1H' ? [] : openTradesFor(r.symbol, tf) });
+    });
+    rows.sort((a, b) => (b.trades.length ? 1 : 0) - (a.trades.length ? 1 : 0) || a.z.near - b.z.near);   // coins with an open trade first, then closest to the level
+    return rows;
+  }
+  function retraceRowHtml(x){
+    const r = x.r, z = x.z, up = r.dir === 'bullish';
+    const mult = r.mult && r.mult > 1 ? ` <span class="alert-name">(${r.mult}x price)</span>` : '';
+    const leg = up ? `${fmtPx(r.low)} → ${fmtPx(r.high)}` : `${fmtPx(r.high)} → ${fmtPx(r.low)}`;
+    const lv = [z.in50 ? `50% ${fmtPx(r.l50)}` : '', z.in618 ? `61.8% ${fmtPx(r.l618)}` : ''].filter(Boolean).join(' &middot; ');
+    const shown = x.trades.slice(0, 3).map(tr => rzNote(tr, r)).join('');
+    const more = x.trades.length > 3 ? `<div class="alert-line" style="margin-top:4px;">+${x.trades.length - 3} more open trade${x.trades.length - 3 === 1 ? '' : 's'}</div>` : '';
+    return `<div class="rz-row" data-sym="${esc(r.symbol)}" role="button" tabindex="0" title="Open ${esc(r.symbol)} technical breakdown">
+      <div class="alert-main">
+        <div class="alert-top">
+          <span class="rz-sym">${esc(r.symbol)}</span>${mult}
+          <span class="alert-pill ${up ? 'long' : 'short'}">${up ? '▲ Up-leg' : '▼ Down-leg'}</span>
+          <span class="alert-pill sys">${z.tag}</span>
+        </div>
+        <div class="alert-line">Leg ${leg} &middot; now <b>${fmtPx(x.px)}</b></div>
+        <div class="alert-line">${lv}</div>
+        ${shown}${more}
+      </div>
+      <div class="rz-right"><span class="rz-dist">${z.signed >= 0 ? '+' : ''}${z.signed.toFixed(2)}%</span><span class="alert-pct-l">from level</span></div>
+    </div>`;
+  }
+  function retraceBodyHtml(tf, rows){
+    const intro = `<div class="alerts-subnote">Reference only, separate from the Donchian and Ichimoku alerts. A coin is listed while its price is within ${RZ_TOL}% of the 50% or 61.8% level of its latest swing (leg at least 3 x ATR).${tf === '1H' ? ' 1H is greyed out: it is noisy and shown only for reference.' : ' A blue note means the coin also has an open trade.'}</div>`;
+    return intro + (rows.length ? rows.map(retraceRowHtml).join('') : `<div class="alerts-empty">No coin is in a retracement zone on ${tf === '1D' ? 'Daily' : tf === '1W' ? 'Weekly' : tf} right now.</div>`);
+  }
+  // Called every few seconds with fresh prices: redraw just the card body and its count, nothing else.
+  function refreshRetrace(){
+    if(coinSym || !data) return;
+    const card = grid.querySelector('.analysis-group-card[data-grp="retrace"]'); if(!card) return;
+    const rows = retraceData(tab);
+    card.querySelector('.analysis-group-body').innerHTML = retraceBodyHtml(tab, rows);
+    const c = card.querySelector('.analysis-group-count'); if(c) c.textContent = rows.length;
+  }
+
+  const groupCard = (id, icon, color, title, count, body, extra) => `<div class="analysis-group-card${collapsedGrp.has(id) ? ' collapsed' : ''}${extra ? ' ' + extra : ''}" data-grp="${id}" style="--grp-color:${color}">
       <div class="analysis-group-head">
         <span class="analysis-group-icon">${icon}</span>
         <span class="analysis-group-title">${title}</span>
@@ -3199,6 +3310,55 @@ const AlertsPanel = (() => {
     toggleAllBtn.title = toggleAllBtn.ariaLabel = all ? 'Expand all sections' : 'Collapse all sections';
   }
 
+  // Every alert for one coin, across all timeframes (1H only if switched on in Settings): the strategy you were in first,
+  // newest first, then the other strategy, newest first. Only what is in the alerts file is listed (open trades, recent
+  // closed ones within each timeframe's window, and unconfirmed signals).
+  function renderCoin(){
+    loadLive();
+    const items = [];
+    Object.keys(data.timeframes || {}).filter(tf => tf !== '1H' || show1H()).forEach(tf => {
+      const tfd = data.timeframes[tf] || {};
+      (tfd.trades || []).filter(t => t.symbol === coinSym).forEach(t => items.push({ tf, strat: stratOf(t), x: t, forming: false, ts: t.detectedAt || t.exitTime || t.entryTime }));
+      (tfd.forming || []).filter(f => f.symbol === coinSym).forEach(f => items.push({ tf, strat: stratOf(f), x: f, forming: true, ts: f.detectedAt || f.candleTime }));
+    });
+    newKeys = new Set(Object.values(newByTf).flatMap(set => [...set]));   // anything that was flagged new during this visit
+    const names = { donchian: 'Donchian', ichimoku: 'Ichimoku' };
+    const order = coinFirst === 'ichimoku' ? ['ichimoku', 'donchian'] : ['donchian', 'ichimoku'];
+    const counts = {};
+    let i = 0;
+    const cards = order.map(st => {
+      const list = items.filter(it => it.strat === st).sort((a, b) => b.ts - a.ts);
+      counts[st] = list.length;
+      const body = list.length
+        ? list.map(it => it.forming ? formingRowHtml(it.x, it.tf, i++) : rowHtml(it.x, it.tf, i++)).join('')
+        : `<div class="alerts-empty">No ${names[st]} alerts for ${esc(coinSym)} right now.</div>`;
+      return groupCard('coin-' + st, st === 'ichimoku' ? '☁️' : '📈', st === 'ichimoku' ? 'var(--violet)' : 'var(--accent)', `${names[st]} · ${esc(coinSym)}`, list.length, body);
+    });
+    grid.innerHTML = cards.join('');
+    coinMetaText = `${coinSym} · ${items.length} alert${items.length === 1 ? '' : 's'} · ${names[order[0]]} ${counts[order[0]]} · ${names[order[1]]} ${counts[order[1]]}`;
+    coinName.textContent = `Newest first, ${names[order[0]]} then ${names[order[1]]}`;
+    setHeader();
+    updateToggleAll();
+  }
+  function openCoinView(sym){
+    coinSym = sym; coinFirst = strategy;
+    overlay.classList.add('coin-mode'); coinBar.hidden = false;
+    overlay.scrollTop = 0;
+    render();
+  }
+  function exitCoinView(){
+    coinSym = null;
+    overlay.classList.remove('coin-mode'); coinBar.hidden = true;
+    render();
+  }
+  // Back (phone back button / gesture): leaves the coin view first, and only a second back closes the page.
+  function back(fromPopstate){
+    if(!coinSym) return false;
+    exitCoinView();
+    if(fromPopstate && (!history.state || !history.state.alerts)) history.pushState({ page: currentPage, alerts: true }, '', location.href); // the back press consumed our history entry
+    return true;
+  }
+
   function render(){
     tfRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tf === tab));
     if(!data){
@@ -3206,6 +3366,7 @@ const AlertsPanel = (() => {
       statusEl.textContent = loadErr ? 'load failed' : 'Loading…';
       return;
     }
+    if(coinSym){ renderCoin(); return; }
     markViewed(strategy, tab);             // this (strategy, timeframe) is being looked at: remember what was new, then clear its badge
     newKeys = newByTf[seenKey(strategy, tab)] || new Set();
     stratRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.strat === strategy));
@@ -3226,6 +3387,8 @@ const AlertsPanel = (() => {
     });
     // "Not confirmed yet" starts collapsed when there is nothing in it, and open when there is, until the user toggles it.
     if(!unconfManual){ if(forming.length === 0) collapsedGrp.add('unconf'); else collapsedGrp.delete('unconf'); }
+    const rzRows = retraceData(tab);
+    if(!retrManual){ if(rzRows.length === 0) collapsedGrp.add('retrace'); else collapsedGrp.delete('retrace'); }
     const empty = msg => `<div class="alerts-empty">${msg}</div>`;
     let i = 0;
     const tfName = tab === '1D' ? 'daily' : tab === '1W' ? 'weekly' : tab;
@@ -3257,6 +3420,7 @@ const AlertsPanel = (() => {
     const commonTail = `<li><b>Confirmed:</b> the candle has closed, so the signal is final.</li>
       <li><b>Unconfirmed:</b> the candle is still open and the live price is already triggering it. It can disappear before the candle closes.</li>
       <li><b>Badges:</b> on the bell, green is new confirmed signals and amber is new unconfirmed ones. The Donchian and Ichimoku buttons and each timeframe tab (1H, 4H, 1D, 1W) also show a count of new alerts, and that count clears when you open it.</li>
+      <li><b>In retracement zone:</b> a separate reference card, not a strategy. It lists coins whose live price is within 1% of the 50% or 61.8% level of their latest swing, for 4H, 1D and 1W (1H is greyed out). If the coin also has an open Donchian or Ichimoku trade, a note says so and whether the zone is a pullback into support, a bounce into resistance, or against the trade.</li>
       <li>Tap a coin to open its technical breakdown.</li>`;
     const helpBody = `<div class="alerts-help-body"><ul>
       ${common}
@@ -3270,6 +3434,7 @@ const AlertsPanel = (() => {
       groupCard('unconf', '⏳', 'var(--amber)', 'Not confirmed yet', forming.length, unconfBody) +
       groupCard('open', '✅', 'var(--accent)', 'Confirmed entries', open.length, openBody) +
       groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '1H' ? '24 hours' : tab === '4H' ? '2 days' : tab === '1W' ? '4 weeks' : '7 days'})`, closed.length, closedBody) +
+      groupCard('retrace', '🎯', 'var(--amber)', 'In retracement zone', rzRows.length, retraceBodyHtml(tab, rzRows), tab === '1H' ? 'rz-grey' : '') +
       groupCard('help', 'ℹ️', 'var(--violet)', 'How this works', null, helpBody);
     updateToggleAll();
   }
@@ -3289,7 +3454,8 @@ const AlertsPanel = (() => {
 
   function open(){
     if(!alertsOn()) return;
-    unconfManual = false;
+    coinSym = null; overlay.classList.remove('coin-mode'); coinBar.hidden = true;
+    unconfManual = false; retrManual = false;
     tab = '1D';                                // the page always opens on Daily (switching tabs lasts for this visit only)
     newByTf = {};                              // what is new is worked out per (strategy, timeframe), when that tab is first shown
     strategy = 'donchian';                     // Donchian is the default view
@@ -3312,6 +3478,7 @@ const AlertsPanel = (() => {
 
   btn.addEventListener('click', open);
   document.getElementById('alertsCloseBtn').addEventListener('click', close);
+  document.getElementById('alertsCoinBack').addEventListener('click', () => back(false));
   document.getElementById('alertsRefreshBtn').addEventListener('click', () => { load(); try{ if(typeof loadTicker === 'function') loadTicker(); }catch(e){} });
   // Tapping a coin opens its technical breakdown on top of this page (it is a later overlay, so it stacks above);
   // closing the breakdown returns here.
@@ -3322,13 +3489,19 @@ const AlertsPanel = (() => {
     window.TechAnalysis.openSymbol(symbol);
   }
   grid.addEventListener('click', e => {
-    const row = e.target.closest('.alert-row[data-sym]');
+    const sym = e.target.closest('.alert-sym');
+    if(sym && !coinSym){                       // the coin name: list every alert for that coin
+      const r = sym.closest('.alert-row[data-sym]');
+      if(r){ e.stopPropagation(); openCoinView(r.dataset.sym); return; }
+    }
+    const row = e.target.closest('.alert-row[data-sym], .rz-row[data-sym]');
     if(row){ openCoin(row); return; }
     const head = e.target.closest('.analysis-group-head');
     if(!head) return;
     const card = head.closest('.analysis-group-card'); if(!card) return;
     const id = card.dataset.grp;
     if(id === 'unconf') unconfManual = true;
+    if(id === 'retrace') retrManual = true;
     const collapsed = !card.classList.contains('collapsed');
     card.classList.toggle('collapsed', collapsed);
     if(collapsed) collapsedGrp.add(id); else collapsedGrp.delete(id);
@@ -3337,11 +3510,11 @@ const AlertsPanel = (() => {
   });
   grid.addEventListener('keydown', e => {
     if(e.key !== 'Enter' && e.key !== ' ') return;
-    const row = e.target.closest('.alert-row[data-sym]'); if(row){ e.preventDefault(); openCoin(row); }
+    const row = e.target.closest('.alert-row[data-sym], .rz-row[data-sym]'); if(row){ e.preventDefault(); openCoin(row); }
   });
   toggleAllBtn.addEventListener('click', () => {
     const cards = [...grid.querySelectorAll('.analysis-group-card')];
-    unconfManual = true;
+    unconfManual = true; retrManual = true;
     const collapse = cards.some(c => !c.classList.contains('collapsed'));
     cards.forEach(c => {
       c.classList.toggle('collapsed', collapse);
@@ -3353,20 +3526,20 @@ const AlertsPanel = (() => {
   tfRow.addEventListener('click', e => {
     const b = e.target.closest('button[data-tf]'); if(!b) return;
     tab = b.dataset.tf;
-    unconfManual = false; // each timeframe re-applies the default for its own count
+    unconfManual = false; retrManual = false; // each timeframe re-applies the default for its own count
     render();
   });
   stratRow.addEventListener('click', e => {
     const b = e.target.closest('button[data-strat]'); if(!b) return;
     strategy = b.dataset.strat;
     sysFilter = 'all';
-    unconfManual = false;
+    unconfManual = false; retrManual = false;
     render();
   });
   sysRow.addEventListener('click', e => {
     const b = e.target.closest('button[data-sys]'); if(!b) return;
     sysFilter = b.dataset.sys;
-    unconfManual = false;
+    unconfManual = false; retrManual = false;
     render();
   });
   // Settings: bell visibility and the 1H tab follow the two switches, live (the Settings page is an iframe of this page, so
@@ -3387,7 +3560,7 @@ const AlertsPanel = (() => {
   applySettings();
   load();
 
-  return { open, close, isOpen: () => overlay.classList.contains('open') };
+  return { open, close, back, isOpen: () => overlay.classList.contains('open') };
 })();
 window.AlertsPanel = AlertsPanel;
 
@@ -3725,6 +3898,7 @@ function handleAndroidBack(){
   }
 
   if(window.AlertsPanel && AlertsPanel.isOpen()){
+    if(AlertsPanel.back(false)) return;        // leaves a coin's alert list first
     AlertsPanel.close();
     return;
   }
@@ -3862,6 +4036,7 @@ window.addEventListener('popstate', event => {
     return;
   }
   if(window.AlertsPanel && AlertsPanel.isOpen()){
+    if(AlertsPanel.back(true)) return;         // leaves a coin's alert list first
     AlertsPanel.close();
     syncHistoryForCurrentPage();
     return;

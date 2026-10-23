@@ -306,12 +306,60 @@ function formingIchimoku(closed, forming, trades, periodMs) {
   return out.map((o) => ({ ...o, candleTime: forming.t, closesAt: forming.t + periodMs }));
 }
 
+// ---------------- Retracement zone reference (not a strategy: no trades, just the swing levels) ----------------
+// Same maths as the 50% / 61.8% retracement screen in screener.html and screen.js:
+//   - swing points: a pivot high/low must be strictly beyond the wicks of the 3 candles on each side (RZ_SPAN)
+//   - latest leg = most recent swing high <-> most recent swing low; low first = up-leg (a pullback is in progress),
+//     high first = down-leg (a bounce is in progress)
+//   - levels: 50% = midpoint, 61.8% = high - 0.618 x range (up-leg) or low + 0.618 x range (down-leg)
+// The page checks the LIVE price against these levels ("in the zone" = within 1% of a level), so only the levels are
+// stored. A leg smaller than RZ_MIN_LEG_ATR x ATR(14) is ignored, as it is noise. Closed candles only.
+const RZ_SPAN = 3;
+const RZ_MIN_LEG_ATR = 3;
+const ATR_LEN = 14;
+
+function atrWilder(c, len = ATR_LEN) {
+  if (c.length <= len) return NaN;
+  const tr = [];
+  for (let i = 1; i < c.length; i++) tr.push(Math.max(c[i].high - c[i].low, Math.abs(c[i].high - c[i - 1].close), Math.abs(c[i].low - c[i - 1].close)));
+  let v = tr.slice(0, len).reduce((a, b) => a + b, 0) / len;
+  for (let i = len; i < tr.length; i++) v = (v * (len - 1) + tr[i]) / len;
+  return v;
+}
+
+function retraceLeg(c) {
+  const n = c.length;
+  if (n < RZ_SPAN * 2 + ATR_LEN + 2) return null;
+  let lastHigh = null, lastLow = null;
+  for (let i = RZ_SPAN; i < n - RZ_SPAN; i++) {
+    let isHigh = true, isLow = true;
+    for (let j = i - RZ_SPAN; j <= i + RZ_SPAN; j++) {
+      if (j === i) continue;
+      if (c[j].high >= c[i].high) isHigh = false;
+      if (c[j].low <= c[i].low) isLow = false;
+    }
+    if (isHigh) lastHigh = { idx: i, price: c[i].high };
+    if (isLow) lastLow = { idx: i, price: c[i].low };
+  }
+  if (!lastHigh || !lastLow || lastHigh.idx === lastLow.idx) return null;
+  const range = lastHigh.price - lastLow.price;
+  const atr = atrWilder(c);
+  if (!(range > 0) || !Number.isFinite(atr) || range < RZ_MIN_LEG_ATR * atr) return null;
+  const dir = lastLow.idx < lastHigh.idx ? 'bullish' : 'bearish';
+  return {
+    dir, high: lastHigh.price, low: lastLow.price, highTime: c[lastHigh.idx].t, lowTime: c[lastLow.idx].t,
+    l50: (lastHigh.price + lastLow.price) / 2,
+    l618: dir === 'bullish' ? lastHigh.price - 0.618 * range : lastLow.price + 0.618 * range,
+    atr, lastClose: c[n - 1].close,
+  };
+}
+
 const round = (v, d = 6) => (Number.isFinite(v) ? +v.toPrecision(d + 3) : null);
 
 function scanCoin(coin, data, tf) {
   const candles = data.closed;
   const minNeeded = Math.min(...SYSTEMS.map((x) => x.entry)) + 2;
-  if (candles.length < minNeeded) return { trades: [], forming: [], lastT: null };
+  if (candles.length < minNeeded) return { trades: [], forming: [], retrace: null, lastT: null };
   const last = candles[candles.length - 1];
   const keepFrom = Date.now() - tf.keepClosedMs;
   const trades = [];
@@ -365,7 +413,13 @@ function scanCoin(coin, data, tf) {
       entryTime: f.entryTime || null, entryClose: round(f.entryClose), resultPct: f.resultPct == null ? null : +f.resultPct.toFixed(2),
     }));
   }
-  return { trades, forming, lastT: last.t };
+  const rz = retraceLeg(candles);
+  const retrace = rz ? {
+    symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, dir: rz.dir,
+    high: round(rz.high), low: round(rz.low), highTime: rz.highTime, lowTime: rz.lowTime,
+    l50: round(rz.l50), l618: round(rz.l618), atr: round(rz.atr), lastClose: round(rz.lastClose),
+  } : null;
+  return { trades, forming, retrace, lastT: last.t };
 }
 
 async function pool(items, worker) {
@@ -405,6 +459,7 @@ async function main() {
   for (const tf of due) {
     const trades = [];
     const forming = [];
+    const retrace = [];
     const failed = [];
     let atExpected = 0;
     await pool(universe.coins, async (coin) => {
@@ -412,12 +467,14 @@ async function main() {
         const res = scanCoin(coin, await getCandles(coin.pair, tf), tf);
         trades.push(...res.trades);
         forming.push(...res.forming);
+        if (res.retrace) retrace.push(res.retrace);
         if (res.lastT === tf.expected) atExpected++;
       } catch (e) { failed.push(coin.symbol); console.warn(`${tf.label} ${coin.symbol}: ${e.message}`); }
     });
     if (failed.length >= universe.coins.length) throw new Error(`${tf.label}: every coin failed`);
     trades.sort((a, b) => (b.exitTime || b.entryTime) - (a.exitTime || a.entryTime));
     forming.sort((a, b) => a.symbol.localeCompare(b.symbol) || a.system.localeCompare(b.system));
+    retrace.sort((a, b) => a.symbol.localeCompare(b.symbol));
 
     // detectedAt = when THIS job first saw the signal (carried over from the previous file while the signal
     // stays the same). The app uses it for "New" and the badges. A signal that is already old the first time
@@ -437,7 +494,7 @@ async function main() {
     // Only mark this candle as scanned once most coins actually have it, otherwise try again on the next run.
     const complete = atExpected >= Math.ceil(universe.coins.length * 0.8);
     const prevAsOf = prev && prev.timeframes && prev.timeframes[tf.label] ? prev.timeframes[tf.label].asOf : null;
-    next.timeframes[tf.label] = { asOf: complete ? tf.expected : prevAsOf, candleTime: tf.expected, scanned: universe.coins.length - failed.length, failed, trades, forming, formingAt: new Date().toISOString() };
+    next.timeframes[tf.label] = { asOf: complete ? tf.expected : prevAsOf, candleTime: tf.expected, scanned: universe.coins.length - failed.length, failed, trades, forming, retrace, formingAt: new Date().toISOString() };
     console.log(`${tf.label}: ${trades.length} trades (${trades.filter((t) => t.status === 'open').length} open), ${forming.length} forming, ${failed.length} failed, candle ${new Date(tf.expected).toISOString()} on ${atExpected}/${universe.coins.length} coins`);
   }
 
