@@ -224,6 +224,24 @@ function formingSignals(closed, forming, trades, periodMs, sys) {
 // The volume gate used by the screener is not applied: these are the top 50 coins, all liquid.
 const ICHI = { tenkan: 9, kijun: 26, senkouB: 52 };
 const ICHI_MIN_BARS = 2 * ICHI.kijun + ICHI.senkouB + 10; // 114, same minimum as the screener
+// Initial stop loss, fixed when the trade is taken: a long is entered after the close breaks above the cloud top, so the
+// stop sits 0.5 x ATR(14) below the cloud bottom; a short is the mirror (0.5 x ATR above the cloud top). A close beyond
+// it exits the trade, as does the Kijun rule below, whichever comes first.
+const ICHI_SL_ATR = 0.5;
+
+// Wilder ATR for every bar (NaN until there are enough candles); the last value equals atrWilder().
+function atrSeries(c, len = 14) {
+  const out = new Array(c.length).fill(NaN);
+  if (c.length <= len) return out;
+  const tr = [NaN];
+  for (let i = 1; i < c.length; i++) tr.push(Math.max(c[i].high - c[i].low, Math.abs(c[i].high - c[i - 1].close), Math.abs(c[i].low - c[i - 1].close)));
+  let v = 0;
+  for (let i = 1; i <= len; i++) v += tr[i];
+  v /= len; out[len] = v;
+  for (let i = len + 1; i < c.length; i++) { v = (v * (len - 1) + tr[i]) / len; out[i] = v; }
+  return out;
+}
+const ichiStopLoss = (S, i, side, sig) => (side === 'long' ? sig.cloud.bottom - ICHI_SL_ATR * S.atr[i] : sig.cloud.top + ICHI_SL_ATR * S.atr[i]);
 
 function ichiSeries(c) {
   const n = c.length;
@@ -240,7 +258,7 @@ function ichiSeries(c) {
     sB[i] = mid(ICHI.senkouB, i);
   }
   const cloudAt = (idx) => (idx < 0 ? { top: NaN, bottom: NaN } : { top: Math.max(sA[idx], sB[idx]), bottom: Math.min(sA[idx], sB[idx]) });
-  return { c, tenkan, kijun, sA, sB, cloudBar: (t) => cloudAt(t - ICHI.kijun), cloudChikou: (t) => cloudAt(t - 2 * ICHI.kijun) };
+  return { c, tenkan, kijun, sA, sB, atr: atrSeries(c), cloudBar: (t) => cloudAt(t - ICHI.kijun), cloudChikou: (t) => cloudAt(t - 2 * ICHI.kijun) };
 }
 
 // Breakout signals at bar i, or null while there is not enough history for every line.
@@ -271,12 +289,13 @@ function walkIchimoku(S, side) {
     const c = S.c[i];
     if (!open) {
       const ck = side === 'long' ? sig.ckLong : sig.ckShort, pk = side === 'long' ? sig.pkLong : sig.pkShort;
-      if (ck || pk) open = { side, entryTime: c.t, entryClose: c.close, entryLevel: ichiLevel(sig, side, ck, pk), trigger: ichiTrigger(ck, pk) };
+      if (ck || pk) open = { side, entryTime: c.t, entryClose: c.close, entryLevel: ichiLevel(sig, side, ck, pk), trigger: ichiTrigger(ck, pk), sl: ichiStopLoss(S, i, side, sig) };
     } else {
-      const out = side === 'long' ? c.close < sig.kijun : c.close > sig.kijun;
-      if (out) {
+      const hitSL = side === 'long' ? c.close < open.sl : c.close > open.sl;
+      const hitK = side === 'long' ? c.close < sig.kijun : c.close > sig.kijun;
+      if (hitSL || hitK) {
         const pct = (side === 'long' ? c.close - open.entryClose : open.entryClose - c.close) / open.entryClose * 100;
-        trades.push({ ...open, status: 'closed', exitTime: c.t, exitClose: c.close, exitLevel: sig.kijun, resultPct: pct });
+        trades.push({ ...open, status: 'closed', exitTime: c.t, exitClose: c.close, exitLevel: hitSL ? open.sl : sig.kijun, exitReason: hitSL ? 'stop' : 'kijun', resultPct: pct });
         open = null;
       }
     }
@@ -297,10 +316,14 @@ function formingIchimoku(closed, forming, trades, periodMs) {
     const open = trades.find((t) => t.side === side && t.status === 'open');
     if (!open) {
       const ck = side === 'long' ? sig.ckLong : sig.ckShort, pk = side === 'long' ? sig.pkLong : sig.pkShort;
-      if (ck || pk) out.push({ kind: 'entry', side, price: sig.price, level: ichiLevel(sig, side, ck, pk), trigger: ichiTrigger(ck, pk) });
-    } else if (side === 'long' ? sig.price < sig.kijun : sig.price > sig.kijun) {
-      const pct = (side === 'long' ? sig.price - open.entryClose : open.entryClose - sig.price) / open.entryClose * 100;
-      out.push({ kind: 'exit', side, price: sig.price, level: sig.kijun, entryTime: open.entryTime, entryClose: open.entryClose, resultPct: pct });
+      if (ck || pk) out.push({ kind: 'entry', side, price: sig.price, level: ichiLevel(sig, side, ck, pk), trigger: ichiTrigger(ck, pk), sl: ichiStopLoss(S, i, side, sig) });
+    } else {
+      const hitSL = side === 'long' ? sig.price < open.sl : sig.price > open.sl;
+      const hitK = side === 'long' ? sig.price < sig.kijun : sig.price > sig.kijun;
+      if (hitSL || hitK) {
+        const pct = (side === 'long' ? sig.price - open.entryClose : open.entryClose - sig.price) / open.entryClose * 100;
+        out.push({ kind: 'exit', side, price: sig.price, level: hitSL ? open.sl : sig.kijun, exitReason: hitSL ? 'stop' : 'kijun', entryTime: open.entryTime, entryClose: open.entryClose, resultPct: pct });
+      }
     }
   }
   return out.map((o) => ({ ...o, candleTime: forming.t, closesAt: forming.t + periodMs }));
@@ -356,6 +379,13 @@ function retraceLeg(c) {
 
 const round = (v, d = 6) => (Number.isFinite(v) ? +v.toPrecision(d + 3) : null);
 
+// The exit level that applies to the NEXT close of an open trade (the trailing stop): the lowest low (long) or highest
+// high (short) of the last `exit` closed candles for Donchian, Kijun for Ichimoku. The chart view in the page shows it.
+function stopNow(candles, side, sys) {
+  const w = candles.slice(-sys.exit);
+  return side === 'long' ? Math.min(...w.map((c) => c.low)) : Math.max(...w.map((c) => c.high));
+}
+
 function scanCoin(coin, data, tf) {
   const candles = data.closed;
   const minNeeded = Math.min(...SYSTEMS.map((x) => x.entry)) + 2;
@@ -379,6 +409,7 @@ function scanCoin(coin, data, tf) {
           resultPct: t.status === 'closed' ? +t.resultPct.toFixed(2) : null,
           lastClose: round(last.close), lastTime: last.t,
           unrealizedPct: unreal == null ? null : +unreal.toFixed(2),
+          stop: t.status === 'open' ? round(stopNow(candles, side, sys)) : null,
         });
       }
     }
@@ -386,6 +417,7 @@ function scanCoin(coin, data, tf) {
       system: sys.key, symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, side: f.side, kind: f.kind,
       candleTime: f.candleTime, closesAt: f.closesAt, price: round(f.price), level: round(f.level),
       entryTime: f.entryTime || null, entryClose: round(f.entryClose), resultPct: f.resultPct == null ? null : +f.resultPct.toFixed(2),
+      stop: f.kind === 'entry' ? round(stopNow(candles, f.side, sys)) : null,
     }));
   }
   // Ichimoku breakout (long + short), same candles
@@ -404,6 +436,8 @@ function scanCoin(coin, data, tf) {
           resultPct: t.status === 'closed' ? +t.resultPct.toFixed(2) : null,
           lastClose: round(last.close), lastTime: last.t,
           unrealizedPct: unreal == null ? null : +unreal.toFixed(2),
+          stop: t.status === 'open' ? round(S.kijun[S.c.length - 1]) : null,
+          sl: round(t.sl), exitReason: t.exitReason || null,
         });
       }
     }
@@ -411,6 +445,8 @@ function scanCoin(coin, data, tf) {
       system: 'Ichimoku', trigger: f.trigger || null, symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, side: f.side, kind: f.kind,
       candleTime: f.candleTime, closesAt: f.closesAt, price: round(f.price), level: round(f.level),
       entryTime: f.entryTime || null, entryClose: round(f.entryClose), resultPct: f.resultPct == null ? null : +f.resultPct.toFixed(2),
+      stop: f.kind === 'entry' ? round(S.kijun[S.c.length - 1]) : null,
+      sl: f.sl == null ? null : round(f.sl), exitReason: f.exitReason || null,
     }));
   }
   const rz = retraceLeg(candles);

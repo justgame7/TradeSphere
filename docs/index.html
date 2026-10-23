@@ -642,6 +642,29 @@
   .rz-trade b{color:var(--text);font-weight:600;}
   .rz-tag{font-weight:700;white-space:nowrap;}
   .rz-tag.good{color:var(--accent);} .rz-tag.bad{color:var(--amber);}
+  /* chart link on each alert row and the level chart popup */
+  .alert-chart-link{margin-top:6px;background:none;border:none;padding:2px 0;font:600 10.5px var(--font-mono);color:var(--accent);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+  .alert-chart-link:hover{color:var(--text);}
+  .achart{position:fixed;inset:0;z-index:5;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,8,14,.62);}
+  .achart[hidden]{display:none;}
+  .achart-card{width:100%;max-width:760px;max-height:92%;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:16px 16px 22px;box-shadow:0 -10px 40px rgba(0,0,0,.45);}
+  @media(min-width:700px){.achart{align-items:center;}.achart-card{border-radius:18px;}}
+  .achart-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .achart-title{flex:1;font:700 14px var(--font-ui);color:var(--text);}
+  .achart-x{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:15px;}
+  .achart-sub{font:500 10.5px var(--font-mono);color:var(--faint);margin-bottom:10px;}
+  .achart svg{width:100%;height:auto;display:block;}
+  .achart-cv{position:relative;height:300px;border:1px solid var(--border);border-radius:12px;background:var(--bg);overflow:hidden;}
+  .achart-cv canvas{width:100%;height:100%;display:block;}
+  .achart-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 20px;font:500 12px var(--font-mono);color:var(--faint);}
+  .achart-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0 2px;font:500 10.5px var(--font-mono);color:var(--faint);}
+  .achart-legend i{display:inline-block;width:14px;height:0;border-top:2px dashed;vertical-align:middle;margin-right:5px;}
+  .achart-legend .dot{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;color:#fff;font:700 9px sans-serif;margin-right:5px;}
+  @media(max-width:560px){.achart-cv{height:260px;}}
+  .achart-facts{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
+  .achart-facts li{display:flex;justify-content:space-between;gap:10px;font:500 11.5px var(--font-mono);color:var(--muted);}
+  .achart-facts b{color:var(--text);font-weight:600;text-align:right;}
+  .achart-note{margin-top:12px;font:500 10.5px var(--font-mono);color:var(--faint);line-height:1.55;}
   .rz-more{margin-top:5px;font:500 10.5px var(--font-mono);color:var(--faint);cursor:pointer;}
   /* tapping a coin name lists every alert for that coin (current strategy first, then the other one) */
   .alert-sym{cursor:pointer;text-decoration:underline dotted var(--faint);text-underline-offset:3px;}
@@ -1970,6 +1993,13 @@
     </div>
     <div class="analysis-groups-grid" id="alertsGrid"></div>
   </div>
+  <div class="achart" id="alertChart" hidden>
+    <div class="achart-card" role="dialog" aria-label="Trade levels">
+      <div class="achart-head"><span class="achart-title"></span><button type="button" class="achart-x" aria-label="Close">&#10005;</button></div>
+      <div class="achart-sub"></div>
+      <div class="achart-body"></div>
+    </div>
+  </div>
 </div>
 
 <!-- Technical Analysis overlay (opened from Coin Lookup on Custom Screens tab) -->
@@ -3125,8 +3155,8 @@ const AlertsPanel = (() => {
     const ichi = sysOf(t) === 'Ichimoku';
     const lvlName = ichi ? (t.trigger === 'CK' ? 'Chikou-bar cloud ' : 'cloud ') + (long ? 'top' : 'bottom') + ' ' : '';
     const lines = open
-      ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${lvlName}${fmtPx(t.entryLevel)} &middot; now <b class="px-now">${fmtPx(nowPx)}</b></div>`
-      : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}${ichi ? `<br>Closed ${long ? 'below' : 'above'} Kijun ${fmtPx(t.exitLevel)}` : ''}</div>`;
+      ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${lvlName}${fmtPx(t.entryLevel)} &middot; now <b class="px-now">${fmtPx(nowPx)}</b>${ichi && Number.isFinite(t.sl) ? `<br>Stop loss <b>${fmtPx(t.sl)}</b>` : ''}</div>`
+      : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}${ichi ? (t.exitReason === 'stop' ? `<br>Stopped out: closed ${long ? 'below' : 'above'} stop loss ${fmtPx(t.exitLevel)}` : `<br>Closed ${long ? 'below' : 'above'} Kijun ${fmtPx(t.exitLevel)}`) : ''}</div>`;
     return `<div class="alert-row${isNew ? ' is-new' : ''}" data-sym="${esc(t.symbol)}"${open ? ` data-live="open" data-side="${t.side}" data-entry="${t.entryClose}" data-level="${t.entryLevel}"` : ''} role="button" tabindex="0" title="Open ${esc(t.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
       <div class="alert-main">
         <div class="alert-top">
@@ -3139,9 +3169,238 @@ const AlertsPanel = (() => {
         ${lines}
         ${detLine(t.detectedAt)}
       </div>
-      <div class="alert-right"><span class="alert-pct ${cls}">${fmtPct(pct)}</span><span class="alert-pct-l">${open ? 'open P/L' : 'result'}</span></div>
+      <div class="alert-right"><span class="alert-pct ${cls}">${fmtPct(pct)}</span><span class="alert-pct-l">${open ? 'open P/L' : 'result'}</span>${chartLink({ kind: open ? 'open' : 'closed', x: t, tf })}</div>
     </div>`;
   }
+
+  // ---- Level chart: entry / stop / current price (and the exit for a closed trade) as a price ladder ----
+  // These strategies have no fixed profit target: a trade is held until a candle closes beyond the trailing stop (the
+  // Donchian exit channel, or Kijun for Ichimoku). So the chart shows the stop and says there is no target.
+  const chartReg = [];
+  const chartLink = item => `<button type="button" class="alert-chart-link" data-chart="${chartReg.push(item) - 1}">Chart &#8599;</button>`;
+  const achart = document.getElementById('alertChart');
+  function ladderSvg(levels, cur){
+    const W = 340, H = 250, top = 22, bot = H - 22, x0 = 150;
+    const vals = levels.map(l => l.v).filter(Number.isFinite);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if(!(hi > lo)){ hi = hi * 1.01; lo = lo * 0.99; }
+    const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+    const y = v => bot - (v - lo) / (hi - lo) * (bot - top);
+    const rows = levels.filter(l => Number.isFinite(l.v)).map(l => ({ ...l, y: y(l.v) })).sort((a, b) => a.y - b.y);
+    // keep the labels 24px apart while the lines stay at the true price
+    let prev = -Infinity; rows.forEach(r => { r.ly = Math.max(r.y, prev + 24); prev = r.ly; });
+    const over = rows.length ? rows[rows.length - 1].ly - (H - 8) : 0; if(over > 0) rows.forEach(r => { r.ly -= over; });
+    const entry = rows.find(r => r.k === 'entry'), stop = rows.find(r => r.k === 'stop'), now = rows.find(r => r.k === 'now');
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Price levels">`;
+    if(entry && stop) svg += `<rect x="${x0 - 36}" y="${Math.min(entry.y, stop.y)}" width="72" height="${Math.abs(entry.y - stop.y)}" fill="rgba(255,84,112,.13)"/>`;
+    if(entry && now) svg += `<rect x="${x0 - 36}" y="${Math.min(entry.y, now.y)}" width="72" height="${Math.abs(entry.y - now.y)}" fill="${cur >= 0 ? 'rgba(53,224,192,.16)' : 'rgba(255,84,112,.10)'}"/>`;
+    svg += `<line x1="${x0}" y1="${top - 8}" x2="${x0}" y2="${bot + 8}" stroke="var(--border)" stroke-width="2"/>`;
+    rows.forEach(r => {
+      const dash = r.k === 'now' ? ' stroke-dasharray="4 3"' : '';
+      svg += `<line x1="${x0 - 36}" y1="${r.y}" x2="${x0 + 36}" y2="${r.y}" stroke="${r.c}" stroke-width="2.2"${dash}/>`;
+      svg += `<polyline points="${x0 + 36},${r.y} ${x0 + 52},${r.ly} ${x0 + 62},${r.ly}" fill="none" stroke="${r.c}" stroke-width="1" opacity=".6"/>`;
+      svg += `<text x="${x0 + 66}" y="${r.ly + 4}" font-size="11.5" font-weight="700" fill="${r.c}" font-family="var(--font-mono)">${esc(fmtPx(r.v))}</text>`;
+      svg += `<text x="${x0 - 44}" y="${r.ly + 4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--font-mono)">${esc(r.label)}</text>`;
+    });
+    return svg + '</svg>';
+  }
+  // The real candles for the alert's timeframe (same Binance / Bybit source as the technical breakdown), cached for a minute.
+  const chartCandleCache = {};
+  const TF_API = { '1H': '1h', '4H': '4h', '1D': '1d', '1W': '1w' };
+  async function chartCandles(base, tf){
+    const iv = TF_API[tf] || '1d', sym = resolveBinanceFuturesSymbol(base), ck = sym + '|' + iv;
+    const hit = chartCandleCache[ck];
+    if(hit && Date.now() - hit.at < 60000) return hit.c;
+    let c;
+    const TA = window.TechAnalysis;
+    try{ c = await TA.binanceKlines(sym, iv); }catch(e){ c = await TA.bybitKlines(sym, iv); }
+    chartCandleCache[ck] = { at: Date.now(), c };
+    return c;
+  }
+  function drawAlertChart(cv, o){
+    const rect = cv.getBoundingClientRect(); if(!rect.width || !rect.height) return;
+    const ratio = window.devicePixelRatio || 1;
+    cv.width = rect.width * ratio; cv.height = rect.height * ratio;
+    const ctx = cv.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(ratio, ratio);
+    const W = rect.width, H = rect.height, pad = { l: 8, r: 74, t: 12, b: 20 };
+    const css = getComputedStyle(document.documentElement);
+    const col = c => /^var\(/.test(c) ? css.getPropertyValue(c.slice(4, -1)).trim() || '#8b93a3' : c;
+    const all = o.candles, n = all.length;
+    // how many bars to show: from a little before the entry to now, at least 90 (the breakdown's default window)
+    let ei = -1;
+    if(o.entryTime){ let best = Infinity; all.forEach((b, i) => { const d = Math.abs(b.time - o.entryTime); if(d < best){ best = d; ei = i; } }); }
+    const since = ei >= 0 ? n - ei + 18 : 0;
+    const count = Math.min(n, Math.max(90, Math.min(since, 220)));
+    const start = n - count, bars = all.slice(start);
+    const idx = t => { let bi = -1, best = Infinity; bars.forEach((b, i) => { const d = Math.abs(b.time - t); if(d < best){ best = d; bi = i; } }); return bi; };
+    let max = Math.max(...bars.map(b => b.high)), min = Math.min(...bars.map(b => b.low));
+    o.levels.forEach(l => { if(Number.isFinite(l.v)){ if(l.v > max) max = l.v; if(l.v < min) min = l.v; } });
+    const m = (max - min) * 0.05 || max * 0.01; max += m; min -= m;
+    const x = i => pad.l + (i + 0.5) * (W - pad.l - pad.r) / bars.length;
+    const y = v => pad.t + (max - v) * (H - pad.t - pad.b) / (max - min);
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = '10px JetBrains Mono, monospace'; ctx.textBaseline = 'middle';
+    // grid + right axis
+    ctx.lineWidth = 1;
+    for(let k = 0; k < 5; k++){
+      const v = min + (max - min) * k / 4, yy = y(v);
+      ctx.strokeStyle = '#232833'; ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke();
+      ctx.fillStyle = '#6f7889'; ctx.textAlign = 'left'; ctx.fillText(fmtPx(v), W - pad.r + 6, yy);
+    }
+    // time ticks
+    ctx.textAlign = 'center'; ctx.fillStyle = '#6f7889';
+    for(let k = 1; k < 5; k++){
+      const i = Math.round((bars.length - 1) * k / 5);
+      ctx.fillText(new Date(bars[i].time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), x(i), H - 8);
+    }
+    const line = (series, color, dash, lw) => {
+      ctx.strokeStyle = color; ctx.lineWidth = lw || 1.3; ctx.setLineDash(dash ? [4, 3] : []); ctx.beginPath();
+      let on = false;
+      bars.forEach((_, i) => { const v = series[start + i]; if(!Number.isFinite(v)){ on = false; return; } if(!on){ ctx.moveTo(x(i), y(v)); on = true; } else ctx.lineTo(x(i), y(v)); });
+      ctx.stroke(); ctx.setLineDash([]);
+    };
+    // Ichimoku cloud goes under the candles
+    let ich = null;
+    if(o.ichi){
+      ich = window.TechAnalysis.ichimokuSeriesFull(all);
+      for(let i = 0; i < bars.length - 1; i++){
+        const a0 = ich.spanA[start + i], b0 = ich.spanB[start + i], a1 = ich.spanA[start + i + 1], b1 = ich.spanB[start + i + 1];
+        if(![a0, b0, a1, b1].every(Number.isFinite)) continue;
+        ctx.fillStyle = (a0 + a1) >= (b0 + b1) ? 'rgba(53,224,192,.14)' : 'rgba(255,84,112,.14)';
+        ctx.beginPath(); ctx.moveTo(x(i), y(a0)); ctx.lineTo(x(i + 1), y(a1)); ctx.lineTo(x(i + 1), y(b1)); ctx.lineTo(x(i), y(b0)); ctx.closePath(); ctx.fill();
+      }
+    }
+    // candles
+    const cw = Math.max(1.5, (W - pad.l - pad.r) / bars.length * 0.7);
+    bars.forEach((b, i) => {
+      ctx.strokeStyle = ctx.fillStyle = b.close >= b.open ? '#35e0c0' : '#ff5470'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x(i), y(b.high)); ctx.lineTo(x(i), y(b.low)); ctx.stroke();
+      ctx.fillRect(x(i) - cw / 2, y(Math.max(b.open, b.close)), cw, Math.max(1, Math.abs(y(b.open) - y(b.close))));
+    });
+    // strategy lines on top: the Donchian entry / exit channel, or Tenkan + Kijun
+    const markers = [];
+    if(o.ichi){
+      line(ich.tenkan, '#ff5470'); line(ich.kijun, '#5b8cff', false, 1.6);
+    }else{
+      const TA = window.TechAnalysis, en = TA.donchianSeries(all, o.sys.entry), ex = TA.donchianSeries(all, o.sys.exit);
+      line(o.long ? en.high : en.low, '#26C6DA', true); line(o.long ? ex.low : ex.high, '#FF9800', true);
+      // the backtest's numbered circles: 1 = entry, 2 = exit, for every trade of this system and side in the window
+      TA.donchianSignals(all, { entry: o.sys.entry, exit: o.sys.exit, side: o.long ? 'long' : 'short' }).forEach(sg => {
+        const bi = sg.i - start; if(bi < 0 || bi >= bars.length) return;
+        markers.push({ bi, entry: sg.type === 'entry', bar: all[sg.i] });
+      });
+    }
+    if(!o.sys){ /* Ichimoku: mark just this trade */
+      if(o.entryTime){ const bi = idx(o.entryTime); if(bi >= 0) markers.push({ bi, entry: true, bar: bars[bi] }); }
+      if(o.exitTime){ const bi = idx(o.exitTime); if(bi >= 0) markers.push({ bi, entry: false, bar: bars[bi] }); }
+    }
+    markers.forEach(mk => {
+      const below = o.long === mk.entry, cx = x(mk.bi), cy = below ? y(mk.bar.low) + 13 : y(mk.bar.high) - 13;
+      ctx.fillStyle = mk.entry ? 'rgba(46,125,91,.92)' : 'rgba(178,59,53,.92)';
+      ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(mk.entry ? '1' : '2', cx, cy + 0.5);
+    });
+    // this alert's own levels: dashed lines from the entry bar to the right edge, with price pills on the axis
+    ctx.font = '10px JetBrains Mono, monospace';
+    const fromI = ei >= 0 ? Math.max(0, ei - start) : Math.max(0, bars.length - Math.round(bars.length * 0.35));
+    const pills = o.levels.filter(l => Number.isFinite(l.v)).map(l => ({ ...l, yy: y(l.v), color: col(l.c) })).sort((a, b) => a.yy - b.yy);
+    let prev = -Infinity; pills.forEach(pl => { pl.py = Math.max(pl.yy, prev + 17); prev = pl.py; });
+    const over = pills.length ? pills[pills.length - 1].py - (H - pad.b - 6) : 0; if(over > 0) pills.forEach(pl => { pl.py -= over; });
+    pills.forEach(pl => {
+      ctx.strokeStyle = pl.color; ctx.lineWidth = pl.k === 'now' ? 1.4 : 1.2; ctx.setLineDash(pl.k === 'now' ? [2, 3] : [6, 4]);
+      ctx.beginPath(); ctx.moveTo(x(fromI), pl.yy); ctx.lineTo(W - pad.r, pl.yy); ctx.stroke(); ctx.setLineDash([]);
+    });
+    pills.forEach(pl => {
+      const txt = fmtPx(pl.v), w = pad.r - 4;
+      ctx.fillStyle = pl.color; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(W - pad.r + 2, pl.py - 8, w, 16, 4) : ctx.rect(W - pad.r + 2, pl.py - 8, w, 16); ctx.fill();
+      ctx.fillStyle = '#0b0f17'; ctx.textAlign = 'center'; ctx.font = 'bold 10px JetBrains Mono, monospace'; ctx.fillText(txt, W - pad.r + 2 + w / 2, pl.py + 0.5);
+      ctx.fillStyle = pl.color; ctx.textAlign = 'right'; ctx.font = '10px JetBrains Mono, monospace'; ctx.fillText(pl.label, W - pad.r - 4, pl.yy - 8);
+    });
+  }
+  function openChart(id){
+    const it = chartReg[id]; if(!it) return;
+    const x = it.x, tf = it.tf, long = x.side === 'long', ichi = sysOf(x) === 'Ichimoku';
+    const lp = livePx(x.symbol);
+    const sysName = ichi ? 'Ichimoku' + (x.trigger ? ' ' + x.trigger : '') : 'Donchian ' + sysOf(x);
+    const [, eM] = String(sysOf(x)).split('/');
+    const stopName = ichi ? 'Kijun' : `the ${eM}-bar ${long ? 'low' : 'high'}`;
+    const pctOf = (from, to) => (long ? to - from : from - to) / from * 100;
+    const GREEN = 'var(--accent)', RED = 'var(--red)', BLUE = 'var(--blue)', AMBER = 'var(--amber)', TXT = 'var(--text)';
+    let levels = [], facts = [], cur = 0, title = '', note = '';
+    if(it.kind === 'closed'){
+      title = 'Closed trade';
+      levels = [{ k: 'entry', label: 'Entry', v: x.entryClose, c: BLUE }, { k: 'now', label: 'Exit', v: x.exitClose, c: x.resultPct >= 0 ? GREEN : RED }];
+      if(Number.isFinite(x.exitLevel)) levels.push({ k: 'stop', label: ichi ? (x.exitReason === 'stop' ? 'Stop loss' : 'Kijun') : 'Exit level', v: x.exitLevel, c: x.exitReason === 'stop' ? RED : AMBER });
+      cur = x.resultPct;
+      facts = [['Entry', fmtPx(x.entryClose) + ' &middot; ' + esc(fmtTime(x.entryTime, tf))], ['Exit', fmtPx(x.exitClose) + ' &middot; ' + esc(fmtTime(x.exitTime, tf))], ['Result', `<span class="${x.resultPct >= 0 ? 'pos' : 'neg'}">${fmtPct(x.resultPct)}</span>`]];
+      note = (ichi && x.exitReason === 'stop' ? 'Stopped out: a candle closed ' + (long ? 'below' : 'above') + ' the stop loss (0.5 x ATR ' + (long ? 'below the cloud bottom' : 'above the cloud top') + ').' : 'Closed when a candle closed ' + (long ? 'below ' : 'above ') + stopName + '.') + ' Close to close, ignoring fees and funding.';
+    }else if(it.kind === 'open'){
+      title = 'Open trade';
+      const px = Number.isFinite(lp) ? lp : x.lastClose, stop = x.stop;
+      cur = pctOf(x.entryClose, px);
+      levels = [{ k: 'entry', label: 'Entry', v: x.entryClose, c: BLUE }, { k: 'now', label: 'Now', v: px, c: cur >= 0 ? GREEN : RED }];
+      if(ichi && Number.isFinite(x.sl)) levels.push({ k: 'stop', label: 'Stop loss', v: x.sl, c: RED });
+      if(Number.isFinite(stop)) levels.push({ k: ichi && Number.isFinite(x.sl) ? 'kijun' : 'stop', label: ichi ? 'Kijun' : 'Stop', v: stop, c: AMBER });
+      facts = [['Entry', fmtPx(x.entryClose) + ' &middot; ' + esc(fmtTime(x.entryTime, tf))], ['Now', fmtPx(px) + ` (<span class="${cur >= 0 ? 'pos' : 'neg'}">${fmtPct(cur)}</span>)`]];
+      if(ichi && Number.isFinite(x.sl)){
+        const slPct = pctOf(x.entryClose, x.sl), risk = Math.abs(x.entryClose - x.sl);
+        facts.push(['Stop loss (fixed)', fmtPx(x.sl) + ` (${slPct >= 0 ? 'locks +' + slPct.toFixed(2) + '%' : 'risks ' + Math.abs(slPct).toFixed(2) + '%'})`]);
+        facts.push(['Distance to stop loss', (long ? px > x.sl : px < x.sl) ? (Math.abs(px - x.sl) / px * 100).toFixed(2) + '%' : 'hit']);
+        if(risk > 0) facts.push(['Now in R', ((long ? px - x.entryClose : x.entryClose - px) / risk).toFixed(2) + 'R']);
+        if(Number.isFinite(stop)) facts.push(['Kijun exit', fmtPx(stop)]);
+      }else if(Number.isFinite(stop)){
+        const risk = Math.abs(x.entryClose - stop), locked = pctOf(x.entryClose, stop);
+        facts.push(['Stop (trailing)', fmtPx(stop) + ` (${locked >= 0 ? 'locks +' + locked.toFixed(2) + '%' : 'risks ' + Math.abs(locked).toFixed(2) + '%'})`]);
+        facts.push(['Distance to stop', Math.abs(px - stop) / px * 100 < 0.005 ? 'at the stop' : (long ? (px > stop ? '' : '-') : (px < stop ? '' : '-')) + (Math.abs(px - stop) / px * 100).toFixed(2) + '%']);
+        if(locked < 0 && risk > 0) facts.push(['Now in R', ((long ? px - x.entryClose : x.entryClose - px) / risk).toFixed(2) + 'R']);
+      }else facts.push(['Stop', 'updates on the next scan']);
+      note = ichi && Number.isFinite(x.sl)
+        ? 'Target: none. The stop loss is fixed at entry, 0.5 x ATR ' + (long ? 'below the cloud bottom' : 'above the cloud top') + '. The trade exits when a candle closes ' + (long ? 'below' : 'above') + ' the stop loss or ' + (long ? 'below' : 'above') + ' Kijun, whichever comes first.'
+        : 'Target: none. ' + sysName + ' has no fixed profit target. The trade is held until a candle closes ' + (long ? 'below ' : 'above ') + stopName + ', and that stop moves with every candle.';
+    }else if(it.kind === 'fentry'){
+      title = 'Unconfirmed entry';
+      const px = Number.isFinite(lp) ? lp : x.price, stop = x.stop;
+      cur = pctOf(x.level, px);
+      levels = [{ k: 'entry', label: 'Broke', v: x.level, c: BLUE }, { k: 'now', label: 'Now', v: px, c: cur >= 0 ? GREEN : RED }];
+      const fsl = ichi && Number.isFinite(x.sl) ? x.sl : stop;
+      if(Number.isFinite(fsl)) levels.push({ k: 'stop', label: ichi ? 'Stop loss' : 'Stop', v: fsl, c: ichi ? RED : AMBER });
+      facts = [['Level broken', fmtPx(x.level)], ['Now', fmtPx(px) + ` (<span class="${cur >= 0 ? 'pos' : 'neg'}">${signedPct(cur)}</span> past the level)`]];
+      if(Number.isFinite(fsl)) facts.push([ichi ? 'Stop loss if it enters' : 'Stop if it enters', fmtPx(fsl)]);
+      note = 'Not confirmed: the candle is still open and closes ' + untilClose(x.closesAt) + '. It only counts if it closes beyond the level. Target: none.';
+    }else{
+      title = 'Unconfirmed exit';
+      const px = Number.isFinite(lp) ? lp : x.price;
+      cur = pctOf(x.entryClose, px);
+      levels = [{ k: 'entry', label: 'Entry', v: x.entryClose, c: BLUE }, { k: 'now', label: 'Now', v: px, c: cur >= 0 ? GREEN : RED }, { k: 'stop', label: x.exitReason === 'stop' ? 'Stop loss' : 'Stop', v: x.level, c: x.exitReason === 'stop' ? RED : AMBER }];
+      facts = [['Entry', fmtPx(x.entryClose) + ' &middot; ' + esc(fmtTime(x.entryTime, tf))], [x.exitReason === 'stop' ? 'Stop loss (breached)' : 'Stop (breached)', fmtPx(x.level)], ['Now', fmtPx(px) + ` (<span class="${cur >= 0 ? 'pos' : 'neg'}">${fmtPct(cur)}</span>)`]];
+      note = 'The price is ' + (long ? 'below ' : 'above ') + (ichi && x.exitReason === 'stop' ? 'the stop loss' : stopName) + ' right now. The trade only closes if the candle closes there, in ' + untilClose(x.closesAt).replace(/^in /, '') + '.';
+    }
+    achart.querySelector('.achart-title').textContent = `${x.symbol} · ${long ? 'Long' : 'Short'} · ${title}`;
+    achart.querySelector('.achart-sub').textContent = `${sysName} · ${tf}`;
+    const legend = ichi
+      ? '<span><i style="border-color:#ff5470;border-top-style:solid"></i>Tenkan</span><span><i style="border-color:#5b8cff;border-top-style:solid"></i>Kijun (exit)</span><span>shaded: cloud</span>'
+      : `<span><i style="border-color:#26C6DA"></i>${esc(String(sysOf(x)).split('/')[0])}-bar ${long ? 'high' : 'low'} (entry)</span><span><i style="border-color:#FF9800"></i>${esc(eM)}-bar ${long ? 'low' : 'high'} (exit)</span><span><span class="dot" style="background:rgba(46,125,91,.95)">1</span>entry</span><span><span class="dot" style="background:rgba(178,59,53,.95)">2</span>exit</span>`;
+    const myToken = ++chartToken;
+    achart.querySelector('.achart-body').innerHTML = `<div class="achart-cv"><canvas></canvas><div class="achart-msg">Loading chart\u2026</div></div><div class="achart-legend">${legend}</div><ul class="achart-facts">${facts.map(f => `<li><span>${f[0]}</span><b>${f[1]}</b></li>`).join('')}</ul><div class="achart-note">${esc(note)}</div>`;
+    achart.hidden = false;
+    const cvWrap = achart.querySelector('.achart-cv'), cvEl = cvWrap.querySelector('canvas'), msg = cvWrap.querySelector('.achart-msg');
+    const sysObj = ichi ? null : { entry: +String(sysOf(x)).split('/')[0], exit: +eM };
+    const args = { levels, long, ichi, sys: sysObj, entryTime: x.entryTime || null, exitTime: it.kind === 'closed' ? x.exitTime : null };
+    chartCandles(x.symbol, tf).then(c => {
+      if(myToken !== chartToken || achart.hidden) return;
+      msg.style.display = 'none';
+      const go = () => drawAlertChart(cvEl, { ...args, candles: c });
+      go(); chartRedraw = go;
+    }).catch(() => {
+      if(myToken !== chartToken) return;
+      msg.textContent = 'Could not load the candles for ' + x.symbol + '. Showing the levels only.';
+      cvWrap.style.height = 'auto'; cvWrap.querySelector('canvas').remove(); msg.style.position = 'static'; msg.style.padding = '10px 20px';
+      cvWrap.insertAdjacentHTML('beforeend', ladderSvg(levels, cur));
+    });
+  }
+  let chartToken = 0, chartRedraw = null;
+  window.addEventListener('resize', () => { if(!achart.hidden && chartRedraw) chartRedraw(); });
+  const closeChart = () => { achart.hidden = true; chartRedraw = null; chartToken++; };
 
   const untilClose = ms => {
     const m = Math.round((ms - Date.now()) / 60000);
@@ -3155,7 +3414,7 @@ const AlertsPanel = (() => {
     let lines, right;
     const ichi = sysOf(f) === 'Ichimoku';
     const [eN, eM] = sysOf(f).split('/'); // Donchian: entry / exit lengths of this alert's system
-    const exitLabel = ichi ? 'Kijun' : `the ${eM}-bar ${long ? 'low' : 'high'}`;
+    const exitLabel = ichi ? (f.exitReason === 'stop' ? 'the stop loss' : 'Kijun') : `the ${eM}-bar ${long ? 'low' : 'high'}`;
     const entryLabel = ichi ? `the ${f.trigger === 'CK' ? 'Chikou-bar cloud ' : 'cloud '}${long ? 'top' : 'bottom'}` : `the ${eN}-bar ${long ? 'high' : 'low'}`;
     const lpf = livePx(f.symbol), fPx = Number.isFinite(lpf) ? lpf : f.price;
     if(isExit){
@@ -3180,7 +3439,7 @@ const AlertsPanel = (() => {
         ${lines}
         ${detLine(f.detectedAt)}
       </div>
-      <div class="alert-right">${right}</div>
+      <div class="alert-right">${right}${chartLink({ kind: isExit ? 'fexit' : 'fentry', x: f, tf })}</div>
     </div>`;
   }
 
@@ -3319,6 +3578,7 @@ const AlertsPanel = (() => {
   // newest first, then the other strategy, newest first. Only what is in the alerts file is listed (open trades, recent
   // closed ones within each timeframe's window, and unconfirmed signals).
   function renderCoin(){
+    chartReg.length = 0;
     loadLive();
     const items = [];
     Object.keys(data.timeframes || {}).filter(tf => tf !== '1H' || show1H()).forEach(tf => {
@@ -3355,8 +3615,13 @@ const AlertsPanel = (() => {
     overlay.classList.remove('coin-mode'); coinBar.hidden = true;
     render();
   }
-  // Back (phone back button / gesture): leaves the coin view first, and only a second back closes the page.
+  // Back (phone back button / gesture): closes the chart popup first, then leaves the coin view, and only a second back closes the page.
   function back(fromPopstate){
+    if(!achart.hidden){                       // the level chart popup closes first, staying on the same list
+      closeChart();
+      if(fromPopstate && (!history.state || !history.state.alerts)) history.pushState({ page: currentPage, alerts: true }, '', location.href);
+      return true;
+    }
     if(!coinSym) return false;
     exitCoinView();
     if(fromPopstate && (!history.state || !history.state.alerts)) history.pushState({ page: currentPage, alerts: true }, '', location.href); // the back press consumed our history entry
@@ -3364,6 +3629,7 @@ const AlertsPanel = (() => {
   }
 
   function render(){
+    chartReg.length = 0;
     tfRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tf === tab));
     if(!data){
       grid.innerHTML = `<div class="alerts-empty" style="grid-column:1/-1;">${loadErr ? 'Could not load the alerts. Check your connection and tap refresh.' : 'Loading alerts…'}</div>`;
@@ -3415,6 +3681,7 @@ const AlertsPanel = (() => {
     const unconfBody = `<div class="alerts-subnote">Triggered by the ${tfName} candle that is still open. These can disappear before it closes, and only count once the candle closes beyond the level.${tfd.formingAt ? ' Detected ' + esc(ago(Date.parse(tfd.formingAt))) + '.' : ''}</div>` +
       (forming.length ? forming.map(f => formingRowHtml(f, tab, i++)).join('') : empty('Nothing is triggering on the open candle right now.'));
     const openBody = open.length ? open.map(t => rowHtml(t, tab, i++)).join('') : empty('No confirmed long or short entries.');
+    const newClosed = closed.filter(t => newKeys.has(key(tab, t))).length;   // trades that just closed (Kijun or stop loss) since this timeframe was last looked at
     const closedBody = closed.length ? closed.map(t => rowHtml(t, tab, i++)).join('') : empty('No closed trades in this window.');
 
     const sk = (data.universe && data.universe.skipped) || [];
@@ -3432,7 +3699,8 @@ const AlertsPanel = (() => {
     const ichimokuHelp = `<li><b>Ichimoku (9 / 26 / 52):</b> Tenkan 9, Kijun 26, Senkou B 52, with the cloud projected 26 candles ahead and the Chikou span the close shifted 26 back.</li>
       <li><b>Long entry:</b> a candle closes above the cloud and one of two breakouts fires. <b>PK</b> (price): the previous close was below the cloud top and this close is above it. <b>CK</b> (Chikou): the Chikou span just crossed above the cloud. Either one enters, and the alert shows which. Short entry is the mirror image.</li>
       <li><b>Trend filter:</b> for a long, Tenkan must be above Kijun and the future cloud bullish (Senkou A above B). For a short, the reverse.</li>
-      <li><b>Exit:</b> while long, a candle closes below Kijun. While short, it closes above Kijun.</li>`;
+      <li><b>Stop loss:</b> fixed at entry. A long: 0.5 x ATR(14) below the cloud bottom. A short: 0.5 x ATR above the cloud top.</li>
+      <li><b>Exit:</b> the trade closes at the first candle that closes beyond the stop loss, or below Kijun for a long (above Kijun for a short).</li>`;
     const commonTail = `<li><b>Confirmed:</b> the candle has closed, so the signal is final.</li>
       <li><b>Unconfirmed:</b> the candle is still open and the live price is already triggering it. It can disappear before the candle closes.</li>
       <li><b>Badges:</b> on the bell, green is new confirmed signals and amber is new unconfirmed ones. The Donchian and Ichimoku buttons and each timeframe tab (1H, 4H, 1D, 1W) also show a count of new alerts, and that count clears when you open it.</li>
@@ -3449,7 +3717,7 @@ const AlertsPanel = (() => {
     grid.innerHTML =
       groupCard('unconf', '⏳', 'var(--amber)', 'Not confirmed yet', forming.length, unconfBody) +
       groupCard('open', '✅', 'var(--accent)', 'Confirmed entries', open.length, openBody) +
-      groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '1H' ? '24 hours' : tab === '4H' ? '2 days' : tab === '1W' ? '4 weeks' : '7 days'})`, closed.length, closedBody) +
+      groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '1H' ? '24 hours' : tab === '4H' ? '2 days' : tab === '1W' ? '4 weeks' : '7 days'})` + (newClosed ? ` <span class="alert-pill new">${newClosed} new</span>` : ''), closed.length, closedBody) +
       groupCard('retrace', '🎯', 'var(--amber)', 'In retracement zone', rzRows.length, retraceBodyHtml(tab, rzRows), tab === '1H' ? 'rz-grey' : '') +
       groupCard('help', 'ℹ️', 'var(--violet)', 'How this works', null, helpBody);
     updateToggleAll();
@@ -3470,7 +3738,7 @@ const AlertsPanel = (() => {
 
   function open(){
     if(!alertsOn()) return;
-    coinSym = null; overlay.classList.remove('coin-mode'); coinBar.hidden = true;
+    coinSym = null; overlay.classList.remove('coin-mode'); coinBar.hidden = true; achart.hidden = true;
     unconfManual = false; retrManual = false;
     tab = '1D';                                // the page always opens on Daily (switching tabs lasts for this visit only)
     newByTf = {};                              // what is new is worked out per (strategy, timeframe), when that tab is first shown
@@ -3486,7 +3754,7 @@ const AlertsPanel = (() => {
     clearInterval(liveTimer); liveTimer = setInterval(refreshLive, 5000);
   }
   function close(){
-    clearInterval(liveTimer);
+    clearInterval(liveTimer); closeChart();
     overlay.classList.remove('open');
     document.body.style.overflow = '';
     if(history.state && history.state.alerts) history.replaceState({ page: currentPage }, '', location.href);
@@ -3504,7 +3772,11 @@ const AlertsPanel = (() => {
     const symbol = (typeof resolveBinanceFuturesSymbol === 'function' ? resolveBinanceFuturesSymbol(base) : base + 'USDT');
     window.TechAnalysis.openSymbol(symbol);
   }
+  achart.addEventListener('click', e => { if(e.target === achart || e.target.closest('.achart-x')) closeChart(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && !achart.hidden){ closeChart(); e.stopPropagation(); } }, true);
   grid.addEventListener('click', e => {
+    const cl = e.target.closest('.alert-chart-link');
+    if(cl){ e.stopPropagation(); openChart(parseInt(cl.dataset.chart, 10)); return; }
     const sym = e.target.closest('.alert-sym');
     if(sym && !coinSym){                       // the coin name: list every alert for that coin
       const r = sym.closest('.alert-row[data-sym], .rz-row[data-sym]');
@@ -3528,6 +3800,7 @@ const AlertsPanel = (() => {
   });
   grid.addEventListener('keydown', e => {
     if(e.key !== 'Enter' && e.key !== ' ') return;
+    if(e.target.closest('.alert-chart-link')) return;   // the button handles its own click
     const tl = e.target.closest('.rz-trade[data-sym]'); if(tl && !coinSym){ e.preventDefault(); openCoinView(tl.dataset.sym); return; }
     const row = e.target.closest('.alert-row[data-sym], .rz-row[data-sym]'); if(row){ e.preventDefault(); openCoin(row); }
   });
@@ -3917,7 +4190,7 @@ function handleAndroidBack(){
   }
 
   if(window.AlertsPanel && AlertsPanel.isOpen()){
-    if(AlertsPanel.back(false)) return;        // leaves a coin's alert list first
+    if(AlertsPanel.back(false)) return;        // closes the chart popup / leaves a coin's alert list first
     AlertsPanel.close();
     return;
   }
@@ -4055,7 +4328,7 @@ window.addEventListener('popstate', event => {
     return;
   }
   if(window.AlertsPanel && AlertsPanel.isOpen()){
-    if(AlertsPanel.back(true)) return;         // leaves a coin's alert list first
+    if(AlertsPanel.back(true)) return;         // closes the chart popup / leaves a coin's alert list first
     AlertsPanel.close();
     syncHistoryForCurrentPage();
     return;
@@ -7927,7 +8200,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-window.TechAnalysis = { open, openSymbol, close, setTf, refresh, getSymbol: () => currentSymbol, copyValues, clearAllChecks, cycleOverlays, toggleAll: toggleAllGroups, addToWatchlist, showCoinInfo, showAnalysis, closeAnalysis, GROUPS, _compute: computeValues };
+window.TechAnalysis = { binanceKlines, bybitKlines, donchianSeries, donchianSignals, ichimokuSeriesFull, open, openSymbol, close, setTf, refresh, getSymbol: () => currentSymbol, copyValues, clearAllChecks, cycleOverlays, toggleAll: toggleAllGroups, addToWatchlist, showCoinInfo, showAnalysis, closeAnalysis, GROUPS, _compute: computeValues };
 })();
 </script>
 
