@@ -630,6 +630,7 @@
   /* per-timeframe "new" badge on the 1H / 4H / 1D / 1W tabs */
   #alertsTfRow button,#alertsStratRow button{position:relative;}
   #alertsSysRow[hidden]{display:none;}
+  #alertsTfRow button[hidden]{display:none;}
   .tf-badge{position:absolute;top:-7px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font:700 9.5px var(--font-mono);pointer-events:none;}
   .tf-badge.ok{background:#1fae7a;color:#04170f;}
   .tf-badge.forming{background:var(--amber);color:#1c1300;}
@@ -2943,6 +2944,11 @@ const AlertsPanel = (() => {
     return 'https://raw.githubusercontent.com/justgame7/TradeSphere/main/data/donchian-alerts.json';
   })();
   const SEEN_KEY = 'ts-alerts-seen-tf-v1';
+  // Settings page switches (trading-settings.html writes them): alerts on/off (default on) and whether 1H alerts are
+  // included (default off, 1H produces many alerts). Off means the bell is hidden and nothing is fetched.
+  const ENABLED_KEY = 'crypto-screener-alerts-enabled', SHOW_1H_KEY = 'crypto-screener-alerts-1h';
+  const alertsOn = () => { try{ return localStorage.getItem(ENABLED_KEY) !== 'false'; }catch(e){ return true; } };
+  const show1H = () => { try{ return localStorage.getItem(SHOW_1H_KEY) === 'true'; }catch(e){ return false; } };
   const REFRESH_MS = 2 * 60 * 1000, STALE_MS = 60 * 1000;
   const btn = document.getElementById('alertsBtn'), badge = document.getElementById('alertsBadge'), badgeForming = document.getElementById('alertsBadgeForming');
   const overlay = document.getElementById('alertsOverlay'), grid = document.getElementById('alertsGrid');
@@ -2970,7 +2976,8 @@ const AlertsPanel = (() => {
   // so it is not treated as new. Files written before detectedAt existed have none, and count as not new.
   function allItems(){
     const out = [];
-    if(data && data.timeframes) Object.keys(data.timeframes).forEach(tf => {
+    if(!alertsOn()) return out;
+    if(data && data.timeframes) Object.keys(data.timeframes).filter(tf => tf !== '1H' || show1H()).forEach(tf => {
       (data.timeframes[tf].trades || []).forEach(t => out.push({ tf, strat: stratOf(t), key: key(tf, t), at: t.detectedAt || 0, forming: false }));
       (data.timeframes[tf].forming || []).forEach(f => out.push({ tf, strat: stratOf(f), key: fkey(tf, f), at: f.detectedAt || 0, forming: true }));
     });
@@ -2985,7 +2992,7 @@ const AlertsPanel = (() => {
     if(!data || !data.timeframes) return [];
     const m = loadSeenMap();
     let changed = false;
-    Object.keys(data.timeframes).forEach(k => ['donchian', 'ichimoku'].forEach(st => {
+    Object.keys(data.timeframes).filter(k => k !== '1H' || show1H()).forEach(k => ['donchian', 'ichimoku'].forEach(st => {
       const sk = seenKey(st, k);
       if(!Number.isFinite(m[sk])){
         // earlier versions stored Donchian-only seen times under the bare timeframe name; otherwise nothing is new the first time
@@ -3268,6 +3275,7 @@ const AlertsPanel = (() => {
   }
 
   async function load(){
+    if(!alertsOn()){ updateBadge(); return; }   // alerts switched off in Settings: do not fetch anything
     try{
       const res = await fetch(DATA_URL + (DATA_URL.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
       if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -3280,6 +3288,7 @@ const AlertsPanel = (() => {
   }
 
   function open(){
+    if(!alertsOn()) return;
     unconfManual = false;
     tab = '1D';                                // the page always opens on Daily (switching tabs lasts for this visit only)
     newByTf = {};                              // what is new is worked out per (strategy, timeframe), when that tab is first shown
@@ -3360,8 +3369,22 @@ const AlertsPanel = (() => {
     unconfManual = false;
     render();
   });
+  // Settings: bell visibility and the 1H tab follow the two switches, live (the Settings page is an iframe of this page, so
+  // writing the keys fires a "storage" event here).
+  function applySettings(){
+    const on = alertsOn(), h1 = show1H();
+    btn.style.display = on ? '' : 'none';
+    const h1btn = tfRow.querySelector('button[data-tf="1H"]'); if(h1btn) h1btn.hidden = !h1;
+    if(!h1 && tab === '1H') tab = '1D';
+    if(!on && overlay.classList.contains('open')) close();
+    updateBadge();
+    if(on && (!data || Date.now() - lastFetch > STALE_MS)) load();
+    else if(overlay.classList.contains('open')) render();
+  }
+  window.addEventListener('storage', e => { if(e.key === ENABLED_KEY || e.key === SHOW_1H_KEY || e.key === SEEN_KEY) applySettings(); });
   setInterval(() => { if(!document.hidden) load(); }, REFRESH_MS);
   document.addEventListener('visibilitychange', () => { if(!document.hidden && Date.now() - lastFetch > STALE_MS) load(); });
+  applySettings();
   load();
 
   return { open, close, isOpen: () => overlay.classList.contains('open') };

@@ -190,6 +190,22 @@
         </div>
       </div>
 
+      <div class="field">
+        <div class="checkbox-field">
+          <input type="checkbox" id="alertsEnabled" checked />
+          <label for="alertsEnabled">Enable alerts</label>
+        </div>
+        <p class="hint" style="margin:8px 0 0;">Donchian and Ichimoku breakout alerts for the top 50 coins, shown by the bell on Home. Turn off to hide the bell and stop checking for alerts.</p>
+
+        <div class="subfield" id="alerts1hField">
+          <div class="checkbox-field">
+            <input type="checkbox" id="alerts1h" />
+            <label for="alerts1h">Include 1H alerts</label>
+          </div>
+          <p class="hint" style="margin:8px 0 0;">1H produces many alerts. Off: only 4H, Daily and Weekly are shown, for both Donchian and Ichimoku. On: 1H, 4H, Daily and Weekly.</p>
+        </div>
+      </div>
+
       <div class="actions">
         <button class="secondary" type="button" id="resetBtn">Reset</button>
         <button class="primary" type="button" id="saveBtn">Save</button>
@@ -225,6 +241,10 @@
   // this settings page's own STORAGE_KEY blob to be parsed elsewhere.
   const MOVERS_COUNT_STORAGE_KEY = 'crypto-screener-movers-count';
   const MOVERS_ENABLED_STORAGE_KEY = 'crypto-screener-movers-enabled';
+  // Alerts (read by index.html): on by default, 1H included only when switched on.
+  const ALERTS_ENABLED_STORAGE_KEY = 'crypto-screener-alerts-enabled';
+  const ALERTS_1H_STORAGE_KEY = 'crypto-screener-alerts-1h';
+  const ALERTS_SEEN_STORAGE_KEY = 'ts-alerts-seen-tf-v1';
   const DEFAULT_TIMEZONE = 'Asia/Kolkata';
   const DEFAULT_PORTFOLIO = 1000;
   // Meridian (the standalone portfolio/wallet app) keeps its own state under
@@ -250,6 +270,9 @@
   const moversCountInput = document.getElementById('moversCount');
   const moversEnabledInput = document.getElementById('moversEnabled');
   const moversCountField = document.getElementById('moversCountField');
+  const alertsEnabledInput = document.getElementById('alertsEnabled');
+  const alerts1hInput = document.getElementById('alerts1h');
+  const alerts1hField = document.getElementById('alerts1hField');
   const saveBtn = document.getElementById('saveBtn');
   const resetBtn = document.getElementById('resetBtn');
   const statusEl = document.getElementById('status');
@@ -263,6 +286,21 @@
     moversCountField.classList.toggle('disabled', !moversEnabledInput.checked);
   }
   moversEnabledInput.addEventListener('change', updateMoversCountFieldState);
+  function updateAlerts1hFieldState(){
+    alerts1hField.classList.toggle('disabled', !alertsEnabledInput.checked);
+  }
+  alertsEnabledInput.addEventListener('change', updateAlerts1hFieldState);
+  // Alerts that piled up while a switch was off must not all show up as "new" the moment it is turned back on, so
+  // switching alerts (or 1H) on marks everything currently there as seen.
+  function markAlertsSeenNow(timeframes){
+    try{
+      let m = {};
+      try{ m = JSON.parse(localStorage.getItem(ALERTS_SEEN_STORAGE_KEY) || '{}') || {}; }catch(e){ m = {}; }
+      const now = Date.now();
+      timeframes.forEach(tf => ['donchian', 'ichimoku'].forEach(st => { m[st + '|' + tf] = now; }));
+      localStorage.setItem(ALERTS_SEEN_STORAGE_KEY, JSON.stringify(m));
+    }catch(e){}
+  }
 
   function setStatus(message, type=''){
     statusEl.textContent = message;
@@ -515,6 +553,14 @@
       console.warn('Unable to load top movers enabled flag', error);
     }
     updateMoversCountFieldState();
+    try{
+      alertsEnabledInput.checked = localStorage.getItem(ALERTS_ENABLED_STORAGE_KEY) !== 'false';   // default on
+      alerts1hInput.checked = localStorage.getItem(ALERTS_1H_STORAGE_KEY) === 'true';               // default off
+    }catch(error){
+      alertsEnabledInput.checked = true; alerts1hInput.checked = false;
+      console.warn('Unable to load alerts settings', error);
+    }
+    updateAlerts1hFieldState();
   }
 
   function saveSettings(){
@@ -547,6 +593,14 @@
     localStorage.setItem(TIMEZONE_STORAGE_KEY, displayTimezone);
     localStorage.setItem(MOVERS_COUNT_STORAGE_KEY, String(moversCount));
     localStorage.setItem(MOVERS_ENABLED_STORAGE_KEY, String(moversEnabled));
+
+    const wasAlertsOn = localStorage.getItem(ALERTS_ENABLED_STORAGE_KEY) !== 'false';
+    const was1hOn = localStorage.getItem(ALERTS_1H_STORAGE_KEY) === 'true';
+    const alertsOn = alertsEnabledInput.checked, alerts1hOn = alerts1hInput.checked;
+    if(alertsOn && !wasAlertsOn) markAlertsSeenNow(['1H', '4H', '1D', '1W']);
+    else if(alertsOn && alerts1hOn && !was1hOn) markAlertsSeenNow(['1H']);
+    localStorage.setItem(ALERTS_ENABLED_STORAGE_KEY, String(alertsOn));
+    localStorage.setItem(ALERTS_1H_STORAGE_KEY, String(alerts1hOn));
     setStatus('Saved locally.', 'success');
   }
 
@@ -556,6 +610,11 @@
     localStorage.removeItem(TIMEZONE_STORAGE_KEY);
     localStorage.removeItem(MOVERS_COUNT_STORAGE_KEY);
     localStorage.removeItem(MOVERS_ENABLED_STORAGE_KEY);
+    localStorage.removeItem(ALERTS_ENABLED_STORAGE_KEY);
+    localStorage.removeItem(ALERTS_1H_STORAGE_KEY);
+    alertsEnabledInput.checked = true;
+    alerts1hInput.checked = false;
+    updateAlerts1hFieldState();
     portfolioValueInput.value = String(DEFAULT_PORTFOLIO);
     tradingExchangeSelect.value = 'CoinDCX';
     displayTimezoneSelect.value = DEFAULT_TIMEZONE;
