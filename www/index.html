@@ -645,7 +645,7 @@
   /* chart link on each alert row and the level chart popup */
   .alert-chart-link{margin-top:6px;background:none;border:none;padding:2px 0;font:600 10.5px var(--font-mono);color:var(--accent);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
   .alert-chart-link:hover{color:var(--text);}
-  .achart{position:fixed;inset:0;z-index:5;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,8,14,.62);}
+  .achart{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,8,14,.62);}
   .achart[hidden]{display:none;}
   .achart-card{width:100%;max-width:760px;max-height:92%;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:16px 16px 22px;box-shadow:0 -10px 40px rgba(0,0,0,.45);}
   @media(min-width:700px){.achart{align-items:center;}.achart-card{border-radius:18px;}}
@@ -3179,6 +3179,8 @@ const AlertsPanel = (() => {
   const chartReg = [];
   const chartLink = item => `<button type="button" class="alert-chart-link" data-chart="${chartReg.push(item) - 1}">Chart &#8599;</button>`;
   const achart = document.getElementById('alertChart');
+  document.body.appendChild(achart);   // the alerts overlay has a backdrop-filter, which would make this "fixed" popup scroll with the list: keep it on the body
+
   function ladderSvg(levels, cur){
     const W = 340, H = 250, top = 22, bot = H - 22, x0 = 150;
     const vals = levels.map(l => l.v).filter(Number.isFinite);
