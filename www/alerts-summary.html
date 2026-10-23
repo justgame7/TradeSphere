@@ -168,9 +168,15 @@ const COL = { long:'#35E0C0', short:'#ff5470', win:'#35E0C0', loss:'#ff5470', bl
 
 const saved = (() => { try{ return JSON.parse(lsGet('ts-alerts-summary-v1') || '{}') || {}; }catch(e){ return {}; } })();
 const S = { period: ['day', 'week', 'month'].includes(saved.period) ? saved.period : 'week', strat: saved.strat || 'all', tf: saved.tf || 'all', sel: null, coinSort: 'activity', coinAll: false, coinQ: '', scope: 'period' };
-if(S.tf !== 'all' && !TFS.includes(S.tf)) S.tf = 'all';
+// Timeframe filter: 'all', 'ex1h' (everything except 1H, the default when 1H alerts are switched on) or one timeframe.
+if(S.tf === 'all' && !saved.tf && SHOW_1H) S.tf = 'ex1h';
+if(S.tf !== 'all' && S.tf !== 'ex1h' && !TFS.includes(S.tf)) S.tf = SHOW_1H ? 'ex1h' : 'all';
+if(S.tf === 'ex1h' && !SHOW_1H) S.tf = 'all';
+const tfSel = () => S.tf === 'all' ? TFS : S.tf === 'ex1h' ? TFS.filter(t => t !== '1H') : [S.tf];
+const tfLabel = () => S.tf === 'all' ? 'all timeframes' : S.tf === 'ex1h' ? 'all except 1H' : TFNAME[S.tf];
 const persist = () => lsSet('ts-alerts-summary-v1', JSON.stringify({ period: S.period, strat: S.strat, tf: S.tf }));
 
+let LIMITED = false;
 let MAIN = null, HIST = null, T = [], loadErr = '', lastLoad = 0;
 const fmtPct = (v, d = 2) => Number.isFinite(v) ? (v >= 0 ? '+' : '') + v.toFixed(d) + '%' : '—';
 const cls = v => Number.isFinite(v) ? (v >= 0 ? 'pos' : 'neg') : 'mut';
@@ -202,7 +208,14 @@ function build(){
   T = [];
   Object.keys(lastClose).forEach(k => delete lastClose[k]);
   if(MAIN) TFS.forEach(tf => { const d = (MAIN.timeframes || {})[tf]; if(d) (d.trades || []).forEach(t => { if(Number.isFinite(t.lastClose)) lastClose[t.symbol] = t.lastClose; }); });
-  if(!HIST) return;
+  LIMITED = !HIST;
+  if(!HIST){
+    // The history file is saved by the next alerts job run. Until then use what the alerts file keeps: every open trade and the recent closed ones.
+    const PER = { '1H': HOUR, '4H': 4 * HOUR, '1D': DAY, '1W': 7 * DAY };
+    TFS.forEach(tf => { const d = (MAIN.timeframes || {})[tf]; if(!d) return; const per = PER[tf];
+      (d.trades || []).forEach(t => T.push({ tf, per, sys: t.system || '20/10', sym: t.symbol, side: t.side === 'long' ? 1 : -1, eE: t.entryTime + per, eX: t.exitTime ? t.exitTime + per : 0, pct: t.status === 'closed' ? t.resultPct : null, reason: t.exitReason === 'stop' ? 2 : 1, ep: t.status === 'open' ? t.entryClose : null, open: t.status === 'open' })); });
+    refreshLive(); return;
+  }
   TFS.forEach(tf => {
     const h = HIST.tfs && HIST.tfs[tf]; if(!h) return;
     h.trades.forEach(a => {
@@ -221,10 +234,11 @@ function refreshLive(){
 }
 
 /* ---------------- filters, buckets, stats ---------------- */
-const filt = () => T.filter(t => (S.strat === 'all' || t.sys === S.strat) && (S.tf === 'all' || t.tf === S.tf));
+const filt = () => T.filter(t => (S.strat === 'all' || t.sys === S.strat) && tfSel().includes(t.tf));
 const covStart = () => {
-  if(!HIST) return 0;
-  const tfs = S.tf === 'all' ? TFS : [S.tf]; let s = 0;
+  const KEEP = { '1H': DAY, '4H': 2 * DAY, '1D': 7 * DAY, '1W': 28 * DAY };
+  const tfs = tfSel(); let s = 0;
+  if(!HIST){ tfs.forEach(tf => { s = Math.max(s, Date.now() - KEEP[tf]); }); return s; }
   tfs.forEach(tf => { const h = HIST.tfs && HIST.tfs[tf]; if(!h) return; s = Math.max(s, Date.now() - h.historyDays * DAY + 80 * h.periodMs); });
   return s;
 };
@@ -381,7 +395,7 @@ const delta = (a, b, inv, d = 0, suf = '') => { if(!Number.isFinite(a) || !Numbe
 function renderFilters(){
   $('fPeriod').innerHTML = ['day', 'week', 'month'].map(p => `<button class="chip${S.period === p ? ' on' : ''}" data-p="${p}">${p === 'day' ? 'Daily' : p === 'week' ? 'Weekly' : 'Monthly'}</button>`).join('');
   $('fStrat').innerHTML = [['all', 'All strategies'], ['20/10', 'Donchian 20/10'], ['55/20', 'Donchian 55/20'], ['Ichimoku', 'Ichimoku']].map(a => `<button class="chip${S.strat === a[0] ? ' on' : ''}" data-s="${a[0]}">${a[1]}</button>`).join('');
-  $('fTf').innerHTML = [['all', 'All timeframes']].concat(TFS.map(t => [t, TFNAME[t]])).map(a => `<button class="chip${S.tf === a[0] ? ' on' : ''}" data-t="${a[0]}">${a[1]}</button>`).join('');
+  $('fTf').innerHTML = [['all', 'All timeframes']].concat(SHOW_1H ? [['ex1h', 'All except 1H']] : []).concat(TFS.map(t => [t, TFNAME[t]])).map(a => `<button class="chip${S.tf === a[0] ? ' on' : ''}" data-t="${a[0]}">${a[1]}</button>`).join('');
   $('fNav').innerHTML = [['sOver', 'Overview'], ['sFlow', 'Activity'], ['sStrat', 'Strategies'], ['sCoin', 'Coins'], ['sRz', 'Retracement'], ['sIns', 'Insights']].map(a => `<button class="chip nav" data-n="${a[0]}">${a[1]}</button>`).join('');
 }
 
@@ -389,7 +403,7 @@ let VIEW = null;
 function render(){
   renderFilters();
   const st = $('status');
-  if(!MAIN || !HIST){
+  if(!MAIN){
     st.innerHTML = `<span class="dot err"></span><span>${esc(loadErr || 'Loading…')}</span>`;
     $('main').innerHTML = `<div class="empty">${esc(loadErr || 'Loading the report…')}</div>`;
     return;
@@ -409,7 +423,8 @@ function render(){
   const partialWarn = cur.b.s < cs ? `<div class="tip amb">Part of this ${unit} is older than the history depth for this timeframe, so its numbers are incomplete.</div>` : '';
 
   /* ---- overview ---- */
-  let h = `<section id="sOver"><div class="card"><div class="h"><b>${esc(pTitle(cur.b, isLast))}</b><i>${S.strat === 'all' ? 'all strategies' : esc(SNAME[S.strat])} · ${S.tf === 'all' ? 'all timeframes' : esc(TFNAME[S.tf])}</i></div>
+  let h = LIMITED ? `<div class="card" style="border-color:rgba(245,166,35,.4);background:rgba(245,166,35,.06)"><div class="sub" style="margin:0;color:#c8ccd6"><b class="amb">Limited history for now.</b> Showing the open trades and the recently closed ones kept in the alerts file. The full history is saved by the alerts job and appears after its next run; this page then fills in by itself.</div></div>` : '';
+  h += `<section id="sOver"><div class="card"><div class="h"><b>${esc(pTitle(cur.b, isLast))}</b><i>${S.strat === 'all' ? 'all strategies' : esc(SNAME[S.strat])} · ${esc(tfLabel())}</i></div>
     <p class="sub">Tap any bar in the charts below to switch the period. Every number is recomputed from the latest alerts each time this page refreshes.</p>
     <div class="grid g2 g3d">
       <div class="kpi"><div class="k">New trades</div><div class="v">${cur.opened.length}</div><div class="d"><span class="pos">${cur.oL} long</span> · <span class="neg">${cur.oS} short</span><br>${prev ? delta(cur.opened.length, prev.opened.length, false) : ''}</div></div>
@@ -457,15 +472,15 @@ function render(){
   });
   h += `</div>`;
   // strategy x timeframe heatmap (whole history, ignores the timeframe filter)
-  const heat = STRATS.filter(sy => S.strat === 'all' || S.strat === sy).map(sy => `<tr><td class="lb" style="color:${SCOL[sy]}">${esc(SNAME[sy].replace('Donchian ', 'D '))}</td>${TFS.map(tf => {
+  const heat = STRATS.filter(sy => S.strat === 'all' || S.strat === sy).map(sy => `<tr><td class="lb" style="color:${SCOL[sy]}">${esc(SNAME[sy].replace('Donchian ', 'D '))}</td>${tfSel().map(tf => {
     const x = stats(T.filter(t => t.sys === sy && t.tf === tf));
     if(!x.n) return '<td><span class="mut">—</span></td>';
     const g = Math.max(-1, Math.min(1, x.exp / 5)), bg = g >= 0 ? `rgba(53,224,192,${.08 + g * .42})` : `rgba(255,84,112,${.08 - g * .42})`;
     return `<td style="background:${bg}">${fmtPct(x.exp, 1)}<small>${x.wr.toFixed(0)}% · ${x.n}</small></td>`; }).join('')}</tr>`).join('');
   h += `<div class="card"><div class="h"><b>Where each strategy works</b><i>expectancy per trade, win rate, trades</i></div><p class="sub">Whole history window. Greener means a better average result per closed trade.</p>
-    <table class="hm"><thead><tr><th></th>${TFS.map(tf => `<th>${TFNAME[tf]}</th>`).join('')}</tr></thead><tbody>${heat}</tbody></table></div>`;
+    <table class="hm"><thead><tr><th></th>${tfSel().map(tf => `<th>${TFNAME[tf]}</th>`).join('')}</tr></thead><tbody>${heat}</tbody></table></div>`;
   // breadth
-  const lean = STRATS.filter(sy => S.strat === 'all' || S.strat === sy).map(sy => TFS.filter(tf => S.tf === 'all' || S.tf === tf).map(tf => {
+  const lean = STRATS.filter(sy => S.strat === 'all' || S.strat === sy).map(sy => tfSel().map(tf => {
     const o = T.filter(t => t.open && t.sys === sy && t.tf === tf), L = o.filter(t => t.side > 0).length, Sh = o.length - L, tot = Math.max(1, L + Sh);
     return `<div class="row"><span class="nm" style="min-width:104px;color:${SCOL[sy]}">${esc(SNAME[sy].replace('Donchian ', 'D '))}<small>${TFNAME[tf]}</small></span><div class="grow"><div class="bar"><i style="width:${L / tot * 100}%;background:${COL.long}"></i><i style="width:${Sh / tot * 100}%;background:${COL.short}"></i></div></div><span class="mono" style="font-size:11px;min-width:64px;text-align:right"><span class="pos">${L}</span> / <span class="neg">${Sh}</span></span></div>`; }).join('')).join('');
   h += `<div class="card"><div class="h"><b>Market lean</b><i>open trades, long / short</i></div><p class="sub">Which way the top 50 coins are leaning on every strategy and timeframe right now.</p>${lean || '<div class="empty">No open trades.</div>'}</div>`;
@@ -520,7 +535,7 @@ function render(){
   h += `<section id="sIns"><div class="card"><div class="h"><b>Insights</b><i>written from the numbers above</i></div>${ins.map(i => `<div class="ins"><div class="ic">${i[0]}</div><div><b>${i[1]}</b><span>${i[2]}</span></div></div>`).join('')}</div></section>`;
 
   $('main').innerHTML = h;
-  const depth = TFS.map(tf => { const x = HIST.tfs[tf]; return x ? `${TFNAME[tf]} ${Math.round(x.historyDays)}d` : ''; }).filter(Boolean).join(' · ');
+  const depth = !HIST ? 'recent trades only' : tfSel().map(tf => { const x = HIST.tfs[tf]; return x ? `${TFNAME[tf]} ${Math.round(x.historyDays)}d` : ''; }).filter(Boolean).join(' · ');
   $('foot').innerHTML = `<b>How to read this.</b> Every trade is recomputed from candle history by the alerts job (close-to-close, no fees, no funding), so results are indicative, not live trading results. History depth: ${depth}; the first ~80 candles of each are warm-up, so earlier periods are faded. "New" means the trade's entry candle closed inside the period, "already open" means it was entered before the period started. Retracement is a state, not a trade, so it has no history. This report rebuilds itself whenever the alerts file changes.`;
 }
 
@@ -538,9 +553,9 @@ function insights(V, cs){
     if(wl.length > 1) out.push(['🏆', `Open winner: ${wl[0].sym} ${fmtPct(wl[0].upl, 1)}`, `${SNAME[wl[0].sys]} ${wl[0].side > 0 ? 'long' : 'short'} on ${TFNAME[wl[0].tf]}. The weakest open trade is ${wl[wl.length - 1].sym} at ${fmtPct(wl[wl.length - 1].upl, 1)} (${SNAME[wl[wl.length - 1].sys]} ${TFNAME[wl[wl.length - 1].tf]}).`]);
     const old = openNow.slice().sort((a, b) => a.eE - b.eE)[0]; if(old && cs && old.eE > cs) out.push(['⏳', `Longest open: ${old.sym}`, `${SNAME[old.sys]} ${old.side > 0 ? 'long' : 'short'} on ${TFNAME[old.tf]}, open for ${dur(Date.now() - old.eE)}.`]);
   }
-  const rank = STRATS.map(sy => ({ sy, s: stats(T.filter(t => t.sys === sy)) })).filter(x => x.s.n >= 8).sort((a, b) => b.s.exp - a.s.exp);
+  const rank = STRATS.map(sy => ({ sy, s: stats(T.filter(t => t.sys === sy && tfSel().includes(t.tf))) })).filter(x => x.s.n >= 8).sort((a, b) => b.s.exp - a.s.exp);
   if(rank.length > 1) out.push(['🥇', `${SNAME[rank[0].sy]} has the best expectancy`, `${fmtPct(rank[0].s.exp)} per trade over ${rank[0].s.n} closed trades (${rank[0].s.wr.toFixed(0)}% win rate). ${SNAME[rank[rank.length - 1].sy]} is lowest at ${fmtPct(rank[rank.length - 1].s.exp)}.`]);
-  const byTf = TFS.map(tf => ({ tf, s: stats(F.filter(t => t.tf === tf)) })).filter(x => x.s.n >= 6).sort((a, b) => b.s.exp - a.s.exp);
+  const byTf = tfSel().map(tf => ({ tf, s: stats(F.filter(t => t.tf === tf)) })).filter(x => x.s.n >= 6).sort((a, b) => b.s.exp - a.s.exp);
   if(byTf.length > 1) out.push(['⏱️', `${TFNAME[byTf[0].tf]} works best here`, `${fmtPct(byTf[0].s.exp)} per trade, versus ${fmtPct(byTf[byTf.length - 1].s.exp)} on ${TFNAME[byTf[byTf.length - 1].tf]} (current filter).`]);
   const al = []; TFS.forEach(tf => { if(tf !== '1H') ((RZ && RZ[tf]) || []).filter(x => x.aligned).forEach(x => al.push(x.r.symbol + ' ' + TFNAME[tf])); });
   out.push(['🎯', al.length ? `${al.length} retracement setup${al.length === 1 ? '' : 's'} fit an open trade` : 'No retracement setups fit an open trade right now', al.length ? al.slice(0, 8).join(', ') + (al.length > 8 ? ' and more' : '') + '. A pullback into support for a long, or a bounce into resistance for a short.' : 'Either nothing is near a 50% / 61.8% level, or the zone is against the open trades.']);
@@ -551,7 +566,7 @@ function insights(V, cs){
 function summaryText(){
   if(!VIEW) return '';
   const { cur, openNow, uplAvg, ins } = VIEW, isLast = VIEW.sel === VIEW.BS.length - 1;
-  const lines = [`TradeSphere alerts report: ${pTitle(cur.b, isLast)}`, `${S.strat === 'all' ? 'All strategies' : SNAME[S.strat]}, ${S.tf === 'all' ? 'all timeframes' : TFNAME[S.tf]}`, '',
+  const lines = [`TradeSphere alerts report: ${pTitle(cur.b, isLast)}`, `${S.strat === 'all' ? 'All strategies' : SNAME[S.strat]}, ${tfLabel()}`, '',
     `New trades: ${cur.opened.length} (${cur.oL} long, ${cur.oS} short)`, `Closed: ${cur.closed.length} (${cur.st.w} won, ${cur.st.l} lost${Number.isFinite(cur.st.wr) ? ', ' + cur.st.wr.toFixed(0) + '% win rate' : ''}), net ${cur.st.n ? fmtPct(cur.st.net, 1) : 'n/a'}`,
     `Open now: ${openNow.length} (${cur.newOpen.length} new this ${S.period}, ${cur.carried} already open), average live P/L ${fmtPct(uplAvg)}`, ''];
   (ins || []).forEach(i => lines.push(`${i[0]} ${i[1]}: ${i[2]}`));
