@@ -3647,20 +3647,21 @@ const AlertsPanel = (() => {
       (tfd.forming || []).filter(f => f.symbol === coinSym).forEach(f => items.push({ tf, strat: stratOf(f), x: f, forming: true, ts: f.detectedAt || f.candleTime }));
     });
     newKeys = new Set(Object.values(newByTf).flatMap(set => [...set]));   // anything that was flagged new during this visit
-    const names = { donchian: 'Donchian', ichimoku: 'Ichimoku' };
-    const order = coinFirst === 'ichimoku' ? ['ichimoku', 'donchian'] : ['donchian', 'ichimoku'];
-    const counts = {};
+    // Open trades of every strategy first, then the unconfirmed signals, and the closed trades last. Inside each group the
+    // strategy you came from is listed first, then newest first.
+    const rank = it => (it.strat === coinFirst ? 0 : 1);
+    const byRank = (a, b) => rank(a) - rank(b) || b.ts - a.ts;
+    const groups = [
+      ['coin-open', '\u2705', 'var(--accent)', 'Open trades', items.filter(it => !it.forming && it.x.status === 'open').sort(byRank)],
+      ['coin-unconf', '\u23f3', 'var(--amber)', 'Not confirmed yet', items.filter(it => it.forming).sort(byRank)],
+      ['coin-closed', '\ud83d\udd12', 'var(--blue)', 'Closed', items.filter(it => !it.forming && it.x.status === 'closed').sort((a, b) => b.ts - a.ts)],
+    ];
     let i = 0;
-    const cards = order.map(st => {
-      const list = items.filter(it => it.strat === st).sort((a, b) => b.ts - a.ts);
-      counts[st] = list.length;
-      if(!list.length) return '';                // a strategy with nothing for this coin is not shown
-      const body = list.map(it => it.forming ? formingRowHtml(it.x, it.tf, i++) : rowHtml(it.x, it.tf, i++)).join('');
-      return groupCard('coin-' + st, st === 'ichimoku' ? '☁️' : '📈', st === 'ichimoku' ? 'var(--violet)' : 'var(--accent)', `${names[st]} · ${esc(coinSym)}`, list.length, body);
-    });
+    const cards = groups.filter(g => g[4].length).map(g => groupCard(g[0], g[1], g[2], `${g[3]} \u00b7 ${esc(coinSym)}`, g[4].length,
+      g[4].map(it => it.forming ? formingRowHtml(it.x, it.tf, i++) : rowHtml(it.x, it.tf, i++)).join('')));
     grid.innerHTML = cards.join('') || `<div class="alerts-empty" style="grid-column:1/-1;">No alerts for ${esc(coinSym)} right now.</div>`;
-    coinMetaText = `${coinSym} · ${items.length} alert${items.length === 1 ? '' : 's'} · ${order.filter(st => counts[st]).map(st => names[st] + ' ' + counts[st]).join(' · ')}`;
-    coinName.textContent = 'Newest first' + (order.every(st => counts[st]) ? `, ${names[order[0]]} then ${names[order[1]]}` : '');
+    coinMetaText = `${coinSym} \u00b7 ${items.length} alert${items.length === 1 ? '' : 's'}` + groups.filter(g => g[4].length).map(g => ` \u00b7 ${g[4].length} ${g[3].toLowerCase()}`).join('');
+    coinName.textContent = 'Open trades first, closed last';
     setHeader();
     updateToggleAll();
   }
