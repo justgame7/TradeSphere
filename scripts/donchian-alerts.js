@@ -335,6 +335,71 @@ function formingIchimoku(closed, forming, trades, periodMs) {
   return out.map((o) => ({ ...o, candleTime: forming.t, closesAt: forming.t + periodMs }));
 }
 
+// ---------------- Bullish CHoCH (long only, 4H and Daily) ----------------
+// Same swing and bias definitions as the app's Market Structure card: a swing high / low is a strict fractal (3 candles each side,
+// confirmed 3 candles later); bias is Bullish when the last two swing highs AND lows are rising, Bearish when both are falling.
+// A Bullish CHoCH is the first CLOSE above the last swing high while the bias is Bearish (price breaks the downtrend's structure).
+// Entry: the close of that candle. Stop loss: the last swing low at entry (fixed, checked on closes). Exit, per timeframe (from the backtest):
+//   1D: 'struct'  trailing stop = the newest confirmed swing low formed after entry (never lowered)
+//   4H: 'trail'   a close below the lowest low of the previous 10 candles (or below the stop loss)
+// A swing level only counts the first time it is broken. Backtest (50 coins, ~3 years): Daily +10% per trade, 4H about +0.2 to +1%.
+const CHOCH_TFS = { '4H': 'trail', '1D': 'struct' };
+const CHOCH_SPAN = 3, CHOCH_TRAIL = 10, CHOCH_MIN_BARS = 60;
+
+function chochRun(c, mode) {
+  const n = c.length, sh = [], sl = [], broken = new Set(), trades = [];
+  let pos = null;
+  const bias = () => {
+    if (sh.length < 2 || sl.length < 2) return 'Range';
+    const h1 = sh[sh.length - 2].p, h2 = sh[sh.length - 1].p, l1 = sl[sl.length - 2].p, l2 = sl[sl.length - 1].p;
+    return h2 > h1 && l2 > l1 ? 'Bullish' : (h2 < h1 && l2 < l1 ? 'Bearish' : 'Range');
+  };
+  const trailLow = (i) => { let l = Infinity; for (let j = i - CHOCH_TRAIL; j < i; j++) if (c[j].low < l) l = c[j].low; return l; };
+  const stopFor = (i) => (mode === 'struct' ? pos.stop : Math.max(pos.stop0, trailLow(i)));
+  for (let i = 2 * CHOCH_SPAN + 20; i < n; i++) {
+    const p = i - CHOCH_SPAN;
+    let isH = true, isL = true;
+    for (let j = p - CHOCH_SPAN; j <= p + CHOCH_SPAN; j++) { if (j === p) continue; if (c[j].high >= c[p].high) isH = false; if (c[j].low <= c[p].low) isL = false; }
+    if (isH) sh.push({ idx: p, p: c[p].high });
+    if (isL) sl.push({ idx: p, p: c[p].low });
+    const k = c[i];
+    if (pos) {
+      if (mode === 'struct') for (let j = sl.length - 1; j >= 0; j--) { if (sl[j].idx <= pos.i) break; if (sl[j].p > pos.stop) pos.stop = sl[j].p; }
+      const stop = stopFor(i);
+      if (k.close < stop) {
+        trades.push({ entryTime: pos.t, entryClose: pos.e, entryLevel: pos.level, sl: pos.stop0, status: 'closed', exitTime: k.t, exitClose: k.close, exitLevel: stop,
+          exitReason: stop > pos.stop0 + 1e-12 ? 'trail' : 'stop', resultPct: (k.close - pos.e) / pos.e * 100 });
+        pos = null;
+      }
+      continue;
+    }
+    if (!sh.length || !sl.length) continue;
+    const lastH = sh[sh.length - 1], lastL = sl[sl.length - 1];
+    let fire = k.close > lastH.p && !broken.has('H' + lastH.idx) && bias() === 'Bearish';
+    if (k.close > lastH.p) broken.add('H' + lastH.idx);
+    if (k.close < lastL.p) broken.add('L' + lastL.idx);
+    if (fire && lastL.p < k.close) pos = { e: k.close, t: k.t, i, level: lastH.p, stop0: lastL.p, stop: lastL.p };
+  }
+  const open = pos ? { entryTime: pos.t, entryClose: pos.e, entryLevel: pos.level, sl: pos.stop0, status: 'open', stop: stopFor(n) } : null;
+  return { trades, open, sh, sl, broken, bias };
+}
+
+// The still-open candle: is it already closing above the last swing high in a bearish structure (entry), or below the stop of an open trade (exit)?
+function chochForming(run, forming, periodMs) {
+  if (!forming) return [];
+  const px = forming.close, out = [];
+  if (run.open) {
+    if (px < run.open.stop) {
+      out.push({ kind: 'exit', side: 'long', price: px, level: run.open.stop, exitReason: run.open.stop > run.open.sl + 1e-12 ? 'trail' : 'stop',
+        entryTime: run.open.entryTime, entryClose: run.open.entryClose, resultPct: (px - run.open.entryClose) / run.open.entryClose * 100 });
+    }
+  } else if (run.sh.length && run.sl.length) {
+    const lastH = run.sh[run.sh.length - 1], lastL = run.sl[run.sl.length - 1];
+    if (px > lastH.p && !run.broken.has('H' + lastH.idx) && run.bias() === 'Bearish' && lastL.p < px) out.push({ kind: 'entry', side: 'long', price: px, level: lastH.p, sl: lastL.p });
+  }
+  return out.map((o) => ({ ...o, candleTime: forming.t, closesAt: forming.t + periodMs }));
+}
+
 // ---------------- Retracement zone reference (not a strategy: no trades, just the swing levels) ----------------
 // Same maths as the 50% / 61.8% retracement screen in screener.html and screen.js:
 //   - swing points: a pivot high/low must be strictly beyond the wicks of the 3 candles on each side (RZ_SPAN)
@@ -460,6 +525,30 @@ function scanCoin(coin, data, tf) {
       sl: f.sl == null ? null : round(f.sl), exitReason: f.exitReason || null,
     }));
   }
+  // Bullish CHoCH (long only; 4H and Daily)
+  if (CHOCH_TFS[tf.label] && candles.length >= CHOCH_MIN_BARS) {
+    const run = chochRun(candles, CHOCH_TFS[tf.label]);
+    const walkedC = run.trades.concat(run.open ? [run.open] : []);
+    walkedC.forEach((t) => {
+      addHist('CHoCH', t, 'long');
+      if (t.status === 'closed' && t.exitTime < keepFrom) return;
+      trades.push({
+        system: 'CHoCH', symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, side: 'long', status: t.status,
+        entryTime: t.entryTime, entryClose: round(t.entryClose), entryLevel: round(t.entryLevel),
+        exitTime: t.exitTime || null, exitClose: round(t.exitClose), exitLevel: round(t.exitLevel),
+        resultPct: t.status === 'closed' ? +t.resultPct.toFixed(2) : null,
+        lastClose: round(last.close), lastTime: last.t,
+        unrealizedPct: t.status === 'open' ? +((last.close - t.entryClose) / t.entryClose * 100).toFixed(2) : null,
+        stop: t.status === 'open' ? round(t.stop) : null, sl: round(t.sl), exitReason: t.exitReason || null,
+      });
+    });
+    chochForming(run, data.forming, tf.periodMs).forEach((f) => forming.push({
+      system: 'CHoCH', symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, side: 'long', kind: f.kind,
+      candleTime: f.candleTime, closesAt: f.closesAt, price: round(f.price), level: round(f.level),
+      entryTime: f.entryTime || null, entryClose: round(f.entryClose), resultPct: f.resultPct == null ? null : +f.resultPct.toFixed(2),
+      stop: null, sl: f.sl == null ? null : round(f.sl), exitReason: f.exitReason || null,
+    }));
+  }
   const rz = retraceLeg(candles);
   const retrace = rz ? {
     symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, dir: rz.dir,
@@ -498,7 +587,7 @@ async function main() {
 
   const next = {
     updated: new Date().toISOString(),
-    rules: { systems: SYSTEMS },
+    rules: { systems: SYSTEMS, choch: { timeframes: CHOCH_TFS, span: CHOCH_SPAN } },
     universe: { source: 'CoinGecko market-cap ranking excluding stablecoins, first 50 listed on CoinDCX as USDT perps; candles from CoinDCX', updated: universe.updated, scanned: universe.coins.length, skipped: universe.skipped },
     timeframes: { ...((prev && prev.timeframes) || {}) },
   };

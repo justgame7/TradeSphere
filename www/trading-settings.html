@@ -297,7 +297,7 @@
       let m = {};
       try{ m = JSON.parse(localStorage.getItem(ALERTS_SEEN_STORAGE_KEY) || '{}') || {}; }catch(e){ m = {}; }
       const now = Date.now();
-      timeframes.forEach(tf => ['donchian', 'ichimoku'].forEach(st => { m[st + '|' + tf] = now; }));
+      timeframes.forEach(tf => ['donchian', 'ichimoku', 'choch'].forEach(st => { m[st + '|' + tf] = now; }));
       localStorage.setItem(ALERTS_SEEN_STORAGE_KEY, JSON.stringify(m));
     }catch(e){}
   }

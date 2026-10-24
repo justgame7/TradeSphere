@@ -1969,6 +1969,7 @@
         <div class="analysis-tf-toggle" id="alertsStratRow" title="Strategy">
           <button type="button" data-strat="donchian" class="active">Donchian</button>
           <button type="button" data-strat="ichimoku">Ichimoku</button>
+          <button type="button" data-strat="choch">CHoCH</button>
           <button type="button" data-strat="retrace">Retracement</button>
         </div>
         <div class="analysis-tf-toggle" id="alertsSysRow" title="Show one Donchian system or both">
@@ -3031,9 +3032,10 @@ const AlertsPanel = (() => {
 
   const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const sysOf = x => x.system || '20/10';   // files written before the 55/20 system existed are all 20/10
-  const stratOf = x => (sysOf(x) === 'Ichimoku' ? 'ichimoku' : 'donchian');
+  const stratOf = x => { const sy = sysOf(x); return sy === 'Ichimoku' ? 'ichimoku' : sy === 'CHoCH' ? 'choch' : 'donchian'; };   // 'choch' = Bullish CHoCH (long only, 4H and Daily)
+  const sysLabel = x => (sysOf(x) === 'CHoCH' ? 'Bull CHoCH' : sysOf(x));
   // Is this alert part of what the toggles currently select?
-  const okItem = x => stratOf(x) === strategy && (strategy === 'ichimoku' || sysFilter === 'all' || sysOf(x) === sysFilter);
+  const okItem = x => stratOf(x) === strategy && (strategy !== 'donchian' || sysFilter === 'all' || sysOf(x) === sysFilter);
   const key = (tf, t) => `${tf}|${sysOf(t)}|${t.symbol}|${t.side}|${t.entryTime}|${t.status === 'closed' ? 'c' : 'o'}`;
   // Unconfirmed (still-open candle) signals get their own keys, ending in '|u'.
   const fkey = (tf, f) => `${tf}|${sysOf(f)}|${f.symbol}|${f.side}|${f.kind}|${f.candleTime}|u`;
@@ -3059,7 +3061,7 @@ const AlertsPanel = (() => {
     if(!data || !data.timeframes) return [];
     const m = loadSeenMap();
     let changed = false;
-    Object.keys(data.timeframes).filter(k => k !== '1H' || show1H()).forEach(k => ['donchian', 'ichimoku'].forEach(st => {
+    Object.keys(data.timeframes).filter(k => k !== '1H' || show1H()).forEach(k => ['donchian', 'ichimoku', 'choch'].forEach(st => {
       const sk = seenKey(st, k);
       if(!Number.isFinite(m[sk])){
         // earlier versions stored Donchian-only seen times under the bare timeframe name; otherwise nothing is new the first time
@@ -3159,17 +3161,17 @@ const AlertsPanel = (() => {
     const nowPx = Number.isFinite(lp) ? lp : t.lastClose;
     const pct = open ? (Number.isFinite(lp) ? pctFor('open', t.side, t.entryClose, t.entryLevel, lp) : t.unrealizedPct) : t.resultPct;
     const cls = Number.isFinite(pct) ? (pct >= 0 ? 'pos' : 'neg') : '';
-    const ichi = sysOf(t) === 'Ichimoku';
-    const lvlName = ichi ? (t.trigger === 'CK' ? 'Chikou-bar cloud ' : 'cloud ') + (long ? 'top' : 'bottom') + ' ' : '';
+    const ichi = sysOf(t) === 'Ichimoku', choch = sysOf(t) === 'CHoCH';
+    const lvlName = ichi ? (t.trigger === 'CK' ? 'Chikou-bar cloud ' : 'cloud ') + (long ? 'top' : 'bottom') + ' ' : choch ? 'swing high ' : '';
     const lines = open
-      ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${lvlName}${fmtPx(t.entryLevel)} &middot; now <b class="px-now">${fmtPx(nowPx)}</b>${ichi && Number.isFinite(t.sl) ? `<br>Stop loss <b>${fmtPx(t.sl)}</b>` : ''}</div>`
-      : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}${ichi ? (t.exitReason === 'stop' ? `<br>Stopped out: closed ${long ? 'below' : 'above'} stop loss ${fmtPx(t.exitLevel)}` : `<br>Closed ${long ? 'below' : 'above'} Kijun ${fmtPx(t.exitLevel)}`) : ''}</div>`;
+      ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${lvlName}${fmtPx(t.entryLevel)} &middot; now <b class="px-now">${fmtPx(nowPx)}</b>${(ichi || choch) && Number.isFinite(t.sl) ? `<br>Stop loss <b>${fmtPx(t.sl)}</b>` : ''}${choch && Number.isFinite(t.stop) ? ` &middot; trailing stop <b>${fmtPx(t.stop)}</b>` : ''}</div>`
+      : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}${(ichi || choch) ? (t.exitReason === 'stop' ? `<br>Stopped out: closed ${long ? 'below' : 'above'} stop loss ${fmtPx(t.exitLevel)}` : `<br>Closed ${long ? 'below' : 'above'} ${ichi ? 'Kijun' : 'the trailing stop'} ${fmtPx(t.exitLevel)}`) : ''}</div>`;
     return `<div class="alert-row${isNew ? ' is-new' : ''}" data-sym="${esc(t.symbol)}"${open ? ` data-live="open" data-side="${t.side}" data-entry="${t.entryClose}" data-level="${t.entryLevel}"` : ''} role="button" tabindex="0" title="Open ${esc(t.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
       <div class="alert-main">
         <div class="alert-top">
           <span class="alert-sym">${esc(t.symbol)}</span>${mult}
           <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
-          ${coinSym ? `<span class="alert-pill tfp">${esc(tf)}</span>` : ''}<span class="alert-pill sys">${esc(sysOf(t))}</span>${ichi && t.trigger ? `<span class="alert-pill sys">${esc(t.trigger)}</span>` : ''}
+          ${coinSym ? `<span class="alert-pill tfp">${esc(tf)}</span>` : ''}<span class="alert-pill sys">${esc(sysLabel(t))}</span>${ichi && t.trigger ? `<span class="alert-pill sys">${esc(t.trigger)}</span>` : ''}
           <span class="alert-pill ${open ? 'confirmed' : 'closed'}">${open ? 'Confirmed' : 'Closed'}</span>
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
@@ -3292,6 +3294,15 @@ const AlertsPanel = (() => {
     const markers = [];
     if(o.ichi){
       line(ich.tenkan, '#ff5470'); line(ich.kijun, '#5b8cff', false, 1.6);
+    }else if(o.choch){
+      // swing highs / lows (strict fractals, 3 candles each side, the app's Market Structure definition)
+      for(let i = start; i < n - 3; i++){
+        if(i < 3) continue; let hi = true, lo = true;
+        for(let j = i - 3; j <= i + 3; j++){ if(j === i) continue; if(all[j].high >= all[i].high) hi = false; if(all[j].low <= all[i].low) lo = false; }
+        const bi = i - start;
+        if(hi){ ctx.fillStyle = '#c9d3e6'; ctx.beginPath(); ctx.moveTo(x(bi) - 3.5, y(all[i].high) - 9); ctx.lineTo(x(bi) + 3.5, y(all[i].high) - 9); ctx.lineTo(x(bi), y(all[i].high) - 3); ctx.closePath(); ctx.fill(); }
+        if(lo){ ctx.fillStyle = '#c9d3e6'; ctx.beginPath(); ctx.moveTo(x(bi) - 3.5, y(all[i].low) + 9); ctx.lineTo(x(bi) + 3.5, y(all[i].low) + 9); ctx.lineTo(x(bi), y(all[i].low) + 3); ctx.closePath(); ctx.fill(); }
+      }
     }else{
       const TA = window.TechAnalysis, en = TA.donchianSeries(all, o.sys.entry), ex = TA.donchianSeries(all, o.sys.exit);
       line(o.long ? en.high : en.low, '#26C6DA', true); line(o.long ? ex.low : ex.high, '#FF9800', true);
@@ -3301,7 +3312,7 @@ const AlertsPanel = (() => {
         markers.push({ bi, entry: sg.type === 'entry', bar: all[sg.i] });
       });
     }
-    if(!o.sys){ /* Ichimoku: mark just this trade */
+    if(!o.sys){ /* Ichimoku and CHoCH: mark just this trade */
       if(o.entryTime){ const bi = idx(o.entryTime); if(bi >= 0) markers.push({ bi, entry: true, bar: bars[bi] }); }
       if(o.exitTime){ const bi = idx(o.exitTime); if(bi >= 0) markers.push({ bi, entry: false, bar: bars[bi] }); }
     }
@@ -3332,42 +3343,45 @@ const AlertsPanel = (() => {
   }
   function openChart(id){
     const it = chartReg[id]; if(!it) return;
-    const x = it.x, tf = it.tf, long = x.side === 'long', ichi = sysOf(x) === 'Ichimoku';
+    const x = it.x, tf = it.tf, long = x.side === 'long', ichi = sysOf(x) === 'Ichimoku', choch = sysOf(x) === 'CHoCH', slk = ichi || choch;
     const lp = livePx(x.symbol);
-    const sysName = ichi ? 'Ichimoku' + (x.trigger ? ' ' + x.trigger : '') : 'Donchian ' + sysOf(x);
+    const sysName = ichi ? 'Ichimoku' + (x.trigger ? ' ' + x.trigger : '') : choch ? 'Bullish CHoCH' : 'Donchian ' + sysOf(x);
     const [, eM] = String(sysOf(x)).split('/');
-    const stopName = ichi ? 'Kijun' : `the ${eM}-bar ${long ? 'low' : 'high'}`;
+    const stopName = ichi ? 'Kijun' : choch ? 'the trailing stop' : `the ${eM}-bar ${long ? 'low' : 'high'}`;
     const pctOf = (from, to) => (long ? to - from : from - to) / from * 100;
     const GREEN = 'var(--accent)', RED = 'var(--red)', BLUE = 'var(--blue)', AMBER = 'var(--amber)', TXT = 'var(--text)';
     let levels = [], facts = [], cur = 0, title = '', note = '';
     if(it.kind === 'closed'){
       title = 'Closed trade';
       levels = [{ k: 'entry', label: 'Entry', v: x.entryClose, c: BLUE }, { k: 'now', label: 'Exit', v: x.exitClose, c: x.resultPct >= 0 ? GREEN : RED }];
-      if(Number.isFinite(x.exitLevel)) levels.push({ k: 'stop', label: ichi ? (x.exitReason === 'stop' ? 'Stop loss' : 'Kijun') : 'Exit level', v: x.exitLevel, c: x.exitReason === 'stop' ? RED : AMBER });
+      if(Number.isFinite(x.exitLevel)) levels.push({ k: 'stop', label: slk ? (x.exitReason === 'stop' ? 'Stop loss' : ichi ? 'Kijun' : 'Trail stop') : 'Exit level', v: x.exitLevel, c: x.exitReason === 'stop' ? RED : AMBER });
       cur = x.resultPct;
       facts = [['Entry', fmtPx(x.entryClose) + ' &middot; ' + esc(fmtTime(x.entryTime, tf))], ['Exit', fmtPx(x.exitClose) + ' &middot; ' + esc(fmtTime(x.exitTime, tf))], ['Result', `<span class="${x.resultPct >= 0 ? 'pos' : 'neg'}">${fmtPct(x.resultPct)}</span>`]];
-      note = (ichi && x.exitReason === 'stop' ? 'Stopped out: a candle closed ' + (long ? 'below' : 'above') + ' the stop loss (0.5 x ATR ' + (long ? 'below the cloud bottom' : 'above the cloud top') + ').' : 'Closed when a candle closed ' + (long ? 'below ' : 'above ') + stopName + '.') + ' Close to close, ignoring fees and funding.';
+      note = (choch && x.exitReason === 'stop' ? 'Stopped out: a candle closed below the stop loss, the swing low at entry.' : ichi && x.exitReason === 'stop' ? 'Stopped out: a candle closed ' + (long ? 'below' : 'above') + ' the stop loss (0.5 x ATR ' + (long ? 'below the cloud bottom' : 'above the cloud top') + ').' : 'Closed when a candle closed ' + (long ? 'below ' : 'above ') + stopName + '.') + ' Close to close, ignoring fees and funding.';
     }else if(it.kind === 'open'){
       title = 'Open trade';
       const px = Number.isFinite(lp) ? lp : x.lastClose, stop = x.stop;
       cur = pctOf(x.entryClose, px);
       levels = [{ k: 'entry', label: 'Entry', v: x.entryClose, c: BLUE }, { k: 'now', label: 'Now', v: px, c: cur >= 0 ? GREEN : RED }];
-      if(ichi && Number.isFinite(x.sl)) levels.push({ k: 'stop', label: 'Stop loss', v: x.sl, c: RED });
-      if(Number.isFinite(stop)) levels.push({ k: ichi && Number.isFinite(x.sl) ? 'kijun' : 'stop', label: ichi ? 'Kijun' : 'Stop', v: stop, c: AMBER });
+      if(choch) levels.push({ k: 'brk', label: 'Broke', v: x.entryLevel, c: '#8fb4ff' });
+      if(slk && Number.isFinite(x.sl)) levels.push({ k: 'stop', label: 'Stop loss', v: x.sl, c: RED });
+      if(Number.isFinite(stop)) levels.push({ k: slk && Number.isFinite(x.sl) ? 'kijun' : 'stop', label: ichi ? 'Kijun' : choch ? 'Trail stop' : 'Stop', v: stop, c: AMBER });
       facts = [['Entry', fmtPx(x.entryClose) + ' &middot; ' + esc(fmtTime(x.entryTime, tf))], ['Now', fmtPx(px) + ` (<span class="${cur >= 0 ? 'pos' : 'neg'}">${fmtPct(cur)}</span>)`]];
-      if(ichi && Number.isFinite(x.sl)){
+      if(slk && Number.isFinite(x.sl)){
         const slPct = pctOf(x.entryClose, x.sl), risk = Math.abs(x.entryClose - x.sl);
         facts.push(['Stop loss (fixed)', fmtPx(x.sl) + ` (${slPct >= 0 ? 'locks +' + slPct.toFixed(2) + '%' : 'risks ' + Math.abs(slPct).toFixed(2) + '%'})`]);
         facts.push(['Distance to stop loss', (long ? px > x.sl : px < x.sl) ? (Math.abs(px - x.sl) / px * 100).toFixed(2) + '%' : 'hit']);
         if(risk > 0) facts.push(['Now in R', ((long ? px - x.entryClose : x.entryClose - px) / risk).toFixed(2) + 'R']);
-        if(Number.isFinite(stop)) facts.push(['Kijun exit', fmtPx(stop)]);
+        if(Number.isFinite(stop)) facts.push([ichi ? 'Kijun exit' : 'Trailing stop', fmtPx(stop)]);
       }else if(Number.isFinite(stop)){
         const risk = Math.abs(x.entryClose - stop), locked = pctOf(x.entryClose, stop);
         facts.push(['Stop (trailing)', fmtPx(stop) + ` (${locked >= 0 ? 'locks +' + locked.toFixed(2) + '%' : 'risks ' + Math.abs(locked).toFixed(2) + '%'})`]);
         facts.push(['Distance to stop', Math.abs(px - stop) / px * 100 < 0.005 ? 'at the stop' : (long ? (px > stop ? '' : '-') : (px < stop ? '' : '-')) + (Math.abs(px - stop) / px * 100).toFixed(2) + '%']);
         if(locked < 0 && risk > 0) facts.push(['Now in R', ((long ? px - x.entryClose : x.entryClose - px) / risk).toFixed(2) + 'R']);
       }else facts.push(['Stop', 'updates on the next scan']);
-      note = ichi && Number.isFinite(x.sl)
+      note = choch && Number.isFinite(x.sl)
+        ? 'Target: none. The stop loss is fixed at entry, the last swing low. ' + (tf === '1D' ? 'The trade exits when a candle closes below the stop loss or below the newest swing low, which trails up as higher lows form.' : 'The trade exits when a candle closes below the stop loss or below the lowest low of the previous 10 candles.')
+        : ichi && Number.isFinite(x.sl)
         ? 'Target: none. The stop loss is fixed at entry, 0.5 x ATR ' + (long ? 'below the cloud bottom' : 'above the cloud top') + '. The trade exits when a candle closes ' + (long ? 'below' : 'above') + ' the stop loss or ' + (long ? 'below' : 'above') + ' Kijun, whichever comes first.'
         : 'Target: none. ' + sysName + ' has no fixed profit target. The trade is held until a candle closes ' + (long ? 'below ' : 'above ') + stopName + ', and that stop moves with every candle.';
     }else if(it.kind === 'fentry'){
@@ -3375,10 +3389,10 @@ const AlertsPanel = (() => {
       const px = Number.isFinite(lp) ? lp : x.price, stop = x.stop;
       cur = pctOf(x.level, px);
       levels = [{ k: 'entry', label: 'Broke', v: x.level, c: BLUE }, { k: 'now', label: 'Now', v: px, c: cur >= 0 ? GREEN : RED }];
-      const fsl = ichi && Number.isFinite(x.sl) ? x.sl : stop;
-      if(Number.isFinite(fsl)) levels.push({ k: 'stop', label: ichi ? 'Stop loss' : 'Stop', v: fsl, c: ichi ? RED : AMBER });
+      const fsl = slk && Number.isFinite(x.sl) ? x.sl : stop;
+      if(Number.isFinite(fsl)) levels.push({ k: 'stop', label: slk ? 'Stop loss' : 'Stop', v: fsl, c: slk ? RED : AMBER });
       facts = [['Level broken', fmtPx(x.level)], ['Now', fmtPx(px) + ` (<span class="${cur >= 0 ? 'pos' : 'neg'}">${signedPct(cur)}</span> past the level)`]];
-      if(Number.isFinite(fsl)) facts.push([ichi ? 'Stop loss if it enters' : 'Stop if it enters', fmtPx(fsl)]);
+      if(Number.isFinite(fsl)) facts.push([slk ? 'Stop loss if it enters' : 'Stop if it enters', fmtPx(fsl)]);
       note = 'Not confirmed: the candle is still open and closes ' + untilClose(x.closesAt) + '. It only counts if it closes beyond the level. Target: none.';
     }else{
       title = 'Unconfirmed exit';
@@ -3386,19 +3400,21 @@ const AlertsPanel = (() => {
       cur = pctOf(x.entryClose, px);
       levels = [{ k: 'entry', label: 'Entry', v: x.entryClose, c: BLUE }, { k: 'now', label: 'Now', v: px, c: cur >= 0 ? GREEN : RED }, { k: 'stop', label: x.exitReason === 'stop' ? 'Stop loss' : 'Stop', v: x.level, c: x.exitReason === 'stop' ? RED : AMBER }];
       facts = [['Entry', fmtPx(x.entryClose) + ' &middot; ' + esc(fmtTime(x.entryTime, tf))], [x.exitReason === 'stop' ? 'Stop loss (breached)' : 'Stop (breached)', fmtPx(x.level)], ['Now', fmtPx(px) + ` (<span class="${cur >= 0 ? 'pos' : 'neg'}">${fmtPct(cur)}</span>)`]];
-      note = 'The price is ' + (long ? 'below ' : 'above ') + (ichi && x.exitReason === 'stop' ? 'the stop loss' : stopName) + ' right now. The trade only closes if the candle closes there, in ' + untilClose(x.closesAt).replace(/^in /, '') + '.';
+      note = 'The price is ' + (long ? 'below ' : 'above ') + (slk && x.exitReason === 'stop' ? 'the stop loss' : stopName) + ' right now. The trade only closes if the candle closes there, in ' + untilClose(x.closesAt).replace(/^in /, '') + '.';
     }
     achart.querySelector('.achart-title').textContent = `${x.symbol} · ${long ? 'Long' : 'Short'} · ${title}`;
     achart.querySelector('.achart-sub').textContent = `${sysName} · ${tf}`;
-    const legend = ichi
+    const legend = choch
+      ? '<span>dots: swing highs and lows</span><span><span class="dot" style="background:rgba(46,125,91,.95)">1</span>entry</span><span><span class="dot" style="background:rgba(178,59,53,.95)">2</span>exit</span>'
+      : ichi
       ? '<span><i style="border-color:#ff5470;border-top-style:solid"></i>Tenkan</span><span><i style="border-color:#5b8cff;border-top-style:solid"></i>Kijun (exit)</span><span>shaded: cloud</span>'
       : `<span><i style="border-color:#26C6DA"></i>${esc(String(sysOf(x)).split('/')[0])}-bar ${long ? 'high' : 'low'} (entry)</span><span><i style="border-color:#FF9800"></i>${esc(eM)}-bar ${long ? 'low' : 'high'} (exit)</span><span><span class="dot" style="background:rgba(46,125,91,.95)">1</span>entry</span><span><span class="dot" style="background:rgba(178,59,53,.95)">2</span>exit</span>`;
     const myToken = ++chartToken;
     achart.querySelector('.achart-body').innerHTML = `<div class="achart-cv"><canvas></canvas><div class="achart-msg">Loading chart\u2026</div></div><div class="achart-legend">${legend}</div><ul class="achart-facts">${facts.map(f => `<li><span>${f[0]}</span><b>${f[1]}</b></li>`).join('')}</ul><div class="achart-note">${esc(note)}</div>`;
     achart.hidden = false;
     const cvWrap = achart.querySelector('.achart-cv'), cvEl = cvWrap.querySelector('canvas'), msg = cvWrap.querySelector('.achart-msg');
-    const sysObj = ichi ? null : { entry: +String(sysOf(x)).split('/')[0], exit: +eM };
-    const args = { levels, long, ichi, sys: sysObj, entryTime: x.entryTime || null, exitTime: it.kind === 'closed' ? x.exitTime : null };
+    const sysObj = (ichi || choch) ? null : { entry: +String(sysOf(x)).split('/')[0], exit: +eM };
+    const args = { levels, long, ichi, choch, sys: sysObj, entryTime: x.entryTime || null, exitTime: it.kind === 'closed' ? x.exitTime : null };
     chartCandles(x.symbol, tf).then(c => {
       if(myToken !== chartToken || achart.hidden) return;
       msg.style.display = 'none';
@@ -3489,10 +3505,10 @@ const AlertsPanel = (() => {
     const long = f.side === 'long', isExit = f.kind === 'exit';
     const mult = f.mult && f.mult > 1 ? ` <span class="alert-name">(${f.mult}x price)</span>` : '';
     let lines, right;
-    const ichi = sysOf(f) === 'Ichimoku';
+    const ichi = sysOf(f) === 'Ichimoku', choch = sysOf(f) === 'CHoCH';
     const [eN, eM] = sysOf(f).split('/'); // Donchian: entry / exit lengths of this alert's system
-    const exitLabel = ichi ? (f.exitReason === 'stop' ? 'the stop loss' : 'Kijun') : `the ${eM}-bar ${long ? 'low' : 'high'}`;
-    const entryLabel = ichi ? `the ${f.trigger === 'CK' ? 'Chikou-bar cloud ' : 'cloud '}${long ? 'top' : 'bottom'}` : `the ${eN}-bar ${long ? 'high' : 'low'}`;
+    const exitLabel = choch ? (f.exitReason === 'stop' ? 'the stop loss' : 'the trailing stop') : ichi ? (f.exitReason === 'stop' ? 'the stop loss' : 'Kijun') : `the ${eM}-bar ${long ? 'low' : 'high'}`;
+    const entryLabel = choch ? 'the last swing high' : ichi ? `the ${f.trigger === 'CK' ? 'Chikou-bar cloud ' : 'cloud '}${long ? 'top' : 'bottom'}` : `the ${eN}-bar ${long ? 'high' : 'low'}`;
     const lpf = livePx(f.symbol), fPx = Number.isFinite(lpf) ? lpf : f.price;
     if(isExit){
       const rp = Number.isFinite(lpf) ? pctFor('fexit', f.side, f.entryClose, f.level, lpf) : f.resultPct;
@@ -3509,7 +3525,7 @@ const AlertsPanel = (() => {
         <div class="alert-top">
           <span class="alert-sym">${esc(f.symbol)}</span>${mult}
           <span class="alert-pill ${long ? 'long' : 'short'}">${long ? 'Long' : 'Short'}</span>
-          ${coinSym ? `<span class="alert-pill tfp">${esc(tf)}</span>` : ''}<span class="alert-pill sys">${esc(sysOf(f))}</span>${ichi && f.trigger ? `<span class="alert-pill sys">${esc(f.trigger)}</span>` : ''}
+          ${coinSym ? `<span class="alert-pill tfp">${esc(tf)}</span>` : ''}<span class="alert-pill sys">${esc(sysLabel(f))}</span>${ichi && f.trigger ? `<span class="alert-pill sys">${esc(f.trigger)}</span>` : ''}
           <span class="alert-pill unconf">Unconfirmed ${isExit ? 'exit' : 'entry'}</span>
           ${isNew ? '<span class="alert-pill new">New</span>' : ''}
         </div>
@@ -3541,8 +3557,8 @@ const AlertsPanel = (() => {
       return;
     }
     const open = (tfd.trades || []).filter(t => t.status === 'open' && okItem(t)).length, unconf = (tfd.forming || []).filter(okItem).length;
-    titleEl.textContent = strategy === 'ichimoku' ? 'Ichimoku alerts' : 'Donchian alerts';
-    quoteEl.innerHTML = strategy === 'ichimoku' ? '9 &middot; 26 &middot; 52' : '20/10';
+    titleEl.textContent = strategy === 'ichimoku' ? 'Ichimoku alerts' : strategy === 'choch' ? 'Bullish CHoCH alerts' : 'Donchian alerts';
+    quoteEl.innerHTML = strategy === 'ichimoku' ? '9 &middot; 26 &middot; 52' : strategy === 'choch' ? '4H &middot; Daily &middot; long' : '20/10';
     metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab}${strategy === 'donchian' && sysFilter !== 'all' ? ' · ' + sysFilter : ''} · ${open} confirmed · ${unconf} unconfirmed`;
   }
   function refreshLive(){
@@ -3585,7 +3601,7 @@ const AlertsPanel = (() => {
     const t = tr.t, long = t.side === 'long';
     const lp = livePx(t.symbol);
     const pct = Number.isFinite(lp) ? pctFor('open', t.side, t.entryClose, t.entryLevel, lp) : t.unrealizedPct;
-    const strat = sysOf(t) === 'Ichimoku' ? 'Ichimoku' + (t.trigger ? ' ' + t.trigger : '') : 'Donchian ' + sysOf(t);
+    const strat = sysOf(t) === 'Ichimoku' ? 'Ichimoku' + (t.trigger ? ' ' + t.trigger : '') : sysOf(t) === 'CHoCH' ? 'Bull CHoCH' : 'Donchian ' + sysOf(t);
     const aligned = (long && r.dir === 'bullish') || (!long && r.dir === 'bearish');
     return `<div class="rz-trade" data-sym="${esc(t.symbol)}" role="button" tabindex="0" title="All ${esc(t.symbol)} trades"><span><b>${esc(strat)} ${long ? 'long' : 'short'}</b> &middot; ${esc(tr.tf)} &middot; now <b class="${pct >= 0 ? 'pos' : 'neg'}">${fmtPct(pct)}</b></span><span class="rz-tag ${aligned ? 'good' : 'bad'}">${aligned ? '✓ zone' : '✗ against'}</span></div>`;
   }
@@ -3713,6 +3729,11 @@ const AlertsPanel = (() => {
 
   function render(){
     chartReg.length = 0;
+    // Bullish CHoCH exists on 4H and Daily only
+    const w1 = tfRow.querySelector('button[data-tf="1W"]'), h1b = tfRow.querySelector('button[data-tf="1H"]');
+    if(w1) w1.hidden = strategy === 'choch';
+    if(h1b) h1b.hidden = strategy === 'choch' || !show1H();
+    if(strategy === 'choch' && (tab === '1W' || tab === '1H')) tab = '1D';
     tfRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tf === tab));
     if(!data){
       grid.innerHTML = `<div class="alerts-empty" style="grid-column:1/-1;">${loadErr ? 'Could not load the alerts. Check your connection and tap refresh.' : 'Loading alerts…'}</div>`;
@@ -3779,6 +3800,11 @@ const AlertsPanel = (() => {
     const donchianHelp = `<li><b>System:</b> Donchian 20/10 uses a 20-candle entry and a 10-candle exit.</li>
       <li><b>Long entry:</b> a candle closes above the highest high of the previous 20 candles. <b>Short entry:</b> a candle closes below the lowest low of the previous 20 candles.</li>
       <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous 10 candles. While short, it closes above the highest high of the previous 10.</li>`;
+    const chochHelp = `<li><b>Bullish CHoCH (change of character):</b> the structure was bearish, with lower highs and lower lows, and a candle has just closed above the last swing high. Swing points are fractals: 3 candles each side, the same as the Market Structure card.</li>
+      <li><b>Entry:</b> the close of that candle. Long only, on 4H and Daily. A swing level only counts the first time it is broken.</li>
+      <li><b>Stop loss:</b> the last swing low at entry, fixed.</li>
+      <li><b>Exit:</b> Daily, a close below the newest swing low that formed after entry (it trails up as higher lows form). 4H, a close below the lowest low of the previous 10 candles. A close below the stop loss exits either way.</li>
+      <li><b>Backtest, 50 coins:</b> Daily about +10% per trade (36% win rate, winners about 4 times the losers). 4H only about +0.2% to +1% per trade, so treat 4H as weak. Stops are wide, a median of about 16% on Daily, so size small.</li>`;
     const ichimokuHelp = `<li><b>Ichimoku (9 / 26 / 52):</b> Tenkan 9, Kijun 26, Senkou B 52, with the cloud projected 26 candles ahead and the Chikou span the close shifted 26 back.</li>
       <li><b>Long entry:</b> a candle closes above the cloud and one of two breakouts fires. <b>PK</b> (price): the previous close was below the cloud top and this close is above it. <b>CK</b> (Chikou): the Chikou span just crossed above the cloud. Either one enters, and the alert shows which. Short entry is the mirror image.</li>
       <li><b>Trend filter:</b> for a long, Tenkan must be above Kijun and the future cloud bullish (Senkou A above B). For a short, the reverse.</li>
@@ -3791,7 +3817,7 @@ const AlertsPanel = (() => {
       <li>Tap a coin to open its technical breakdown.</li>`;
     const helpBody = `<div class="alerts-help-body"><ul>
       ${common}
-      ${strategy === 'ichimoku' ? ichimokuHelp : donchianHelp}
+      ${strategy === 'ichimoku' ? ichimokuHelp : strategy === 'choch' ? chochHelp : donchianHelp}
       ${commonTail}
     </ul>
     <div class="alerts-help-sub">Latest scan (${esc(tab)})</div>

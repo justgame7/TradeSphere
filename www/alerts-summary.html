@@ -159,9 +159,9 @@ let PARENT = null; try{ if(window.parent && window.parent !== window && window.p
 const DATA_URL = lsGet('ts-alerts-data-url') || 'https://raw.githubusercontent.com/justgame7/TradeSphere/main/data/donchian-alerts.json';
 const HIST_URL = lsGet('ts-alerts-history-url') || DATA_URL.replace(/[^/]*$/, 'alerts-history.json');
 const SHOW_1H = lsGet('crypto-screener-alerts-1h') === 'true';
-const STRATS = ['20/10', 'Ichimoku'];   // Donchian 55/20 is switched off (see scripts/donchian-alerts.js)
-const SNAME = { '20/10': 'Donchian 20/10', '55/20': 'Donchian 55/20', 'Ichimoku': 'Ichimoku' };
-const SCOL = { '20/10': '#35E0C0', '55/20': '#5b8cff', 'Ichimoku': '#a78bfa' };
+const STRATS = ['20/10', 'Ichimoku', 'CHoCH'];   // Donchian 55/20 is switched off (see scripts/donchian-alerts.js)
+const SNAME = { '20/10': 'Donchian 20/10', '55/20': 'Donchian 55/20', 'Ichimoku': 'Ichimoku', 'CHoCH': 'Bullish CHoCH' };
+const SCOL = { '20/10': '#35E0C0', '55/20': '#5b8cff', 'Ichimoku': '#a78bfa', 'CHoCH': '#f5a623' };
 const TFS = SHOW_1H ? ['1H', '4H', '1D', '1W'] : ['4H', '1D', '1W'];
 const TFNAME = { '1H': '1H', '4H': '4H', '1D': 'Daily', '1W': 'Weekly' };
 const COL = { long:'#35E0C0', short:'#ff5470', win:'#35E0C0', loss:'#ff5470', blue:'#5b8cff', amber:'#f5a623', violet:'#a78bfa', grey:'#3a4252' };
@@ -395,7 +395,7 @@ const delta = (a, b, inv, d = 0, suf = '') => { if(!Number.isFinite(a) || !Numbe
 
 function renderFilters(){
   $('fPeriod').innerHTML = ['day', 'week', 'month'].map(p => `<button class="chip${S.period === p ? ' on' : ''}" data-p="${p}">${p === 'day' ? 'Daily' : p === 'week' ? 'Weekly' : 'Monthly'}</button>`).join('');
-  $('fStrat').innerHTML = [['all', 'All strategies'], ['20/10', 'Donchian 20/10'], ['Ichimoku', 'Ichimoku']].map(a => `<button class="chip${S.strat === a[0] ? ' on' : ''}" data-s="${a[0]}">${a[1]}</button>`).join('');
+  $('fStrat').innerHTML = [['all', 'All strategies'], ['20/10', 'Donchian 20/10'], ['Ichimoku', 'Ichimoku'], ['CHoCH', 'Bullish CHoCH']].map(a => `<button class="chip${S.strat === a[0] ? ' on' : ''}" data-s="${a[0]}">${a[1]}</button>`).join('');
   $('fTf').innerHTML = [['all', 'All timeframes']].concat(SHOW_1H ? [['ex1h', 'All except 1H']] : []).concat(TFS.map(t => [t, TFNAME[t]])).map(a => `<button class="chip${S.tf === a[0] ? ' on' : ''}" data-t="${a[0]}">${a[1]}</button>`).join('');
   $('fNav').innerHTML = [['sOver', 'Overview'], ['sFlow', 'Activity'], ['sStrat', 'Strategies'], ['sCoin', 'Coins'], ['sRz', 'Retracement'], ['sIns', 'Insights']].map(a => `<button class="chip nav" data-n="${a[0]}">${a[1]}</button>`).join('');
 }
