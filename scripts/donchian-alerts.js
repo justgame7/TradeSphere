@@ -346,9 +346,11 @@ function formingIchimoku(closed, forming, trades, periodMs) {
 //   'trail'   a close below the lowest low of the previous 10 candles (or below the stop loss)
 // Filters (BOS only): ema200 = the entry close must be above the 200-period EMA; riskCap = skip when the stop is more than N% below entry.
 // Backtest per trade: CHoCH Daily +10.1% (4H +1.0%), BOS Daily +10.0% with the EMA200 filter (4H +1.1% with the 5% stop cap).
+// Weekly was added on request: the backtest was negative there (CHoCH about -28%, BOS about -14% per trade, only 16 to 23 trades), and the
+// 200-period EMA filter cannot be used because a coin has fewer than 200 weekly candles.
 const STRUCT_STRATS = [
-  { key: 'CHoCH', kind: 'choch', tfs: { '4H': { mode: 'trail' }, '1D': { mode: 'struct' } } },
-  { key: 'BOS', kind: 'bos', tfs: { '4H': { mode: 'trail', riskCap: 5 }, '1D': { mode: 'struct', ema200: true } } },
+  { key: 'CHoCH', kind: 'choch', tfs: { '4H': { mode: 'trail' }, '1D': { mode: 'struct' }, '1W': { mode: 'struct' } } },
+  { key: 'BOS', kind: 'bos', tfs: { '4H': { mode: 'trail', riskCap: 5 }, '1D': { mode: 'struct', ema200: true }, '1W': { mode: 'struct' } } },
 ];
 const CHOCH_SPAN = 3, CHOCH_TRAIL = 10, CHOCH_MIN_BARS = 60;
 // How long a CLOSED CHoCH / BOS trade stays in the alerts file. Temporarily 60 days on Daily for analysis; delete this entry to go back

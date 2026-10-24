@@ -3560,7 +3560,7 @@ const AlertsPanel = (() => {
     }
     const open = (tfd.trades || []).filter(t => t.status === 'open' && okItem(t)).length, unconf = (tfd.forming || []).filter(okItem).length;
     titleEl.textContent = strategy === 'ichimoku' ? 'Ichimoku alerts' : strategy === 'choch' ? 'Bullish CHoCH alerts' : strategy === 'bos' ? 'Bullish BOS alerts' : 'Donchian alerts';
-    quoteEl.innerHTML = strategy === 'ichimoku' ? '9 &middot; 26 &middot; 52' : strategy === 'choch' || strategy === 'bos' ? '4H &middot; Daily &middot; long' : '20/10';
+    quoteEl.innerHTML = strategy === 'ichimoku' ? '9 &middot; 26 &middot; 52' : strategy === 'choch' || strategy === 'bos' ? '4H &middot; Daily &middot; Weekly &middot; long' : '20/10';
     metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab}${strategy === 'donchian' && sysFilter !== 'all' ? ' · ' + sysFilter : ''} · ${open} confirmed · ${unconf} unconfirmed`;
   }
   function refreshLive(){
@@ -3731,12 +3731,12 @@ const AlertsPanel = (() => {
 
   function render(){
     chartReg.length = 0;
-    // Bullish CHoCH and Bullish BOS exist on 4H and Daily only
+    // Bullish CHoCH and Bullish BOS exist on 4H, Daily and Weekly (not 1H)
     const stratOnly4h1d = strategy === 'choch' || strategy === 'bos';
     const w1 = tfRow.querySelector('button[data-tf="1W"]'), h1b = tfRow.querySelector('button[data-tf="1H"]');
-    if(w1) w1.hidden = stratOnly4h1d;
+    if(w1) w1.hidden = false;
     if(h1b) h1b.hidden = stratOnly4h1d || !show1H();
-    if(stratOnly4h1d && (tab === '1W' || tab === '1H')) tab = '1D';
+    if(stratOnly4h1d && tab === '1H') tab = '1D';
     tfRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tf === tab));
     if(!data){
       grid.innerHTML = `<div class="alerts-empty" style="grid-column:1/-1;">${loadErr ? 'Could not load the alerts. Check your connection and tap refresh.' : 'Loading alerts…'}</div>`;
@@ -3808,11 +3808,13 @@ const AlertsPanel = (() => {
       <li><b>Filter:</b> Daily only fires when the close is above the 200-period EMA (that filter lifted the backtest from about +7% to +10% per trade). 4H skips signals whose stop is more than 5% below entry.</li>
       <li><b>Stop loss:</b> the last swing low at entry, fixed.</li>
       <li><b>Exit:</b> Daily, a close below the newest swing low that formed after entry (it trails up as higher lows form). 4H, a close below the lowest low of the previous 10 candles. A close below the stop loss exits either way.</li>
+      <li><b>Weekly:</b> uses the swing-low trailing stop and no EMA200 filter (a coin has fewer than 200 weekly candles). It was added on request: the backtest was negative on Weekly (about -14% per trade, 23 trades), so treat it as unproven.</li>
       <li><b>Backtest, 50 coins:</b> Daily about +10% per trade (43% win rate, winners about 3 times the losers, 183 trades). 4H only about +1% per trade, so treat 4H as weak.</li>`;
     const chochHelp = `<li><b>Bullish CHoCH (change of character):</b> the structure was bearish, with lower highs and lower lows, and a candle has just closed above the last swing high. Swing points are fractals: 3 candles each side, the same as the Market Structure card.</li>
       <li><b>Entry:</b> the close of that candle. Long only, on 4H and Daily. A swing level only counts the first time it is broken.</li>
       <li><b>Stop loss:</b> the last swing low at entry, fixed.</li>
       <li><b>Exit:</b> Daily, a close below the newest swing low that formed after entry (it trails up as higher lows form). 4H, a close below the lowest low of the previous 10 candles. A close below the stop loss exits either way.</li>
+      <li><b>Weekly:</b> uses the swing-low trailing stop. It was added on request: the backtest was negative on Weekly (about -28% per trade, only 16 trades), so treat it as unproven.</li>
       <li><b>Backtest, 50 coins:</b> Daily about +10% per trade (36% win rate, winners about 4 times the losers). 4H only about +0.2% to +1% per trade, so treat 4H as weak. Stops are wide, a median of about 16% on Daily, so size small.</li>`;
     const ichimokuHelp = `<li><b>Ichimoku (9 / 26 / 52):</b> Tenkan 9, Kijun 26, Senkou B 52, with the cloud projected 26 candles ahead and the Chikou span the close shifted 26 back.</li>
       <li><b>Long entry:</b> a candle closes above the cloud and one of two breakouts fires. <b>PK</b> (price): the previous close was below the cloud top and this close is above it. <b>CK</b> (Chikou): the Chikou span just crossed above the cloud. Either one enters, and the alert shows which. Short entry is the mirror image.</li>

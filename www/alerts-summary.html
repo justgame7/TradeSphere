@@ -619,7 +619,7 @@ function viewStrat(C){
       const g = Math.max(-1, Math.min(1, x.exp / 5)), bg = g >= 0 ? `rgba(53,224,192,${.07 + g * .4})` : `rgba(255,84,112,${.07 - g * .4})`;
       return `<td style="background:${bg};cursor:default" ${tipAttr(`${x.n} closed · ${x.wr.toFixed(0)}% won\nAvg win ${fmtPct(x.avgW, 1)}, avg loss ${fmtPct(x.avgL, 1)}`, SNAME[sy] + ' · ' + TFNAME[tf])}>${x.exp >= 0 ? '▲' : '▼'} ${fmtPct(x.exp, 1)}<div style="font:500 9px var(--mono);opacity:.75;margin-top:3px">${x.wr.toFixed(0)}% · ${x.n}</div></td>`; }).join('')}</tr>`).join('')}</tbody></table>`);
   const lean = rows.map(sy => tfs.map(tf => {
-    const o = T.filter(t => t.open && t.sys === sy && t.tf === tf); if(!o.length && (sy === 'CHoCH' || sy === 'BOS') && (tf === '1W' || tf === '1H')) return '';
+    const o = T.filter(t => t.open && t.sys === sy && t.tf === tf); if(!o.length && (sy === 'CHoCH' || sy === 'BOS') && tf === '1H') return '';
     const Lg = o.filter(t => t.side > 0).length, Sh = o.length - Lg, tot = Math.max(1, Lg + Sh);
     return `<div class="it"><div style="min-width:118px" class="nm"><span class="sdot" style="background:${SCOL[sy]}"></span>${esc(SSHORT[sy])}<small>${TFNAME[tf]}</small></div><div class="grow"><div class="meter"><i style="width:${Lg / tot * 100}%;background:${UP}"></i><i style="width:${Sh / tot * 100}%;background:${DOWN}"></i></div></div><span class="mono" style="font-size:11px;min-width:56px;text-align:right"><span class="pos">${Lg}</span> / <span class="neg">${Sh}</span></span></div>`; }).join('')).join('');
   h += card('Market lean', 'Open trades, long against short, for every strategy and timeframe.', `<div class="list">${lean || '<div class="empty">No open trades.</div>'}</div>`);
