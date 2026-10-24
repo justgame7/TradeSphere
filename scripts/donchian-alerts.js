@@ -351,6 +351,9 @@ const STRUCT_STRATS = [
   { key: 'BOS', kind: 'bos', tfs: { '4H': { mode: 'trail', riskCap: 5 }, '1D': { mode: 'struct', ema200: true } } },
 ];
 const CHOCH_SPAN = 3, CHOCH_TRAIL = 10, CHOCH_MIN_BARS = 60;
+// How long a CLOSED CHoCH / BOS trade stays in the alerts file. Temporarily 60 days on Daily for analysis; delete this entry to go back
+// to the timeframe default (7 days on Daily). The app reads the same value from the file, nothing else needs to change.
+const STRUCT_KEEP_CLOSED_MS = { '1D': 60 * DAY };
 
 function emaSeries200(c) {
   const k = 2 / 201, out = new Array(c.length).fill(NaN);
@@ -551,10 +554,11 @@ function scanCoin(coin, data, tf) {
     const opt = st.tfs[tf.label];
     if (!opt || candles.length < CHOCH_MIN_BARS) continue;
     const run = structRun(candles, st.kind, opt);
+    const keepFromS = Date.now() - (STRUCT_KEEP_CLOSED_MS[tf.label] || tf.keepClosedMs);
     const walkedC = run.trades.concat(run.open ? [run.open] : []);
     walkedC.forEach((t) => {
       addHist(st.key, t, 'long');
-      if (t.status === 'closed' && t.exitTime < keepFrom) return;
+      if (t.status === 'closed' && t.exitTime < keepFromS) return;
       trades.push({
         system: st.key, symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, side: 'long', status: t.status,
         entryTime: t.entryTime, entryClose: round(t.entryClose), entryLevel: round(t.entryLevel),
@@ -610,7 +614,7 @@ async function main() {
 
   const next = {
     updated: new Date().toISOString(),
-    rules: { systems: SYSTEMS, structure: STRUCT_STRATS, span: CHOCH_SPAN },
+    rules: { systems: SYSTEMS, structure: STRUCT_STRATS, span: CHOCH_SPAN, structKeepClosedMs: STRUCT_KEEP_CLOSED_MS },
     universe: { source: 'CoinGecko market-cap ranking excluding stablecoins, first 50 listed on CoinDCX as USDT perps; candles from CoinDCX', updated: universe.updated, scanned: universe.coins.length, skipped: universe.skipped },
     timeframes: { ...((prev && prev.timeframes) || {}) },
   };

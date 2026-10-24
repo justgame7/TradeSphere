@@ -3835,7 +3835,7 @@ const AlertsPanel = (() => {
     grid.innerHTML =
       groupCard('unconf', '⏳', 'var(--amber)', 'Not confirmed yet', forming.length, unconfBody) +
       groupCard('open', '✅', 'var(--accent)', 'Confirmed entries', open.length, openBody) +
-      groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '1H' ? '24 hours' : tab === '4H' ? '2 days' : tab === '1W' ? '4 weeks' : '7 days'})` + (newClosed ? ` <span class="alert-pill new">${newClosed} new</span>` : ''), closed.length, closedBody) +
+      groupCard('closed', '🔒', 'var(--blue)', `Closed, confirmed (last ${tab === '1H' ? '24 hours' : tab === '4H' ? '2 days' : tab === '1W' ? '4 weeks' : (((strategy === 'choch' || strategy === 'bos') && data.rules && data.rules.structKeepClosedMs && data.rules.structKeepClosedMs[tab]) ? Math.round(data.rules.structKeepClosedMs[tab] / 864e5) + ' days' : '7 days')})` + (newClosed ? ` <span class="alert-pill new">${newClosed} new</span>` : ''), closed.length, closedBody) +
       groupCard('retrace', '🎯', 'var(--amber)', 'In retracement zone', rzRows.length, retraceBodyHtml(tab, rzRows), tab === '1H' ? 'rz-grey' : '') +
       groupCard('help', 'ℹ️', 'var(--violet)', 'How this works', null, helpBody);
     updateToggleAll();
