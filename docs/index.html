@@ -660,6 +660,36 @@
   .achart-cv{position:relative;height:300px;border:1px solid var(--border);border-radius:12px;background:var(--bg);overflow:hidden;}
   .achart-cv canvas{width:100%;height:100%;display:block;}
   .achart-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 20px;font:500 12px var(--font-mono);color:var(--faint);}
+  /* Add to watchlist / create a price alert, and the "My price alerts" tab */
+  /* six strategy buttons: the names size to their text so all of them still fit a phone, the bell stays narrow */
+  #alertsOverlay .analysis-controls #alertsStratRow button{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:11.5px;white-space:nowrap;}
+  #alertsOverlay .analysis-controls #alertsStratRow button.strat-icon{flex:0 0 36px;padding:9px 0;display:inline-flex;align-items:center;justify-content:center;}
+  @media(max-width:340px){#alertsOverlay .analysis-controls #alertsStratRow button{padding:9px 4px;font-size:10.5px;}#alertsOverlay .analysis-controls #alertsStratRow button.strat-icon{flex-basis:30px;}}
+  .pa{position:fixed;inset:0;z-index:65;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,8,14,.62);}
+  .pa[hidden]{display:none;}
+  .pa-card{width:100%;max-width:420px;max-height:92%;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:16px 16px 22px;box-shadow:0 -10px 40px rgba(0,0,0,.45);}
+  @media(min-width:700px){.pa{align-items:center;}.pa-card{border-radius:18px;}}
+  .pa-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .pa-head .t{flex:1;min-width:0;} .pa-head b{display:block;font:700 16px var(--font-ui);color:var(--text);} .pa-head span{font:500 11px var(--font-mono);color:var(--faint);}
+  .pa-opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin-top:10px;padding:13px 14px;border-radius:14px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;font:600 13px var(--font-ui);}
+  .pa-opt:hover:not(:disabled){border-color:var(--accent);} .pa-opt:disabled{opacity:.55;cursor:default;}
+  .pa-opt small{display:block;font:500 11px var(--font-mono);color:var(--faint);margin-top:2px;} .pa-opt .ic{font-size:20px;width:26px;text-align:center;}
+  .pa-ltp{display:flex;align-items:baseline;gap:8px;padding:12px 14px;border-radius:14px;background:var(--panel2);border:1px solid var(--border-soft);margin-bottom:12px;}
+  .pa-ltp span{font:600 10px var(--font-mono);letter-spacing:.1em;color:var(--faint);text-transform:uppercase;} .pa-ltp b{font:700 22px var(--font-ui);color:var(--text);}
+  .pa-lbl{font:600 10px var(--font-mono);letter-spacing:.1em;color:var(--faint);text-transform:uppercase;margin:0 0 6px;}
+  .pa-in{width:100%;height:44px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);color:var(--text);padding:0 12px;font:600 16px var(--font-mono);}
+  .pa-in:focus{outline:none;border-color:var(--accent);}
+  .pa-chips{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;} .pa-chips button{border:1px solid var(--border);background:var(--panel2);color:var(--muted);border-radius:999px;padding:5px 11px;font:600 11px var(--font-mono);cursor:pointer;}
+  .pa-chips button:hover{border-color:var(--accent);color:var(--text);}
+  .pa-cond{min-height:34px;font:500 12px/1.5 var(--font-mono);color:var(--muted);margin:4px 0 10px;} .pa-cond b{color:var(--text);} .pa-cond.err{color:var(--amber);}
+  .pa-go{width:100%;height:44px;border-radius:12px;border:none;background:var(--accent);color:#04170f;font:700 13px var(--font-ui);cursor:pointer;}
+  .pa-go:disabled{opacity:.4;cursor:default;}
+  .pa-list{margin-top:16px;border-top:1px solid var(--border-soft);padding-top:10px;} .pa-list .r{display:flex;align-items:center;gap:8px;padding:6px 0;font:500 11.5px var(--font-mono);color:var(--muted);}
+  .pa-del{margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;width:28px;height:28px;cursor:pointer;flex-shrink:0;} .pa-del:hover{border-color:var(--red);color:var(--red);}
+  .pa-row{display:flex;gap:10px;align-items:flex-start;padding:11px 10px;margin:0 0 6px;border:1px solid var(--border-soft);border-radius:14px;background:var(--panel);cursor:pointer;}
+  .pa-row.fresh{border-color:rgba(245,166,35,.5);box-shadow:0 0 0 1px rgba(245,166,35,.12) inset;} .pa-row:hover{background:var(--panel2);}
+  .pa-row .alert-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .pa-toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:80;max-width:92vw;background:var(--panel2);border:1px solid rgba(245,166,35,.6);color:var(--text);padding:10px 14px;border-radius:12px;font:600 12px var(--font-mono);cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.5);}
   .achart-hide{margin-left:auto;display:inline-flex;align-items:center;gap:6px;}
   .achart-hide-l{font:600 10px var(--font-mono);color:var(--faint);}
   .achart-lines{background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:3px 9px;font:600 10px var(--font-mono);cursor:pointer;}
@@ -1978,6 +2008,7 @@
           <button type="button" data-strat="choch">CHoCH</button>
           <button type="button" data-strat="bos">BOS</button>
           <button type="button" data-strat="retrace" title="Retracement zones">Rtct</button>
+          <button type="button" data-strat="mine" class="strat-icon" title="My price alerts" aria-label="My price alerts"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
         </div>
         <div class="analysis-tf-toggle" id="alertsSysRow" title="Show one Donchian system or both">
           <button type="button" data-sys="all" class="active">All</button>
@@ -2001,13 +2032,14 @@
     <div class="alerts-coinbar" id="alertsCoinBar" hidden>
       <button type="button" class="alerts-back" id="alertsCoinBack">&larr; All alerts</button>
       <span class="alerts-coin-name" id="alertsCoinName"></span>
+      <button type="button" class="alerts-back" id="alertsCoinAdd" style="margin-left:auto" title="Add to watchlist or create a price alert">+ Watchlist / alert</button>
     </div>
     <div class="analysis-groups-grid" id="alertsGrid"></div>
   </div>
   <div class="asummary" id="alertsSummary" hidden><iframe id="alertsSummaryFrame" title="Alerts summary report"></iframe></div>
   <div class="achart" id="alertChart" hidden>
     <div class="achart-card" role="dialog" aria-label="Trade levels">
-      <div class="achart-head"><span class="achart-title"></span><button type="button" class="achart-x achart-tv" aria-label="Open in TradingView" title="Open this chart in TradingView"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 15l4-4 3 3 5-6"></path></svg></button><button type="button" class="achart-x achart-share" aria-label="Share chart" title="Share chart"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"></path></svg></button><button type="button" class="achart-x achart-close" aria-label="Close">&#10005;</button></div>
+      <div class="achart-head"><span class="achart-title"></span><button type="button" class="achart-x achart-add" aria-label="Add to watchlist or create a price alert" title="Add to watchlist or create a price alert"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg></button><button type="button" class="achart-x achart-tv" aria-label="Open in TradingView" title="Open this chart in TradingView"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 15l4-4 3 3 5-6"></path></svg></button><button type="button" class="achart-x achart-share" aria-label="Share chart" title="Share chart"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"></path></svg></button><button type="button" class="achart-x achart-close" aria-label="Close">&#10005;</button></div>
       <div class="achart-sub"></div>
       <div class="achart-body"></div>
     </div>
@@ -3112,17 +3144,19 @@ const AlertsPanel = (() => {
   function updateTabBadges(){
     tfRow.querySelectorAll('button[data-tf]').forEach(b => paintBadge(b, unseenItems(b.dataset.tf, strategy), strategy === 'donchian'));
     stratRow.querySelectorAll('button[data-strat]').forEach(b => paintBadge(b, unseenItems(null, b.dataset.strat), b.dataset.strat === 'donchian'));
+    const mineBtn = stratRow.querySelector('button[data-strat="mine"]'); if(mineBtn) paintBadge(mineBtn, paUnseen().map(() => ({ forming: false })), false);
   }
   // Green = new CONFIRMED signals (candle closed), amber = new UNCONFIRMED ones (candle still open).
   // Each counts only what has not been shown to the user yet; opening the panel marks everything as seen.
   function updateBadge(){
     // The bell counts new alerts of Ichimoku, CHoCH and BOS only. Donchian is still listed inside the alerts page (greyed out), but never lights the bell.
     const un = unseenItems().filter(it => it.strat !== 'donchian');
-    const nForming = un.filter(it => it.forming).length, nOk = un.length - nForming;
+    const paN = paUnseen().length;               // price alerts you set yourself that have triggered and not been looked at
+    const nForming = un.filter(it => it.forming).length, nOk = un.length - nForming + paN;
     const show = (el, n) => { el.hidden = n === 0; el.textContent = n > 99 ? '99+' : String(n); };
     show(badge, nOk); show(badgeForming, nForming);
-    btn.classList.toggle('has-new', un.length > 0);
-    btn.title = un.length ? `Alerts (${nOk} new confirmed, ${nForming} new unconfirmed)` : 'Alerts (Ichimoku, CHoCH, BOS)';
+    btn.classList.toggle('has-new', un.length > 0 || paN > 0);
+    btn.title = (un.length || paN) ? `Alerts (${nOk} new confirmed${paN ? ', ' + paN + ' of them your price alerts' : ''}, ${nForming} new unconfirmed)` : 'Alerts (Ichimoku, CHoCH, BOS)';
     updateTabBadges();
   }
 
@@ -3603,6 +3637,13 @@ const AlertsPanel = (() => {
   function setHeader(){
     if(!data) return;
     const a = priceAge();
+    if(strategy === 'mine' && !coinSym){
+      const l = paLoad();
+      statusEl.textContent = 'Your own price levels, checked every few seconds while the app is open';
+      titleEl.textContent = 'My price alerts'; quoteEl.textContent = 'manual levels';
+      metaEl.textContent = `${l.filter(a => a.status === 'triggered').length} triggered \u00b7 ${l.filter(a => a.status === 'active').length} waiting`;
+      return;
+    }
     if(coinSym){
       statusEl.textContent = ['signals ' + ago(Date.parse(data.updated)), a != null ? 'prices ' + (a < 90 ? a + 's' : Math.round(a / 60) + 'm') + ' ago' : ''].filter(Boolean).join(' \u00b7 ');
       titleEl.textContent = coinSym; quoteEl.textContent = 'alerts'; metaEl.textContent = coinMetaText;
@@ -3774,6 +3815,11 @@ const AlertsPanel = (() => {
   }
   // Back (phone back button / gesture): closes the chart popup first, then leaves the coin view, and only a second back closes the page.
   function back(fromPopstate){
+    if(!pa.hidden){                           // the add-to-watchlist / price alert sheet closes first
+      paClose();
+      if(fromPopstate && (!history.state || !history.state.alerts)) history.pushState({ page: currentPage, alerts: true }, '', location.href);
+      return true;
+    }
     if(!asum.hidden){                         // the summary report closes first
       closeSummary();
       if(fromPopstate && (!history.state || !history.state.alerts)) history.pushState({ page: currentPage, alerts: true }, '', location.href);
@@ -3805,7 +3851,8 @@ const AlertsPanel = (() => {
       return;
     }
     if(coinSym){ renderCoin(); return; }
-    if(strategy !== 'retrace') markViewed(strategy, tab);             // this (strategy, timeframe) is being looked at: remember what was new, then clear its badge
+    tfRow.style.display = strategy === 'mine' ? 'none' : '';     // price alerts have no timeframe
+    if(strategy !== 'retrace' && strategy !== 'mine') markViewed(strategy, tab);             // this (strategy, timeframe) is being looked at: remember what was new, then clear its badge
     newKeys = newByTf[seenKey(strategy, tab)] || new Set();
     stratRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.strat === strategy));
     sysRow.hidden = true;                      // only one Donchian system is enabled, so there is nothing to filter
@@ -3828,6 +3875,7 @@ const AlertsPanel = (() => {
     const rzRows = retraceData(tab);
     if(!retrManual){ if(rzRows.length === 0) collapsedGrp.add('retrace'); else collapsedGrp.delete('retrace'); }
     const empty = msg => `<div class="alerts-empty">${msg}</div>`;
+    if(strategy === 'mine'){ renderMine(); return; }
     if(strategy === 'retrace'){            // the Retracement tab: only the zone list (a state, not an event: no badges, no "new")
       collapsedGrp.delete('retrace');
       grid.innerHTML = groupCard('retrace', '\ud83c\udfaf', 'var(--amber)', 'In retracement zone', rzRows.length, retraceBodyHtml(tab, rzRows), tab === '1H' ? 'rz-grey' : '') +
@@ -3965,7 +4013,156 @@ const AlertsPanel = (() => {
     const symbol = (typeof resolveBinanceFuturesSymbol === 'function' ? resolveBinanceFuturesSymbol(base) : base + 'USDT');
     window.TechAnalysis.openSymbol(symbol);
   }
-  achart.addEventListener('click', e => { if(e.target === achart || e.target.closest('.achart-close')) closeChart(); const sh = e.target.closest('.achart-share'); if(sh) shareChart(sh);
+  /* ================= Watchlist / price alerts (set by hand) =================
+     "+" opens a small sheet: add the coin to the watchlist (same list the other screens use) or create a price alert at a level.
+     Price alerts live in this browser (localStorage), are compared with the live Home prices every few seconds while the app is
+     open, and light the bell and the bell tab when they trigger. */
+  const PA_KEY = 'ts-price-alerts-v1', WL_KEY = 'crypto-watchlist-custom-coins';
+  const paLoad = () => { try{ const a = JSON.parse(localStorage.getItem(PA_KEY) || '[]'); return Array.isArray(a) ? a : []; }catch(e){ return []; } };
+  const paSave = l => { try{ localStorage.setItem(PA_KEY, JSON.stringify(l)); }catch(e){} };
+  const paUnseen = () => paLoad().filter(a => a.status === 'triggered' && !a.seen);
+  const bsOf = base => (typeof resolveBinanceFuturesSymbol === 'function' ? resolveBinanceFuturesSymbol(base) : base + 'USDT');
+  const wlList = () => { try{ const a = JSON.parse(localStorage.getItem(WL_KEY) || '[]'); return Array.isArray(a) ? a : []; }catch(e){ return []; } };
+  const wlHas = base => ['BTCUSDT', 'ETHUSDT'].includes(bsOf(base)) || wlList().some(c => c && c.binanceSymbol === bsOf(base));
+  function wlAdd(base){
+    if(wlHas(base)) return false;
+    const bs = bsOf(base), sym = bs.replace(/USDT$/i, ''), pal = ['#35e0c0', '#8ea9ff', '#ff8a4c', '#a78bfa', '#f5a623', '#ff5470', '#5b8cff', '#f0c24b'];
+    let h = 0; for(let i = 0; i < bs.length; i++) h = (h * 31 + bs.charCodeAt(i)) >>> 0;
+    const list = wlList(); list.push({ symbol: sym, binanceSymbol: bs, name: coinNameOf(base) || sym, coingeckoId: null, gradient: `linear-gradient(135deg,${pal[h % pal.length]},#1c8f79)`, addedAt: Date.now() });
+    try{ localStorage.setItem(WL_KEY, JSON.stringify(list)); }catch(e){ return false; }
+    return true;
+  }
+  function coinNameOf(base){
+    const tfs = (rawData && rawData.timeframes) || {};
+    for(const k of Object.keys(tfs)){ const d = tfs[k]; for(const x of [].concat(d.trades || [], d.forming || [], d.retrace || [])) if(x.symbol === base && x.name) return x.name; }
+    return '';
+  }
+  const ltpOf = base => { const v = livePx(base); return Number.isFinite(v) ? v : null; };
+  const fmtLvl = v => Number.isFinite(v) ? fmtPx(v) : '—';
+
+  // ---- checking the alerts against the live prices ----
+  function paToast(hit){
+    document.querySelectorAll('.pa-toast').forEach(t => t.remove());
+    const t = document.createElement('div'); t.className = 'pa-toast';
+    t.textContent = '🔔 ' + hit.map(a => `${a.sym} ${a.dir === 'above' ? 'rose to' : 'fell to'} ${fmtLvl(a.level)} (now ${fmtLvl(a.triggerPx)})`).join(' · ');
+    t.addEventListener('click', () => { t.remove(); open(); strategy = 'mine'; coinSym = null; overlay.classList.remove('coin-mode'); coinBar.hidden = true; render(); });
+    document.body.appendChild(t); setTimeout(() => t.remove(), 9000);
+  }
+  function paCheck(){
+    if(!alertsOn()) return;
+    loadLive();
+    const list = paLoad(), hit = [];
+    list.forEach(a => {
+      if(a.status !== 'active') return;
+      const px = livePx(a.sym); if(!Number.isFinite(px)) return;
+      if((a.dir === 'above' && px >= a.level) || (a.dir === 'below' && px <= a.level)){ a.status = 'triggered'; a.triggeredAt = Date.now(); a.triggerPx = px; a.seen = false; hit.push(a); }
+    });
+    if(!hit.length) return;
+    paSave(list); updateBadge(); paToast(hit);
+    if(overlay.classList.contains('open') && strategy === 'mine' && !coinSym) render();
+  }
+
+  // ---- the "+" sheet ----
+  const pa = document.createElement('div'); pa.className = 'pa'; pa.hidden = true; pa.innerHTML = '<div class="pa-card" role="dialog" aria-label="Watchlist or price alert"></div>'; document.body.appendChild(pa);
+  let paSym = null, paStep = 'choose', paTimer = null, paMsg = '';
+  const paCard = () => pa.querySelector('.pa-card');
+  function paOpen(sym){ if(!sym) return; paSym = sym; paStep = 'choose'; paMsg = ''; paRender(); pa.hidden = false; }
+  function paClose(){ pa.hidden = true; clearInterval(paTimer); paTimer = null; }
+  const paHead = () => `<div class="pa-head"><div class="t"><b>${esc(paSym)}</b><span>${esc(coinNameOf(paSym) || bsOf(paSym))}</span></div><button type="button" class="achart-x" data-pa-close aria-label="Close">&#10005;</button></div>`;
+  function paRender(){
+    clearInterval(paTimer); paTimer = null;
+    const card = paCard(), onWl = wlHas(paSym);
+    if(paStep === 'choose'){
+      card.innerHTML = paHead() + (paMsg ? `<div class="pa-cond">${paMsg}</div>` : '')
+        + `<button type="button" class="pa-opt" data-pa-wl${onWl ? ' disabled' : ''}><span class="ic">⭐</span><span>${onWl ? 'Already on your watchlist' : 'Add to watchlist'}<small>The same list as the Watchlist page</small></span></button>`
+        + `<button type="button" class="pa-opt" data-pa-new><span class="ic">🔔</span><span>Create price alert<small>Get the bell when the price reaches a level</small></span></button>`;
+    }else if(paStep === 'form'){
+      const mine = paLoad().filter(a => a.sym === paSym && a.status === 'active');
+      card.innerHTML = paHead()
+        + `<div class="pa-ltp"><span>LTP</span><b id="paLtp">${fmtLvl(ltpOf(paSym))}</b></div>`
+        + `<div class="pa-lbl">Alert when the price reaches</div><input class="pa-in" id="paLevel" inputmode="decimal" autocomplete="off" placeholder="Enter a price level">`
+        + `<div class="pa-chips">${[-10, -5, 5, 10].map(p => `<button type="button" data-pa-pct="${p}">${p > 0 ? '+' : ''}${p}%</button>`).join('')}</div>`
+        + `<div class="pa-cond" id="paCond">Type a level, or tap a quick percentage.</div>`
+        + `<button type="button" class="pa-go" id="paGo" disabled>Create alert</button>`
+        + (mine.length ? `<div class="pa-list"><div class="pa-lbl">Waiting for ${esc(paSym)}</div>${mine.map(a => `<div class="r"><span>${a.dir === 'above' ? '▲ above' : '▼ below'} <b style="color:var(--text)">${fmtLvl(a.level)}</b></span><button type="button" class="pa-del" data-pa-del="${a.id}" aria-label="Delete">&#10005;</button></div>`).join('')}</div>` : '');
+      paTimer = setInterval(() => { const e = document.getElementById('paLtp'); if(e) e.textContent = fmtLvl(ltpOf(paSym)); paCondUpdate(); }, 3000);
+      setTimeout(() => { const i = document.getElementById('paLevel'); if(i) i.focus(); }, 60);
+    }
+  }
+  function paParse(){ const i = document.getElementById('paLevel'); const v = i ? parseFloat(String(i.value).replace(/,/g, '')) : NaN; return Number.isFinite(v) && v > 0 ? v : NaN; }
+  function paCondUpdate(){
+    const cond = document.getElementById('paCond'), go = document.getElementById('paGo'); if(!cond || !go) return;
+    const lvl = paParse(), ltp = ltpOf(paSym);
+    cond.classList.remove('err'); go.disabled = true;
+    if(!Number.isFinite(lvl)){ cond.textContent = 'Type a level, or tap a quick percentage.'; return; }
+    if(ltp == null){ cond.classList.add('err'); cond.textContent = 'The live price is not available for this coin right now, so the alert cannot be checked.'; return; }
+    if(Math.abs(lvl - ltp) / ltp < 1e-6){ cond.classList.add('err'); cond.textContent = 'That is the current price. Pick a level above or below it.'; return; }
+    const up = lvl > ltp, pc = (lvl - ltp) / ltp * 100;
+    cond.innerHTML = `Alert when the price ${up ? 'rises to' : 'falls to'} <b>${fmtLvl(lvl)}</b> (${pc >= 0 ? '+' : ''}${pc.toFixed(2)}% from now).`; go.disabled = false;
+  }
+  function paCreate(){
+    const lvl = paParse(), ltp = ltpOf(paSym); if(!Number.isFinite(lvl) || ltp == null || lvl === ltp) return;
+    const list = paLoad(); list.push({ id: 'pa' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), sym: paSym, name: coinNameOf(paSym), level: lvl, dir: lvl > ltp ? 'above' : 'below', createdAt: Date.now(), createdPx: ltp, status: 'active', seen: true });
+    paSave(list); updateBadge();
+    paStep = 'choose'; paMsg = `✅ Alert set: ${paSym} ${lvl > ltp ? 'above' : 'below'} <b>${fmtLvl(lvl)}</b>. It is checked while the app is open.`;
+    paRender();
+    if(overlay.classList.contains('open') && strategy === 'mine' && !coinSym) render();
+  }
+  pa.addEventListener('click', e => {
+    if(e.target === pa || e.target.closest('[data-pa-close]')){ paClose(); return; }
+    if(e.target.closest('[data-pa-wl]')){ const ok = wlAdd(paSym); paMsg = ok ? `✅ ${paSym} added to your watchlist.` : ''; paRender(); return; }
+    if(e.target.closest('[data-pa-new]')){ paStep = 'form'; paRender(); return; }
+    const pc = e.target.closest('[data-pa-pct]');
+    if(pc){ const ltp = ltpOf(paSym); if(ltp != null){ const i = document.getElementById('paLevel'); i.value = String(+(ltp * (1 + parseFloat(pc.dataset.paPct) / 100)).toPrecision(6)); paCondUpdate(); } return; }
+    const del = e.target.closest('[data-pa-del]');
+    if(del){ paSave(paLoad().filter(a => a.id !== del.dataset.paDel)); updateBadge(); paRender(); if(overlay.classList.contains('open') && strategy === 'mine' && !coinSym) render(); return; }
+    if(e.target.closest('#paGo')) paCreate();
+  });
+  pa.addEventListener('input', e => { if(e.target.id === 'paLevel') paCondUpdate(); });
+  pa.addEventListener('keydown', e => { if(e.key === 'Enter' && e.target.id === 'paLevel'){ e.preventDefault(); paCreate(); } });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && !pa.hidden){ paClose(); e.stopPropagation(); } }, true);
+
+  // ---- the bell tab: everything that triggered, and what is still waiting ----
+  const paAgo = ms => { const m = Math.max(0, Math.round((Date.now() - ms) / 60000)); return m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago'; };
+  function renderMine(){
+    loadLive();
+    const all = paLoad(), fresh = new Set(all.filter(a => a.status === 'triggered' && !a.seen).map(a => a.id));
+    const trig = all.filter(a => a.status === 'triggered').sort((a, b) => b.triggeredAt - a.triggeredAt), wait = all.filter(a => a.status === 'active').sort((a, b) => b.createdAt - a.createdAt);
+    if(fresh.size){ all.forEach(a => { if(a.status === 'triggered') a.seen = true; }); paSave(all); }   // opening the tab counts as looking at them
+    const rowOf = a => {
+      const tr = a.status === 'triggered', px = ltpOf(a.sym);
+      const line1 = tr ? `${a.dir === 'above' ? 'Rose to' : 'Fell to'} the level <b>${fmtLvl(a.level)}</b> &middot; price was <b>${fmtLvl(a.triggerPx)}</b>`
+        : `Waiting for <b>${fmtLvl(a.level)}</b> &middot; now <b>${fmtLvl(px)}</b>${px != null ? ` (${((a.level - px) / px * 100) >= 0 ? '+' : ''}${((a.level - px) / px * 100).toFixed(2)}% away)` : ''}`;
+      const line2 = tr ? `Set ${paAgo(a.createdAt)} at ${fmtLvl(a.createdPx)} &middot; triggered ${paAgo(a.triggeredAt)}` : `Set ${paAgo(a.createdAt)} at ${fmtLvl(a.createdPx)}`;
+      return `<div class="pa-row${fresh.has(a.id) ? ' fresh' : ''}" data-sym="${esc(a.sym)}" role="button" tabindex="0" title="Open ${esc(a.sym)} technical breakdown">
+        <div class="alert-main"><div class="alert-top"><span class="alert-sym" style="text-decoration:none;cursor:pointer">${esc(a.sym)}</span><span class="alert-pill ${a.dir === 'above' ? 'long' : 'short'}">${a.dir === 'above' ? '▲ above' : '▼ below'}</span>${tr ? '<span class="alert-pill confirmed">Triggered</span>' : '<span class="alert-pill unconf">Waiting</span>'}${fresh.has(a.id) ? '<span class="alert-pill new">New</span>' : ''}</div>
+        <div class="alert-line">${line1}</div><div class="alert-line" style="color:var(--faint)">${line2}</div></div>
+        <button type="button" class="pa-del" data-pa-row-del="${a.id}" aria-label="Delete this alert" title="Delete">&#10005;</button></div>`;
+    };
+    const empty = m => `<div class="alerts-empty">${m}</div>`;
+    const help = `<div class="alerts-help-body"><ul>
+      <li><b>Create one:</b> tap + in a chart or in a coin's alert list, then "Create price alert", and type the level.</li>
+      <li><b>When it triggers:</b> the bell on Home gets a badge and the alert moves to Triggered here. The price is compared with the live Home price every few seconds, so this only works while the app is open.</li>
+      <li>Tap a row to open the coin's technical breakdown. The cross deletes an alert.</li></ul></div>`;
+    grid.innerHTML = groupCard('mine-trig', '🔔', 'var(--amber)', 'Triggered', trig.length, trig.length ? trig.map(rowOf).join('') + `<button type="button" class="more-link" data-pa-clear style="background:none;border:none;color:var(--faint);font:600 11px var(--font-mono);cursor:pointer;padding:6px 8px;text-decoration:underline dotted">Clear triggered</button>` : empty('Nothing has triggered yet.'))
+      + groupCard('mine-wait', '⏳', 'var(--accent)', 'Waiting', wait.length, wait.length ? wait.map(rowOf).join('') : empty('No price alerts waiting. Tap + on a chart to create one.'))
+      + groupCard('mine-help', 'ℹ️', 'var(--violet)', 'How this works', null, help);
+    setHeader(); updateBadge(); updateToggleAll();
+  }
+  grid.addEventListener('click', e => {
+    const d = e.target.closest('[data-pa-row-del]');
+    if(d){ e.stopPropagation(); paSave(paLoad().filter(a => a.id !== d.dataset.paRowDel)); updateBadge(); renderMine(); return; }
+    if(e.target.closest('[data-pa-clear]')){ e.stopPropagation(); paSave(paLoad().filter(a => a.status !== 'triggered')); updateBadge(); renderMine(); return; }
+    const row = e.target.closest('.pa-row[data-sym]');
+    if(row && !e.target.closest('.analysis-group-head')){ e.stopPropagation(); openCoin(row); }
+  }, true);
+  setInterval(paCheck, 8000);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) paCheck(); });
+  setTimeout(paCheck, 4000);
+  document.getElementById('alertsCoinAdd').addEventListener('click', () => paOpen(coinSym));
+
+  achart.addEventListener('click', e => {
+    if(e.target.closest('.achart-add') && chartCurrent){ paOpen(chartCurrent.sym); return; } if(e.target === achart || e.target.closest('.achart-close')) closeChart(); const sh = e.target.closest('.achart-share'); if(sh) shareChart(sh);
     if(e.target.closest('.achart-tv')) openTradingView();
     const lb = e.target.closest('[data-lines]');
     const lv = e.target.closest('[data-levels]');
