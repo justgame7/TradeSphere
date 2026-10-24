@@ -28,10 +28,14 @@ const fs = require('fs');
 const path = require('path');
 
 // Two turtle-style systems, both evaluated on the same candles: entry lookback / exit lookback.
-const SYSTEMS = [
+const ALL_SYSTEMS = [
   { key: '20/10', entry: 20, exit: 10 },
   { key: '55/20', entry: 55, exit: 20 },
 ];
+// 55/20 is switched off: its signals came late with a wide stop and it had the weakest results in the summary report.
+// To bring it back, remove '55/20' from this list (the app and the report read the same `rules.systems` list).
+const DISABLED_SYSTEMS = ['55/20'];
+const SYSTEMS = ALL_SYSTEMS.filter((x) => !DISABLED_SYSTEMS.includes(x.key));
 const TOP_N = 50;
 const HOUR = 3600e3, DAY = 86400e3;
 

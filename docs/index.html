@@ -1961,7 +1961,7 @@
       <div class="analysis-id">
         <div class="analysis-symbol-icon" id="alertsIcon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
         <div class="analysis-id-text">
-          <div class="analysis-symbol"><span id="alertsTitle">Donchian alerts</span><span class="quote" id="alertsQuote">20/10 &middot; 55/20</span></div>
+          <div class="analysis-symbol"><span id="alertsTitle">Donchian alerts</span><span class="quote" id="alertsQuote">20/10</span></div>
           <div class="analysis-meta"><span id="alertsMeta">Top 50 coins &middot; long + short</span></div>
         </div>
       </div>
@@ -3023,7 +3023,10 @@ const AlertsPanel = (() => {
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
   let strategy = 'donchian';      // 'donchian' | 'ichimoku' | 'retrace' (Donchian is the default; retrace is the zone list only, no trades)
   let coinSym = null, coinFirst = 'donchian', coinMetaText = '';   // coin view: every alert for one coin
-  let sysFilter = 'all';          // Donchian only: 'all' | '20/10' | '55/20'
+  // Donchian 55/20 is switched off (late signals, wide stop, weakest results); the alerts job no longer writes it and any copy still
+  // in an older file is dropped on load. With a single Donchian system the 20/10 / 55/20 filter row stays hidden.
+  const DISABLED_SYSTEMS = ['55/20'];
+  let sysFilter = 'all';          // Donchian only: 'all' | '20/10'
   let newByTf = {};               // per timeframe: keys that were new when this visit first showed that tab
 
   const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
@@ -3539,7 +3542,7 @@ const AlertsPanel = (() => {
     }
     const open = (tfd.trades || []).filter(t => t.status === 'open' && okItem(t)).length, unconf = (tfd.forming || []).filter(okItem).length;
     titleEl.textContent = strategy === 'ichimoku' ? 'Ichimoku alerts' : 'Donchian alerts';
-    quoteEl.innerHTML = strategy === 'ichimoku' ? '9 &middot; 26 &middot; 52' : (sysFilter === 'all' ? '20/10 &middot; 55/20' : sysFilter);
+    quoteEl.innerHTML = strategy === 'ichimoku' ? '9 &middot; 26 &middot; 52' : '20/10';
     metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab}${strategy === 'donchian' && sysFilter !== 'all' ? ' · ' + sysFilter : ''} · ${open} confirmed · ${unconf} unconfirmed`;
   }
   function refreshLive(){
@@ -3720,7 +3723,7 @@ const AlertsPanel = (() => {
     if(strategy !== 'retrace') markViewed(strategy, tab);             // this (strategy, timeframe) is being looked at: remember what was new, then clear its badge
     newKeys = newByTf[seenKey(strategy, tab)] || new Set();
     stratRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.strat === strategy));
-    sysRow.hidden = strategy !== 'donchian';   // 20/10 and 55/20 only exist for Donchian
+    sysRow.hidden = true;                      // only one Donchian system is enabled, so there is nothing to filter
     sysRow.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.sys === sysFilter));
     loadLive();
     setHeader();
@@ -3773,9 +3776,9 @@ const AlertsPanel = (() => {
       '<li>Confirmed prices are closed-candle closes. Results are close-to-close and ignore fees and funding.</li>',
     ].join('');
     const common = `<li><b>Coins:</b> the top coins by market cap, excluding stablecoins, that trade as a USDT perpetual on CoinDCX. A coin CoinDCX doesn't list is skipped and the next one takes its place, so 50 coins are scanned.</li>`;
-    const donchianHelp = `<li><b>Systems:</b> every Donchian alert is tagged with its system. <b>20/10</b> uses a 20-candle entry and a 10-candle exit. <b>55/20</b> is the slower one, with a 55-candle entry and a 20-candle exit, so fewer and later signals.</li>
-      <li><b>Long entry:</b> a candle closes above the highest high of the previous N candles. <b>Short entry:</b> a candle closes below the lowest low of the previous N candles (N = 20 or 55).</li>
-      <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous M candles. While short, it closes above the highest high of the previous M (M = 10 or 20).</li>`;
+    const donchianHelp = `<li><b>System:</b> Donchian 20/10 uses a 20-candle entry and a 10-candle exit.</li>
+      <li><b>Long entry:</b> a candle closes above the highest high of the previous 20 candles. <b>Short entry:</b> a candle closes below the lowest low of the previous 20 candles.</li>
+      <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous 10 candles. While short, it closes above the highest high of the previous 10.</li>`;
     const ichimokuHelp = `<li><b>Ichimoku (9 / 26 / 52):</b> Tenkan 9, Kijun 26, Senkou B 52, with the cloud projected 26 candles ahead and the Chikou span the close shifted 26 back.</li>
       <li><b>Long entry:</b> a candle closes above the cloud and one of two breakouts fires. <b>PK</b> (price): the previous close was below the cloud top and this close is above it. <b>CK</b> (Chikou): the Chikou span just crossed above the cloud. Either one enters, and the alert shows which. Short entry is the mirror image.</li>
       <li><b>Trend filter:</b> for a long, Tenkan must be above Kijun and the future cloud bullish (Senkou A above B). For a short, the reverse.</li>
@@ -3809,6 +3812,8 @@ const AlertsPanel = (() => {
       const res = await fetch(DATA_URL + (DATA_URL.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
       if(!res.ok) throw new Error('HTTP ' + res.status);
       data = await res.json();
+      Object.keys(data.timeframes || {}).forEach(k => { const d = data.timeframes[k];
+        d.trades = (d.trades || []).filter(t => !DISABLED_SYSTEMS.includes(sysOf(t))); d.forming = (d.forming || []).filter(f => !DISABLED_SYSTEMS.includes(sysOf(f))); });
       loadErr = false;
     }catch(e){ loadErr = true; }
     lastFetch = Date.now();

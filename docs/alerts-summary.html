@@ -159,7 +159,7 @@ let PARENT = null; try{ if(window.parent && window.parent !== window && window.p
 const DATA_URL = lsGet('ts-alerts-data-url') || 'https://raw.githubusercontent.com/justgame7/TradeSphere/main/data/donchian-alerts.json';
 const HIST_URL = lsGet('ts-alerts-history-url') || DATA_URL.replace(/[^/]*$/, 'alerts-history.json');
 const SHOW_1H = lsGet('crypto-screener-alerts-1h') === 'true';
-const STRATS = ['20/10', '55/20', 'Ichimoku'];
+const STRATS = ['20/10', 'Ichimoku'];   // Donchian 55/20 is switched off (see scripts/donchian-alerts.js)
 const SNAME = { '20/10': 'Donchian 20/10', '55/20': 'Donchian 55/20', 'Ichimoku': 'Ichimoku' };
 const SCOL = { '20/10': '#35E0C0', '55/20': '#5b8cff', 'Ichimoku': '#a78bfa' };
 const TFS = SHOW_1H ? ['1H', '4H', '1D', '1W'] : ['4H', '1D', '1W'];
@@ -214,7 +214,7 @@ function build(){
     const PER = { '1H': HOUR, '4H': 4 * HOUR, '1D': DAY, '1W': 7 * DAY };
     TFS.forEach(tf => { const d = (MAIN.timeframes || {})[tf]; if(!d) return; const per = PER[tf];
       (d.trades || []).forEach(t => T.push({ tf, per, sys: t.system || '20/10', sym: t.symbol, side: t.side === 'long' ? 1 : -1, eE: t.entryTime + per, eX: t.exitTime ? t.exitTime + per : 0, pct: t.status === 'closed' ? t.resultPct : null, reason: t.exitReason === 'stop' ? 2 : 1, ep: t.status === 'open' ? t.entryClose : null, open: t.status === 'open' })); });
-    refreshLive(); return;
+    T = T.filter(t => STRATS.includes(t.sys)); refreshLive(); return;
   }
   TFS.forEach(tf => {
     const h = HIST.tfs && HIST.tfs[tf]; if(!h) return;
@@ -223,6 +223,7 @@ function build(){
       T.push({ tf, per, sys: a[0], sym: a[1], side: a[2], eE: a[3] + per, eX: a[4] ? a[4] + per : 0, pct: a[5], reason: a[6], ep: a[7], open: !a[4] });
     });
   });
+  T = T.filter(t => STRATS.includes(t.sys));   // history written before 55/20 was switched off may still contain it
   refreshLive();
 }
 function refreshLive(){
@@ -394,7 +395,7 @@ const delta = (a, b, inv, d = 0, suf = '') => { if(!Number.isFinite(a) || !Numbe
 
 function renderFilters(){
   $('fPeriod').innerHTML = ['day', 'week', 'month'].map(p => `<button class="chip${S.period === p ? ' on' : ''}" data-p="${p}">${p === 'day' ? 'Daily' : p === 'week' ? 'Weekly' : 'Monthly'}</button>`).join('');
-  $('fStrat').innerHTML = [['all', 'All strategies'], ['20/10', 'Donchian 20/10'], ['55/20', 'Donchian 55/20'], ['Ichimoku', 'Ichimoku']].map(a => `<button class="chip${S.strat === a[0] ? ' on' : ''}" data-s="${a[0]}">${a[1]}</button>`).join('');
+  $('fStrat').innerHTML = [['all', 'All strategies'], ['20/10', 'Donchian 20/10'], ['Ichimoku', 'Ichimoku']].map(a => `<button class="chip${S.strat === a[0] ? ' on' : ''}" data-s="${a[0]}">${a[1]}</button>`).join('');
   $('fTf').innerHTML = [['all', 'All timeframes']].concat(SHOW_1H ? [['ex1h', 'All except 1H']] : []).concat(TFS.map(t => [t, TFNAME[t]])).map(a => `<button class="chip${S.tf === a[0] ? ' on' : ''}" data-t="${a[0]}">${a[1]}</button>`).join('');
   $('fNav').innerHTML = [['sOver', 'Overview'], ['sFlow', 'Activity'], ['sStrat', 'Strategies'], ['sCoin', 'Coins'], ['sRz', 'Retracement'], ['sIns', 'Insights']].map(a => `<button class="chip nav" data-n="${a[0]}">${a[1]}</button>`).join('');
 }
