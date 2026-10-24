@@ -608,6 +608,10 @@
   .alerts-sec{display:flex;align-items:center;gap:8px;padding:12px 8px 6px;font:700 10.5px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
   .alerts-sec .n{background:var(--panel2);border:1px solid var(--border-soft);border-radius:8px;padding:1px 7px;color:var(--text);}
   .alert-row{display:flex;gap:10px;padding:11px 10px;margin:0 0 6px;border:1px solid var(--border-soft);border-radius:14px;background:var(--panel);animation:top50RowIn .3s ease backwards;}
+  /* Donchian is shown greyed out: still listed, but it does not count on the bell */
+  .alert-row.is-grey{opacity:.5;}
+  .alert-row.is-grey:hover,.alert-row.is-grey:active{opacity:.85;}
+  #alertsStratRow button[data-strat="donchian"]:not(.active){opacity:.55;}
   .alert-row.is-new{border-color:rgba(245,166,35,.5);box-shadow:0 0 0 1px rgba(245,166,35,.12) inset;}
   .alert-row[data-sym]{cursor:pointer;transition:background .15s ease,transform .1s ease;}
   .alert-row[data-sym]:active{transform:scale(.99);background:var(--panel2);}
@@ -3110,12 +3114,13 @@ const AlertsPanel = (() => {
   // Green = new CONFIRMED signals (candle closed), amber = new UNCONFIRMED ones (candle still open).
   // Each counts only what has not been shown to the user yet; opening the panel marks everything as seen.
   function updateBadge(){
-    const un = unseenItems();
+    // The bell counts new alerts of Ichimoku, CHoCH and BOS only. Donchian is still listed inside the alerts page (greyed out), but never lights the bell.
+    const un = unseenItems().filter(it => it.strat !== 'donchian');
     const nForming = un.filter(it => it.forming).length, nOk = un.length - nForming;
     const show = (el, n) => { el.hidden = n === 0; el.textContent = n > 99 ? '99+' : String(n); };
     show(badge, nOk); show(badgeForming, nForming);
     btn.classList.toggle('has-new', un.length > 0);
-    btn.title = un.length ? `Alerts (${nOk} new confirmed, ${nForming} new unconfirmed)` : 'Alerts (Donchian, Ichimoku)';
+    btn.title = un.length ? `Alerts (${nOk} new confirmed, ${nForming} new unconfirmed)` : 'Alerts (Ichimoku, CHoCH, BOS)';
     updateTabBadges();
   }
 
@@ -3172,7 +3177,7 @@ const AlertsPanel = (() => {
     const lines = open
       ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${lvlName}${fmtPx(t.entryLevel)} &middot; now <b class="px-now">${fmtPx(nowPx)}</b>${(ichi || choch) && Number.isFinite(t.sl) ? `<br>Stop loss <b>${fmtPx(t.sl)}</b>` : ''}${choch && Number.isFinite(t.stop) ? ` &middot; trailing stop <b>${fmtPx(t.stop)}</b>` : ''}</div>`
       : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}${(ichi || choch) ? (t.exitReason === 'stop' ? `<br>Stopped out: closed ${long ? 'below' : 'above'} stop loss ${fmtPx(t.exitLevel)}` : `<br>Closed ${long ? 'below' : 'above'} ${ichi ? 'Kijun' : 'the trailing stop'} ${fmtPx(t.exitLevel)}`) : ''}</div>`;
-    return `<div class="alert-row${isNew ? ' is-new' : ''}" data-sym="${esc(t.symbol)}"${open ? ` data-live="open" data-side="${t.side}" data-entry="${t.entryClose}" data-level="${t.entryLevel}"` : ''} role="button" tabindex="0" title="Open ${esc(t.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
+    return `<div class="alert-row${isNew ? ' is-new' : ''}${sysOf(t) === '20/10' ? ' is-grey' : ''}" data-sym="${esc(t.symbol)}"${open ? ` data-live="open" data-side="${t.side}" data-entry="${t.entryClose}" data-level="${t.entryLevel}"` : ''} role="button" tabindex="0" title="Open ${esc(t.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
       <div class="alert-main">
         <div class="alert-top">
           <span class="alert-sym">${esc(t.symbol)}</span>${mult}
@@ -3526,7 +3531,7 @@ const AlertsPanel = (() => {
       right = `<span class="alert-pct ${past >= 0 ? 'pos' : 'neg'}">${signedPct(past)}</span><span class="alert-pct-l">past the level</span>`;
     }
     const isNew = newKeys.has(fkey(tf, f));
-    return `<div class="alert-row is-forming${isNew ? ' is-new' : ''}" data-sym="${esc(f.symbol)}" data-live="${isExit ? 'fexit' : 'fentry'}" data-side="${f.side}" data-entry="${f.entryClose == null ? '' : f.entryClose}" data-level="${f.level}" role="button" tabindex="0" title="Open ${esc(f.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
+    return `<div class="alert-row is-forming${isNew ? ' is-new' : ''}${sysOf(f) === '20/10' ? ' is-grey' : ''}" data-sym="${esc(f.symbol)}" data-live="${isExit ? 'fexit' : 'fentry'}" data-side="${f.side}" data-entry="${f.entryClose == null ? '' : f.entryClose}" data-level="${f.level}" role="button" tabindex="0" title="Open ${esc(f.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
       <div class="alert-main">
         <div class="alert-top">
           <span class="alert-sym">${esc(f.symbol)}</span>${mult}
