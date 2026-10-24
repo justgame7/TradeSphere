@@ -203,11 +203,11 @@ const DATA_URL = lsGet('ts-alerts-data-url') || 'https://raw.githubusercontent.c
 const HIST_URL = lsGet('ts-alerts-history-url') || DATA_URL.replace(/[^/]*$/, 'alerts-history.json');
 const SHOW_1H = lsGet('crypto-screener-alerts-1h') === 'true';
 // Donchian 55/20 is switched off (see scripts/donchian-alerts.js); Bullish CHoCH exists on 4H and Daily only.
-const STRATS = ['20/10', 'Ichimoku', 'CHoCH'];
-const SNAME = { '20/10': 'Donchian 20/10', 'Ichimoku': 'Ichimoku', 'CHoCH': 'Bullish CHoCH' };
-const SSHORT = { '20/10': 'D 20/10', 'Ichimoku': 'Ichimoku', 'CHoCH': 'Bull CHoCH' };
-const SMENU = { '20/10': 'Donchian', 'Ichimoku': 'Ichimoku', 'CHoCH': 'Bull CHoCH' };   // short labels for the filter menus
-const SCOL = { '20/10': '#3987e5', 'Ichimoku': '#199e70', 'CHoCH': '#d95926' };   // the validated first three categorical slots
+const STRATS = ['20/10', 'Ichimoku', 'CHoCH', 'BOS'];
+const SNAME = { '20/10': 'Donchian 20/10', 'Ichimoku': 'Ichimoku', 'CHoCH': 'Bullish CHoCH', 'BOS': 'Bullish BOS' };
+const SSHORT = { '20/10': 'D 20/10', 'Ichimoku': 'Ichimoku', 'CHoCH': 'Bull CHoCH', 'BOS': 'Bull BOS' };
+const SMENU = { '20/10': 'Donchian', 'Ichimoku': 'Ichimoku', 'CHoCH': 'Bull CHoCH', 'BOS': 'Bull BOS' };   // short labels for the filter menus
+const SCOL = { '20/10': '#3987e5', 'Ichimoku': '#199e70', 'CHoCH': '#d95926', 'BOS': '#c98500' };   // the validated categorical slots; points on the edge map also carry a text label
 const TFS = SHOW_1H ? ['1H', '4H', '1D', '1W'] : ['4H', '1D', '1W'];
 const TFNAME = { '1H': '1H', '4H': '4H', '1D': 'Daily', '1W': 'Weekly' };
 const PERIOD_MS = { '1H': HOUR, '4H': 4 * HOUR, '1D': DAY, '1W': 7 * DAY };
@@ -518,7 +518,7 @@ function frontier(){
   STRATS.forEach(sy => { if(S.strat !== 'all' && S.strat !== sy) return; tfSel().forEach(tf => { const st = stats(T.filter(t => t.sys === sy && t.tf === tf)); if(st.n >= 3 && Number.isFinite(st.payoff)) pts.push({ sy, tf, st }); }); });
   pts.forEach(p => {
     const cx = X(Math.max(2, Math.min(98, p.st.wr))), cy = Y(p.st.payoff), r = 5 + Math.min(6, Math.sqrt(p.st.n) / 2.2);
-    s += `<g class="hov"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${SCOL[p.sy]}" stroke="#12151b" stroke-width="2"/><text x="${cx}" y="${cy - r - 4}" text-anchor="middle" class="lbl">${p.tf}</text></g><circle class="hit" ${tipAttr(`Win rate ${p.st.wr.toFixed(0)}%\nPayoff ${p.st.payoff.toFixed(2)}× (needs ${p.st.need.toFixed(2)}×)\nExpectancy ${fmtPct(p.st.exp)}\n${p.st.n} closed trades`, SNAME[p.sy] + ' · ' + TFNAME[p.tf])}" cx="${cx}" cy="${cy}" r="${Math.max(14, r + 6)}"/>`;
+    s += `<g class="hov"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${SCOL[p.sy]}" stroke="#12151b" stroke-width="2"/><text x="${cx}" y="${cy - r - 4}" text-anchor="middle" class="lbl">${({ '20/10': 'D', 'Ichimoku': 'I', 'CHoCH': 'C', 'BOS': 'B' })[p.sy]} ${p.tf}</text></g><circle class="hit" ${tipAttr(`Win rate ${p.st.wr.toFixed(0)}%\nPayoff ${p.st.payoff.toFixed(2)}× (needs ${p.st.need.toFixed(2)}×)\nExpectancy ${fmtPct(p.st.exp)}\n${p.st.n} closed trades`, SNAME[p.sy] + ' · ' + TFNAME[p.tf])}" cx="${cx}" cy="${cy}" r="${Math.max(14, r + 6)}"/>`;
   });
   return { svg: s + '</svg>', pts };
 }
@@ -619,7 +619,7 @@ function viewStrat(C){
       const g = Math.max(-1, Math.min(1, x.exp / 5)), bg = g >= 0 ? `rgba(53,224,192,${.07 + g * .4})` : `rgba(255,84,112,${.07 - g * .4})`;
       return `<td style="background:${bg};cursor:default" ${tipAttr(`${x.n} closed · ${x.wr.toFixed(0)}% won\nAvg win ${fmtPct(x.avgW, 1)}, avg loss ${fmtPct(x.avgL, 1)}`, SNAME[sy] + ' · ' + TFNAME[tf])}>${x.exp >= 0 ? '▲' : '▼'} ${fmtPct(x.exp, 1)}<div style="font:500 9px var(--mono);opacity:.75;margin-top:3px">${x.wr.toFixed(0)}% · ${x.n}</div></td>`; }).join('')}</tr>`).join('')}</tbody></table>`);
   const lean = rows.map(sy => tfs.map(tf => {
-    const o = T.filter(t => t.open && t.sys === sy && t.tf === tf); if(!o.length && sy === 'CHoCH' && tf === '1W') return '';
+    const o = T.filter(t => t.open && t.sys === sy && t.tf === tf); if(!o.length && (sy === 'CHoCH' || sy === 'BOS') && (tf === '1W' || tf === '1H')) return '';
     const Lg = o.filter(t => t.side > 0).length, Sh = o.length - Lg, tot = Math.max(1, Lg + Sh);
     return `<div class="it"><div style="min-width:118px" class="nm"><span class="sdot" style="background:${SCOL[sy]}"></span>${esc(SSHORT[sy])}<small>${TFNAME[tf]}</small></div><div class="grow"><div class="meter"><i style="width:${Lg / tot * 100}%;background:${UP}"></i><i style="width:${Sh / tot * 100}%;background:${DOWN}"></i></div></div><span class="mono" style="font-size:11px;min-width:56px;text-align:right"><span class="pos">${Lg}</span> / <span class="neg">${Sh}</span></span></div>`; }).join('')).join('');
   h += card('Market lean', 'Open trades, long against short, for every strategy and timeframe.', `<div class="list">${lean || '<div class="empty">No open trades.</div>'}</div>`);
