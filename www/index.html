@@ -685,6 +685,11 @@
   .pa-go{width:100%;height:44px;border-radius:12px;border:none;background:var(--accent);color:#04170f;font:700 13px var(--font-ui);cursor:pointer;}
   .pa-go:disabled{opacity:.4;cursor:default;}
   .pa-list{margin-top:16px;border-top:1px solid var(--border-soft);padding-top:10px;} .pa-list .r{display:flex;align-items:center;gap:8px;padding:6px 0;font:500 11.5px var(--font-mono);color:var(--muted);}
+  .pa-acts{display:flex;gap:6px;flex-shrink:0;margin-left:auto;}
+  .pa-edit:hover{border-color:var(--accent) !important;color:var(--accent) !important;}
+  .pa-sure{font:500 13px/1.6 var(--font-ui);color:var(--muted);margin:2px 0 14px;} .pa-sure b{color:var(--text);}
+  .pa-btns{display:flex;gap:10px;} .pa-btns button{flex:1;height:44px;border-radius:12px;font:700 13px var(--font-ui);cursor:pointer;border:1px solid var(--border);background:var(--panel2);color:var(--text);}
+  .pa-btns .danger{background:var(--red);border-color:var(--red);color:#fff;}
   .pa-del{margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;width:28px;height:28px;cursor:pointer;flex-shrink:0;} .pa-del:hover{border-color:var(--red);color:var(--red);}
   .pa-row{display:flex;gap:10px;align-items:flex-start;padding:11px 10px;margin:0 0 6px;border:1px solid var(--border-soft);border-radius:14px;background:var(--panel);cursor:pointer;}
   .pa-row.fresh{border-color:rgba(245,166,35,.5);box-shadow:0 0 0 1px rgba(245,166,35,.12) inset;} .pa-row:hover{background:var(--panel2);}
@@ -4064,11 +4069,15 @@ const AlertsPanel = (() => {
 
   // ---- the "+" sheet ----
   const pa = document.createElement('div'); pa.className = 'pa'; pa.hidden = true; pa.innerHTML = '<div class="pa-card" role="dialog" aria-label="Watchlist or price alert"></div>'; document.body.appendChild(pa);
-  let paSym = null, paStep = 'choose', paTimer = null, paMsg = '';
+  let paSym = null, paStep = 'choose', paTimer = null, paMsg = '', paEditId = null, paConfirm = null, paFromMine = false;
   const paCard = () => pa.querySelector('.pa-card');
-  function paOpen(sym){ if(!sym) return; paSym = sym; paStep = 'choose'; paMsg = ''; paRender(); pa.hidden = false; }
-  function paClose(){ pa.hidden = true; clearInterval(paTimer); paTimer = null; }
-  const paHead = () => `<div class="pa-head"><div class="t"><b>${esc(paSym)}</b><span>${esc(coinNameOf(paSym) || bsOf(paSym))}</span></div><button type="button" class="achart-x" data-pa-close aria-label="Close">&#10005;</button></div>`;
+  function paOpen(sym){ if(!sym) return; paSym = sym; paStep = 'choose'; paMsg = ''; paEditId = null; paConfirm = null; paFromMine = false; paRender(); pa.hidden = false; }
+  function paClose(){ pa.hidden = true; clearInterval(paTimer); paTimer = null; paEditId = null; paConfirm = null; }
+  const paRefreshMine = () => { if(overlay.classList.contains('open') && strategy === 'mine' && !coinSym) render(); };
+  const paHead = () => paConfirm && paConfirm.kind === 'clear'
+    ? '<div class="pa-head"><div class="t"><b>My price alerts</b><span>Triggered alerts</span></div><button type="button" class="achart-x" data-pa-close aria-label="Close">&#10005;</button></div>'
+    : `<div class="pa-head"><div class="t"><b>${esc(paSym)}</b><span>${esc(coinNameOf(paSym) || bsOf(paSym))}</span></div><button type="button" class="achart-x" data-pa-close aria-label="Close">&#10005;</button></div>`;
+  const paLvlStr = v => String(+Number(v).toPrecision(6));
   function paRender(){
     clearInterval(paTimer); paTimer = null;
     const card = paCard(), onWl = wlHas(paSym);
@@ -4076,17 +4085,22 @@ const AlertsPanel = (() => {
       card.innerHTML = paHead() + (paMsg ? `<div class="pa-cond">${paMsg}</div>` : '')
         + `<button type="button" class="pa-opt" data-pa-wl${onWl ? ' disabled' : ''}><span class="ic">⭐</span><span>${onWl ? 'Already on your watchlist' : 'Add to watchlist'}<small>The same list as the Watchlist page</small></span></button>`
         + `<button type="button" class="pa-opt" data-pa-new><span class="ic">🔔</span><span>Create price alert<small>Get the bell when the price reaches a level</small></span></button>`;
+    }else if(paStep === 'confirm' && paConfirm){
+      const al = paConfirm.id ? paLoad().find(x => x.id === paConfirm.id) : null;
+      const what = paConfirm.kind === 'clear' ? 'Remove every triggered price alert from the list?' : (al ? `Delete the <b>${esc(al.sym)}</b> alert (${al.dir === 'above' ? 'above' : 'below'} <b>${fmtLvl(al.level)}</b>)?` : 'Delete this alert?');
+      card.innerHTML = paHead() + `<div class="pa-sure">${what} This cannot be undone.</div><div class="pa-btns"><button type="button" data-pa-cancel>Cancel</button><button type="button" class="danger" data-pa-yes>${paConfirm.kind === 'clear' ? 'Remove' : 'Delete'}</button></div>`;
     }else if(paStep === 'form'){
-      const mine = paLoad().filter(a => a.sym === paSym && a.status === 'active');
+      const editing = paEditId ? paLoad().find(x => x.id === paEditId) : null, ltp = ltpOf(paSym);
+      const mine = editing ? [] : paLoad().filter(a => a.sym === paSym && a.status === 'active');
       card.innerHTML = paHead()
-        + `<div class="pa-ltp"><span>LTP</span><b id="paLtp">${fmtLvl(ltpOf(paSym))}</b></div>`
-        + `<div class="pa-lbl">Alert when the price reaches</div><input class="pa-in" id="paLevel" inputmode="decimal" autocomplete="off" placeholder="Enter a price level">`
+        + `<div class="pa-ltp"><span>LTP</span><b id="paLtp">${fmtLvl(ltp)}</b></div>`
+        + `<div class="pa-lbl">${editing ? 'Change the alert level' : 'Alert when the price reaches'}</div><input class="pa-in" id="paLevel" inputmode="decimal" autocomplete="off" placeholder="Enter a price level" value="${editing ? paLvlStr(editing.level) : (ltp != null ? paLvlStr(ltp) : '')}">`
         + `<div class="pa-chips">${[-10, -5, 5, 10].map(p => `<button type="button" data-pa-pct="${p}">${p > 0 ? '+' : ''}${p}%</button>`).join('')}</div>`
-        + `<div class="pa-cond" id="paCond">Type a level, or tap a quick percentage.</div>`
-        + `<button type="button" class="pa-go" id="paGo" disabled>Create alert</button>`
-        + (mine.length ? `<div class="pa-list"><div class="pa-lbl">Waiting for ${esc(paSym)}</div>${mine.map(a => `<div class="r"><span>${a.dir === 'above' ? '▲ above' : '▼ below'} <b style="color:var(--text)">${fmtLvl(a.level)}</b></span><button type="button" class="pa-del" data-pa-del="${a.id}" aria-label="Delete">&#10005;</button></div>`).join('')}</div>` : '');
+        + `<div class="pa-cond" id="paCond">${editing ? 'Change the level, or tap a quick percentage from the live price.' : 'The field starts at the live price. Change it to your level, or tap a quick percentage.'}</div>`
+        + `<button type="button" class="pa-go" id="paGo" disabled>${editing ? (editing.status === 'triggered' ? 'Save and re-arm' : 'Save changes') : 'Create alert'}</button>`
+        + (mine.length ? `<div class="pa-list"><div class="pa-lbl">Waiting for ${esc(paSym)}</div>${mine.map(a => `<div class="r"><span>${a.dir === 'above' ? '▲ above' : '▼ below'} <b style="color:var(--text)">${fmtLvl(a.level)}</b></span><span class="pa-acts"><button type="button" class="pa-del pa-edit" data-pa-edit="${a.id}" aria-label="Edit" title="Edit">&#9998;</button><button type="button" class="pa-del" data-pa-del="${a.id}" aria-label="Delete" title="Delete">&#10005;</button></span></div>`).join('')}</div>` : '');
       paTimer = setInterval(() => { const e = document.getElementById('paLtp'); if(e) e.textContent = fmtLvl(ltpOf(paSym)); paCondUpdate(); }, 3000);
-      setTimeout(() => { const i = document.getElementById('paLevel'); if(i) i.focus(); }, 60);
+      setTimeout(() => { const i = document.getElementById('paLevel'); if(i){ i.focus(); i.select(); } paCondUpdate(); }, 60);
     }
   }
   function paParse(){ const i = document.getElementById('paLevel'); const v = i ? parseFloat(String(i.value).replace(/,/g, '')) : NaN; return Number.isFinite(v) && v > 0 ? v : NaN; }
@@ -4096,26 +4110,45 @@ const AlertsPanel = (() => {
     cond.classList.remove('err'); go.disabled = true;
     if(!Number.isFinite(lvl)){ cond.textContent = 'Type a level, or tap a quick percentage.'; return; }
     if(ltp == null){ cond.classList.add('err'); cond.textContent = 'The live price is not available for this coin right now, so the alert cannot be checked.'; return; }
-    if(Math.abs(lvl - ltp) / ltp < 1e-6){ cond.classList.add('err'); cond.textContent = 'That is the current price. Pick a level above or below it.'; return; }
+    if(Math.abs(lvl - ltp) / ltp < 1e-6){ cond.textContent = 'This is the current price. Change it to the level you want to be told about.'; return; }
     const up = lvl > ltp, pc = (lvl - ltp) / ltp * 100;
     cond.innerHTML = `Alert when the price ${up ? 'rises to' : 'falls to'} <b>${fmtLvl(lvl)}</b> (${pc >= 0 ? '+' : ''}${pc.toFixed(2)}% from now).`; go.disabled = false;
   }
   function paCreate(){
     const lvl = paParse(), ltp = ltpOf(paSym); if(!Number.isFinite(lvl) || ltp == null || lvl === ltp) return;
-    const list = paLoad(); list.push({ id: 'pa' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), sym: paSym, name: coinNameOf(paSym), level: lvl, dir: lvl > ltp ? 'above' : 'below', createdAt: Date.now(), createdPx: ltp, status: 'active', seen: true });
-    paSave(list); updateBadge();
-    paStep = 'choose'; paMsg = `✅ Alert set: ${paSym} ${lvl > ltp ? 'above' : 'below'} <b>${fmtLvl(lvl)}</b>. It is checked while the app is open.`;
+    const list = paLoad(), dir = lvl > ltp ? 'above' : 'below';
+    if(paEditId){
+      const a = list.find(x => x.id === paEditId);
+      if(a){ a.level = lvl; a.dir = dir; a.createdPx = ltp; a.editedAt = Date.now(); a.status = 'active'; a.seen = true; delete a.triggeredAt; delete a.triggerPx; }
+    }else{
+      list.push({ id: 'pa' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), sym: paSym, name: coinNameOf(paSym), level: lvl, dir, createdAt: Date.now(), createdPx: ltp, status: 'active', seen: true });
+    }
+    const edited = !!paEditId;
+    paSave(list); updateBadge(); paRefreshMine();
+    if(paFromMine){ paClose(); return; }
+    paEditId = null; paStep = 'choose'; paMsg = `✅ Alert ${edited ? 'updated' : 'set'}: ${paSym} ${dir} <b>${fmtLvl(lvl)}</b>. It is checked while the app is open.`;
     paRender();
-    if(overlay.classList.contains('open') && strategy === 'mine' && !coinSym) render();
   }
+  // deleting always asks first: from this sheet it comes back to the form, from the bell tab it closes
+  function paAskDelete(id, kind){ paConfirm = { kind: kind || 'one', id: id || null, back: paFromMine ? 'close' : 'form' }; paStep = 'confirm'; paRender(); pa.hidden = false; }
   pa.addEventListener('click', e => {
     if(e.target === pa || e.target.closest('[data-pa-close]')){ paClose(); return; }
     if(e.target.closest('[data-pa-wl]')){ const ok = wlAdd(paSym); paMsg = ok ? `✅ ${paSym} added to your watchlist.` : ''; paRender(); return; }
-    if(e.target.closest('[data-pa-new]')){ paStep = 'form'; paRender(); return; }
+    if(e.target.closest('[data-pa-new]')){ paEditId = null; paStep = 'form'; paRender(); return; }
     const pc = e.target.closest('[data-pa-pct]');
     if(pc){ const ltp = ltpOf(paSym); if(ltp != null){ const i = document.getElementById('paLevel'); i.value = String(+(ltp * (1 + parseFloat(pc.dataset.paPct) / 100)).toPrecision(6)); paCondUpdate(); } return; }
+    const ed = e.target.closest('[data-pa-edit]');
+    if(ed){ paEditId = ed.dataset.paEdit; paStep = 'form'; paRender(); return; }
     const del = e.target.closest('[data-pa-del]');
-    if(del){ paSave(paLoad().filter(a => a.id !== del.dataset.paDel)); updateBadge(); paRender(); if(overlay.classList.contains('open') && strategy === 'mine' && !coinSym) render(); return; }
+    if(del){ paAskDelete(del.dataset.paDel); return; }
+    if(e.target.closest('[data-pa-cancel]')){ if(paConfirm && paConfirm.back === 'close'){ paClose(); } else { paConfirm = null; paStep = 'form'; paRender(); } return; }
+    if(e.target.closest('[data-pa-yes]') && paConfirm){
+      if(paConfirm.kind === 'clear') paSave(paLoad().filter(a => a.status !== 'triggered'));
+      else paSave(paLoad().filter(a => a.id !== paConfirm.id));
+      const back = paConfirm.back; paConfirm = null; updateBadge(); paRefreshMine();
+      if(back === 'close'){ paClose(); } else { paStep = 'form'; paRender(); }
+      return;
+    }
     if(e.target.closest('#paGo')) paCreate();
   });
   pa.addEventListener('input', e => { if(e.target.id === 'paLevel') paCondUpdate(); });
@@ -4137,7 +4170,7 @@ const AlertsPanel = (() => {
       return `<div class="pa-row${fresh.has(a.id) ? ' fresh' : ''}" data-sym="${esc(a.sym)}" role="button" tabindex="0" title="Open ${esc(a.sym)} technical breakdown">
         <div class="alert-main"><div class="alert-top"><span class="alert-sym" style="text-decoration:none;cursor:pointer">${esc(a.sym)}</span><span class="alert-pill ${a.dir === 'above' ? 'long' : 'short'}">${a.dir === 'above' ? '▲ above' : '▼ below'}</span>${tr ? '<span class="alert-pill confirmed">Triggered</span>' : '<span class="alert-pill unconf">Waiting</span>'}${fresh.has(a.id) ? '<span class="alert-pill new">New</span>' : ''}</div>
         <div class="alert-line">${line1}</div><div class="alert-line" style="color:var(--faint)">${line2}</div></div>
-        <button type="button" class="pa-del" data-pa-row-del="${a.id}" aria-label="Delete this alert" title="Delete">&#10005;</button></div>`;
+        <div class="pa-acts"><button type="button" class="pa-del pa-edit" data-pa-row-edit="${a.id}" aria-label="Edit this alert" title="Edit">&#9998;</button><button type="button" class="pa-del" data-pa-row-del="${a.id}" aria-label="Delete this alert" title="Delete">&#10005;</button></div></div>`;
     };
     const empty = m => `<div class="alerts-empty">${m}</div>`;
     const help = `<div class="alerts-help-body"><ul>
@@ -4150,9 +4183,12 @@ const AlertsPanel = (() => {
     setHeader(); updateBadge(); updateToggleAll();
   }
   grid.addEventListener('click', e => {
+    const fromMine = id => { const al = paLoad().find(x => x.id === id); if(al){ paSym = al.sym; paFromMine = true; paMsg = ''; } return al; };
     const d = e.target.closest('[data-pa-row-del]');
-    if(d){ e.stopPropagation(); paSave(paLoad().filter(a => a.id !== d.dataset.paRowDel)); updateBadge(); renderMine(); return; }
-    if(e.target.closest('[data-pa-clear]')){ e.stopPropagation(); paSave(paLoad().filter(a => a.status !== 'triggered')); updateBadge(); renderMine(); return; }
+    if(d){ e.stopPropagation(); if(fromMine(d.dataset.paRowDel)){ paEditId = null; paAskDelete(d.dataset.paRowDel); } return; }
+    const ee = e.target.closest('[data-pa-row-edit]');
+    if(ee){ e.stopPropagation(); if(fromMine(ee.dataset.paRowEdit)){ paEditId = ee.dataset.paRowEdit; paStep = 'form'; paConfirm = null; paRender(); pa.hidden = false; } return; }
+    if(e.target.closest('[data-pa-clear]')){ e.stopPropagation(); paSym = null; paFromMine = true; paAskDelete(null, 'clear'); return; }
     const row = e.target.closest('.pa-row[data-sym]');
     if(row && !e.target.closest('.analysis-group-head')){ e.stopPropagation(); openCoin(row); }
   }, true);
