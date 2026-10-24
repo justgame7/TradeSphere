@@ -36,7 +36,10 @@ const ALL_SYSTEMS = [
 // To bring it back, remove '55/20' from this list (the app and the report read the same `rules.systems` list).
 const DISABLED_SYSTEMS = ['55/20'];
 const SYSTEMS = ALL_SYSTEMS.filter((x) => !DISABLED_SYSTEMS.includes(x.key));
-const TOP_N = 50;
+// The universe is the first 100 scannable coins. Donchian only uses the first 50 of them; Ichimoku, CHoCH, BOS and the retracement list
+// cover all 100, and the app trims them back to 50 when Settings says so (each coin carries its rank in `universe.ranks`).
+const TOP_N = 100;
+const DONCHIAN_TOP = 50;
 const HOUR = 3600e3, DAY = 86400e3;
 
 // keepClosedMs: how long a CLOSED trade stays in the list after its exit. Open trades always stay.
@@ -60,7 +63,7 @@ const COINDCX_API_BASE = 'https://api.coindcx.com';
 const COINDCX_PUBLIC_BASE = 'https://public.coindcx.com';
 const ACTIVE_INSTRUMENTS_URL = `${COINDCX_API_BASE}/exchange/v1/derivatives/futures/data/active_instruments`;
 const FUTURES_CANDLES_URL = `${COINDCX_PUBLIC_BASE}/market_data/candlesticks`;
-const COINGECKO_MARKETS = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=150&page=1&sparkline=false';
+const COINGECKO_MARKETS = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false';
 const COINGECKO_STABLES = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=stablecoins&order=market_cap_desc&per_page=250&page=1&sparkline=false';
 
 // Stablecoins plus pegged / tokenized assets that are not ordinary coins. Used on top of CoinGecko's own
@@ -112,7 +115,7 @@ async function fetchJSON(url, { paced = true } = {}) {
   throw lastErr;
 }
 
-// ---------------- universe: the first 50 non-stablecoins (by market cap) that CoinDCX lists as USDT perps ----------------
+// ---------------- universe: the first 100 non-stablecoins (by market cap) that CoinDCX lists as USDT perps ----------------
 function readJSON(file) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } }
 
 function pairFor(symbol, instruments) {
@@ -125,9 +128,10 @@ function pairFor(symbol, instruments) {
 
 async function loadUniverse(instruments) {
   const cached = readJSON(TOP50_FILE);
-  // v: 2 = "50 scannable coins" (coins without a CoinDCX perp are skipped and replaced by the next ones).
-  const fresh = cached && cached.v === 2 && cached.updated && Date.now() - Date.parse(cached.updated) < TOP50_MAX_AGE_MS;
-  if (fresh && !FORCE) { console.log('using cached top 50 (' + cached.updated + ')'); return cached; }
+  // v: 3 = "100 scannable coins" (coins without a CoinDCX perp are skipped and replaced by the next ones). Each coin gets `u`, its place in the list.
+  const withU = (u) => { u.coins.forEach((c, i) => { c.u = i + 1; }); return u; };
+  const fresh = cached && cached.v === 3 && cached.updated && Date.now() - Date.parse(cached.updated) < TOP50_MAX_AGE_MS;
+  if (fresh && !FORCE) { console.log('using cached top ' + TOP_N + ' (' + cached.updated + ')'); return withU(cached); }
   try {
     const markets = await fetchJSON(COINGECKO_MARKETS, { paced: false });
     let stableIds = new Set();
@@ -139,7 +143,7 @@ async function loadUniverse(instruments) {
     const ranked = markets
       .filter((c) => !stableIds.has(c.id) && !EXCLUDED_SYMBOLS.has(String(c.symbol).toLowerCase()))
       .map((c, i) => ({ rank: i + 1, cgRank: c.market_cap_rank, symbol: String(c.symbol).toUpperCase(), name: c.name }));
-    const out = { v: 2, updated: new Date().toISOString(), coins: [], skipped: [] };
+    const out = { v: 3, updated: new Date().toISOString(), coins: [], skipped: [] };
     for (const c of ranked) {
       if (out.coins.length >= TOP_N) break;
       const m = pairFor(c.symbol, instruments);
@@ -147,11 +151,12 @@ async function loadUniverse(instruments) {
       else out.skipped.push({ rank: c.rank, symbol: c.symbol, name: c.name, reason: 'no CoinDCX USDT perp' });
     }
     if (out.coins.length < 30) throw new Error('too few scannable coins: ' + out.coins.length);
+    withU(out);
     fs.writeFileSync(TOP50_FILE, JSON.stringify(out));
     console.log(`top list refreshed: ${out.coins.length} scannable (down to rank ${out.coins[out.coins.length - 1].rank}), ${out.skipped.length} skipped`);
     return out;
   } catch (e) {
-    if (cached) { console.warn('CoinGecko failed (' + e.message + '), reusing cached top 50'); return cached; }
+    if (cached) { console.warn('CoinGecko failed (' + e.message + '), reusing the cached list'); return withU(cached); }
     throw e;
   }
 }
@@ -494,7 +499,7 @@ function scanCoin(coin, data, tf) {
   const hist = [];
   // [system, symbol, side (1 long, -1 short), entryTime, exitTime (0 while open), result % (null while open), exit reason (1 exit rule, 2 stop loss), entry close (open trades only)]
   const addHist = (system, t, side) => hist.push([system, coin.symbol, side === 'long' ? 1 : -1, t.entryTime, t.exitTime || 0, t.status === 'closed' ? +t.resultPct.toFixed(2) : null, t.status === 'closed' ? (t.exitReason === 'stop' ? 2 : 1) : 0, t.status === 'open' ? round(t.entryClose) : null]);
-  for (const sys of SYSTEMS) {
+  for (const sys of (coin.u <= DONCHIAN_TOP ? SYSTEMS : [])) {   // Donchian stays on the top 50 only
     if (candles.length < sys.entry + 2) continue; // not enough history for this system yet (e.g. a young coin on weekly)
     const walked = [];
     for (const side of ['long', 'short']) {
@@ -617,7 +622,7 @@ async function main() {
   const next = {
     updated: new Date().toISOString(),
     rules: { systems: SYSTEMS, structure: STRUCT_STRATS, span: CHOCH_SPAN, structKeepClosedMs: STRUCT_KEEP_CLOSED_MS },
-    universe: { source: 'CoinGecko market-cap ranking excluding stablecoins, first 50 listed on CoinDCX as USDT perps; candles from CoinDCX', updated: universe.updated, scanned: universe.coins.length, skipped: universe.skipped },
+    universe: { source: 'CoinGecko market-cap ranking excluding stablecoins, first 100 listed on CoinDCX as USDT perps (Donchian: the first 50); candles from CoinDCX', updated: universe.updated, scanned: universe.coins.length, donchianTop: DONCHIAN_TOP, ranks: Object.fromEntries(universe.coins.map((c) => [c.symbol, c.u])), skipped: universe.skipped },
     timeframes: { ...((prev && prev.timeframes) || {}) },
   };
 

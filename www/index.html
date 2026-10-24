@@ -3013,6 +3013,9 @@ const AlertsPanel = (() => {
   const ENABLED_KEY = 'crypto-screener-alerts-enabled', SHOW_1H_KEY = 'crypto-screener-alerts-1h';
   const alertsOn = () => { try{ return localStorage.getItem(ENABLED_KEY) !== 'false'; }catch(e){ return true; } };
   const show1H = () => { try{ return localStorage.getItem(SHOW_1H_KEY) === 'true'; }catch(e){ return false; } };
+  // Settings: how many coins Ichimoku, CHoCH, BOS and the retracement list cover, the top 50 or the top 100 (default 100). Donchian always uses the top 50.
+  const UNIVERSE_KEY = 'crypto-screener-alerts-universe';
+  const universeLimit = () => { try{ return localStorage.getItem(UNIVERSE_KEY) === '50' ? 50 : 100; }catch(e){ return 100; } };
   const REFRESH_MS = 2 * 60 * 1000, STALE_MS = 60 * 1000;
   const btn = document.getElementById('alertsBtn'), badge = document.getElementById('alertsBadge'), badgeForming = document.getElementById('alertsBadgeForming');
   const overlay = document.getElementById('alertsOverlay'), grid = document.getElementById('alertsGrid');
@@ -3022,6 +3025,7 @@ const AlertsPanel = (() => {
   let retrManual = false;                  // same idea for the retracement card (it starts collapsed when nothing is in the zone)
   let unconfManual = false;                // true once the user opens/closes "Not confirmed yet" themselves (else it follows its count)
   let liveTimer = null;
+  let rawData = null;                       // the alerts file as fetched; `data` is that file trimmed to the Settings choices
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
   let strategy = 'donchian';      // 'donchian' | 'ichimoku' | 'retrace' (Donchian is the default; retrace is the zone list only, no trades)
   let coinSym = null, coinFirst = 'donchian', coinMetaText = '';   // coin view: every alert for one coin
@@ -3550,18 +3554,18 @@ const AlertsPanel = (() => {
     const tfd = (data.timeframes || {})[tab] || {};
     const parts = ['signals ' + ago(Date.parse(data.updated))];
     if(a != null) parts.push('prices ' + (a < 90 ? a + 's' : Math.round(a / 60) + 'm') + ' ago');
-    if(tfd.scanned) parts.push(tfd.scanned + ' coins scanned');
+    if(tfd.scanned) parts.push(Math.min(tfd.scanned, coinsCovered()) + ' coins scanned');
     if(loadErr) parts.push('refresh failed');
     statusEl.textContent = parts.join(' · ');
     if(strategy === 'retrace'){
       titleEl.textContent = 'Retracement zones'; quoteEl.innerHTML = '50% &middot; 61.8%';
-      metaEl.textContent = `Top 50 coins \u00b7 ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab} \u00b7 ${retraceData(tab).length} in zone`;
+      metaEl.textContent = `Top ${coinsCovered()} coins \u00b7 ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab} \u00b7 ${retraceData(tab).length} in zone`;
       return;
     }
     const open = (tfd.trades || []).filter(t => t.status === 'open' && okItem(t)).length, unconf = (tfd.forming || []).filter(okItem).length;
     titleEl.textContent = strategy === 'ichimoku' ? 'Ichimoku alerts' : strategy === 'choch' ? 'Bullish CHoCH alerts' : strategy === 'bos' ? 'Bullish BOS alerts' : 'Donchian alerts';
     quoteEl.innerHTML = strategy === 'ichimoku' ? '9 &middot; 26 &middot; 52' : strategy === 'choch' || strategy === 'bos' ? '4H &middot; Daily &middot; Weekly &middot; long' : '20/10';
-    metaEl.textContent = `Top 50 coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab}${strategy === 'donchian' && sysFilter !== 'all' ? ' · ' + sysFilter : ''} · ${open} confirmed · ${unconf} unconfirmed`;
+    metaEl.textContent = `Top ${coinsCovered()} coins · ${tab === '1D' ? 'Daily' : tab === '1W' ? 'Weekly' : tab}${strategy === 'donchian' && sysFilter !== 'all' ? ' · ' + sysFilter : ''} · ${open} confirmed · ${unconf} unconfirmed`;
   }
   function refreshLive(){
     loadLive();
@@ -3794,12 +3798,12 @@ const AlertsPanel = (() => {
     const sk = (data.universe && data.universe.skipped) || [];
     const failed = tfd.failed || [];
     const scanItems = [
-      `<li><b>Last closed candle:</b> ${esc(tfd.candleTime ? fmtTime(tfd.candleTime, tab) : '—')} (your local time). ${tfd.scanned || 0} coins scanned.</li>`,
+      `<li><b>Last closed candle:</b> ${esc(tfd.candleTime ? fmtTime(tfd.candleTime, tab) : '—')} (your local time). ${Math.min(tfd.scanned || 0, coinsCovered())} coins scanned.</li>`,
       sk.length ? `<li><b>Skipped (no CoinDCX perp), replaced by the next coins:</b> ${esc(sk.map(x => x.symbol).join(', '))}.</li>` : '',
       failed.length ? `<li><b>Failed this scan:</b> ${esc(failed.join(', '))}.</li>` : '',
       '<li>Confirmed prices are closed-candle closes. Results are close-to-close and ignore fees and funding.</li>',
     ].join('');
-    const common = `<li><b>Coins:</b> the top coins by market cap, excluding stablecoins, that trade as a USDT perpetual on CoinDCX. A coin CoinDCX doesn't list is skipped and the next one takes its place, so 50 coins are scanned.</li>`;
+    const common = `<li><b>Coins:</b> the top coins by market cap, excluding stablecoins, that trade as a USDT perpetual on CoinDCX. A coin CoinDCX doesn't list is skipped and the next one takes its place, so the full count is always scanned. Donchian uses the top 50. Ichimoku, CHoCH, BOS and the retracement list use the top 50 or the top 100, as chosen in Settings (alerts section).</li>`;
     const donchianHelp = `<li><b>System:</b> Donchian 20/10 uses a 20-candle entry and a 10-candle exit.</li>
       <li><b>Long entry:</b> a candle closes above the highest high of the previous 20 candles. <b>Short entry:</b> a candle closes below the lowest low of the previous 20 candles.</li>
       <li><b>Exit:</b> while long, a candle closes below the lowest low of the previous 10 candles. While short, it closes above the highest high of the previous 10.</li>`;
@@ -3843,14 +3847,24 @@ const AlertsPanel = (() => {
     updateToggleAll();
   }
 
+  // The alerts file covers the top 100 coins (each coin's place is in universe.ranks). Donchian only ever has the top 50; Ichimoku, CHoCH, BOS
+  // and the retracement list are trimmed to the top 50 when Settings says so. A disabled system (Donchian 55/20) is dropped here too.
+  function filterData(raw){
+    const lim = universeLimit(), ranks = (raw.universe && raw.universe.ranks) || {};
+    const keep = x => { const sy = sysOf(x); if(DISABLED_SYSTEMS.includes(sy)) return false; if(sy === '20/10') return true; const r = ranks[x.symbol]; return !r || r <= lim; };
+    const out = { ...raw, timeframes: {} };
+    const keepRz = r => { const rk = ranks[r.symbol]; return !rk || rk <= lim; };
+    Object.keys(raw.timeframes || {}).forEach(k => { const d = raw.timeframes[k]; out.timeframes[k] = { ...d, trades: (d.trades || []).filter(keep), forming: (d.forming || []).filter(keep), retrace: (d.retrace || []).filter(keepRz) }; });
+    return out;
+  }
+  const coinsCovered = () => (strategy === 'donchian' ? 50 : universeLimit());
   async function load(){
     if(!alertsOn()){ updateBadge(); return; }   // alerts switched off in Settings: do not fetch anything
     try{
       const res = await fetch(DATA_URL + (DATA_URL.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
       if(!res.ok) throw new Error('HTTP ' + res.status);
-      data = await res.json();
-      Object.keys(data.timeframes || {}).forEach(k => { const d = data.timeframes[k];
-        d.trades = (d.trades || []).filter(t => !DISABLED_SYSTEMS.includes(sysOf(t))); d.forming = (d.forming || []).filter(f => !DISABLED_SYSTEMS.includes(sysOf(f))); });
+      rawData = await res.json();
+      data = filterData(rawData);
       loadErr = false;
     }catch(e){ loadErr = true; }
     lastFetch = Date.now();
@@ -3960,6 +3974,7 @@ const AlertsPanel = (() => {
   // writing the keys fires a "storage" event here).
   function applySettings(){
     const on = alertsOn(), h1 = show1H();
+    if(rawData) data = filterData(rawData);
     btn.style.display = on ? '' : 'none';
     const h1btn = tfRow.querySelector('button[data-tf="1H"]'); if(h1btn) h1btn.hidden = !h1;
     if(!h1 && tab === '1H') tab = '1D';
@@ -3968,7 +3983,7 @@ const AlertsPanel = (() => {
     if(on && (!data || Date.now() - lastFetch > STALE_MS)) load();
     else if(overlay.classList.contains('open')) render();
   }
-  window.addEventListener('storage', e => { if(e.key === ENABLED_KEY || e.key === SHOW_1H_KEY || e.key === SEEN_KEY) applySettings(); });
+  window.addEventListener('storage', e => { if(e.key === ENABLED_KEY || e.key === SHOW_1H_KEY || e.key === UNIVERSE_KEY || e.key === SEEN_KEY) applySettings(); });
   setInterval(() => { if(!document.hidden) load(); }, REFRESH_MS);
   document.addEventListener('visibilitychange', () => { if(!document.hidden && Date.now() - lastFetch > STALE_MS) load(); });
   applySettings();

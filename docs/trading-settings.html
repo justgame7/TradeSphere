@@ -195,14 +195,23 @@
           <input type="checkbox" id="alertsEnabled" checked />
           <label for="alertsEnabled">Enable alerts</label>
         </div>
-        <p class="hint" style="margin:8px 0 0;">Donchian and Ichimoku breakout alerts for the top 50 coins, shown by the bell on Home. Turn off to hide the bell and stop checking for alerts.</p>
+        <p class="hint" style="margin:8px 0 0;">Donchian, Ichimoku, CHoCH and BOS alerts, shown by the bell on Home. Turn off to hide the bell and stop checking for alerts.</p>
 
         <div class="subfield" id="alerts1hField">
           <div class="checkbox-field">
             <input type="checkbox" id="alerts1h" />
             <label for="alerts1h">Include 1H alerts</label>
           </div>
-          <p class="hint" style="margin:8px 0 0;">1H produces many alerts. Off: only 4H, Daily and Weekly are shown, for both Donchian and Ichimoku. On: 1H, 4H, Daily and Weekly.</p>
+          <p class="hint" style="margin:8px 0 0;">1H produces many alerts. Off: only 4H, Daily and Weekly are shown. On: 1H, 4H, Daily and Weekly.</p>
+        </div>
+
+        <div class="subfield" id="alertsUniverseField">
+          <label for="alertsUniverse">Coins covered by Ichimoku, CHoCH, BOS and Retracement</label>
+          <select id="alertsUniverse">
+            <option value="100" selected>Top 100 coins</option>
+            <option value="50">Top 50 coins</option>
+          </select>
+          <p class="hint" style="margin:8px 0 0;">By market cap, without stablecoins and without coins CoinDCX does not list as a USDT perpetual. Donchian always uses the top 50, whatever you pick here.</p>
         </div>
       </div>
 
@@ -244,6 +253,7 @@
   // Alerts (read by index.html): on by default, 1H included only when switched on.
   const ALERTS_ENABLED_STORAGE_KEY = 'crypto-screener-alerts-enabled';
   const ALERTS_1H_STORAGE_KEY = 'crypto-screener-alerts-1h';
+  const ALERTS_UNIVERSE_STORAGE_KEY = 'crypto-screener-alerts-universe';   // '50' or '100' (default 100); read by index.html
   const ALERTS_SEEN_STORAGE_KEY = 'ts-alerts-seen-tf-v1';
   const DEFAULT_TIMEZONE = 'Asia/Kolkata';
   const DEFAULT_PORTFOLIO = 1000;
@@ -273,6 +283,8 @@
   const alertsEnabledInput = document.getElementById('alertsEnabled');
   const alerts1hInput = document.getElementById('alerts1h');
   const alerts1hField = document.getElementById('alerts1hField');
+  const alertsUniverseField = document.getElementById('alertsUniverseField');
+  const alertsUniverseSelect = document.getElementById('alertsUniverse');
   const saveBtn = document.getElementById('saveBtn');
   const resetBtn = document.getElementById('resetBtn');
   const statusEl = document.getElementById('status');
@@ -288,16 +300,17 @@
   moversEnabledInput.addEventListener('change', updateMoversCountFieldState);
   function updateAlerts1hFieldState(){
     alerts1hField.classList.toggle('disabled', !alertsEnabledInput.checked);
+    alertsUniverseField.classList.toggle('disabled', !alertsEnabledInput.checked);
   }
   alertsEnabledInput.addEventListener('change', updateAlerts1hFieldState);
   // Alerts that piled up while a switch was off must not all show up as "new" the moment it is turned back on, so
   // switching alerts (or 1H) on marks everything currently there as seen.
-  function markAlertsSeenNow(timeframes){
+  function markAlertsSeenNow(timeframes, strategies){
     try{
       let m = {};
       try{ m = JSON.parse(localStorage.getItem(ALERTS_SEEN_STORAGE_KEY) || '{}') || {}; }catch(e){ m = {}; }
       const now = Date.now();
-      timeframes.forEach(tf => ['donchian', 'ichimoku', 'choch', 'bos'].forEach(st => { m[st + '|' + tf] = now; }));
+      timeframes.forEach(tf => (strategies || ['donchian', 'ichimoku', 'choch', 'bos']).forEach(st => { m[st + '|' + tf] = now; }));
       localStorage.setItem(ALERTS_SEEN_STORAGE_KEY, JSON.stringify(m));
     }catch(e){}
   }
@@ -556,6 +569,7 @@
     try{
       alertsEnabledInput.checked = localStorage.getItem(ALERTS_ENABLED_STORAGE_KEY) !== 'false';   // default on
       alerts1hInput.checked = localStorage.getItem(ALERTS_1H_STORAGE_KEY) === 'true';               // default off
+      alertsUniverseSelect.value = localStorage.getItem(ALERTS_UNIVERSE_STORAGE_KEY) === '50' ? '50' : '100';   // default top 100
     }catch(error){
       alertsEnabledInput.checked = true; alerts1hInput.checked = false;
       console.warn('Unable to load alerts settings', error);
@@ -601,6 +615,10 @@
     else if(alertsOn && alerts1hOn && !was1hOn) markAlertsSeenNow(['1H']);
     localStorage.setItem(ALERTS_ENABLED_STORAGE_KEY, String(alertsOn));
     localStorage.setItem(ALERTS_1H_STORAGE_KEY, String(alerts1hOn));
+    // Going from the top 50 to the top 100 must not flag every old alert of the extra coins as new.
+    const wasUniverse = localStorage.getItem(ALERTS_UNIVERSE_STORAGE_KEY) === '50' ? '50' : '100', universe = alertsUniverseSelect.value === '50' ? '50' : '100';
+    if(alertsOn && universe === '100' && wasUniverse === '50') markAlertsSeenNow(['1H', '4H', '1D', '1W'], ['ichimoku', 'choch', 'bos']);
+    localStorage.setItem(ALERTS_UNIVERSE_STORAGE_KEY, universe);
     setStatus('Saved locally.', 'success');
   }
 
@@ -612,6 +630,8 @@
     localStorage.removeItem(MOVERS_ENABLED_STORAGE_KEY);
     localStorage.removeItem(ALERTS_ENABLED_STORAGE_KEY);
     localStorage.removeItem(ALERTS_1H_STORAGE_KEY);
+    localStorage.removeItem(ALERTS_UNIVERSE_STORAGE_KEY);
+    alertsUniverseSelect.value = '100';
     alertsEnabledInput.checked = true;
     alerts1hInput.checked = false;
     updateAlerts1hFieldState();

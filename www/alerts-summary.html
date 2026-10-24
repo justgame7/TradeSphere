@@ -273,7 +273,9 @@ function build(){
         pct: t.status === 'closed' ? t.resultPct : null, reason: t.exitReason === 'stop' ? 2 : 1, ep: t.status === 'open' ? t.entryClose : null, open: t.status === 'open' }));
     });
   }
-  T = T.filter(t => STRATS.includes(t.sys));   // data written before 55/20 was switched off may still contain it
+  // Settings: Ichimoku, CHoCH, BOS and the retracement list cover the top 50 or the top 100 coins (default 100); Donchian is always the top 50.
+  const lim = lsGet('crypto-screener-alerts-universe') === '50' ? 50 : 100, ranks = (MAIN.universe && MAIN.universe.ranks) || {};
+  T = T.filter(t => STRATS.includes(t.sys) && (t.sys === '20/10' || !ranks[t.sym] || ranks[t.sym] <= lim));   // also drops data written before 55/20 was switched off
   refreshLive();
 }
 function refreshLive(){
@@ -337,7 +339,8 @@ function zone(r, px){
 function radar(){
   const out = {};
   TFS.forEach(tf => {
-    const list = ((((MAIN || {}).timeframes || {})[tf] || {}).retrace) || [], rows = [];
+    const lim = lsGet('crypto-screener-alerts-universe') === '50' ? 50 : 100, ranks = ((MAIN || {}).universe || {}).ranks || {};
+    const list = (((((MAIN || {}).timeframes || {})[tf] || {}).retrace) || []).filter(r => !ranks[r.symbol] || ranks[r.symbol] <= lim), rows = [];
     list.forEach(r => {
       const px = livePx(r.symbol) || r.lastClose, z = zone(r, px); if(!z) return;
       const open = tf === '1H' ? [] : T.filter(t => t.open && t.sym === r.symbol);
