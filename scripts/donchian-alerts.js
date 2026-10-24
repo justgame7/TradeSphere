@@ -433,7 +433,7 @@ function structForming(run, forming, periodMs, opt) {
 
 // ---------------- Retracement zone reference (not a strategy: no trades, just the swing levels) ----------------
 // Same maths as the 50% / 61.8% retracement screen in screener.html and screen.js:
-//   - swing points: a pivot high/low must be strictly beyond the wicks of the 3 candles on each side (RZ_SPAN)
+//   - swing points: a pivot high/low must be strictly beyond the wicks of the 3 candles on each side (RZ_SPAN), then extended to the highest high / lowest low printed since it
 //   - latest leg = most recent swing high <-> most recent swing low; low first = up-leg (a pullback is in progress),
 //     high first = down-leg (a bounce is in progress)
 //   - levels: 50% = midpoint, 61.8% = high - 0.618 x range (up-leg) or low + 0.618 x range (down-leg)
@@ -452,8 +452,9 @@ function atrWilder(c, len = ATR_LEN) {
   return v;
 }
 
-function retraceLeg(c) {
+function retraceLeg(c, forming) {
   const n = c.length;
+  const all = forming ? c.concat([forming]) : c;   // the candle still forming counts for the extension, as on the technical breakdown page
   if (n < RZ_SPAN * 2 + ATR_LEN + 2) return null;
   let lastHigh = null, lastLow = null;
   for (let i = RZ_SPAN; i < n - RZ_SPAN; i++) {
@@ -466,16 +467,21 @@ function retraceLeg(c) {
     if (isHigh) lastHigh = { idx: i, price: c[i].high };
     if (isLow) lastLow = { idx: i, price: c[i].low };
   }
-  if (!lastHigh || !lastLow || lastHigh.idx === lastLow.idx) return null;
+  if (!lastHigh || !lastLow) return null;
+  // A pivot is only confirmed RZ_SPAN candles after it, so a fresh extreme is not a pivot yet. Like the technical breakdown page, extend the last
+  // confirmed swing high / low to the highest high / lowest low printed since it, so a higher high (or lower low) is the swing point.
+  for (let i = lastHigh.idx + 1; i < all.length; i++) if (all[i].high > lastHigh.price) lastHigh = { idx: i, price: all[i].high };
+  for (let i = lastLow.idx + 1; i < all.length; i++) if (all[i].low < lastLow.price) lastLow = { idx: i, price: all[i].low };
+  if (lastHigh.idx === lastLow.idx) return null;
   const range = lastHigh.price - lastLow.price;
   const atr = atrWilder(c);
   if (!(range > 0) || !Number.isFinite(atr) || range < RZ_MIN_LEG_ATR * atr) return null;
   const dir = lastLow.idx < lastHigh.idx ? 'bullish' : 'bearish';
   return {
-    dir, high: lastHigh.price, low: lastLow.price, highTime: c[lastHigh.idx].t, lowTime: c[lastLow.idx].t,
+    dir, high: lastHigh.price, low: lastLow.price, highTime: all[lastHigh.idx].t, lowTime: all[lastLow.idx].t,
     l50: (lastHigh.price + lastLow.price) / 2,
     l618: dir === 'bullish' ? lastHigh.price - 0.618 * range : lastLow.price + 0.618 * range,
-    atr, lastClose: c[n - 1].close,
+    atr, lastClose: all[all.length - 1].close,
   };
 }
 
@@ -583,7 +589,7 @@ function scanCoin(coin, data, tf) {
       stop: null, sl: f.sl == null ? null : round(f.sl), exitReason: f.exitReason || null,
     }));
   }
-  const rz = retraceLeg(candles);
+  const rz = retraceLeg(candles, data.forming);
   const retrace = rz ? {
     symbol: coin.symbol, name: coin.name, pair: coin.pair, mult: coin.mult, dir: rz.dir,
     high: round(rz.high), low: round(rz.low), highTime: rz.highTime, lowTime: rz.lowTime,

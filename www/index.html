@@ -608,10 +608,6 @@
   .alerts-sec{display:flex;align-items:center;gap:8px;padding:12px 8px 6px;font:700 10.5px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
   .alerts-sec .n{background:var(--panel2);border:1px solid var(--border-soft);border-radius:8px;padding:1px 7px;color:var(--text);}
   .alert-row{display:flex;gap:10px;padding:11px 10px;margin:0 0 6px;border:1px solid var(--border-soft);border-radius:14px;background:var(--panel);animation:top50RowIn .3s ease backwards;}
-  /* Donchian is shown greyed out: still listed, but it does not count on the bell */
-  .alert-row.is-grey{opacity:.5;}
-  .alert-row.is-grey:hover,.alert-row.is-grey:active{opacity:.85;}
-  #alertsStratRow button[data-strat="donchian"]:not(.active){opacity:.55;}
   .alert-row.is-new{border-color:rgba(245,166,35,.5);box-shadow:0 0 0 1px rgba(245,166,35,.12) inset;}
   .alert-row[data-sym]{cursor:pointer;transition:background .15s ease,transform .1s ease;}
   .alert-row[data-sym]:active{transform:scale(.99);background:var(--panel2);}
@@ -664,6 +660,11 @@
   .achart-cv{position:relative;height:300px;border:1px solid var(--border);border-radius:12px;background:var(--bg);overflow:hidden;}
   .achart-cv canvas{width:100%;height:100%;display:block;}
   .achart-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 20px;font:500 12px var(--font-mono);color:var(--faint);}
+  .achart-hide{margin-left:auto;display:inline-flex;align-items:center;gap:6px;}
+  .achart-hide-l{font:600 10px var(--font-mono);color:var(--faint);}
+  .achart-lines{background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:3px 9px;font:600 10px var(--font-mono);cursor:pointer;}
+  .achart-lines:hover{border-color:var(--accent);color:var(--text);}
+  .achart-lines.on{border-color:var(--accent);color:var(--accent);text-decoration:line-through;}   /* highlighted and struck through = hidden */
   .achart-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0 2px;font:500 10.5px var(--font-mono);color:var(--faint);}
   .achart-legend i{display:inline-block;width:14px;height:0;border-top:2px dashed;vertical-align:middle;margin-right:5px;}
   .achart-legend .dot{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;color:#fff;font:700 9px sans-serif;margin-right:5px;}
@@ -687,6 +688,7 @@
   .tf-badge{position:absolute;top:-7px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font:700 9.5px var(--font-mono);pointer-events:none;}
   .tf-badge.ok{background:#1fae7a;color:#04170f;}
   .tf-badge.forming{background:var(--amber);color:#1c1300;}
+  .tf-badge.grey{background:#4b5261;color:#d3d8e2;}   /* Donchian counts: shown, but they do not count on the bell */
   .alert-pill.confirmed{color:var(--blue);background:rgba(91,140,255,.16);}
   .alerts-subnote{padding:0 8px 8px;font:500 10.5px var(--font-mono);color:var(--faint);line-height:1.5;}
   .alert-pct{font:700 13px var(--font-mono);}
@@ -1971,8 +1973,8 @@
       </div>
       <div class="analysis-controls">
         <div class="analysis-tf-toggle" id="alertsStratRow" title="Strategy">
-          <button type="button" data-strat="donchian" class="active">Donchian</button>
-          <button type="button" data-strat="ichimoku">Ichimoku</button>
+          <button type="button" data-strat="donchian">Donchian</button>
+          <button type="button" data-strat="ichimoku" class="active">Ichimoku</button>
           <button type="button" data-strat="choch">CHoCH</button>
           <button type="button" data-strat="bos">BOS</button>
           <button type="button" data-strat="retrace" title="Retracement zones">Rtct</button>
@@ -2005,7 +2007,7 @@
   <div class="asummary" id="alertsSummary" hidden><iframe id="alertsSummaryFrame" title="Alerts summary report"></iframe></div>
   <div class="achart" id="alertChart" hidden>
     <div class="achart-card" role="dialog" aria-label="Trade levels">
-      <div class="achart-head"><span class="achart-title"></span><button type="button" class="achart-x achart-share" aria-label="Share chart" title="Share chart"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"></path></svg></button><button type="button" class="achart-x achart-close" aria-label="Close">&#10005;</button></div>
+      <div class="achart-head"><span class="achart-title"></span><button type="button" class="achart-x achart-tv" aria-label="Open in TradingView" title="Open this chart in TradingView"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 15l4-4 3 3 5-6"></path></svg></button><button type="button" class="achart-x achart-share" aria-label="Share chart" title="Share chart"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"></path></svg></button><button type="button" class="achart-x achart-close" aria-label="Close">&#10005;</button></div>
       <div class="achart-sub"></div>
       <div class="achart-body"></div>
     </div>
@@ -3031,7 +3033,7 @@ const AlertsPanel = (() => {
   let liveTimer = null;
   let rawData = null;                       // the alerts file as fetched; `data` is that file trimmed to the Settings choices
   let data = null, lastFetch = 0, loadErr = false, newKeys = new Set(), tab = '1D', helpOpen = false;
-  let strategy = 'donchian';      // 'donchian' | 'ichimoku' | 'retrace' (Donchian is the default; retrace is the zone list only, no trades)
+  let strategy = 'ichimoku';      // 'donchian' | 'ichimoku' | 'choch' | 'bos' | 'retrace' (Ichimoku is the default view; retrace is the zone list only, no trades)
   let coinSym = null, coinFirst = 'donchian', coinMetaText = '';   // coin view: every alert for one coin
   // Donchian 55/20 is switched off (late signals, wide stop, weakest results); the alerts job no longer writes it and any copy still
   // in an older file is dropped on load. With a single Donchian system the 20/10 / 55/20 filter row stays hidden.
@@ -3097,19 +3099,19 @@ const AlertsPanel = (() => {
     markSeen(strat, tf);
     updateBadge();
   }
-  function paintBadge(b, un){
+  function paintBadge(b, un, grey){
     let el = b.querySelector('.tf-badge');
     const nForming = un.filter(it => it.forming).length, nOk = un.length - nForming;
     if(!un.length){ if(el) el.remove(); b.title = ''; return; }
     if(!el){ el = document.createElement('span'); b.appendChild(el); }
-    el.className = 'tf-badge ' + (nOk ? 'ok' : 'forming');
+    el.className = 'tf-badge ' + (grey ? 'grey' : nOk ? 'ok' : 'forming');
     el.textContent = un.length > 99 ? '99+' : String(un.length);
     b.title = `${nOk} new confirmed, ${nForming} new unconfirmed`;
   }
   // Counts on the timeframe tabs (for the selected strategy) and on the Donchian / Ichimoku buttons (all timeframes).
   function updateTabBadges(){
-    tfRow.querySelectorAll('button[data-tf]').forEach(b => paintBadge(b, unseenItems(b.dataset.tf, strategy)));
-    stratRow.querySelectorAll('button[data-strat]').forEach(b => paintBadge(b, unseenItems(null, b.dataset.strat)));
+    tfRow.querySelectorAll('button[data-tf]').forEach(b => paintBadge(b, unseenItems(b.dataset.tf, strategy), strategy === 'donchian'));
+    stratRow.querySelectorAll('button[data-strat]').forEach(b => paintBadge(b, unseenItems(null, b.dataset.strat), b.dataset.strat === 'donchian'));
   }
   // Green = new CONFIRMED signals (candle closed), amber = new UNCONFIRMED ones (candle still open).
   // Each counts only what has not been shown to the user yet; opening the panel marks everything as seen.
@@ -3177,7 +3179,7 @@ const AlertsPanel = (() => {
     const lines = open
       ? `<div class="alert-line">${long ? 'Long' : 'Short'} entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Broke ${lvlName}${fmtPx(t.entryLevel)} &middot; now <b class="px-now">${fmtPx(nowPx)}</b>${(ichi || choch) && Number.isFinite(t.sl) ? `<br>Stop loss <b>${fmtPx(t.sl)}</b>` : ''}${choch && Number.isFinite(t.stop) ? ` &middot; trailing stop <b>${fmtPx(t.stop)}</b>` : ''}</div>`
       : `<div class="alert-line">Entry <b>${fmtPx(t.entryClose)}</b> &middot; ${esc(fmtTime(t.entryTime, tf))}<br>Exit <b>${fmtPx(t.exitClose)}</b> &middot; ${esc(fmtTime(t.exitTime, tf))}${(ichi || choch) ? (t.exitReason === 'stop' ? `<br>Stopped out: closed ${long ? 'below' : 'above'} stop loss ${fmtPx(t.exitLevel)}` : `<br>Closed ${long ? 'below' : 'above'} ${ichi ? 'Kijun' : 'the trailing stop'} ${fmtPx(t.exitLevel)}`) : ''}</div>`;
-    return `<div class="alert-row${isNew ? ' is-new' : ''}${sysOf(t) === '20/10' ? ' is-grey' : ''}" data-sym="${esc(t.symbol)}"${open ? ` data-live="open" data-side="${t.side}" data-entry="${t.entryClose}" data-level="${t.entryLevel}"` : ''} role="button" tabindex="0" title="Open ${esc(t.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
+    return `<div class="alert-row${isNew ? ' is-new' : ''}" data-sym="${esc(t.symbol)}"${open ? ` data-live="open" data-side="${t.side}" data-entry="${t.entryClose}" data-level="${t.entryLevel}"` : ''} role="button" tabindex="0" title="Open ${esc(t.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
       <div class="alert-main">
         <div class="alert-top">
           <span class="alert-sym">${esc(t.symbol)}</span>${mult}
@@ -3229,7 +3231,8 @@ const AlertsPanel = (() => {
     return svg + '</svg>';
   }
   // The real candles for the alert's timeframe (same Binance / Bybit source as the technical breakdown), cached for a minute.
-  const chartCandleCache = {};
+  const chartCandleCache = {}, chartSrc = {};   // chartSrc: which exchange the candles of a coin came from (Binance or Bybit), so TradingView opens the same market
+  let chartCurrent = null;                       // the coin and timeframe the popup is showing
   const TF_API = { '1H': '1h', '4H': '4h', '1D': '1d', '1W': '1w' };
   async function chartCandles(base, tf){
     const iv = TF_API[tf] || '1d', sym = resolveBinanceFuturesSymbol(base), ck = sym + '|' + iv;
@@ -3237,7 +3240,7 @@ const AlertsPanel = (() => {
     if(hit && Date.now() - hit.at < 60000) return hit.c;
     let c;
     const TA = window.TechAnalysis;
-    try{ c = await TA.binanceKlines(sym, iv); }catch(e){ c = await TA.bybitKlines(sym, iv); }
+    try{ c = await TA.binanceKlines(sym, iv); chartSrc[sym] = 'BINANCE'; }catch(e){ c = await TA.bybitKlines(sym, iv); chartSrc[sym] = 'BYBIT'; }
     chartCandleCache[ck] = { at: Date.now(), c };
     return c;
   }
@@ -3304,8 +3307,9 @@ const AlertsPanel = (() => {
     // strategy lines on top: the Donchian entry / exit channel, or Tenkan + Kijun
     const markers = [];
     if(o.ichi){
-      line(ich.tenkan, '#ff5470'); line(ich.kijun, '#5b8cff', false, 1.6);
-    }else if(o.choch){
+      if(!o.hideChikou) line(ich.chikou, '#f0c24b', true);   // Chikou (lagging) span: the close drawn 26 bars back, it stops 26 bars before the last candle; its own button hides it
+      if(!o.hideLines){ line(ich.tenkan, '#ff5470'); line(ich.kijun, '#5b8cff', false, 1.6); }   // the button under the chart hides these two lines
+    }else if(o.choch || o.rz){
       // swing highs / lows (strict fractals, 3 candles each side, the app's Market Structure definition)
       for(let i = start; i < n - 3; i++){
         if(i < 3) continue; let hi = true, lo = true;
@@ -3323,11 +3327,11 @@ const AlertsPanel = (() => {
         markers.push({ bi, entry: sg.type === 'entry', bar: all[sg.i] });
       });
     }
-    if(!o.sys){ /* Ichimoku and CHoCH: mark just this trade */
+    if(!o.sys && !o.rz){ /* Ichimoku and CHoCH: mark just this trade (the retracement chart has no trade) */
       if(o.entryTime){ const bi = idx(o.entryTime); if(bi >= 0) markers.push({ bi, entry: true, bar: bars[bi] }); }
       if(o.exitTime){ const bi = idx(o.exitTime); if(bi >= 0) markers.push({ bi, entry: false, bar: bars[bi] }); }
     }
-    markers.forEach(mk => {
+    if(!o.hideLevels) markers.forEach(mk => {
       const below = o.long === mk.entry, cx = x(mk.bi), cy = below ? y(mk.bar.low) + 13 : y(mk.bar.high) - 13;
       ctx.fillStyle = mk.entry ? 'rgba(46,125,91,.92)' : 'rgba(178,59,53,.92)';
       ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();
@@ -3340,11 +3344,16 @@ const AlertsPanel = (() => {
     let prev = -Infinity; const gap = 29;   // the label sits under the price inside the tag, so the tags are two lines tall
     pills.forEach(pl => { pl.py = Math.max(pl.yy, prev + gap); prev = pl.py; });
     const over = pills.length ? pills[pills.length - 1].py - (H - pad.b - 6) : 0; if(over > 0) pills.forEach(pl => { pl.py -= over; });
-    pills.forEach(pl => {
+    if(o.rz && !o.hideLevels && o.leg){   // dots on the swing low and swing high the levels are measured from (no line between them)
+      const a = idx(o.leg.lowTime), b = idx(o.leg.highTime);
+      if(a >= 0 && b >= 0){
+        [[a, o.leg.low], [b, o.leg.high]].forEach(pt => { ctx.fillStyle = '#f5a623'; ctx.beginPath(); ctx.arc(x(pt[0]), y(pt[1]), 4, 0, Math.PI * 2); ctx.fill(); }); }
+    }
+    if(!o.hideLevels) pills.forEach(pl => {
       ctx.strokeStyle = pl.color; ctx.lineWidth = pl.k === 'now' ? 1.4 : 1.2; ctx.setLineDash(pl.k === 'now' ? [2, 3] : [6, 4]);
       ctx.beginPath(); ctx.moveTo(x(fromI), pl.yy); ctx.lineTo(W - pad.r, pl.yy); ctx.stroke(); ctx.setLineDash([]);
     });
-    pills.forEach(pl => {
+    if(!o.hideLevels) pills.forEach(pl => {
       const txt = fmtPx(pl.v), w = pad.r - 4, h = 27;
       ctx.fillStyle = pl.color; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(W - pad.r + 2, pl.py - h / 2, w, h, 4) : ctx.rect(W - pad.r + 2, pl.py - h / 2, w, h); ctx.fill();
       ctx.fillStyle = '#0b0f17'; ctx.textAlign = 'center'; ctx.font = 'bold 10px JetBrains Mono, monospace';
@@ -3352,9 +3361,50 @@ const AlertsPanel = (() => {
       ctx.font = 'bold 9px JetBrains Mono, monospace'; ctx.fillText(pl.label, W - pad.r + 2 + w / 2, pl.py + 6.5);
     });
   }
+  const r0Sym = x => x.symbol;
+  // Open the coin's chart on TradingView (the perpetual on the same exchange the candles came from, same timeframe)
+  function openTradingView(){
+    if(!chartCurrent) return;
+    const base = (typeof resolveBinanceFuturesSymbol === 'function' ? resolveBinanceFuturesSymbol(chartCurrent.sym) : chartCurrent.sym + 'USDT');
+    const ex = chartSrc[base] || 'BINANCE', iv = { '1H': '60', '4H': '240', '1D': 'D', '1W': 'W' }[chartCurrent.tf] || 'D';
+    window.open('https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(ex + ':' + base + '.P') + '&interval=' + encodeURIComponent(iv), '_blank', 'noopener');
+  }
+  // Retracement chart: candles, the swing leg and its 50% / 61.8% levels, and the price now. A reference only: no entry, stop or target.
+  function openRzChart(it){
+    chartCurrent = { sym: r0Sym(it.x), tf: it.tf };
+    const r = it.x, tf = it.tf, up = r.dir === 'bullish', lp = livePx(r.symbol), px = Number.isFinite(lp) ? lp : r.lastClose;
+    const AMBER = 'var(--amber)', BLUE = 'var(--blue)', GREY = '#c9d3e6';
+    const levels = [{ k: 'swh', label: 'Swing high', v: r.high, c: GREY }, { k: 'swl', label: 'Swing low', v: r.low, c: GREY }, { k: 'l50', label: '50%', v: r.l50, c: AMBER }, { k: 'l618', label: '61.8%', v: r.l618, c: AMBER }, { k: 'now', label: 'Now', v: px, c: BLUE }];
+    const dist = v => { const d = (px - v) / px * 100; return (d >= 0 ? '+' : '') + d.toFixed(2) + '%'; };
+    const start = Math.min(r.highTime, r.lowTime);
+    const facts = [['Leg', (up ? fmtPx(r.low) + ' \u2192 ' + fmtPx(r.high) : fmtPx(r.high) + ' \u2192 ' + fmtPx(r.low))], ['Leg size', (Math.abs(r.high - r.low) / r.atr).toFixed(1) + ' \u00d7 ATR'], ['50% level', fmtPx(r.l50) + ' (now ' + dist(r.l50) + ')'], ['61.8% level', fmtPx(r.l618) + ' (now ' + dist(r.l618) + ')'], ['Now', fmtPx(px)]];
+    const note = 'Reference only: a retracement zone is not a trade, so there is no entry, stop or target. The coin is listed while its price is within 1% of the 50% or 61.8% level of the latest swing (a leg of at least 3 \u00d7 ATR). ' + (up ? 'Up-leg: the price is pulling back, the levels can act as support.' : 'Down-leg: the price is bouncing, the levels can act as resistance.');
+    achart.querySelector('.achart-title').textContent = `${r.symbol} \u00b7 Retracement zone`;
+    achart.querySelector('.achart-sub').textContent = `${up ? 'Up-leg (pullback)' : 'Down-leg (bounce)'} \u00b7 ${tf}`;
+    chartHideLines = false; chartHideChikou = false; chartHideLevels = false;
+    const hideGroup = '<span class="achart-hide"><span class="achart-hide-l">Hide:</span><button type="button" class="achart-lines" data-levels title="The swing leg, its 50% and 61.8% levels and their tags">Levels</button></span>';
+    const legend = '<span><i style="border-color:#f5a623"></i>50% and 61.8% of the leg</span><span>dots: swing highs and lows</span>';
+    const myToken = ++chartToken;
+    achart.querySelector('.achart-body').innerHTML = `<div class="achart-cv"><canvas></canvas><div class="achart-msg">Loading chart\u2026</div></div><div class="achart-legend">${legend}${hideGroup}</div><ul class="achart-facts">${facts.map(f => `<li><span>${f[0]}</span><b>${f[1]}</b></li>`).join('')}</ul><div class="achart-note">${esc(note)}</div>`;
+    achart.hidden = false;
+    const cvWrap = achart.querySelector('.achart-cv'), cvEl = cvWrap.querySelector('canvas'), msg = cvWrap.querySelector('.achart-msg');
+    const args = { levels, long: up, ichi: false, choch: false, rz: true, sys: null, entryTime: start, exitTime: null, leg: { high: r.high, low: r.low, highTime: r.highTime, lowTime: r.lowTime } };
+    chartCandles(r.symbol, tf).then(c => {
+      if(myToken !== chartToken || achart.hidden) return;
+      msg.style.display = 'none';
+      const go = () => drawAlertChart(cvEl, { ...args, candles: c, hideLevels: chartHideLevels });
+      go(); chartRedraw = go;
+    }).catch(() => {
+      if(myToken !== chartToken) return;
+      msg.textContent = 'Could not load the candles for ' + r.symbol + '.';
+      cvWrap.style.height = 'auto'; cvWrap.querySelector('canvas').remove(); msg.style.position = 'static'; msg.style.padding = '10px 20px';
+    });
+  }
   function openChart(id){
     const it = chartReg[id]; if(!it) return;
+    if(it.kind === 'rz') return openRzChart(it);
     const x = it.x, tf = it.tf, long = x.side === 'long', ichi = sysOf(x) === 'Ichimoku', choch = isStruct(sysOf(x)), slk = ichi || choch;
+    chartCurrent = { sym: x.symbol, tf };
     const lp = livePx(x.symbol);
     const sysName = ichi ? 'Ichimoku' + (x.trigger ? ' ' + x.trigger : '') : choch ? (sysOf(x) === 'BOS' ? 'Bullish BOS' : 'Bullish CHoCH') : 'Donchian ' + sysOf(x);
     const [, eM] = String(sysOf(x)).split('/');
@@ -3415,13 +3465,15 @@ const AlertsPanel = (() => {
     }
     achart.querySelector('.achart-title').textContent = `${x.symbol} · ${long ? 'Long' : 'Short'} · ${title}`;
     achart.querySelector('.achart-sub').textContent = `${sysName} · ${tf}`;
+    chartHideLines = false; chartHideChikou = false; chartHideLevels = false;   // every chart opens with everything shown
+    const hideGroup = '<span class="achart-hide"><span class="achart-hide-l">Hide:</span>' + (ichi ? '<button type="button" class="achart-lines" data-lines>Tenkan/Kijun</button><button type="button" class="achart-lines" data-chikou>Chikou</button>' : '') + '<button type="button" class="achart-lines" data-levels title="Entry, stop and price levels with their tags, and the numbered entry/exit circles">Levels</button></span>';
     const legend = choch
       ? '<span>dots: swing highs and lows</span><span><span class="dot" style="background:rgba(46,125,91,.95)">1</span>entry</span><span><span class="dot" style="background:rgba(178,59,53,.95)">2</span>exit</span>'
       : ichi
-      ? '<span><i style="border-color:#ff5470;border-top-style:solid"></i>Tenkan</span><span><i style="border-color:#5b8cff;border-top-style:solid"></i>Kijun (exit)</span><span>shaded: cloud</span>'
+      ? '<span><i style="border-color:#ff5470;border-top-style:solid"></i>Tenkan</span><span><i style="border-color:#5b8cff;border-top-style:solid"></i>Kijun (exit)</span><span><i style="border-color:#f0c24b"></i>Chikou (lagging)</span><span>shaded: cloud</span>'
       : `<span><i style="border-color:#26C6DA"></i>${esc(String(sysOf(x)).split('/')[0])}-bar ${long ? 'high' : 'low'} (entry)</span><span><i style="border-color:#FF9800"></i>${esc(eM)}-bar ${long ? 'low' : 'high'} (exit)</span><span><span class="dot" style="background:rgba(46,125,91,.95)">1</span>entry</span><span><span class="dot" style="background:rgba(178,59,53,.95)">2</span>exit</span>`;
     const myToken = ++chartToken;
-    achart.querySelector('.achart-body').innerHTML = `<div class="achart-cv"><canvas></canvas><div class="achart-msg">Loading chart\u2026</div></div><div class="achart-legend">${legend}</div><ul class="achart-facts">${facts.map(f => `<li><span>${f[0]}</span><b>${f[1]}</b></li>`).join('')}</ul><div class="achart-note">${esc(note)}</div>`;
+    achart.querySelector('.achart-body').innerHTML = `<div class="achart-cv"><canvas></canvas><div class="achart-msg">Loading chart\u2026</div></div><div class="achart-legend">${legend}${hideGroup}</div><ul class="achart-facts">${facts.map(f => `<li><span>${f[0]}</span><b>${f[1]}</b></li>`).join('')}</ul><div class="achart-note">${esc(note)}</div>`;
     achart.hidden = false;
     const cvWrap = achart.querySelector('.achart-cv'), cvEl = cvWrap.querySelector('canvas'), msg = cvWrap.querySelector('.achart-msg');
     const sysObj = (ichi || choch) ? null : { entry: +String(sysOf(x)).split('/')[0], exit: +eM };
@@ -3429,7 +3481,7 @@ const AlertsPanel = (() => {
     chartCandles(x.symbol, tf).then(c => {
       if(myToken !== chartToken || achart.hidden) return;
       msg.style.display = 'none';
-      const go = () => drawAlertChart(cvEl, { ...args, candles: c });
+      const go = () => drawAlertChart(cvEl, { ...args, candles: c, hideLines: chartHideLines, hideChikou: chartHideChikou, hideLevels: chartHideLevels });
       go(); chartRedraw = go;
     }).catch(() => {
       if(myToken !== chartToken) return;
@@ -3438,7 +3490,7 @@ const AlertsPanel = (() => {
       cvWrap.insertAdjacentHTML('beforeend', ladderSvg(levels, cur));
     });
   }
-  let chartToken = 0, chartRedraw = null;
+  let chartToken = 0, chartRedraw = null, chartHideLines = false, chartHideChikou = false, chartHideLevels = false;
   window.addEventListener('resize', () => { if(!achart.hidden && chartRedraw) chartRedraw(); });
   // Share: the whole popup (title, chart, legend, figures, note) is redrawn onto one image and handed to the phone's share
   // sheet; where file sharing is not supported (most desktops) the image is downloaded instead.
@@ -3531,7 +3583,7 @@ const AlertsPanel = (() => {
       right = `<span class="alert-pct ${past >= 0 ? 'pos' : 'neg'}">${signedPct(past)}</span><span class="alert-pct-l">past the level</span>`;
     }
     const isNew = newKeys.has(fkey(tf, f));
-    return `<div class="alert-row is-forming${isNew ? ' is-new' : ''}${sysOf(f) === '20/10' ? ' is-grey' : ''}" data-sym="${esc(f.symbol)}" data-live="${isExit ? 'fexit' : 'fentry'}" data-side="${f.side}" data-entry="${f.entryClose == null ? '' : f.entryClose}" data-level="${f.level}" role="button" tabindex="0" title="Open ${esc(f.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
+    return `<div class="alert-row is-forming${isNew ? ' is-new' : ''}" data-sym="${esc(f.symbol)}" data-live="${isExit ? 'fexit' : 'fentry'}" data-side="${f.side}" data-entry="${f.entryClose == null ? '' : f.entryClose}" data-level="${f.level}" role="button" tabindex="0" title="Open ${esc(f.symbol)} technical breakdown" style="animation-delay:${Math.min(i, 12) * 18}ms">
       <div class="alert-main">
         <div class="alert-top">
           <span class="alert-sym">${esc(f.symbol)}</span>${mult}
@@ -3646,7 +3698,7 @@ const AlertsPanel = (() => {
         <div class="alert-line">${lv}</div>
         ${shown}${more}
       </div>
-      <div class="rz-right"><span class="rz-dist">${z.signed >= 0 ? '+' : ''}${z.signed.toFixed(2)}%</span><span class="alert-pct-l">from level</span></div>
+      <div class="rz-right"><span class="rz-dist">${z.signed >= 0 ? '+' : ''}${z.signed.toFixed(2)}%</span><span class="alert-pct-l">from level</span>${chartLink({ kind: 'rz', x: { ...r, px: x.px }, tf: tab })}</div>
     </div>`;
   }
   function retraceBodyHtml(tf, rows){
@@ -3883,7 +3935,7 @@ const AlertsPanel = (() => {
     unconfManual = false; retrManual = false;
     tab = '1D';                                // the page always opens on Daily (switching tabs lasts for this visit only)
     newByTf = {};                              // what is new is worked out per (strategy, timeframe), when that tab is first shown
-    strategy = 'donchian';                     // Donchian is the default view
+    strategy = 'ichimoku';                     // Ichimoku is the default view
     sysFilter = 'all';
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -3913,7 +3965,15 @@ const AlertsPanel = (() => {
     const symbol = (typeof resolveBinanceFuturesSymbol === 'function' ? resolveBinanceFuturesSymbol(base) : base + 'USDT');
     window.TechAnalysis.openSymbol(symbol);
   }
-  achart.addEventListener('click', e => { if(e.target === achart || e.target.closest('.achart-close')) closeChart(); const sh = e.target.closest('.achart-share'); if(sh) shareChart(sh); });
+  achart.addEventListener('click', e => { if(e.target === achart || e.target.closest('.achart-close')) closeChart(); const sh = e.target.closest('.achart-share'); if(sh) shareChart(sh);
+    if(e.target.closest('.achart-tv')) openTradingView();
+    const lb = e.target.closest('[data-lines]');
+    const lv = e.target.closest('[data-levels]');
+    if(lv){ chartHideLevels = !chartHideLevels; lv.classList.toggle('on', chartHideLevels); if(chartRedraw) chartRedraw(); }
+    const cb = e.target.closest('[data-chikou]');
+    if(cb){ chartHideChikou = !chartHideChikou; cb.classList.toggle('on', chartHideChikou); if(chartRedraw) chartRedraw(); }
+    if(lb){ chartHideLines = !chartHideLines; lb.classList.toggle('on', chartHideLines); if(chartRedraw) chartRedraw(); }
+  });
   document.addEventListener('keydown', e => { if(e.key === 'Escape' && !achart.hidden){ closeChart(); e.stopPropagation(); } }, true);
   grid.addEventListener('click', e => {
     const cl = e.target.closest('.alert-chart-link');
